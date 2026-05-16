@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(file *)",
+      "WebSearch",
+      "Skill(commit-commands:commit-push-pr)"
+    ]
+  }
+}
