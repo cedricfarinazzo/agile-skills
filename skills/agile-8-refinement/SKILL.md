@@ -1,6 +1,6 @@
 ---
 name: agile-8-refinement
-description: "Refine Jira Stories: story points, acceptance criteria, DoD, dependencies. Triggers: refine stories, run refinement, estimate, story points, backlog refinement. After skill 7, before skill 9."
+description: "Refine Stories: points, ACs, DoD. Triggers: refine stories, estimate, backlog refinement. After skill 7, before skill 9."
 ---
 
 # agile_8_refinement

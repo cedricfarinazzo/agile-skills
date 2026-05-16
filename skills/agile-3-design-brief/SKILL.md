@@ -1,6 +1,6 @@
 ---
 name: agile-3-design-brief
-description: "Write Design Brief in Confluence from PRD. Two modes: BRIEF (before Claude Design) and INTEGRATE (bring mockups back as Specs UI). Triggers: design brief, brief designer, UI specs, integrate mockups. After skill 2, before skill 4."
+description: "Design Brief in Confluence (BRIEF or INTEGRATE mode). Triggers: design brief, UI specs, integrate mockups. After skill 2, before skill 4."
 ---
 
 # agile_3_design_brief

@@ -1,6 +1,6 @@
 ---
 name: agile-1-create-vision-doc
-description: "Kick off new project from raw idea. Creates Confluence folder + Vision Doc. Triggers: new idea, start project, create vision doc, new initiative. Use at cycle start. Next: skill 2."
+description: "Vision Doc in Confluence. Triggers: new idea, start project, create vision doc. Cycle start, before skill 2."
 ---
 
 # agile_1_create_vision_doc

@@ -1,6 +1,6 @@
 ---
 name: agile-7-create-stories
-description: "Write User Stories in Jira from Epic + PRD + Specs UI. Triggers: write stories, create user stories, break down epic. After skill 6, before skill 8. Output consumed by dev agents."
+description: "User Stories in Jira from Epic. Triggers: write stories, create user stories, break down epic. After skill 6, before skill 8."
 ---
 
 # agile_7_create_stories

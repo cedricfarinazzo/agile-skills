@@ -1,6 +1,6 @@
 ---
 name: agile-13-dev-review
-description: "Review PR from dev agent: architecture, security, performance, code quality. Triggers: review PR, code review, tech review, next step after implementation. After skill 12, before skill 10."
+description: "Review PR: architecture, security, code quality. Triggers: review PR, code review, tech review. After skill 12, before skill 10."
 ---
 
 # agile_13_dev_review

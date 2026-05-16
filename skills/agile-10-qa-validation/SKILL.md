@@ -1,6 +1,6 @@
 ---
 name: agile-10-qa-validation
-description: "Validate Story after Dev Review approves PR. Triggers: validate story, QA story, next step after dev review. After skill 13. Fail creates Bug + sends back to dev; pass closes Story."
+description: "QA Story after PR approved. Triggers: validate story, QA story. After skill 13. Fail → Bug; pass → Story closed."
 ---
 
 # agile_10_qa_validation

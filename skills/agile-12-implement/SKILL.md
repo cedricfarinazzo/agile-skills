@@ -1,6 +1,6 @@
 ---
 name: agile-12-implement
-description: "Dev agent implements assigned Jira Story: reads ticket, asks questions, codes, opens PR. Triggers: implement story, start coding, pick up ticket, work on PROJ-XXX. After skill 9, before skill 13."
+description: "Implement Jira Story, open PR. Triggers: implement story, pick up ticket, work on PROJ-XXX. After skill 9, before skill 13."
 ---
 
 # agile_12_implement

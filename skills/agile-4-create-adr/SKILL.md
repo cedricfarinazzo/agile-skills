@@ -1,6 +1,6 @@
 ---
 name: agile-4-create-adr
-description: "Write ADR and technical feasibility in Confluence from PRD + Specs UI. Triggers: write ADR, technical feasibility, architecture decisions, assess tech. After skill 3, before skill 5."
+description: "ADR + tech feasibility in Confluence. Triggers: write ADR, architecture decisions, assess tech. After skill 3, before skill 5."
 ---
 
 # agile_4_create_adr

@@ -1,6 +1,6 @@
 ---
 name: agile-9-sprint-planning
-description: "Assemble and launch sprint in Jira from refined backlog. Triggers: plan sprint, start sprint, sprint planning. After skill 8. Only refined Stories eligible."
+description: "Launch sprint in Jira. Triggers: plan sprint, start sprint, sprint planning. After skill 8."
 ---
 
 # agile_9_sprint_planning

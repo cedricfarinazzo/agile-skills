@@ -1,6 +1,6 @@
 ---
 name: agile-11-retro
-description: "Document sprint retro in Confluence + update Roadmap for next iteration. Triggers: run retro, sprint retrospective, close sprint, what did we learn, next step after QA. After all Stories Done. Retro page goes inside Retrospectives folder under project root. Hands off to skill 5."
+description: "Sprint retro in Confluence + Roadmap update. Triggers: run retro, close sprint, what did we learn. After all Stories Done, hands off to skill 5."
 ---
 
 # agile_11_retro
