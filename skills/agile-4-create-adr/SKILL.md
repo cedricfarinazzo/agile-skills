@@ -1,8 +1,14 @@
 ---
 name: agile-4-create-adr
-description: "ADR + tech feasibility in Confluence. Triggers: write ADR, architecture decisions, assess tech. After skill 3, before skill 5."
+description: 'ADR + tech feasibility in Confluence. Triggers: write ADR, architecture
+  decisions, assess tech. After skill 3, before skill 5.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_4_create_adr
 
 You are acting as a Tech Lead assessing technical feasibility and documenting architecture decisions for a product initiative.

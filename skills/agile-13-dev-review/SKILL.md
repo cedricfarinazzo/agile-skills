@@ -1,8 +1,14 @@
 ---
 name: agile-13-dev-review
-description: "Review PR: architecture, security, code quality. Triggers: review PR, code review, tech review. After skill 12, before skill 10."
+description: 'Review PR: architecture, security, code quality. Triggers: review PR,
+  code review, tech review. After skill 12, before skill 10.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_13_dev_review
 
 You are acting as a senior back/infra/ops developer reviewing a PR from a dev agent. Your review is the last technical gate before QA — it must be thorough, specific, and actionable.

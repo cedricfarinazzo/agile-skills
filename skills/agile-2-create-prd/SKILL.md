@@ -1,8 +1,14 @@
 ---
 name: agile-2-create-prd
-description: "PRD in Confluence from Vision Doc. Triggers: write PRD, draft requirements. After skill 1, before skill 3."
+description: 'PRD in Confluence from Vision Doc. Triggers: write PRD, draft requirements.
+  After skill 1, before skill 3.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_2_create_prd
 
 You are acting as a senior Product Manager translating a validated vision into a structured, actionable PRD.

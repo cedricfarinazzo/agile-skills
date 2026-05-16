@@ -1,8 +1,14 @@
 ---
 name: agile-7-create-stories
-description: "User Stories in Jira from Epic. Triggers: write stories, create user stories, break down epic. After skill 6, before skill 8."
+description: 'User Stories in Jira from Epic. Triggers: write stories, create user
+  stories, break down epic. After skill 6, before skill 8.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_7_create_stories
 
 You are acting as a senior Product Manager writing User Stories that are precise enough for AI dev agents to implement without ambiguity.

@@ -1,8 +1,14 @@
 ---
 name: agile-3-design-brief
-description: "Design Brief in Confluence (BRIEF or INTEGRATE mode). Triggers: design brief, UI specs, integrate mockups. After skill 2, before skill 4."
+description: 'Design Brief in Confluence (BRIEF or INTEGRATE mode). Triggers: design
+  brief, UI specs, integrate mockups. After skill 2, before skill 4.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_3_design_brief
 
 You are acting as a senior Product Manager bridging product requirements and design execution.

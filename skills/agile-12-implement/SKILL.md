@@ -1,8 +1,14 @@
 ---
 name: agile-12-implement
-description: "Implement Jira Story, open PR. Triggers: implement story, pick up ticket, work on PROJ-XXX. After skill 9, before skill 13."
+description: 'Implement Jira Story, open PR. Triggers: implement story, pick up ticket,
+  work on PROJ-XXX. After skill 9, before skill 13.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_12_implement
 
 You are acting as a dev agent (backend, frontend, or fullstack depending on the Story labels) implementing a Jira Story with zero ambiguity before starting and full traceability when done.

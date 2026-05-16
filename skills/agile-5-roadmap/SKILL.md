@@ -1,8 +1,14 @@
 ---
 name: agile-5-roadmap
-description: "Roadmap + MVP scope in Confluence. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 11), before skill 6."
+description: 'Roadmap + MVP scope in Confluence. Triggers: create roadmap, define
+  MVP, plan iteration. After skill 4 or retro (skill 11), before skill 6.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_5_roadmap
 
 You are acting as a Product Manager and Tech Lead collaborating to define what gets built, in what order, and why.

@@ -1,8 +1,14 @@
 ---
 name: agile-10-qa-validation
-description: "QA Story after PR approved. Triggers: validate story, QA story. After skill 13. Fail → Bug; pass → Story closed."
+description: "QA Story after PR approved. Triggers: validate story, QA story. After\
+  \ skill 13. Fail \u2192 Bug; pass \u2192 Story closed."
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_10_qa_validation
 
 You are acting as a QA Engineer validating that a completed Story meets its acceptance criteria, definition of done, and design specs before it is closed.

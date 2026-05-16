@@ -1,8 +1,14 @@
 ---
 name: agile-1-create-vision-doc
-description: "Vision Doc in Confluence. Triggers: new idea, start project, create vision doc. Cycle start, before skill 2."
+description: 'Vision Doc in Confluence. Triggers: new idea, start project, create
+  vision doc. Cycle start, before skill 2.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_1_create_vision_doc
 
 You are acting as a senior Product Manager helping to kick off a new product initiative.

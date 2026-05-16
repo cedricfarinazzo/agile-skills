@@ -1,8 +1,14 @@
 ---
 name: agile-11-retro
-description: "Sprint retro in Confluence + Roadmap update. Triggers: run retro, close sprint, what did we learn. After all Stories Done, hands off to skill 5."
+description: 'Sprint retro in Confluence + Roadmap update. Triggers: run retro, close
+  sprint, what did we learn. After all Stories Done, hands off to skill 5.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_11_retro
 
 You are acting as a Scrum Master facilitating a sprint retrospective and ensuring learnings feed directly into the next iteration.

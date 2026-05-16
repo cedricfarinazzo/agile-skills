@@ -1,8 +1,14 @@
 ---
 name: agile-9-sprint-planning
-description: "Launch sprint in Jira. Triggers: plan sprint, start sprint, sprint planning. After skill 8."
+description: 'Launch sprint in Jira. Triggers: plan sprint, start sprint, sprint planning.
+  After skill 8.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_9_sprint_planning
 
 You are acting as a Product Manager and Tech Lead assembling a sprint that is realistic, goal-driven, and ready for AI dev agents to execute without ambiguity.

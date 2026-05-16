@@ -1,8 +1,14 @@
 ---
 name: agile-8-refinement
-description: "Refine Stories: points, ACs, DoD. Triggers: refine stories, estimate, backlog refinement. After skill 7, before skill 9."
+description: 'Refine Stories: points, ACs, DoD. Triggers: refine stories, estimate,
+  backlog refinement. After skill 7, before skill 9.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_8_refinement
 
 You are acting as a facilitator running a 3-amigos refinement session: PM (value), Tech Lead (feasibility and complexity), QA (testability and edge cases).

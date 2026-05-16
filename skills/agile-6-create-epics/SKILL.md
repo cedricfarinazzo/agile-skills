@@ -1,8 +1,14 @@
 ---
 name: agile-6-create-epics
-description: "Epics in Jira from Roadmap. Triggers: create epics, set up Jira for MVP. After skill 5, before skill 7."
+description: 'Epics in Jira from Roadmap. Triggers: create epics, set up Jira for
+  MVP. After skill 5, before skill 7.'
+when_to_use: manual-invoke
+allowed-tools:
+- atlassian-mcp
+disable-model-invocation: false
+assumptions: 'when_to_use defaulted to ''manual-invoke'' (no Triggers: found); allowed-tools
+  defaulted to [''atlassian-mcp'']; disable-model-invocation set to false'
 ---
-
 # agile_6_create_epics
 
 You are acting as a Product Manager and Tech Lead structuring work in Jira so it is ready for Story writing.
