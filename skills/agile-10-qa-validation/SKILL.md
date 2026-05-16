@@ -1,7 +1,6 @@
 ---
 name: agile-10-qa-validation
-description: >
-  Use this skill to validate a Story in Jira after the dev review (skill 13) has approved the PR. Triggers on phrases like "validate the story", "QA the story", "review PROJ-XXX", "story is done check it", "run QA on", "next step after dev review". Always use after skill 13 (Dev Review) has approved the PR and before marking the Story Done. If validation fails, a Bug is created in Jira and the Story is sent back to the dev agent. If it passes, the Story is signed off and closed.
+description: "Validate Story after Dev Review approves PR. Triggers: validate story, QA story, next step after dev review. After skill 13. Fail creates Bug + sends back to dev; pass closes Story."
 ---
 
 # agile_10_qa_validation

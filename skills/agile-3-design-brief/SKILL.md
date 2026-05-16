@@ -1,7 +1,6 @@
 ---
 name: agile-3-design-brief
-description: >
-  Use this skill to write a Design Brief in Confluence from an approved PRD, then integrate the UI specs produced by Claude Design back into Confluence. Triggers on phrases like "write the design brief", "brief the designer", "create the UI specs", "next step after PRD", "integrate the mockups", "Claude Design output is ready". This skill has two modes — BRIEF mode (write the brief before Claude Design works) and INTEGRATE mode (bring Claude Design outputs back into Confluence as a Specs UI page). Always use this skill after the PRD (skill 2) and before the ADR (skill 4).
+description: "Write Design Brief in Confluence from PRD. Two modes: BRIEF (before Claude Design) and INTEGRATE (bring mockups back as Specs UI). Triggers: design brief, brief designer, UI specs, integrate mockups. After skill 2, before skill 4."
 ---
 
 # agile_3_design_brief

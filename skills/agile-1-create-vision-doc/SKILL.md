@@ -1,6 +1,6 @@
 ---
 name: agile-1-create-vision-doc
-description: Use this skill when the user wants to kick off a new product or feature from a raw CEO/stakeholder idea. Triggers on phrases like "we have a new idea", "the CEO wants to build X", "start a new project", "create the vision doc", "new product initiative", "launch a new feature". This skill creates the Confluence root folder and Vision Doc for the project, then advises on the next step. Always use this skill at the very start of an agile product cycle — even if the user only has a rough idea or a few sentences.
+description: "Kick off new project from raw idea. Creates Confluence folder + Vision Doc. Triggers: new idea, start project, create vision doc, new initiative. Use at cycle start. Next: skill 2."
 ---
 
 # agile_1_create_vision_doc

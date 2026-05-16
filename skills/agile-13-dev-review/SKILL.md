@@ -1,7 +1,6 @@
 ---
 name: agile-13-dev-review
-description: >
-  Use this skill when a back/infra/ops developer must review a PR submitted by a dev agent. Triggers on phrases like "review the PR", "code review", "review PROJ-XXX", "check the implementation", "tech review", "infra review", "ops review", "next step after implementation". Always use after skill 12 (Implement) and before skill 10 (QA Validation). The reviewer checks architecture compliance, security, performance, infra impact, and code quality — then approves or requests changes with explicit, actionable feedback.
+description: "Review PR from dev agent: architecture, security, performance, code quality. Triggers: review PR, code review, tech review, next step after implementation. After skill 12, before skill 10."
 ---
 
 # agile_13_dev_review

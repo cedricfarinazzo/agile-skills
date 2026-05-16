@@ -1,7 +1,6 @@
 ---
 name: agile-7-create-stories
-description: >
-  Use this skill to write User Stories in Jira from an Epic, the PRD, and the Specs UI. Triggers on phrases like "write the stories", "create user stories", "break down the epic", "next step after epics", "generate stories for Epic X". Always use after skill 6 (Epics) and before skill 8 (Refinement). This skill produces the Stories that will be consumed by AI dev agents — precision and completeness here directly affect code quality.
+description: "Write User Stories in Jira from Epic + PRD + Specs UI. Triggers: write stories, create user stories, break down epic. After skill 6, before skill 8. Output consumed by dev agents."
 ---
 
 # agile_7_create_stories

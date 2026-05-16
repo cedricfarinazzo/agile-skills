@@ -1,7 +1,6 @@
 ---
 name: agile-5-roadmap
-description: >
-  Use this skill to create or update the Roadmap in Confluence, define the MVP scope, and plan iterations. Triggers on phrases like "define the MVP", "create the roadmap", "what goes in the MVP", "plan the iterations", "next step after ADR", "start a new iteration", "plan iteration N". This skill is used twice per cycle — once after the ADR to create the initial MVP scope, then again after each retrospective (skill 11) to plan the next iteration. Always use after skill 4 (ADR) and before skill 6 (Epics).
+description: "Create or update Roadmap in Confluence, define MVP scope, plan iterations. Triggers: create roadmap, define MVP, plan iteration. After skill 4 and after each retro (skill 11). Before skill 6."
 ---
 
 # agile_5_roadmap

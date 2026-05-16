@@ -1,7 +1,6 @@
 ---
 name: agile-12-implement
-description: >
-  Use this skill when a dev agent is assigned a Story in Jira and must implement it. Triggers on phrases like "implement this story", "start coding", "pick up the ticket", "work on PROJ-XXX", "implement PROJ-XXX". Always use after skill 9 (Sprint Planning) and before skill 13 (Dev Review). The dev agent reads the Story, asks any blocking questions before writing a single line of code, implements, and opens a PR linked to the Jira Story.
+description: "Dev agent implements assigned Jira Story: reads ticket, asks questions, codes, opens PR. Triggers: implement story, start coding, pick up ticket, work on PROJ-XXX. After skill 9, before skill 13."
 ---
 
 # agile_12_implement

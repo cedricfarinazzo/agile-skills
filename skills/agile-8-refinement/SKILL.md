@@ -1,7 +1,6 @@
 ---
 name: agile-8-refinement
-description: >
-  Use this skill to run a refinement session on Jira Stories — add story points, validate and sharpen acceptance criteria, finalise the Definition of Done, identify dependencies, and flag Stories that are not ready. Triggers on phrases like "refine the stories", "run refinement", "estimate the stories", "story points", "backlog refinement", "next step after stories", "is this story ready?". Always use after skill 7 (User Stories) and before skill 9 (Sprint Planning). A Story that has not passed refinement must never enter a sprint.
+description: "Refine Jira Stories: story points, acceptance criteria, DoD, dependencies. Triggers: refine stories, run refinement, estimate, story points, backlog refinement. After skill 7, before skill 9."
 ---
 
 # agile_8_refinement

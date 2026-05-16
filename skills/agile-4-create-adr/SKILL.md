@@ -1,7 +1,6 @@
 ---
 name: agile-4-create-adr
-description: >
-  Use this skill to write an Architecture Decision Record (ADR) and technical feasibility assessment in Confluence from an approved PRD and Specs UI. Triggers on phrases like "write the ADR", "technical feasibility", "architecture decisions", "cadrage technique", "next step after design", "assess the tech". Always use this skill after the Specs UI (skill 3) and before the Roadmap (skill 5). The ADR captures why technical decisions were made and unblocks Epic creation in Jira.
+description: "Write ADR and technical feasibility in Confluence from PRD + Specs UI. Triggers: write ADR, technical feasibility, architecture decisions, assess tech. After skill 3, before skill 5."
 ---
 
 # agile_4_create_adr

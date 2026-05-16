@@ -1,7 +1,6 @@
 ---
 name: agile-11-retro
-description: >
-  Use this skill to document a sprint retrospective in Confluence and trigger the update of the Roadmap for the next iteration. Triggers on phrases like "run the retro", "document the retrospective", "sprint is done", "what did we learn", "close the sprint", "plan the next iteration", "next step after QA". Always use after all Stories in a sprint are Done or Won't Do. Produces a Retro page in Confluence and updates the Roadmap for the next iteration, then hands off to skill 5 for iteration planning.
+description: "Document sprint retro in Confluence + update Roadmap for next iteration. Triggers: run retro, sprint retrospective, close sprint, what did we learn. After all Stories Done. Hands off to skill 5."
 ---
 
 # agile_11_retro

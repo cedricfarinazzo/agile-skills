@@ -1,7 +1,6 @@
 ---
 name: agile-6-create-epics
-description: >
-  Use this skill to create or update Epics in Jira from the approved Roadmap. Triggers on phrases like "create the epics", "add epics to Jira", "next step after roadmap", "set up Jira for the MVP", "create epics for iteration N". Always use after skill 5 (Roadmap) and before skill 7 (User Stories). Each Epic created in Jira must be linked back to the Confluence Roadmap section it comes from.
+description: "Create or update Epics in Jira from approved Roadmap. Triggers: create epics, add epics to Jira, set up Jira for MVP. After skill 5, before skill 7."
 ---
 
 # agile_6_create_epics

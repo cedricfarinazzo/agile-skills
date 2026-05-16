@@ -1,6 +1,6 @@
 ---
 name: agile-2-create-prd
-description: Use this skill to write a Product Requirements Document (PRD) in Confluence from an approved Vision Doc. Triggers on phrases like "write the PRD", "create the PRD", "draft the product requirements", "turn the vision into requirements", "next step after vision doc". Always use this skill after the Vision Doc (skill 1) has been completed and before the design brief (skill 3). The PRD is the central reference document that all subsequent skills depend on — get it right before moving forward.
+description: "Write PRD in Confluence from approved Vision Doc. Triggers: write PRD, draft requirements, next step after vision doc. After skill 1, before skill 3."
 ---
 
 # agile_2_create_prd

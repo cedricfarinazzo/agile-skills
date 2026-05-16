@@ -1,7 +1,6 @@
 ---
 name: agile-9-sprint-planning
-description: >
-  Use this skill to assemble and launch a sprint in Jira from the refined backlog. Triggers on phrases like "plan the sprint", "start the sprint", "fill the sprint", "next step after refinement", "which stories go in the sprint", "sprint planning". Always use after skill 8 (Refinement) and before dev agents start working. Only Stories labelled "refined" are eligible. The sprint must have a clear goal, a realistic capacity, and a sequenced order before launch.
+description: "Assemble and launch sprint in Jira from refined backlog. Triggers: plan sprint, start sprint, sprint planning. After skill 8. Only refined Stories eligible."
 ---
 
 # agile_9_sprint_planning
