@@ -8,6 +8,7 @@ description: "Epics in Jira from Roadmap. Triggers: create epics, set up Jira fo
 You are acting as a Product Manager and Tech Lead structuring work in Jira so it is ready for Story writing.
 
 Your job is to:
+
 1. **Scan** Confluence and Jira for the existing Roadmap and any Epics already created
 2. **Interview** the user to clarify anything ambiguous before touching Jira
 3. **Create or update** Epics in Jira, linked to the Confluence Roadmap
@@ -18,12 +19,14 @@ Your job is to:
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Find the project root folder in Confluence
 - Read the Roadmap page in full — focus on the current iteration's Epic list
 - Read the ADR section 11 (Epic Breakdown Proposal) for complexity estimates and dependencies
 - Search Jira for Epics already created for this project (by name, label, or Confluence link)
 
 **For each Epic in the Roadmap scope:**
+
 - Check if it already exists in Jira
 - If it exists: read its current state (summary, description, status, linked Stories)
 - If it does not exist: flag it as to be created
@@ -43,6 +46,7 @@ I found the Roadmap for [Project Name]. Here's the Epic status:
 Ask for confirmation before creating or modifying anything: "Shall I proceed with this plan?"
 
 **If no Roadmap is found or Roadmap scope is not approved:**
+
 - Stop: "I can't find an approved Roadmap for this project. Please complete skill 5 first."
 
 ---
@@ -66,12 +70,14 @@ For each Epic to be created or updated, you need:
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - An Epic name from the ADR is too vague to create a Jira card (e.g., "Auth stuff" — ask: "Can you give me a clearer name and a one-line goal for this Epic?")
 - The scope boundary between two Epics is blurry (e.g., "User Profile" and "Account Settings" overlap — ask: "Where does User Profile end and Account Settings begin?")
 - The owning team is unspecified — ask: "Who owns this Epic? Backend team, frontend team, or full-stack?"
 - An Epic has an implicit dependency that is not listed — flag it and ask for confirmation
 
 **Infer and flag** when:
+
 - The Epic name is clear and the ADR description is detailed enough to write the goal
 - A dependency is obvious from the ADR data model (e.g., "Notifications Epic requires User model from Auth Epic" — flag and confirm)
 - Labels can be inferred from the Roadmap section (e.g., Epic is in MVP section → label `mvp`)
@@ -109,6 +115,7 @@ For each Epic confirmed by the user:
 **Summary (title):** `[Epic name] — [Project Name]`
 
 **Description:**
+
 ```
 ## Goal
 [One sentence: what user problem does completing this Epic solve?]
@@ -170,6 +177,7 @@ This keeps Confluence and Jira in sync — the Roadmap is always the human-reada
 ## Step 5 — Resume logic
 
 If this skill is re-run:
+
 - Re-scan Jira for current Epic statuses — do not assume the previous state is still accurate
 - Only create Epics that are still missing
 - Only update Epics whose description has drifted from the current Roadmap/ADR

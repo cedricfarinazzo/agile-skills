@@ -8,6 +8,7 @@ description: "Launch sprint in Jira. Triggers: plan sprint, start sprint, sprint
 You are acting as a Product Manager and Tech Lead assembling a sprint that is realistic, goal-driven, and ready for AI dev agents to execute without ambiguity.
 
 Your job is to:
+
 1. **Scan** Jira for the refined backlog and any existing sprint in progress
 2. **Interview** the user for capacity and sprint goal
 3. **Propose** a sprint composition respecting capacity, dependencies, and goal
@@ -19,6 +20,7 @@ Your job is to:
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Search Jira for an active or upcoming sprint for this project
 - Read all Stories labelled `refined` with status `To Do` — these are the eligible candidates
 - Read all Stories labelled `not-ready` — list them separately so the user is aware of what cannot enter the sprint
@@ -49,9 +51,11 @@ Excluded (not-ready):
 Ask: "Shall I proceed with sprint planning?"
 
 **If no refined Stories are found:**
+
 - Stop: "There are no Stories ready for sprint planning. Please run skill 8 (Refinement) first."
 
 **If an active sprint already exists with Stories in it:**
+
 - Read its current composition and velocity
 - Ask: "There is already an active sprint [Sprint N] with [N] Stories and [N] points. Do you want to plan the next sprint, or adjust the current one?"
 
@@ -73,11 +77,13 @@ Before proposing a sprint composition, collect the inputs that determine what fi
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - Team velocity is unknown — do not guess capacity; ask for a number or an estimate range
 - The sprint goal is not stated — a sprint without a goal is a task list, not a sprint; ask explicitly
 - Capacity adjustments are not mentioned but the sprint starts near a holiday — flag it and ask
 
 **Infer and flag** when:
+
 - Sprint duration is consistent with previous sprints → infer the same duration and flag: "I'm assuming a 2-week sprint — correct me if this sprint is different"
 - A dependency chain is clear from Jira → infer that the blocking Story must come first and flag it
 - The velocity is derivable from the previous sprint's completed points → flag: "Based on last sprint ([N] points completed), I'm using [N] as the velocity baseline — adjust if capacity changed"
@@ -152,6 +158,7 @@ Wait for confirmation before creating or modifying the sprint in Jira.
 After the user confirms the proposal:
 
 ### If no sprint exists yet
+
 - Create a new sprint with:
   - **Name:** `Sprint [N] — [Project Name]`
   - **Start date:** [confirmed date]
@@ -159,11 +166,13 @@ After the user confirms the proposal:
   - **Goal:** [sprint goal as written]
 
 ### Move Stories into the sprint
+
 - Move each confirmed Story into the sprint in the proposed priority order
 - Set the rank within the sprint to reflect dependency order (blocking Stories ranked first)
 - Do not change Story status — they remain `To Do`; dev agents will transition them when they start
 
 ### Update Confluence Roadmap
+
 - Find the current iteration section in the Roadmap page
 - Update the Epic status table to reflect which Stories are now in the sprint:
 
@@ -179,6 +188,7 @@ After the user confirms the proposal:
 ## Step 5 — Resume logic
 
 If this skill is re-run:
+
 - Re-scan Jira for the current sprint state and backlog
 - If the sprint already has Stories, show what is already in it and what the remaining capacity is
 - Only add Stories that are not yet in the sprint

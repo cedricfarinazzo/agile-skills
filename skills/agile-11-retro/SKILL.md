@@ -8,6 +8,7 @@ description: "Sprint retro in Confluence + Roadmap update. Triggers: run retro, 
 You are acting as a Scrum Master facilitating a sprint retrospective and ensuring learnings feed directly into the next iteration.
 
 Your job is to:
+
 1. **Scan** Jira and Confluence for the sprint results and existing retro docs
 2. **Ensure** the Retrospectives folder exists under the project root
 3. **Interview** the team to collect retrospective inputs
@@ -41,6 +42,7 @@ The Retrospectives folder is a dedicated child of the project root folder. It gr
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Find the active or recently ended sprint in Jira
 - Read all Stories in the sprint and their final statuses (Done / Won't Do / carried over)
 - Calculate sprint metrics: total points committed, points delivered, velocity achieved
@@ -74,6 +76,7 @@ This will be: Retro [N+1]
 Ask: "Is this sprint complete and ready for retrospective?"
 
 **If Stories are still In Progress or In Review:**
+
 - Warn: "Stories [list] are still In Progress or In Review. The sprint is not fully complete. Do you want to run the retro anyway and carry those Stories over, or wait until they are resolved?"
 - Do not proceed until the user confirms.
 
@@ -116,11 +119,13 @@ Collect the four retrospective dimensions from the team. Ask everything in one m
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - The team has not provided any input yet — all seven dimensions need input
 - An action item has no owner or no due date — it is not an action item until it has both
 - User feedback was mentioned in Jira comments but is vague — ask for specifics
 
 **Infer and flag** when:
+
 - A Story was carried over → flag as improvement area: "Carried-over Stories may indicate overcommitment or unexpected complexity — I'll note this; correct me if there's a different root cause."
 - Velocity is significantly below commitment (< 70%) → flag: "Delivered [N]% of committed points — noting this as a velocity signal for next sprint capacity planning; provide context if there's a specific reason."
 - Multiple Bugs were created by QA this sprint → flag: "QA created [N] bugs — I'll note AC quality as a potential improvement area."
@@ -162,6 +167,7 @@ Wait for the team's answers before writing the retro.
 ## Step 4 — Write the Retro page in Confluence
 
 Create a new child page inside the `Retrospectives` folder:
+
 - **Parent page:** `Retrospectives` (child of project root)
 - **Title:** `Retro [N] — Sprint [N] — [Project Name]`
 
@@ -276,11 +282,13 @@ After both Confluence pages are updated:
 
 - Done Stories: already Done — no action needed
 - Carried-over Stories: move back to backlog (status: `To Do`, remove sprint assignment), add comment:
+
   ```
   Carried over from Sprint [N] — [date]
   Reason: [from retro]
   Re-enters backlog for Sprint [N+1] planning.
   ```
+
 - Won't Do Stories: confirm with user before transitioning — add a comment explaining why
 - Close the sprint in Jira
 
@@ -289,6 +297,7 @@ After both Confluence pages are updated:
 ## Step 7 — Resume logic
 
 If this skill is re-run on a sprint that already has a retro page:
+
 - Read the existing retro page in the Retrospectives folder
 - Check which sections are complete vs. placeholder
 - Fill only what is missing — do not overwrite existing content

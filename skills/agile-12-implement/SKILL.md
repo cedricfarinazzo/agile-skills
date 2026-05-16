@@ -8,6 +8,7 @@ description: "Implement Jira Story, open PR. Triggers: implement story, pick up 
 You are acting as a dev agent (backend, frontend, or fullstack depending on the Story labels) implementing a Jira Story with zero ambiguity before starting and full traceability when done.
 
 Your job is to:
+
 1. **Scan** the Story in Jira and all linked documents before writing any code
 2. **Ask** every blocking question upfront — never mid-implementation
 3. **Implement** following the ADR tech stack and Specs UI exactly
@@ -19,6 +20,7 @@ Your job is to:
 ## Step 1 — Scan the Story and all linked context
 
 Use Atlassian tools to:
+
 - Read the Story in Jira in full: summary, description, AC, DoD, technical notes, Specs UI link, dependencies, refinement comments
 - Follow the Confluence links in the Story to read:
   - **Specs UI** — the exact screen(s) to implement (for UI Stories)
@@ -58,9 +60,11 @@ Previous QA bugs to fix (if re-implementation): [list / none]
 ```
 
 **If any blocking dependency is not Done:**
+
 - Stop: "Story [PROJ-XXX] depends on [PROJ-ZZZ] which is still [status]. I cannot start implementation until it is Done. Please resolve the dependency first."
 
 **If the Story has no AC or no DoD:**
+
 - Stop: "Story [PROJ-XXX] has no Acceptance Criteria / Definition of Done. I cannot implement without a clear definition of done. Please run skill 8 (Refinement) first."
 
 ---
@@ -72,33 +76,39 @@ After reading all context, identify every gap that would force a decision mid-im
 ### Categories of blocking questions
 
 **Functional gaps:**
+
 - An AC is ambiguous about the exact behaviour ("user sees an error" — what error message? Which HTTP status?)
 - An edge case in the AC is specified but the expected behaviour is not ("if file exceeds limit" — hard reject, truncate, or warn?)
 - A flow involves multiple steps but the AC only covers the happy path
 
 **Technical gaps:**
+
 - An endpoint is referenced in the technical notes but its contract (request/response shape) is not defined
 - The ADR specifies a pattern but this Story has an unusual case not covered by the pattern
 - A third-party service or library version is not specified in the ADR
 - The data model in the ADR needs extension — which fields, types, constraints?
 
 **UI gaps (frontend Stories):**
+
 - A state is shown in the Specs UI but the exact trigger condition is not described
 - A component is marked "reuse existing" but the existing component does not cover this use case exactly
 - An animation or transition is implied by the design but not specified
 
 **Integration gaps:**
+
 - The Story touches code owned by another team — who reviews that part?
 - The Story requires a migration — is there a migration strategy documented?
 
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - A gap would lead to two meaningfully different implementations (e.g., optimistic UI update vs. wait for server confirmation — these have very different UX and error handling)
 - An API contract is undefined — you cannot write a type-safe implementation without the shape
 - A business rule is ambiguous — a wrong assumption here means wrong behaviour in production
 
 **Infer and flag** when:
+
 - A standard pattern from the ADR covers this case clearly → apply it and note it
 - An HTTP status code is industry-standard for the operation (404 for not found, 422 for validation error) → use the standard and flag it
 - A component from the design system covers the Specs UI requirement exactly → use it and note it
@@ -157,12 +167,14 @@ After all questions are answered, implement the Story systematically.
 ### If a new architectural decision is needed mid-implementation
 
 Stop. Do not implement the decision silently. Add a comment on the Story:
+
 ```
 ⚠️ Implementation blocker — [date]
 I encountered a situation not covered by the ADR: [description].
 Proposed approach: [option A] vs [option B].
 Waiting for Tech Lead input before proceeding.
 ```
+
 Then ask the user for guidance before continuing.
 
 ---
@@ -176,6 +188,7 @@ When implementation and tests are complete:
 **Title:** `[PROJ-XXX] [Story summary]`
 
 **Description:**
+
 ```
 ## Story
 [PROJ-XXX link] — [Story summary]
@@ -222,6 +235,7 @@ After the PR is open:
 
 - Add the PR link to the Story in Jira
 - Add an implementation summary comment on the Story:
+
 ```
 ## Implementation complete — [date]
 PR: [link]
@@ -230,6 +244,7 @@ AC coverage: all [N] ACs covered by tests
 New decisions introduced: [none / list]
 Ready for dev review (skill 13).
 ```
+
 - Transition the Story to `In Review`
 - Do NOT transition to Done — that is the QA's job (skill 10)
 
@@ -238,6 +253,7 @@ Ready for dev review (skill 13).
 ## Step 6 — Resume logic
 
 If this skill is re-run on a Story already In Progress or with an existing PR:
+
 - Re-read the Story and any linked Bugs from QA (skill 10)
 - For each QA Bug: read it fully, understand the failure, address it in the existing branch
 - Update the PR with the fix — do not open a new PR unless the branch has diverged significantly

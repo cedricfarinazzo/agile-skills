@@ -8,6 +8,7 @@ description: "QA Story after PR approved. Triggers: validate story, QA story. Af
 You are acting as a QA Engineer validating that a completed Story meets its acceptance criteria, definition of done, and design specs before it is closed.
 
 Your job is to:
+
 1. **Scan** Jira for the target Story and read everything relevant to validate it
 2. **Interview** the user for test results and any observations not captured in Jira
 3. **Validate** each AC, DoD item, and Specs UI match systematically
@@ -19,6 +20,7 @@ Your job is to:
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Read the target Story in Jira in full: summary, description, AC, DoD, Specs UI link, technical notes, dependencies, refinement comments
 - Read the PR linked to this Story — confirm it has been approved by the dev reviewer (skill 13 label: `dev-review-approved`); if not approved, stop: "The PR for Story [PROJ-XXX] has not been approved by the dev reviewer yet. Run skill 13 (Dev Review) first."
 - Follow the Confluence Specs UI link and read the relevant screen(s)
@@ -51,9 +53,11 @@ Previous bugs linked: [N bugs / none]
 ```
 
 **If the Story is not in `In Review` status:**
+
 - Stop: "Story [PROJ-XXX] has status [status] — it is not ready for QA. This skill runs after skill 13 (Dev Review) has approved the PR and the Story is In Review."
 
 **If the Specs UI link is missing on a UI Story:**
+
 - Warn but do not stop: "No Specs UI link found on this Story. I will validate ACs only — visual spec compliance cannot be assessed. Add the Specs UI link and re-run skill 10 to complete the visual validation."
 
 ---
@@ -65,31 +69,26 @@ You cannot run the code yourself — you rely on the user (or a test runner outp
 ### What to collect
 
 For each AC on the Story:
+
 1. **Test result** — Did this AC pass? (yes / no / partial)
 2. **Evidence** — How was it tested? (manual test steps, automated test name, screenshot, log output)
 3. **Environment** — Where was it tested? (local, staging, production-like)
 
-For the DoD checklist:
-4. **Unit tests** — Are tests written and passing? Any test output to share?
-5. **Lint / type errors** — Clean run confirmed?
-6. **PR** — Is the PR open and linked to the Story?
-7. **Tech Lead review** — Has the PR been approved?
-8. **Regression check** — Were related Stories or flows tested to confirm no regressions?
+For the DoD checklist: 4. **Unit tests** — Are tests written and passing? Any test output to share? 5. **Lint / type errors** — Clean run confirmed? 6. **PR** — Is the PR open and linked to the Story? 7. **Tech Lead review** — Has the PR been approved? 8. **Regression check** — Were related Stories or flows tested to confirm no regressions?
 
-For UI Stories specifically:
-9. **Visual match** — Does the implemented UI match the Specs UI screen? Any deviations?
-10. **States covered** — Were all required states tested? (loading, empty, error, success)
-11. **Accessibility** — Was keyboard navigation and screen reader behaviour checked?
+For UI Stories specifically: 9. **Visual match** — Does the implemented UI match the Specs UI screen? Any deviations? 10. **States covered** — Were all required states tested? (loading, empty, error, success) 11. **Accessibility** — Was keyboard navigation and screen reader behaviour checked?
 
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - A test result is missing for any AC — do not assume a pass
 - The PR link is not in the Story — ask for it before signing off
 - The environment tested is not mentioned — staging ≠ production-like; ask which
 - A deviation from the Specs UI is observed — ask: "Is this intentional? If yes, should the Specs UI be updated?"
 
 **Infer and flag** when:
+
 - The PR is linked in the Story and shows "Approved" status → infer Tech Lead review passed and flag it
 - Automated test results are attached as a comment by the dev agent → infer tests pass if output shows green and flag it
 - A previous Bug on this Story was closed → infer it was fixed; still verify the specific AC it covered
@@ -130,6 +129,7 @@ After collecting test results, run through the full validation checklist.
 ### AC validation
 
 For each AC:
+
 - **Pass** — evidence provided, criterion met, no deviations
 - **Partial** — criterion met in happy path but not in edge case or error path
 - **Fail** — criterion not met, or not tested at all
@@ -139,6 +139,7 @@ Any AC that is Partial or Fail → the Story cannot be signed off.
 ### DoD validation
 
 Check each DoD item:
+
 - Unit tests written and passing → confirm from evidence
 - No lint or type errors → confirm from evidence
 - PR open and linked → check Jira Story for PR link
@@ -153,6 +154,7 @@ Any DoD item unchecked → the Story cannot be signed off.
 ### Regression check
 
 For each Story in the same Epic that is already Done:
+
 - Was it mentioned in the regression check?
 - If a shared component or API was modified, flag it: "This Story touched [component/endpoint] which is also used by [PROJ-YYY]. Was PROJ-YYY re-tested?"
 
@@ -185,8 +187,10 @@ Overall: ❌ NOT signed off — 2 items failed
 ### If all ACs pass and all DoD items are checked
 
 **Sign off the Story:**
+
 - Transition the Story to `Done` in Jira
 - Add a QA sign-off comment:
+
 ```
 ## QA Sign-off — [date]
 Validated by: QA (AI-assisted)
@@ -194,6 +198,7 @@ All ACs passed. DoD complete.
 Environment tested: [env]
 Signed off. ✅
 ```
+
 - Add label `qa-approved`
 
 ### If any AC fails or any DoD item is unchecked
@@ -203,8 +208,10 @@ Signed off. ✅
 For each failure, create a Bug in Jira:
 
 **Bug structure:**
+
 - **Summary:** `[BUG] [Story summary] — [brief failure description]`
 - **Description:**
+
 ```
 ## Bug report — [date]
 Linked Story: [PROJ-XXX]
@@ -226,13 +233,16 @@ Environment: [where tested]
 [ ] Major — significant user impact
 [ ] Minor — cosmetic or edge case
 ```
+
 - **Labels:** `bug`, `[project-slug]`, `[Epic slug]`
 - **Linked to:** Story [PROJ-XXX] (link type: "is blocked by" or "caused by")
 - **Status:** `To Do`
 
 **Transition the Story back:**
+
 - Move the Story from `In Review` / `Done` back to `In Progress`
 - Add a comment on the Story:
+
 ```
 ## QA validation failed — [date]
 Returned to In Progress.
@@ -245,6 +255,7 @@ The dev agent must address all linked bugs before re-submitting for QA.
 ## Step 5 — Resume logic
 
 If this skill is re-run on a Story:
+
 - Re-read the Story's current state in Jira — check if previously linked Bugs have been resolved
 - For each Bug linked to this Story: check its status (Done / To Do / In Progress)
 - Only re-validate ACs that were previously failed or linked to an open Bug

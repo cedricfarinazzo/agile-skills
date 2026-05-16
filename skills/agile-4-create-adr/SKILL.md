@@ -8,6 +8,7 @@ description: "ADR + tech feasibility in Confluence. Triggers: write ADR, archite
 You are acting as a Tech Lead assessing technical feasibility and documenting architecture decisions for a product initiative.
 
 Your job is to:
+
 1. **Scan** Confluence and Jira for existing docs and any technical work already started
 2. **Extract** what is already answerable from the PRD and Specs UI
 3. **Interview** the user for technical decisions not covered by existing docs
@@ -19,6 +20,7 @@ Your job is to:
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Find the project root folder in Confluence
 - Read the PRD in full
 - Read the Specs UI page in full (if it exists)
@@ -26,15 +28,18 @@ Use Atlassian tools to:
 - Search Jira for any Epics or technical tasks already created for this project — they may encode decisions already made
 
 **If an ADR already exists:**
+
 - Read it section by section
 - Identify what is complete, what is a placeholder, what is outdated
 - Tell the user: "I found an existing ADR for [project]. Here's the status: [summary]. I'll resume from what's incomplete or flag what may need revisiting."
 - Do not overwrite complete sections — append updates with `[Updated: date — reason]`
 
 **If no PRD is found or PRD is not approved:**
+
 - Stop: "The PRD for this project is missing or not yet approved. Please complete skill 2 first."
 
 **If no Specs UI is found:**
+
 - Warn but do not stop: "I couldn't find a Specs UI page. I'll proceed with the PRD only, but the ADR may be incomplete on frontend architecture. Run skill 3 (INTEGRATE mode) when the design is ready and re-run this skill to complete the ADR."
 
 ---
@@ -44,12 +49,14 @@ Use Atlassian tools to:
 Map what is already answerable from existing docs:
 
 From the **PRD**:
+
 - Functional requirements → what the system must do (drives API and data model decisions)
 - Non-functional requirements → performance, availability, security, compliance (drives infra and architecture decisions)
 - Dependencies → external systems, third-party APIs already identified
 - Risks → technical risks already flagged
 
 From the **Specs UI**:
+
 - Screen inventory → frontend scope
 - Component inventory → frontend build vs. reuse decisions
 - Interactions and states → frontend complexity signals
@@ -79,12 +86,14 @@ The ADR requires decisions the PRD and Specs UI cannot make on their own.
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - No existing tech stack is mentioned — you cannot assume the language or framework
 - A dependency is listed in the PRD but its interface is unknown ("we'll use the auth service" — ask: "What does the auth service expose? REST? JWT tokens? What's the team contact?")
 - A non-functional requirement has no obvious default solution (e.g., "must handle 10k concurrent users" — ask: "Is there an existing load balancer / CDN in place, or does this need to be set up?")
 - A build vs. buy decision is ambiguous — flag it and ask explicitly
 
 **Infer and flag** when:
+
 - The PRD mentions an existing system by name → infer it is the system to integrate with, flag it
 - Non-functional requirements match a well-known pattern → infer a standard solution and flag it (e.g., "stateless API + Redis for session caching — correct me if the team has a different standard")
 - The Specs UI shows a standard component pattern → infer the frontend framework convention and flag it
@@ -119,6 +128,7 @@ Wait for the user's answers before writing the ADR.
 ## Step 4 — Write the ADR in Confluence
 
 Create a new child page under the project root folder:
+
 - **Parent page:** `[Project Name]` (root folder)
 - **Title:** `ADR — [Project Name]`
 
@@ -242,6 +252,7 @@ This breakdown will be used by skill 5 (Roadmap) to define the MVP scope.
 ## Step 5 — Resume logic
 
 If this skill is re-run on a project with an existing ADR:
+
 - Read the current ADR fully
 - For each section: check if it has real content or is a placeholder
 - Fill only what is missing or marked TBD

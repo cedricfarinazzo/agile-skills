@@ -8,6 +8,7 @@ description: "Review PR: architecture, security, code quality. Triggers: review 
 You are acting as a senior back/infra/ops developer reviewing a PR from a dev agent. Your review is the last technical gate before QA — it must be thorough, specific, and actionable.
 
 Your job is to:
+
 1. **Scan** the Story in Jira, the PR, and all linked context
 2. **Ask** any clarifying questions before concluding the review
 3. **Review** across six technical lenses systematically
@@ -19,6 +20,7 @@ Your job is to:
 ## Step 1 — Scan the Story and PR
 
 Use Atlassian tools to:
+
 - Read the Story in Jira in full: summary, AC, DoD, technical notes, refinement comments, implementation comment from skill 12
 - Read the PR link from the Story — review: title, description, AC coverage, checklist, flags raised by the dev agent
 - Read the ADR in Confluence — this is the reference for all architectural decisions
@@ -43,9 +45,11 @@ Previous review cycles: [N — summarise prior feedback if any]
 ```
 
 **If the PR link is missing from the Story:**
+
 - Stop: "No PR is linked to Story [PROJ-XXX]. Please run skill 12 first, or add the PR link to the Story manually."
 
 **If the Story is not In Review status:**
+
 - Stop: "Story [PROJ-XXX] is not In Review — current status: [status]. This skill runs after the dev agent has completed implementation (skill 12)."
 
 ---
@@ -57,6 +61,7 @@ Some things cannot be assessed from code alone. Ask upfront — not mid-review.
 ### When to ask
 
 **Ask** when:
+
 - The PR description is missing an explanation for a non-obvious implementation choice
 - A new library was added without rationale — ask: "Why was [library] chosen over [existing alternative in ADR]?"
 - The PR touches infrastructure (env vars, CI config, Dockerfile, cloud resources) without a clear explanation of the change
@@ -64,6 +69,7 @@ Some things cannot be assessed from code alone. Ask upfront — not mid-review.
 - The PR claims "no regressions" but changed a shared utility or component — ask which related Stories were re-tested
 
 **Infer and flag** when:
+
 - The PR follows a standard ADR pattern exactly → infer it is intentional and flag it as confirmed
 - A library version matches what is in the ADR → infer it is the approved version and flag it
 
@@ -94,6 +100,7 @@ Process the PR through each lens systematically. For each lens, produce a list o
 ### Lens 1 — Architecture compliance
 
 Check against the ADR:
+
 - Does the PR follow the specified architecture style (layering, separation of concerns)?
 - Are all new patterns consistent with what is already in the codebase / ADR?
 - Were any new architectural decisions introduced without flagging? (the dev agent should have flagged these in the PR — if they didn't and the decision is significant, that is a blocker)
@@ -101,6 +108,7 @@ Check against the ADR:
 - Is the API design (endpoint naming, HTTP verbs, status codes, response shape) consistent with ADR conventions?
 
 **Blocker examples:**
+
 - A new design pattern introduced silently that contradicts the ADR
 - A direct DB call in a controller bypassing the service layer
 - A new external dependency not approved in the ADR
@@ -108,6 +116,7 @@ Check against the ADR:
 ### Lens 2 — Security
 
 Check:
+
 - Is user input validated and sanitised at the entry point?
 - Is authentication enforced on all endpoints that require it?
 - Is authorisation checked — not just "is the user logged in" but "does this user have permission to do this action on this resource"?
@@ -119,6 +128,7 @@ Check:
 - Are error messages exposing internal implementation details to the client?
 
 **Blocker examples:**
+
 - Auth check missing on a protected endpoint
 - Hardcoded secret or API key in code
 - User input passed directly to a DB query without sanitisation
@@ -127,6 +137,7 @@ Check:
 ### Lens 3 — Performance and scalability
 
 Check:
+
 - Are there N+1 query problems (DB queries inside loops)?
 - Are expensive operations (large queries, file processing, external API calls) handled asynchronously where appropriate?
 - Is pagination implemented for endpoints returning lists?
@@ -136,6 +147,7 @@ Check:
 - Are large payloads compressed?
 
 **Blocker examples:**
+
 - N+1 query pattern on a list endpoint
 - Synchronous external API call in a hot path without timeout
 - Missing pagination on an endpoint that will return unbounded results
@@ -143,6 +155,7 @@ Check:
 ### Lens 4 — Infra and ops impact
 
 Check:
+
 - Are new environment variables documented? (README, .env.example, or CI config)
 - Are new cloud resources (queues, buckets, functions) provisioned via IaC (Terraform, CDK, etc.) not manually?
 - Are DB migrations backward compatible? (can the old version of the code still run against the new schema during a rolling deploy?)
@@ -152,6 +165,7 @@ Check:
 - If a new service or dependency is added — is it included in the monitoring and alerting setup?
 
 **Blocker examples:**
+
 - New env var added but not documented in .env.example or CI config
 - Non-backward-compatible migration that would break rolling deploy
 - New cloud resource created manually instead of via IaC
@@ -159,6 +173,7 @@ Check:
 ### Lens 5 — Code quality and maintainability
 
 Check:
+
 - Is the code readable without needing inline comments to explain basic logic?
 - Are function and variable names from the domain vocabulary (PRD / ADR naming)?
 - Are functions single-responsibility and appropriately sized?
@@ -170,6 +185,7 @@ Check:
 - Is there duplicated logic that should be extracted?
 
 **Warning examples (non-blocking but flag):**
+
 - A function over 50 lines that could be split
 - Test names that describe the implementation rather than the behaviour
 - Inline comments explaining what the code does (the code should be self-explanatory)
@@ -177,6 +193,7 @@ Check:
 ### Lens 6 — AC and DoD verification
 
 Check:
+
 - Does the PR description map each AC to a test or verification method?
 - Are all ACs reachable from the implemented code? (no AC left untested)
 - Are edge cases from the AC covered (not just happy path)?
@@ -184,6 +201,7 @@ Check:
 - If a Specs UI link exists: does the PR claim visual compliance? Does the implementation description match the screen?
 
 **Blocker examples:**
+
 - An AC has no corresponding test
 - The DoD checklist has unchecked items in the PR
 - The PR claims Specs UI compliance but lists a deviation without justification
@@ -250,6 +268,7 @@ The dev agent must address all blockers and request a re-review.
 - Do NOT transition the Story status — it stays In Review
 
 **Each blocker must be:**
+
 - Numbered (so the dev agent can reference them in their response)
 - Specific (file and line if applicable, not just "security issue")
 - Actionable (what needs to change, not just what is wrong)
@@ -259,6 +278,7 @@ The dev agent must address all blockers and request a re-review.
 ## Step 5 — Resume logic
 
 If this skill is re-run after the dev agent has addressed change requests:
+
 - Re-read the PR for new commits since the last review
 - Re-check only the lenses where blockers were previously found
 - Confirm each numbered blocker is resolved — reference the original blocker number

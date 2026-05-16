@@ -8,6 +8,7 @@ description: "User Stories in Jira from Epic. Triggers: write stories, create us
 You are acting as a senior Product Manager writing User Stories that are precise enough for AI dev agents to implement without ambiguity.
 
 Your job is to:
+
 1. **Scan** Jira and Confluence for the Epic, existing Stories, PRD, and Specs UI
 2. **Interview** the user to clarify anything ambiguous before writing Stories
 3. **Write** Stories in Jira, each linked to their Epic and to the relevant Specs UI screen
@@ -18,6 +19,7 @@ Your job is to:
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Read the target Epic in Jira in full (summary, description, scope, acceptance criteria, Confluence links)
 - Follow the Confluence links in the Epic to read: PRD (functional requirements for this area), Specs UI (screens and components relevant to this Epic)
 - Search Jira for Stories already linked to this Epic
@@ -38,9 +40,11 @@ Stories still to write: I'll derive these from the Epic scope + PRD requirements
 ```
 
 **If the Epic has no Confluence links or the Specs UI is missing:**
+
 - Warn: "The Epic has no link to a Specs UI page. I'll derive Stories from the PRD functional requirements only — Stories may lack screen-level detail. Run skill 3 (INTEGRATE mode) to add the Specs UI, then re-run this skill to enrich Stories."
 
 **If the Epic does not exist in Jira:**
+
 - Stop: "I can't find that Epic in Jira. Please run skill 6 first to create the Epics."
 
 ---
@@ -54,6 +58,7 @@ Before asking any questions, do the analytical work first.
 From the Epic's PRD functional requirements (FR-XX), group requirements into logical Stories. Each Story should represent a single, deliverable unit of user value — not a technical task, not a bundle of unrelated features.
 
 Rules for Story grouping:
+
 - One user action / one system behaviour = one Story candidate
 - Requirements that always ship together (can't demo one without the other) = merge into one Story
 - Requirements that can be demoed independently = separate Stories
@@ -81,6 +86,7 @@ Total: [N] Stories proposed.
 ```
 
 Then ask:
+
 1. Does this breakdown look right, or should any Stories be merged / split?
 2. Are there Stories missing that are not covered by the PRD or Specs UI?
 3. Are there any Stories in this list that are out of scope for this iteration?
@@ -104,19 +110,21 @@ After the story list is confirmed, check each Story for missing information.
 
 ### What Stories may also need
 
-7. **Technical notes** — known constraints the dev agent should be aware of (e.g., "must use existing AuthService", "endpoint already exists at POST /api/v1/session")
-8. **Edge cases to handle** — specific scenarios the AC must cover (e.g., "user with no profile photo", "network timeout during upload")
-9. **Dependencies** — another Story or external system that must be ready first
+1. **Technical notes** — known constraints the dev agent should be aware of (e.g., "must use existing AuthService", "endpoint already exists at POST /api/v1/session")
+2. **Edge cases to handle** — specific scenarios the AC must cover (e.g., "user with no profile photo", "network timeout during upload")
+3. **Dependencies** — another Story or external system that must be ready first
 
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - An AC is not falsifiable ("the UI should look good" — ask: "What specifically makes it pass? Is there a design reference?")
 - A persona is unclear — "user" is not a persona; ask which one from the PRD
 - A Story touches a system or API not described in the ADR — ask: "Is this endpoint already built or does it need to be created?"
 - The edge cases for a flow are non-trivial and not covered in the Specs UI (e.g., concurrent edits, pagination, file size limits)
 
 **Infer and flag** when:
+
 - The persona is obvious from the Epic (single-persona Epic → use that persona)
 - A technical note is directly derivable from the ADR (e.g., "ADR specifies JWT auth → I'm assuming Stories in this Epic use the existing JWT middleware — correct me if wrong")
 - The DoD is standard across all Stories in the project — flag once, apply to all
@@ -155,10 +163,12 @@ For each confirmed Story, create a Jira issue of type **Story** linked to the pa
 
 **Summary:** `[Persona-first or action-first title]`
 Examples:
+
 - `As a manager, I want to export the dashboard as PDF so I can share it in reports`
 - `Display empty state on Dashboard when user has no data`
 
 **Description:**
+
 ```
 ## Context
 [1-2 sentences: who is this for, what are they trying to do, why does it matter]
@@ -178,6 +188,7 @@ Examples:
 ```
 
 **Acceptance Criteria (Jira AC field or description section):**
+
 ```
 ## Acceptance Criteria
 
@@ -188,11 +199,13 @@ Given [context], when [action], then [expected result].
 ```
 
 Each AC must be:
+
 - Falsifiable — a dev agent can write a test for it
 - Specific — no vague terms like "fast", "nice", "user-friendly"
 - Scoped — does not bleed into another Story's territory
 
 **Definition of Done (DoD):**
+
 ```
 ## Definition of Done
 - [ ] All ACs pass
@@ -218,6 +231,7 @@ Each AC must be:
 ## Step 5 — Resume logic
 
 If this skill is re-run on an Epic with existing Stories:
+
 - Re-read all existing Stories in Jira for this Epic
 - Check each for completeness: title, description, AC, DoD, Specs UI link
 - Only create Stories that are genuinely missing

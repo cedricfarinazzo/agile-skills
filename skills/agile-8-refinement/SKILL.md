@@ -8,6 +8,7 @@ description: "Refine Stories: points, ACs, DoD. Triggers: refine stories, estima
 You are acting as a facilitator running a 3-amigos refinement session: PM (value), Tech Lead (feasibility and complexity), QA (testability and edge cases).
 
 Your job is to:
+
 1. **Scan** Jira for Stories pending refinement on the target Epic or sprint backlog
 2. **Run the refinement** for each Story — validate AC, estimate complexity, surface gaps
 3. **Update** each Story in Jira with the refinement outputs
@@ -19,6 +20,7 @@ Your job is to:
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Find the target Epic(s) or sprint backlog in Jira
 - Read all Stories with status `To Do` that do not yet have story points
 - For each Story, read: summary, description, AC, DoD, Specs UI link, technical notes, dependencies
@@ -38,6 +40,7 @@ Refinement queue for Epic [PROJ-XXX] / Sprint [N]:
 Ask: "Shall I proceed with refining all of these, or focus on a specific Epic / subset?"
 
 **If a Story already has story points and complete AC/DoD:**
+
 - Skip it unless the user explicitly asks to re-refine
 - Report it as: "Already refined — skipping unless you ask me to revisit"
 
@@ -50,12 +53,14 @@ Process Stories one by one. For each Story, run through the four refinement lens
 ### Lens 1 — PM lens: Value and scope clarity
 
 Check:
+
 - Is the user story title clear and persona-specific?
 - Is there a "so that [benefit]" that makes the value explicit?
 - Is the scope boundary (out of scope section) defined?
 - Could this Story be split into two smaller independently-deliverable Stories?
 
 Flag if:
+
 - The title uses technical language that obscures user value ("Implement JWT refresh endpoint" instead of "Keep users logged in across sessions")
 - The benefit is missing or tautological ("so that it works")
 - The Story is too large to complete in one sprint — propose a split
@@ -63,12 +68,14 @@ Flag if:
 ### Lens 2 — Tech Lead lens: Feasibility and complexity
 
 Check:
+
 - Are there technical blockers or unknowns that prevent estimation?
 - Does the Story depend on another Story or external system that is not yet ready?
 - Is the technical approach clear enough for a dev agent to start without architectural questions?
 - Are there performance, security, or scalability implications not captured in the AC?
 
 Estimate complexity using **story points (Fibonacci: 1, 2, 3, 5, 8, 13)**:
+
 - 1–2: trivial change, well-understood, low risk
 - 3: straightforward but requires careful implementation
 - 5: moderate complexity, some unknowns
@@ -78,6 +85,7 @@ Estimate complexity using **story points (Fibonacci: 1, 2, 3, 5, 8, 13)**:
 If a Story is 13 points: do not estimate it, flag it for splitting and return it to skill 7.
 
 Flag if:
+
 - A dependency is not listed but is obviously required (e.g., Story assumes an API endpoint that hasn't been created yet)
 - The AC implies behaviour across systems not mentioned in the technical notes
 - There is a performance or security implication that the dev agent needs explicit guidance on
@@ -85,12 +93,14 @@ Flag if:
 ### Lens 3 — QA lens: Testability and edge cases
 
 Check:
+
 - Are all ACs falsifiable and testable as written?
 - Are edge cases covered? (null values, empty states, concurrent actions, permission boundaries, network errors)
 - Is there a clear way to know this Story is broken in production? (observability implication)
 - Are there integration test scenarios that span multiple Stories?
 
 Flag if:
+
 - An AC uses subjective language ("fast", "clean", "user-friendly") — must be made specific before estimation
 - An obvious edge case is missing (e.g., Story handles file upload but no AC for max file size exceeded)
 - The Story has no testable failure path — happy path only is insufficient
@@ -98,6 +108,7 @@ Flag if:
 ### Lens 4 — Readiness gate
 
 A Story is **Ready for Sprint** only if ALL of the following are true:
+
 - [ ] Title is clear and persona-specific
 - [ ] AC: at least 2 falsifiable Given/When/Then criteria
 - [ ] DoD is present and complete
@@ -165,6 +176,7 @@ After the interview, update each Story in Jira:
 **Labels:** Add `refined` label once the Story passes the readiness gate
 
 **Comment:** Add a refinement summary comment on the Story:
+
 ```
 ## Refinement — [date]
 Participants: PM, Tech Lead, QA (AI-assisted)
@@ -179,6 +191,7 @@ Status: ✅ Ready for Sprint / ❌ Not Ready — [reason]
 ### Stories that fail the readiness gate
 
 For Stories that are Not Ready:
+
 - Do NOT assign story points
 - Add label `not-ready`
 - Add a comment listing exactly what is missing
@@ -190,6 +203,7 @@ For Stories that are Not Ready:
 ## Step 5 — Resume logic
 
 If this skill is re-run:
+
 - Re-scan Jira for the current state of each Story — do not assume previous refinement state is still accurate
 - Skip Stories already labelled `refined` unless the user explicitly asks to re-refine
 - Re-process Stories labelled `not-ready` — check if the PM has resolved the flagged gaps since the last run

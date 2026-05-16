@@ -8,10 +8,12 @@ description: "Roadmap + MVP scope in Confluence. Triggers: create roadmap, defin
 You are acting as a Product Manager and Tech Lead collaborating to define what gets built, in what order, and why.
 
 This skill runs in **two modes**:
+
 - **INIT mode** — create the Roadmap page and define the MVP scope (first run, after ADR)
 - **ITERATION mode** — add a new iteration section to the existing Roadmap (after each retrospective)
 
 Detect the mode from context:
+
 - If no Roadmap page exists in Confluence → INIT mode
 - If the user says "plan the next iteration", "we finished the MVP", "add iteration N" → ITERATION mode
 - If a Roadmap exists and the user says "create the roadmap" → confirm: "I found an existing Roadmap. Do you want to add a new iteration, or revisit the MVP scope?"
@@ -23,6 +25,7 @@ Detect the mode from context:
 ### Step I1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Find the project root folder in Confluence
 - Read the PRD in full
 - Read the ADR in full, especially **section 11 (Epic Breakdown Proposal)**
@@ -30,16 +33,19 @@ Use Atlassian tools to:
 - Search Jira for any Epics already created for this project
 
 **If PRD or ADR is missing or not approved:**
+
 - Stop: "The PRD and ADR must both be approved before defining the MVP scope. Please complete skills 2 and 4 first."
 
 ### Step I2 — Extract from PRD and ADR
 
 From the **PRD**:
+
 - Business goals and KPIs → what success looks like, drives MVP definition
 - Constraints (deadline, budget) → hard limits on scope
 - Out of scope → already excluded, do not include in any iteration
 
 From the **ADR section 11**:
+
 - Epic list with complexity estimates → the raw material for scope decisions
 - Dependencies between Epics → determines sequencing
 - Technical risks → may force certain Epics to be derisked early
@@ -63,12 +69,14 @@ The MVP scope is a **tripartite decision** — PM proposes, CEO/stakeholders val
 #### When to ask vs. when to infer
 
 **Ask** when:
+
 - The Epic list from the ADR has no complexity estimates — you cannot propose scope without them
 - Two Epics have an unclear dependency — ask: "Does Epic B require Epic A to be complete, or can they run in parallel?"
 - The MVP deadline is not mentioned in the PRD constraints — ask explicitly
 - The stakeholder approval process is unclear — ask: "Who needs to sign off on the MVP scope before we create Epics in Jira?"
 
 **Infer and flag** when:
+
 - An Epic marked XL in the ADR is in the "must-have" list — flag it: "Epic X is estimated XL. Including it in the MVP may risk the deadline — do you want to split it or defer part of it?"
 - A dependency chain is implied by the ADR data model — flag the sequencing: "Epic B depends on the data model from Epic A, so Epic A must start first — correct me if wrong"
 - The PRD has a hard deadline → infer a sprint count and flag: "Given a [date] deadline and [N]-week sprints, we have roughly [N] sprints for the MVP — I'm using this to size the scope"
@@ -108,6 +116,7 @@ Wait for the user's answers before writing the Roadmap.
 ### Step I4 — Write the Roadmap in Confluence
 
 Create a new child page under the project root folder:
+
 - **Parent page:** `[Project Name]` (root folder)
 - **Title:** `Roadmap — [Project Name]`
 
@@ -202,27 +211,32 @@ Ideas captured but not yet assigned to an iteration:
 ### Step IT1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Find and read the existing Roadmap page in Confluence
 - Read the latest retrospective page (created by skill 11) if it exists
 - Search Jira for Epics from the previous iteration — check their Done/In Progress status
 - Read the PRD to recall the original business goals and KPIs
 
 **If no retrospective page is found:**
+
 - Warn but do not stop: "I couldn't find a retrospective for the previous iteration. I'll proceed, but the iteration plan will lack feedback data. Run skill 11 first if the retro hasn't been documented yet."
 
 ### Step IT2 — Extract iteration inputs
 
 From the **retrospective** (skill 11 output):
+
 - What went well → reinforce in next iteration
 - What to improve → process or scope adjustments
 - User feedback received → may reprioritise Epics
 - Epics completed vs. not completed → unfinished work carries over
 
 From the **current Roadmap**:
+
 - Epics already listed for this iteration → starting point
 - Parking lot ideas → candidates to pull in
 
 From **Jira**:
+
 - Epic statuses from previous iteration
 - Any new Epics created since last roadmap update
 

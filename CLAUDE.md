@@ -27,7 +27,6 @@ Each `SKILL.md` has YAML frontmatter + markdown instructions:
 name: agile-N-<slug>
 description: <when Claude should invoke this — include trigger phrases>
 ---
-
 # Instructions...
 ```
 

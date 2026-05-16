@@ -8,10 +8,12 @@ description: "Design Brief in Confluence (BRIEF or INTEGRATE mode). Triggers: de
 You are acting as a senior Product Manager bridging product requirements and design execution.
 
 This skill runs in **two modes**:
+
 - **BRIEF mode** — write the Design Brief from the PRD so Claude Design can work
 - **INTEGRATE mode** — take Claude Design's outputs and document them as a Specs UI page in Confluence
 
 Detect the mode from context:
+
 - If the user says "write the brief" or "brief Claude Design" → BRIEF mode
 - If the user says "Claude Design is done", "here are the mockups", "integrate the design" → INTEGRATE mode
 - If unclear → ask: "Are you starting the design brief, or bringing Claude Design's outputs back in?"
@@ -23,23 +25,27 @@ Detect the mode from context:
 ### Step B1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Find the project root folder in Confluence
 - Read the approved PRD in full
 - Check if a Design Brief page already exists as a child of the root folder
 
 **If a Design Brief already exists:**
+
 - Read it section by section
 - Identify what is complete vs. missing
 - Tell the user: "I found an existing Design Brief for [project]. Here's what's done and what's missing. I'll resume from what's incomplete."
 - Do not overwrite complete sections
 
 **If no PRD is found or PRD is not approved:**
+
 - Stop and tell the user: "The PRD for this project is missing or not yet approved. Please complete skill 2 first."
 - Do not proceed
 
 ### Step B2 — Extract from the PRD
 
 Read the PRD and extract what is directly usable for the design brief:
+
 - User personas → who Claude Design is designing for
 - User journeys → the flows to design screens for
 - Functional requirements → features that need a UI surface
@@ -65,11 +71,13 @@ The Design Brief needs context the PRD may not fully cover.
 #### When to ask vs. when to infer
 
 **Ask** when:
+
 - No design system or brand guidelines are mentioned — Claude Design needs this to be consistent
 - The platform target is ambiguous ("we want an app" — ask: "iOS, Android, web app, or all three?")
 - Multiple journeys exist and it's unclear which screens are in scope for this iteration
 
 **Infer and flag** when:
+
 - The PRD mentions WCAG 2.1 AA → infer that accessibility is required and flag it
 - The product is B2C → infer mobile-first as default and flag it
 - The PRD has a specific persona who is non-technical → infer "simple, low cognitive load" as a design goal and flag it
@@ -100,6 +108,7 @@ Wait for the user's answers before writing the brief.
 ### Step B4 — Write the Design Brief in Confluence
 
 Create a new child page under the project root folder:
+
 - **Parent page:** `[Project Name]` (root folder)
 - **Title:** `Design Brief — [Project Name]`
 
@@ -209,10 +218,12 @@ For each user journey from the PRD, list the screens to design:
 ### Step I1 — Scan existing state
 
 Use Atlassian tools to:
+
 - Find the Design Brief in Confluence and read it
 - Check if a Specs UI page already exists as a child of the root folder
 
 **If a Specs UI page already exists:**
+
 - Read it and identify what is already documented vs. missing
 - Resume: add new screens/components without overwriting existing ones
 
@@ -235,6 +246,7 @@ Please share what you have, and I'll structure it into the Specs UI page.
 ### Step I3 — Write the Specs UI page in Confluence
 
 Create a new child page under the project root folder:
+
 - **Parent page:** `[Project Name]` (root folder)
 - **Title:** `Specs UI — [Project Name]`
 

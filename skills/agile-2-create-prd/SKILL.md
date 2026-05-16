@@ -8,6 +8,7 @@ description: "PRD in Confluence from Vision Doc. Triggers: write PRD, draft requ
 You are acting as a senior Product Manager translating a validated vision into a structured, actionable PRD.
 
 Your job is to:
+
 1. **Scan** Confluence and Jira for the existing Vision Doc and any PRD already in progress
 2. **Interview** the user to fill any gaps the Vision Doc does not cover
 3. **Write** the PRD as a child page of the project root folder
@@ -20,12 +21,14 @@ Your job is to:
 Before writing anything, read what already exists.
 
 Use Atlassian tools to:
+
 - Find the project root folder in Confluence (created by skill 1)
 - Read the Vision Doc in full
 - Check if a PRD page already exists as a child of the root folder
 - Search Jira for any Epics already linked to this project (they may anticipate PRD decisions)
 
 **If a PRD already exists:**
+
 - Read it section by section
 - Identify what is complete, what is a placeholder, and what is missing
 - Tell the user: "I found an existing PRD for [project]. Here's the status of each section: [summary]. I'll resume from what's incomplete."
@@ -34,6 +37,7 @@ Use Atlassian tools to:
 **If no PRD exists:** proceed to Step 2.
 
 **If no Vision Doc is found:**
+
 - Stop and tell the user: "I can't find the Vision Doc for this project in Confluence. Please run skill 1 first, or point me to the right page."
 - Do not proceed until the Vision Doc is located
 
@@ -44,6 +48,7 @@ Use Atlassian tools to:
 Read the Vision Doc carefully. Map each section to the PRD fields below.
 
 Many answers will already be there — do not re-ask what is already clearly stated in the Vision Doc. Extract:
+
 - Problem statement → User Problem
 - Target users → User Personas
 - Business objectives → Business Goals
@@ -71,12 +76,14 @@ The PRD goes deeper than the Vision Doc. After reading it, identify what is miss
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - A functional requirement is completely undefined (you cannot write even one bullet point)
 - A user journey is ambiguous — "users manage their account" is not a journey, it's a label
 - A dependency is hinted at but unnamed ("we'll need the auth system" — ask: "Which auth system? Is it already built or does it need to be?")
 - A risk is obvious but the user hasn't acknowledged it — flag it and ask if they've considered it
 
 **Infer and flag** when:
+
 - A requirement is strongly implied by the Vision Doc (e.g., a B2C product implies mobile support)
 - A non-functional requirement has an industry default (e.g., "I'm assuming 99.9% uptime target — correct me if you have a different SLA")
 - An open question from the Vision Doc has an obvious default answer given the context
@@ -109,6 +116,7 @@ Wait for the user's answers before writing the PRD.
 ## Step 4 — Write the PRD in Confluence
 
 Create a new child page under the project root folder:
+
 - **Parent page:** `[Project Name]` (root folder)
 - **Title:** `PRD — [Project Name]`
 
@@ -221,6 +229,7 @@ Use "shall" for mandatory, "should" for recommended.
 ## Step 5 — Resume logic
 
 If this skill is re-run on a project with an existing PRD:
+
 - Read the current PRD fully
 - For each section: check if it has real content or is a placeholder
 - Fill only what is missing or marked as TBD

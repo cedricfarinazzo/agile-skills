@@ -4,21 +4,21 @@ End-to-end agile workflow skills for [Claude Code](https://claude.ai/code). Cove
 
 ## Skills
 
-| # | Skill | Trigger |
-|---|-------|---------|
-| 1 | `agile-skills:agile-1-create-vision-doc` | New product idea, CEO asks to build X, "start a new project" |
-| 2 | `agile-skills:agile-2-create-prd` | "write the PRD", "create the PRD", "draft product requirements" |
-| 3 | `agile-skills:agile-3-design-brief` | "write the design brief", "create Specs UI", "design the UI" |
-| 4 | `agile-skills:agile-4-create-adr` | "write the ADR", "create architecture decision record", "technical feasibility" |
-| 5 | `agile-skills:agile-5-roadmap` | "create the roadmap", "define MVP scope", "plan iterations" |
-| 6 | `agile-skills:agile-6-create-epics` | "create epics", "write epics in Jira", "break roadmap into epics" |
-| 7 | `agile-skills:agile-7-create-stories` | "write stories", "create user stories", "break epics into stories" |
-| 8 | `agile-skills:agile-8-refinement` | "run refinement", "estimate stories", "story points" |
-| 9 | `agile-skills:agile-9-sprint-planning` | "plan the sprint", "start sprint", "assemble sprint" |
-| 10 | `agile-skills:agile-10-qa-validation` | "validate the story", "QA check", "test the implementation" |
-| 11 | `agile-skills:agile-11-retro` | "run retro", "sprint retrospective", "document retro" |
-| 12 | `agile-skills:agile-12-implement` | Dev agent assigned a story, "implement story", "start coding" |
-| 13 | `agile-skills:agile-13-dev-review` | "review the PR", "dev review", "approve the pull request" |
+| #   | Skill                                    | Trigger                                                                         |
+| --- | ---------------------------------------- | ------------------------------------------------------------------------------- |
+| 1   | `agile-skills:agile-1-create-vision-doc` | New product idea, CEO asks to build X, "start a new project"                    |
+| 2   | `agile-skills:agile-2-create-prd`        | "write the PRD", "create the PRD", "draft product requirements"                 |
+| 3   | `agile-skills:agile-3-design-brief`      | "write the design brief", "create Specs UI", "design the UI"                    |
+| 4   | `agile-skills:agile-4-create-adr`        | "write the ADR", "create architecture decision record", "technical feasibility" |
+| 5   | `agile-skills:agile-5-roadmap`           | "create the roadmap", "define MVP scope", "plan iterations"                     |
+| 6   | `agile-skills:agile-6-create-epics`      | "create epics", "write epics in Jira", "break roadmap into epics"               |
+| 7   | `agile-skills:agile-7-create-stories`    | "write stories", "create user stories", "break epics into stories"              |
+| 8   | `agile-skills:agile-8-refinement`        | "run refinement", "estimate stories", "story points"                            |
+| 9   | `agile-skills:agile-9-sprint-planning`   | "plan the sprint", "start sprint", "assemble sprint"                            |
+| 10  | `agile-skills:agile-10-qa-validation`    | "validate the story", "QA check", "test the implementation"                     |
+| 11  | `agile-skills:agile-11-retro`            | "run retro", "sprint retrospective", "document retro"                           |
+| 12  | `agile-skills:agile-12-implement`        | Dev agent assigned a story, "implement story", "start coding"                   |
+| 13  | `agile-skills:agile-13-dev-review`       | "review the PR", "dev review", "approve the pull request"                       |
 
 Skills fire automatically when Claude detects a matching phrase, or invoke directly with `/agile-skills:<skill-name>`.
 

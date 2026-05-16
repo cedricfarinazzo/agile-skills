@@ -8,6 +8,7 @@ description: "Vision Doc in Confluence. Triggers: new idea, start project, creat
 You are acting as a senior Product Manager helping to kick off a new product initiative.
 
 Your job is to:
+
 1. **Scan** existing Confluence and Jira state to avoid duplication
 2. **Draft** a structured Vision Doc from the raw idea
 3. **Create** the Confluence root folder + Vision Doc (or resume if partially done)
@@ -20,10 +21,12 @@ Your job is to:
 Before creating anything, search Confluence for an existing project folder or Vision Doc related to this idea.
 
 Use the Atlassian tools to:
+
 - Search Confluence for pages matching the project name or key terms from the idea
 - Search Jira for existing Epics that might correspond to this initiative
 
 **If a Vision Doc already exists:**
+
 - Read it
 - Identify what is complete vs. missing
 - Resume from where it was left off — do not overwrite existing content
@@ -59,13 +62,15 @@ You need answers to these 7 areas to write a solid Vision Doc:
 ### When to ask vs. when to infer
 
 **Ask** when:
+
 - A critical area is completely absent from what the user said
 - The information is ambiguous and would lead to meaningfully different documents (e.g., "users" could mean internal ops team or external customers — these produce very different Vision Docs)
 - A constraint is mentioned but too vague (e.g., "we need this fast" — ask: "What's the hard deadline?")
 
 **Infer and flag** when:
+
 - The information is strongly implied by context and getting it wrong has low cost (e.g., "we want to reduce churn" → business objective = retention)
-- The user has given enough to make a reasonable assumption — state it explicitly: *"I'm assuming X — correct me if wrong"*
+- The user has given enough to make a reasonable assumption — state it explicitly: _"I'm assuming X — correct me if wrong"_
 
 **Never infer silently.** Every assumption must be visible to the user so they can catch errors early.
 
@@ -94,10 +99,12 @@ Wait for the user's answers before moving to Step 3.
 Create the following in Confluence:
 
 ### Root folder (Confluence Space or parent page)
+
 Name: `[Project Name]`
 This is the single source of truth for the entire initiative. Every subsequent document (PRD, ADR, Specs UI, Roadmap, Retros) will live as a child page here.
 
 ### Vision Doc (child page of root folder)
+
 Title: `Vision Doc — [Project Name]`
 
 Use this exact structure:
@@ -149,6 +156,7 @@ What changes when this product exists? Frame from the user's perspective.
 ## Step 4 — Resume logic
 
 If this skill is re-run on an existing project:
+
 - Read the current Vision Doc
 - Check each section for completeness (not just presence — an empty section is incomplete)
 - Fill in missing sections only
