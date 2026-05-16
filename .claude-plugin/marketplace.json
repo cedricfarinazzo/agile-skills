@@ -1,0 +1,14 @@
+{
+  "name": "agile-skills",
+  "owner": {
+    "name": "cedricfarinazzo",
+    "email": "cedric.farinazzo@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "agile-skills",
+      "source": ".",
+      "description": "End-to-end agile workflow skills for Claude Code — Vision Doc → Retro, integrated with Confluence and Jira."
+    }
+  ]
+}

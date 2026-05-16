@@ -32,7 +32,9 @@ Skills fire automatically when Claude detects a matching phrase, or invoke direc
 ### From GitHub (recommended)
 
 ```bash
-/plugin install https://github.com/cedricfarinazzo/agile-skills
+/plugin marketplace add cedricfarinazzo/agile-skills
+/plugin install agile-skills@agile-skills
+/reload-plugins
 ```
 
 ### Local (dev / test)

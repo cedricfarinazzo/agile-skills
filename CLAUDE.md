@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code plugin — 13 agile workflow skills covering the full product cycle (Vision Doc → Retro), integrated with Confluence and Jira via Atlassian MCP.
 
-Install: `/plugin install https://github.com/cedricfarinazzo/agile-skills`
+Install: `/plugin marketplace add cedricfarinazzo/agile-skills` then `/plugin install agile-skills@agile-skills`
 Test locally: `claude --plugin-dir ./agile-skills`
 
 ## Structure
