@@ -44,6 +44,47 @@ git clone https://github.com/cedricfarinazzo/agile-skills
 claude --plugin-dir ./agile-skills
 ```
 
+### Codex CLI
+
+Skills follow the [Agent Skills](https://agentskills.io) open standard — copy skill directories to your skills folder:
+
+```bash
+git clone https://github.com/cedricfarinazzo/agile-skills
+# User-level (all projects)
+cp -r agile-skills/skills/* ~/.agents/skills/
+# Or repo-level (current project only)
+cp -r agile-skills/skills/* .agents/skills/
+```
+
+Or use the built-in installer:
+
+```
+$skill-installer https://github.com/cedricfarinazzo/agile-skills
+```
+
+### GitHub Copilot CLI
+
+```bash
+git clone https://github.com/cedricfarinazzo/agile-skills
+# User-level (all projects)
+cp -r agile-skills/skills/* ~/.copilot/skills/
+# Or repo-level
+cp -r agile-skills/skills/* .github/skills/
+```
+
+Then reload:
+
+```
+/skills reload
+/skills info agile-1-create-vision-doc
+```
+
+Or use the GitHub CLI:
+
+```bash
+gh skill install cedricfarinazzo/agile-skills
+```
+
 ## Agile cycle order
 
 ```
