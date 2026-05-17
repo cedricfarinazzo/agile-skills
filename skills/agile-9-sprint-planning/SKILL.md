@@ -1,7 +1,12 @@
 ---
 name: agile-9-sprint-planning
-description: "Launch sprint in Jira. Triggers: plan sprint, start sprint, sprint planning. After skill 8."
+when_to_use:
+  - plan sprint
+  - start sprint
+  - sprint planning
+description: "Launch sprint in Jira. After skill 8."
 ---
+
 
 # agile_9_sprint_planning
 

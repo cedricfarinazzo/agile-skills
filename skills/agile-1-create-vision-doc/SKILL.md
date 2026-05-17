@@ -1,7 +1,12 @@
 ---
 name: agile-1-create-vision-doc
-description: "Vision Doc in Confluence. Triggers: new idea, start project, create vision doc. Cycle start, before skill 2."
+when_to_use:
+  - new idea
+  - start project
+  - create vision doc
+description: "Vision Doc in Confluence. Cycle start, before skill 2."
 ---
+
 
 # agile_1_create_vision_doc
 

@@ -1,7 +1,12 @@
 ---
 name: agile-5-roadmap
-description: "Roadmap + MVP scope in Confluence. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 11), before skill 6."
+when_to_use:
+  - create roadmap
+  - define mvp
+  - plan iteration
+description: "Roadmap + MVP scope in Confluence. After skill 4 or retro (skill 11), before skill 6."
 ---
+
 
 # agile_5_roadmap
 

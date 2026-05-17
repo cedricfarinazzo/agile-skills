@@ -1,7 +1,11 @@
 ---
 name: agile-6-create-epics
-description: "Epics in Jira from Roadmap. Triggers: create epics, set up Jira for MVP. After skill 5, before skill 7."
+when_to_use:
+  - create epics
+  - set up jira for mvp
+description: "Epics in Jira from Roadmap. After skill 5, before skill 7."
 ---
+
 
 # agile_6_create_epics
 

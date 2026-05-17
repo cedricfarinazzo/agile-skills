@@ -1,7 +1,12 @@
 ---
 name: agile-8-refinement
-description: "Refine Stories: points, ACs, DoD. Triggers: refine stories, estimate, backlog refinement. After skill 7, before skill 9."
+when_to_use:
+  - refine stories
+  - estimate
+  - backlog refinement
+description: "Refine Stories: points, ACs, DoD. After skill 7, before skill 9."
 ---
+
 
 # agile_8_refinement
 

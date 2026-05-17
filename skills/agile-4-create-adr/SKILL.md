@@ -1,7 +1,12 @@
 ---
 name: agile-4-create-adr
-description: "ADR + tech feasibility in Confluence. Triggers: write ADR, architecture decisions, assess tech. After skill 3, before skill 5."
+when_to_use:
+  - write adr
+  - architecture decisions
+  - assess tech
+description: "ADR + tech feasibility in Confluence. After skill 3, before skill 5."
 ---
+
 
 # agile_4_create_adr
 

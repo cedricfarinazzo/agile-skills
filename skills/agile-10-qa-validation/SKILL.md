@@ -1,7 +1,11 @@
 ---
 name: agile-10-qa-validation
-description: "QA Story after PR approved. Triggers: validate story, QA story. After skill 13. Fail → Bug; pass → Story closed."
+when_to_use:
+  - validate story
+  - qa story
+description: "QA Story after PR approved. After skill 13. Fail → Bug; pass → Story closed."
 ---
+
 
 # agile_10_qa_validation
 

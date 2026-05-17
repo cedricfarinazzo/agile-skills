@@ -1,7 +1,12 @@
 ---
 name: agile-3-design-brief
-description: "Design Brief in Confluence (BRIEF or INTEGRATE mode). Triggers: design brief, UI specs, integrate mockups. After skill 2, before skill 4."
+when_to_use:
+  - design brief
+  - ui specs
+  - integrate mockups
+description: "Design Brief in Confluence (BRIEF or INTEGRATE mode). After skill 2, before skill 4."
 ---
+
 
 # agile_3_design_brief
 

@@ -1,7 +1,12 @@
 ---
 name: agile-13-dev-review
-description: "Review PR: architecture, security, code quality. Triggers: review PR, code review, tech review. After skill 12, before skill 10."
+when_to_use:
+  - review pr
+  - code review
+  - tech review
+description: "Review PR: architecture, security, code quality. After skill 12, before skill 10."
 ---
+
 
 # agile_13_dev_review
 

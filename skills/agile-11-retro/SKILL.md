@@ -1,7 +1,12 @@
 ---
 name: agile-11-retro
-description: "Sprint retro in Confluence + Roadmap update. Triggers: run retro, close sprint, what did we learn. After all Stories Done, hands off to skill 5."
+when_to_use:
+  - run retro
+  - close sprint
+  - what did we learn
+description: "Sprint retro in Confluence + Roadmap update. After all Stories Done, hands off to skill 5."
 ---
+
 
 # agile_11_retro
 

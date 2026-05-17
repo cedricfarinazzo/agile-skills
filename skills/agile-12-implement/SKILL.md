@@ -1,7 +1,12 @@
 ---
 name: agile-12-implement
-description: "Implement Jira Story, open PR. Triggers: implement story, pick up ticket, work on PROJ-XXX. After skill 9, before skill 13."
+when_to_use:
+  - implement story
+  - pick up ticket
+  - work on proj-xxx
+description: "Implement Jira Story, open PR. After skill 9, before skill 13."
 ---
+
 
 # agile_12_implement
 

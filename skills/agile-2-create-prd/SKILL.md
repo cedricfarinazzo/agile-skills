@@ -1,7 +1,11 @@
 ---
 name: agile-2-create-prd
-description: "PRD in Confluence from Vision Doc. Triggers: write PRD, draft requirements. After skill 1, before skill 3."
+when_to_use:
+  - write prd
+  - draft requirements
+description: "PRD in Confluence from Vision Doc. After skill 1, before skill 3."
 ---
+
 
 # agile_2_create_prd
 
