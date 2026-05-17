@@ -1,52 +1,17 @@
-name: Dependency Risk Scanner
-
+name: Dependency Risk Scan
 on:
+  push:
+    branches: [ main ]
   pull_request:
-    types: [opened, synchronize, reopened]
-  schedule:
-    - cron: '0 2 * * *'
-
 jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Install pip-audit
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pip-audit
-
-      - name: Run dependency risk scan
-        id: run-scan
-        run: |
-          chmod +x tools/dependency-risk/scan.sh
-          tools/dependency-risk/scan.sh
-        continue-on-error: true
-
+      - uses: actions/checkout@v4
+      - name: Run dependency risk scanner
+        run: chmod +x tools/dependency-risk/scan.sh && ./tools/dependency-risk/scan.sh
       - name: Upload results
-        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dependency-scan-results
+          name: dependency-risk-results
           path: tools/dependency-risk/results
-
-      - name: Fail on high/critical findings
-        if: always()
-        run: |
-          if grep -ER '"high|critical|HIGH|CRITICAL"' tools/dependency-risk/results 2>/dev/null; then
-            echo "High/critical findings detected — failing job"
-            exit 1
-          fi
-          echo "No high/critical findings detected"

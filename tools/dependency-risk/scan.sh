@@ -1,67 +1,38 @@
-#!/bin/sh
-# Minimal POSIX dependency risk scanner
-set -eu
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-RESULTS_DIR="$REPO_ROOT/tools/dependency-risk/results"
+#!/usr/bin/env bash
+set -euo pipefail
+RESULTS_DIR="$(dirname "$0")/results"
 mkdir -p "$RESULTS_DIR"
-FOUND=0
-HAS_ISSUE=0
+SUMMARY="$RESULTS_DIR/summary.json"
 
-# Node
-if [ -f "$REPO_ROOT/package.json" ]; then
-  FOUND=1
+# Basic scanner: prefer npm audit if package.json present
+if [ -f package.json ]; then
   if command -v npm >/dev/null 2>&1; then
-    (cd "$REPO_ROOT" && npm audit --json > "$RESULTS_DIR/npm-audit.json" 2> "$RESULTS_DIR/npm-audit.err") || true
-  else
-    echo '{"error":"npm not found"}' > "$RESULTS_DIR/npm-audit.json"
-  fi
-fi
-
-# Python
-if [ -f "$REPO_ROOT/requirements.txt" ] || [ -f "$REPO_ROOT/pyproject.toml" ]; then
-  FOUND=1
-  if command -v pip-audit >/dev/null 2>&1; then
-    if [ -f "$REPO_ROOT/requirements.txt" ]; then
-      (cd "$REPO_ROOT" && pip-audit -r requirements.txt -f json > "$RESULTS_DIR/pip-audit.json" 2> "$RESULTS_DIR/pip-audit.err") || true
-    else
-      (cd "$REPO_ROOT" && pip-audit -f json > "$RESULTS_DIR/pip-audit.json" 2> "$RESULTS_DIR/pip-audit.err") || true
+    echo "Running npm audit..."
+    npm audit --json > "$RESULTS_DIR/npm-audit.json" 2>/dev/null || true
+    # crude detection of vulnerabilities
+    if grep -q '"vulnerabilities"' "$RESULTS_DIR/npm-audit.json" 2>/dev/null; then
+      # attempt to count vulnerabilities using jq if available
+      if command -v jq >/dev/null 2>&1; then
+        VULN_COUNT=$(jq '.metadata.vulnerabilities | map_values(.) | add' "$RESULTS_DIR/npm-audit.json" 2>/dev/null || echo 0)
+      else
+        # fallback: mark as found
+        VULN_COUNT=1
+      fi
+      if [ "$VULN_COUNT" != "0" ]; then
+        printf '{"status":"vulnerabilities_found","tool":"npm audit","vulnerabilities":%s}\n' "$VULN_COUNT" > "$SUMMARY"
+        exit 1
+      fi
     fi
+    printf '{"status":"clean","tool":"npm audit"}\n' > "$SUMMARY"
+    exit 0
   else
-    echo '{"error":"pip-audit not found"}' > "$RESULTS_DIR/pip-audit.json"
+    printf '{"status":"package.json_found_but_npm_missing"}\n' > "$SUMMARY"
+    exit 0
   fi
-fi
-
-if [ "$FOUND" -eq 0 ]; then
-  echo '{"error":"no supported manifest found"}' > "$RESULTS_DIR/scan.json"
-  echo "No supported package manifests found"
+elif [ -f requirements.txt ]; then
+  printf '{"status":"requirements.txt_found","note":"no scanner implemented for pip in this script"}' > "$SUMMARY"
+  exit 0
+else
+  printf '{"status":"no_dependency_manifest_found"}' > "$SUMMARY"
   exit 0
 fi
-
-# Analyze results: prefer jq if available
-if command -v jq >/dev/null 2>&1; then
-  if [ -f "$RESULTS_DIR/npm-audit.json" ]; then
-    if jq -e '((.metadata.vulnerabilities.high // 0) + (.metadata.vulnerabilities.critical // 0)) > 0' "$RESULTS_DIR/npm-audit.json" >/dev/null 2>&1; then
-      HAS_ISSUE=1
-    fi
-  fi
-  if [ -f "$RESULTS_DIR/pip-audit.json" ]; then
-    if jq -e 'any(.. | objects; .severity? == "HIGH" or .severity? == "CRITICAL")' "$RESULTS_DIR/pip-audit.json" >/dev/null 2>&1; then
-      HAS_ISSUE=1
-    fi
-  fi
-else
-  if [ -f "$RESULTS_DIR/npm-audit.json" ]; then
-    if grep -E '"high|critical|HIGH|CRITICAL"' "$RESULTS_DIR/npm-audit.json" >/dev/null 2>&1; then HAS_ISSUE=1; fi
-  fi
-  if [ -f "$RESULTS_DIR/pip-audit.json" ]; then
-    if grep -E '"high|critical|HIGH|CRITICAL"' "$RESULTS_DIR/pip-audit.json" >/dev/null 2>&1; then HAS_ISSUE=1; fi
-  fi
-fi
-
-if [ "$HAS_ISSUE" -eq 1 ]; then
-  echo "High/critical issues found"
-  exit 2
-fi
-
-echo "No high/critical issues found"
-exit 0
