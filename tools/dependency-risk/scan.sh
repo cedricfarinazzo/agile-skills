@@ -1,25 +1,31 @@
 #!/bin/sh
 # Minimal POSIX dependency risk scanner
-RESULTS_DIR="tools/dependency-risk/results"
+set -eu
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+RESULTS_DIR="$REPO_ROOT/tools/dependency-risk/results"
 mkdir -p "$RESULTS_DIR"
 FOUND=0
 HAS_ISSUE=0
 
 # Node
-if [ -f package.json ]; then
+if [ -f "$REPO_ROOT/package.json" ]; then
   FOUND=1
   if command -v npm >/dev/null 2>&1; then
-    npm audit --json > "$RESULTS_DIR/npm-audit.json" 2>/dev/null || true
+    (cd "$REPO_ROOT" && npm audit --json > "$RESULTS_DIR/npm-audit.json" 2> "$RESULTS_DIR/npm-audit.err") || true
   else
     echo '{"error":"npm not found"}' > "$RESULTS_DIR/npm-audit.json"
   fi
 fi
 
 # Python
-if [ -f requirements.txt ] || [ -f pyproject.toml ]; then
+if [ -f "$REPO_ROOT/requirements.txt" ] || [ -f "$REPO_ROOT/pyproject.toml" ]; then
   FOUND=1
   if command -v pip-audit >/dev/null 2>&1; then
-    pip-audit -f json > "$RESULTS_DIR/pip-audit.json" 2>/dev/null || true
+    if [ -f "$REPO_ROOT/requirements.txt" ]; then
+      (cd "$REPO_ROOT" && pip-audit -r requirements.txt -f json > "$RESULTS_DIR/pip-audit.json" 2> "$RESULTS_DIR/pip-audit.err") || true
+    else
+      (cd "$REPO_ROOT" && pip-audit -f json > "$RESULTS_DIR/pip-audit.json" 2> "$RESULTS_DIR/pip-audit.err") || true
+    fi
   else
     echo '{"error":"pip-audit not found"}' > "$RESULTS_DIR/pip-audit.json"
   fi
@@ -39,7 +45,7 @@ if command -v jq >/dev/null 2>&1; then
     fi
   fi
   if [ -f "$RESULTS_DIR/pip-audit.json" ]; then
-    if jq -e '.vulns[]? | select(.severity=="HIGH" or .severity=="CRITICAL")' "$RESULTS_DIR/pip-audit.json" >/dev/null 2>&1; then
+    if jq -e 'any(.. | objects; .severity? == "HIGH" or .severity? == "CRITICAL")' "$RESULTS_DIR/pip-audit.json" >/dev/null 2>&1; then
       HAS_ISSUE=1
     fi
   fi
