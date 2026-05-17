@@ -103,3 +103,13 @@ Each skill reads from what the previous skill wrote (Confluence pages, Jira issu
 ## License
 
 MIT
+## Dependency Risk Scanner
+
+A minimal scanner was added at `tools/dependency-risk/scan.sh` and a GitHub Actions workflow
+`.github/workflows/dependency-risk.yml` which runs on pull requests and daily. The scanner writes
+JSON results to `tools/dependency-risk/results/`.
+
+Usage:
+  chmod +x tools/dependency-risk/scan.sh
+  tools/dependency-risk/scan.sh
+
