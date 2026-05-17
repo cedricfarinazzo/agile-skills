@@ -273,12 +273,4 @@ If this skill is re-run on a project with an existing ADR:
 
 ## Principles (apply to every run)
 
-- **Ask before writing** — never assume a tech stack, architecture style, or infra setup; ask if not stated
-- **Group questions** — one message per interview round after reading existing docs; never drip
-- **Read before write** — always read PRD and Specs UI before touching Confluence
-- **Decisions have history** — never silently overwrite an existing decision; append with date and reason
-- **Idempotent** — re-running never duplicates content
-- **Resumable** — re-running resumes from incomplete sections only; re-reads updated source docs first
-- **Transparent assumptions** — every inference stated explicitly
-- **No placeholder sections** — real content or "TBD — [specific reason + owner]", never empty
-- **ADR feeds the Epic breakdown** — section 11 is the direct input to skill 5; make it precise and actionable
+See ../GUIDELINES.md for shared principles and authoring rules.

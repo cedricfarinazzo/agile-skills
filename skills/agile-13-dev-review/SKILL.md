@@ -305,15 +305,4 @@ Dev agent action required:
 
 ## Principles (apply to every run)
 
-- **Six lenses, every PR** — architecture, security, performance, infra/ops, code quality, AC/DoD — never skip a lens
-- **Blockers are specific and actionable** — a vague "security issue" is not a blocker; a numbered, located, explained, and suggested fix is
-- **Warnings do not block approval** — non-blocking issues are documented for follow-up, not used to hold the PR
-- **Ask before concluding** — clarifying questions on non-obvious choices come before the verdict, not after
-- **Never transition the Story to Done** — only QA (skill 10) closes a Story
-- **Re-review is scoped** — only re-check lenses with prior blockers; do not re-review the whole PR from scratch
-- **ADR is the reference** — all architecture decisions are evaluated against the ADR, not personal preference
-- **Security is always a blocker** — no security finding is a warning; all security issues block approval
-- **Infra changes require IaC** — manual cloud resource creation is always a blocker
-- **Idempotent** — re-running on an already-approved PR reports the approval and skips to next step advice
-- **Resumable** — re-running after change requests focuses on the delta, not the full PR
-- **Transparent assumptions** — every inferred compliance (pattern match, library version) is stated explicitly
+See ../GUIDELINES.md for shared principles and authoring rules.

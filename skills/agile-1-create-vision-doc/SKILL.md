@@ -179,10 +179,4 @@ After creating or updating the Vision Doc, always end with a clear summary:
 
 ## Principles (apply to every run)
 
-- **Ask before writing** — never draft the Vision Doc with unclear or missing information; ask first, write after
-- **Group questions** — ask everything missing in a single message, never drip questions one by one
-- **Read before write** — always check what exists in Confluence/Jira before creating anything
-- **Idempotent** — running this skill twice should not duplicate content
-- **Resumable** — if interrupted, re-running picks up from where it stopped; re-ask only what is still missing
-- **Transparent assumptions** — every inference must be stated explicitly so the user can catch errors early
-- **No blank sections** — every section must have real content or an explicit "TBD — [reason]", never left empty
+See ../GUIDELINES.md for shared principles and authoring rules.

@@ -329,18 +329,4 @@ Key inputs for next iteration:
 
 ## Principles (apply to every run)
 
-- **Retrospectives folder is the home for all retros** — never create retro pages directly under the project root; always nest them inside the Retrospectives folder
-- **Create the folder once, reuse forever** — check existence before creating; never duplicate the folder
-- **Blameless by default** — retro language is always about processes and systems, never about individuals
-- **Action items require owner + due date** — a vague improvement is not an action item
-- **User feedback drives Roadmap** — feedback that changes priorities must be captured and linked to the Roadmap update
-- **Technical debt is logged, never dismissed** — every shortcut gets a row in the debt table
-- **Velocity signal informs next sprint capacity** — never let an exceptional sprint set a false baseline
-- **Carried-over Stories are explained** — every Story not completed has a documented reason and a disposition
-- **Ask before writing** — always collect team inputs before drafting; do not invent learnings
-- **Group questions** — all seven dimensions in one message; never drip
-- **Roadmap and Retro stay linked** — every completed iteration gets a Roadmap section marked complete with a link to its retro page
-- **Idempotent** — re-running fills only missing sections; never overwrites existing retro content
-- **Resumable** — re-running re-reads sprint state in Jira and the existing retro page; resumes from what is incomplete
-- **Transparent assumptions** — velocity signals, improvement flags, and carried-over Story reasons are always stated as inferences, not conclusions
-- **This skill closes the loop** — its outputs (capacity, feedback, debt, action items) are the direct inputs to skill 5 ITERATION mode
+See ../GUIDELINES.md for shared principles and authoring rules.

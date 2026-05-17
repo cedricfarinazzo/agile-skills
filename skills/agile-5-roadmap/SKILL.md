@@ -316,14 +316,4 @@ Then add the next empty placeholder:
 
 ## Principles (apply to every run)
 
-- **Detect mode first** — always identify INIT vs. ITERATION before doing anything
-- **Ask before writing** — never assign Epics to MVP scope without explicit confirmation; propose and wait
-- **Scope is a tripartite decision** — the skill prepares the proposal, it does not make the final call
-- **Group questions** — one message per interview round; never drip
-- **Read before write** — always read PRD, ADR, and existing Roadmap before touching Confluence
-- **Roadmap is a living document** — never replace past iterations; only add to them
-- **Flag risks proactively** — XL Epics, dependency chains, and capacity signals must be surfaced before scope is locked
-- **Idempotent** — re-running never duplicates content
-- **Resumable** — re-running resumes from where the interview or writing left off
-- **Transparent assumptions** — every inference stated explicitly, especially around timeline and capacity
-- **Parking lot is permanent** — ideas never get deleted, only promoted to an iteration or left for later
+See ../GUIDELINES.md for shared principles and authoring rules.

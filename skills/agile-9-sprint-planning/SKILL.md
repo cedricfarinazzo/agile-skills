@@ -216,14 +216,4 @@ Stories not in this sprint (next sprint candidates):
 
 ## Principles (apply to every run)
 
-- **No unrefined Story enters a sprint** — the `refined` label is the gate; `not-ready` Stories are never included
-- **Sprint goal first** — a sprint without a goal is a task list; refuse to plan without one
-- **Capacity is a hard ceiling, buffer is mandatory** — always reserve 10–15% for unplanned work; never plan to 100%
-- **Dependencies drive order** — blocking Stories are always ranked before the Stories that depend on them
-- **Propose before act** — always show the composition and wait for confirmation before touching Jira
-- **Ask before writing** — clarify velocity and goal before proposing; never assume capacity
-- **Never remove In Progress Stories** — only the team can decide to pull a Story mid-sprint
-- **Confluence stays in sync** — every sprint planning updates the Roadmap table
-- **Idempotent** — re-running shows current state and fills only what is missing
-- **Resumable** — re-running re-reads live Jira sprint state; picks up from remaining capacity
-- **Transparent assumptions** — velocity, duration, and carry-over are always stated explicitly before the proposal
+See ../GUIDELINES.md for shared principles and authoring rules.

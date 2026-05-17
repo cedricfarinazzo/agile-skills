@@ -201,13 +201,4 @@ If this skill is re-run:
 
 ## Principles (apply to every run)
 
-- **Scan before act** — always check what exists in Jira before creating; never duplicate an Epic
-- **Confirm before create** — show the action plan and wait for user approval before touching Jira
-- **Ask before writing** — clarify vague Epic names, scope boundaries, or ownership before creating cards
-- **Group questions** — one message per interview round; never drip
-- **Dependencies drive order** — create Epics in dependency order, flag conflicts
-- **Confluence and Jira stay in sync** — every Epic created in Jira gets a link back in the Roadmap
-- **Never delete** — only transition to Won't Do or Cancelled with user confirmation and a comment
-- **Idempotent** — re-running never duplicates Epics; it catches drift and updates
-- **Resumable** — re-running re-scans live Jira state and resumes from what is still missing
-- **Transparent assumptions** — every inference stated explicitly, especially around scope and ownership
+See ../GUIDELINES.md for shared principles and authoring rules.

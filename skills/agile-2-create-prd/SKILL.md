@@ -253,11 +253,4 @@ After creating or updating the PRD, always close with:
 
 ## Principles (apply to every run)
 
-- **Ask before writing** — never draft a PRD section you don't have real information for; ask first
-- **Group questions** — ask everything missing in one message after reading the Vision Doc; never drip
-- **Read before write** — always read the Vision Doc and any existing PRD before touching Confluence
-- **Idempotent** — re-running never duplicates or overwrites complete content
-- **Resumable** — re-running resumes from incomplete sections only
-- **Transparent assumptions** — every inference stated explicitly, never silent
-- **No placeholder sections** — every section has real content or "TBD — [specific reason + owner]"
-- **PRD is the source of truth** — all downstream skills (ADR, Epics, Stories) derive from it; accuracy here saves rework everywhere
+See ../GUIDELINES.md for shared principles and authoring rules.

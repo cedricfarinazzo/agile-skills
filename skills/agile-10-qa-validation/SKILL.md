@@ -286,14 +286,4 @@ If this skill is re-run on a Story:
 
 ## Principles (apply to every run)
 
-- **Never assume a pass without evidence** — every AC requires confirmation; absence of failure is not a pass
-- **Every DoD item is checked, every run** — DoD is not carried over from previous runs without re-confirmation
-- **Bugs are created per failure, not per Story** — one AC failure = one Bug; multiple failures = multiple Bugs
-- **Story never self-closes** — only QA (this skill) transitions a Story to Done
-- **Specs UI deviations are flagged, not auto-rejected** — a deviation may be intentional; ask before failing
-- **Ask before concluding** — always collect test results before producing the validation report
-- **Group questions by area** — AC questions, DoD questions, UI questions in separate groups
-- **Idempotent** — re-running re-checks only failed or unvalidated items; does not re-open passed ACs
-- **Resumable** — re-running re-reads live Jira Bug statuses and carries over previously passed ACs
-- **Transparent assumptions** — any inferred pass (from test output or PR status) is stated explicitly
-- **Regression is mandatory** — shared components and modified endpoints must be retested in related Stories
+See ../GUIDELINES.md for shared principles and authoring rules.

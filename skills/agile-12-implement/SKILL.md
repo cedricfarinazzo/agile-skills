@@ -270,13 +270,4 @@ If this skill is re-run on a Story already In Progress or with an existing PR:
 
 ## Principles (apply to every run)
 
-- **Read everything before writing anything** — ADR, Specs UI, PRD, refinement comments, linked Bugs — all of it, before one line of code
-- **All blocking questions upfront** — never interrupt implementation to ask; identify every gap in Step 2 and ask at once
-- **AC coverage is mandatory** — every AC has a test; every edge case AC has its own test
-- **ADR is law** — no new pattern, library, or architectural decision without surfacing it as a flag and waiting for approval
-- **All states implemented** — happy path only is not done; loading, empty, error, success are all required
-- **Specs UI is the source of truth for UI** — implement what is specified, flag deviations, never silently improve
-- **Story transitions to In Review, never Done** — only QA closes a Story
-- **Transparent flags in PR** — tech debt, deviations, new decisions are documented in the PR, never hidden
-- **Resumable** — re-running on a bug-fix cycle reads QA bugs, addresses them, updates the PR, does not open a new one
-- **Idempotent** — re-running on a completed Story checks if the PR is already open and resumes from what is missing
+See ../GUIDELINES.md for shared principles and authoring rules.

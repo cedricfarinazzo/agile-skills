@@ -250,15 +250,4 @@ If this skill is re-run on an Epic with existing Stories:
 
 ## Principles (apply to every run)
 
-- **Analytical first, questions second** — always derive the Story list from PRD + Specs UI before asking anything; do the work, then validate
-- **Propose before create** — show the Story breakdown and wait for confirmation before touching Jira
-- **AC must be falsifiable** — reject vague criteria at write time; a dev agent cannot implement "looks good"
-- **One Story = one deliverable unit of value** — not a task, not a bundle; something that can be demoed alone
-- **Specs UI link is mandatory for UI Stories** — never create a UI Story without a direct Confluence link to the relevant screen
-- **Group questions by Story** — never mix questions from different Stories in the same numbered item
-- **Ask before writing** — clarify gaps before creating Jira cards
-- **Idempotent** — re-running never duplicates Stories
-- **Resumable** — re-running re-reads live Jira state and fills only what is missing
-- **Transparent assumptions** — every inference stated explicitly
-- **DoD is consistent** — agree on a project-wide DoD once; apply it to every Story without re-negotiating
-- **These Stories feed AI dev agents** — every ambiguity left in an AC becomes a wrong assumption in generated code; precision here saves rework downstream
+See ../GUIDELINES.md for shared principles and authoring rules.

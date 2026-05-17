@@ -315,12 +315,4 @@ Decisions made during design that differ from or extend the PRD/Brief:
 
 ## Principles (apply to every run)
 
-- **Detect mode first** — always identify BRIEF vs. INTEGRATE before doing anything
-- **Ask before writing** — never draft sections without the information needed; ask first
-- **Group questions** — one message per interview round, never drip
-- **Read before write** — always read PRD (BRIEF mode) or Design Brief (INTEGRATE mode) before touching Confluence
-- **Idempotent** — re-running never duplicates or overwrites complete content
-- **Resumable** — re-running picks up from incomplete sections only
-- **Transparent assumptions** — every inference stated explicitly
-- **No placeholder sections** — real content or "TBD — [reason + owner]", never empty
-- **Brief and Specs UI are separate pages** — Brief is the input to Claude Design; Specs UI is the output from Claude Design; never merge them
+See ../GUIDELINES.md for shared principles and authoring rules.

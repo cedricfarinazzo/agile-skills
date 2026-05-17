@@ -225,14 +225,4 @@ Refined Stories summary:
 
 ## Principles (apply to every run)
 
-- **Three lenses, every Story** — PM (value), Tech Lead (feasibility), QA (testability) — never skip a lens
-- **Readiness gate is binary** — a Story is Ready or Not Ready; no partial readiness
-- **13 points = split, not estimate** — a Story too large to estimate is a Story to return to skill 7
-- **AC must be falsifiable before estimation** — never assign points to a Story with vague AC
-- **Refinement comments are additive** — each run adds a dated entry; previous refinement history is preserved
-- **Not Ready Stories are documented, not deleted** — they stay in the backlog with clear instructions for the PM
-- **Ask before updating** — always show the analysis and proposed changes, wait for confirmation before writing to Jira
-- **Group questions by Story** — never mix questions from different Stories in the same numbered item
-- **Idempotent** — re-running skips already-refined Stories unless explicitly asked to revisit
-- **Resumable** — re-running re-reads live Jira state; picks up Not Ready Stories and checks if gaps were resolved
-- **Transparent assumptions** — every inference stated explicitly, especially on dependencies and DoD
+See ../GUIDELINES.md for shared principles and authoring rules.
