@@ -1,8 +1,13 @@
 # agile-skills
 
-End-to-end agile workflow skills for [Claude Code](https://claude.ai/code). Covers the full product cycle — from raw idea to sprint retrospective — integrated with **Confluence** and **Jira**.
+Two complementary plugins for [Claude Code](https://claude.ai/code), distributed from the same marketplace:
 
-## Skills
+- **`agile-skills`** — full product cycle, raw idea → sprint retrospective, integrated with **Confluence** and **Jira**.
+- **`dev-skills`** — developer workflow: deep PR review, fix-until-satisfied, rebase with conflict resolution, structured Jira postmortems, multi-PR merge train, and sprint-end closeout gate.
+
+The two pair naturally: `agile-skills` plans and ships the sprint; `dev-skills` reviews, merges, and closes it out.
+
+## Plugin: agile-skills
 
 | # | Skill | Trigger |
 |---|-------|---------|
@@ -22,10 +27,25 @@ End-to-end agile workflow skills for [Claude Code](https://claude.ai/code). Cove
 
 Skills fire automatically when Claude detects a matching phrase, or invoke directly with `/agile-skills:<skill-name>`.
 
+## Plugin: dev-skills
+
+| # | Skill | Trigger |
+|---|-------|---------|
+| 1 | `dev-skills:dev-update-pr` | "update pr", "merge main into", "/update-pr" |
+| 2 | `dev-skills:dev-review-pr` | "review pr", "/review-pr" |
+| 3 | `dev-skills:dev-fix-until-satisfied` | "fix all", "fix everything", "/fix-until-satisfied" |
+| 4 | `dev-skills:dev-jira-postmortem` | "comment jira", "jira postmortem", "/jira-postmortem" |
+| 5 | `dev-skills:dev-merge-train` | "merge train", "process all open prs", "/merge-train" |
+| 6 | `dev-skills:dev-tech-debt-sweep` | "tech debt sweep", "cleanup sweep", "housekeeping", "/tech-debt-sweep" |
+| 7 | `dev-skills:dev-sprint-closeout` | "sprint closeout", "close sprint", "/sprint-closeout" |
+
+`dev-merge-train` composes skills 1–5: rebase → review → fix → CI wait → merge → postmortem, sequentially across the open-PR queue. `dev-tech-debt-sweep` then audits the repo for cruft / CI waste / misplaced artifacts before `dev-sprint-closeout` runs the end-of-sprint smoke gate before `agile-11-retro`.
+
 ## Requirements
 
 - [Claude Code](https://claude.ai/code) v2.1.128+
-- Atlassian MCP configured (Confluence + Jira access)
+- Atlassian MCP configured (Confluence + Jira access) — both plugins
+- GitHub CLI (`gh`) — `dev-skills` only
 
 ## Install
 
@@ -33,9 +53,12 @@ Skills fire automatically when Claude detects a matching phrase, or invoke direc
 
 ```bash
 /plugin marketplace add cedricfarinazzo/agile-skills
-/plugin install agile-skills@agile-skills
+/plugin install agile-skills@agile-skills      # full agile cycle
+/plugin install dev-skills@agile-skills        # dev / PR / merge-train skills
 /reload-plugins
 ```
+
+Install one or both. The marketplace ships both plugins from this repo.
 
 ### Local (dev / test)
 
@@ -85,20 +108,70 @@ Or use the GitHub CLI:
 gh skill install cedricfarinazzo/agile-skills
 ```
 
-## Agile cycle order
+## Cycle order (both plugins together)
 
 ```
-1. Vision Doc  →  2. PRD  →  3. Design Brief
-                          →  4. ADR
-                          →  5. Roadmap  →  6. Epics  →  7. Stories
-                                                      →  8. Refinement
-                                                      →  9. Sprint Planning
-                                                         ↓
-                                              12. Implement  →  13. Dev Review  →  10. QA Validation
-                                                                                →  11. Retro
+                    PRODUCT / DISCOVERY
+                    ───────────────────
+  1. Vision Doc  →  2. PRD  →  3. Design Brief
+                            →  4. ADR
+
+                    PLANNING
+                    ────────
+  5. Roadmap     →  6. Epics  →  7. Stories
+                              →  8. Refinement
+                                  └─ tool: sprint-shared-file-audit.sh
+                              →  9. Sprint Planning
+
+                    EXECUTION (per story)
+                    ─────────────────────
+ 12. Implement   → 13. Dev Review  → PER-PR MERGE (dev-skills)
+
+                    PER-PR MERGE  (dev-skills)
+                    ────────────
+ ┌────────────────────────────────────────────────────────┐
+ │  dev-merge-train  (one PR at a time, sequentially):    │
+ │    dev-update-pr            rebase on main             │
+ │    dev-review-pr            read every file, vs ACs    │
+ │    dev-fix-until-satisfied  fix Critical + Minor       │
+ │    CI wait                  fresh post-rebase green    │
+ │    gh pr merge --squash                                │
+ │    dev-jira-postmortem      comment + transition Done  │
+ └────────────────────────────────────────────────────────┘
+
+                    SPRINT CLOSE
+                    ────────────
+  dev-tech-debt-sweep      →  dev-sprint-closeout      →  10. QA Validation         →  11. Retro
+  (dev-skills)                (dev-skills)                (agile-skills, Mode B:       (agile-skills)
+  cruft + CI + repo audit     dev-stack smoke gate        confirm-after-merge,         back to 5. Roadmap
+  report → approve → apply    on closed-out epic          per signed-off story)
 ```
+
+Plugin ownership:
+
+- **agile-skills:** steps 1–11, 12, 13. Including QA Validation (skill 10) in **Mode B (confirm-after-merge)** after the merge train.
+- **dev-skills:** the merge box + the dev-stack closeout gate. Plugs in between Dev Review and QA Validation.
+
+Skill 10 (QA Validation) has two entry modes:
+
+- **Mode A — classic.** Story is `In Review`, dev-review-approved but not yet merged. QA pass transitions Story to `Done`. Use when not running `dev-merge-train`.
+- **Mode B — confirm-after-merge.** Story is already `Done` (merge train + postmortem closed it). QA confirms ACs hold on `main`, stamps sign-off comment, no transition. Post-merge regression → file Bug, do not reopen Story.
+
+Mode is auto-detected from Story status. See [`skills/agile-10-qa-validation/SKILL.md`](skills/agile-10-qa-validation/SKILL.md) for the full ladder.
 
 Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
+
+## Per-repo configuration
+
+`dev-skills` reads project-specific values from the consumer repo's `CLAUDE.md` / `AGENTS.md`:
+
+- `cloudId` — Atlassian cloud id for MCP calls (e.g. `yourorg.atlassian.net`)
+- `ticket-prefix-regex` — defaults to `[A-Z]+-\d+`
+- `done-status-name` — project's Done state name (e.g. `Done`, `Terminé(e)`)
+- Lint / unit / integration commands per language stack
+- Optional `done-transition-id` for fast-path Jira transition
+
+Add a `## Skill configuration` section in your repo's `CLAUDE.md` listing these. Skills fall back to lookups when values absent.
 
 ## License
 

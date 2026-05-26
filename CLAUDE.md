@@ -42,11 +42,11 @@ Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `
 - Ask all missing info in a single message, never drip questions one by one
 - End every skill run with a clear `✅ Done / ⚠️ Still needed / 👉 Next step` summary
 
-## Agile cycle order
+## Cycle order
 
-1 → 2 → 3, 4, 5 → 6 → 7 → 8 → 9 → 12 → 13 → 10, 11
+Canonical schema in `README.md` (covers both `agile-skills` and `dev-skills` plugins, Mode A vs Mode B QA, dev-merge-train integration, sprint-closeout gate).
 
-Each skill reads from what the previous skill wrote (Confluence pages, Jira issues). Skills must check for existing state before creating anything.
+Invariant for all skills: read existing Confluence pages + Jira issues before creating anything.
 
 ## Plugin manifest
 
