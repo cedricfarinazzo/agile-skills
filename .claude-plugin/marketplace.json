@@ -12,6 +12,15 @@
         "repo": "cedricfarinazzo/agile-skills"
       },
       "description": "End-to-end agile workflow skills for Claude Code — Vision Doc → Retro, integrated with Confluence and Jira."
+    },
+    {
+      "name": "dev-skills",
+      "source": {
+        "source": "github",
+        "repo": "cedricfarinazzo/agile-skills",
+        "path": "dev-skills"
+      },
+      "description": "Developer workflow skills for Claude Code — deep PR review, fix-until-satisfied, rebase with conflict resolution, structured Jira postmortems, multi-PR merge train, sprint-end tech debt sweep + closeout gate. Pairs with agile-skills."
     }
   ]
 }
