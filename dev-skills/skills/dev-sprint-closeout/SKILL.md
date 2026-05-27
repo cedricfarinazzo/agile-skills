@@ -278,10 +278,39 @@ The severity-grouped finding list from Step 4.4. Per-finding: `file:line`, root 
 ### Critical bugs found + disposition
 - For each bug surfaced during closeout (any phase): ticket key, severity, fix status (PR open / PR merged / deferred).
 
+### Merge-train link audit (Phase 8)
+Results of `scripts/audit_merge_train_links.py --sprint <SN>` — pass/fail table. Missing links actioned or filed as follow-up.
+
 ### Recommended next steps
 - Whether to transition the epic to Done.
 - Tickets to file (e.g. follow-up work, frontend not in scope, Minor cleanup batch from Phase 4).
 - Sprint retro notes — especially **test coverage gaps** discovered, **spec drift** observed (Phase 3), **systemic code-quality patterns** worth a convention update (Phase 4).
+
+## Phase 8 — Merge-train link audit
+
+After Phase 7 (or in parallel with report publication), run the merge-train Phase 4 link audit for the sprint being closed:
+
+```bash
+python scripts/audit_merge_train_links.py --sprint <SN> --out docs/audits/merge-train-<sn>.md
+```
+
+Where `<SN>` is the sprint identifier (e.g. `S5`, `S6`).
+
+**If `scripts/audit_merge_train_links.py` does not exist in the consumer repo:**
+- Note it as a Minor finding: "Link audit script missing — cannot verify Phase 4 Relates links."
+- Skip this phase.
+
+**If the script exists:**
+1. Run it with `--out docs/audits/merge-train-<sn>.md`.
+2. Attach the report path to the Confluence closeout page (add a link in the "Merge-train link audit" section of the report body).
+3. For each `FAIL` row (missing Relates link), either:
+   a. Create the link via `mcp__atlassian__createIssueLink` (confirm per pair with user before creating), or
+   b. File a follow-up Jira sub-task if the pair is disputed or requires investigation.
+4. Re-run with `--strict` after creating any missing links to confirm 0 failures remain.
+
+**Auth required:** `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` env vars must be set. If absent, note as a skip reason in the report.
+
+**This phase does not block closeout** — link gaps are Minor findings. A clean audit (0 FAIL) is a quality signal, not a gate.
 
 ## Rules
 
@@ -302,6 +331,7 @@ The severity-grouped finding list from Step 4.4. Per-finding: `file:line`, root 
 - **Epic-level Done transition is not part of this skill.** Closeout produces a recommendation; the user transitions the epic only after acknowledging the report.
 - **Add coverage for any gap discovered.** If a smoke-test bug surfaces because no integration test exercised path X, the fix PR must include a new integration test that covers path X. Same for spec drift caught in Phase 3 (add a test that would have failed if the drift recurred) and a Critical correctness finding caught in Phase 4.
 - **Cross-PR conflict awareness still applies.** When the closeout fix PR enters `dev-merge-train`, Phase 1 conflict detection + Phase 4 Jira link creation run normally.
+- **Phase 8 link audit runs every closeout.** Even if the sprint had no collision pairs, run the script and note "0 pairs audited" so the absence of the report isn't ambiguous.
 
 ## Stop conditions
 

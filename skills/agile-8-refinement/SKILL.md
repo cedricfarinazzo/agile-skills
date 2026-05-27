@@ -9,10 +9,11 @@ You are acting as a facilitator running a 3-amigos refinement session: PM (value
 
 Your job is to:
 1. **Scan** Jira for Stories pending refinement on the target Epic or sprint backlog
-2. **Run the refinement** for each Story — validate AC, estimate complexity, surface gaps
-3. **Update** each Story in Jira with the refinement outputs
-4. **Flag** Stories that are not ready and explain why
-5. **Advise** on what to do next
+2. **Check shared-file collisions** before refining each Story (see Step 2)
+3. **Run the refinement** for each Story — validate AC, estimate complexity, surface gaps
+4. **Update** each Story in Jira with the refinement outputs
+5. **Flag** Stories that are not ready and explain why
+6. **Advise** on what to do next
 
 ---
 
@@ -43,7 +44,30 @@ Ask: "Shall I proceed with refining all of these, or focus on a specific Epic / 
 
 ---
 
-## Step 2 — Refine each Story
+## Step 2 — Shared-file collision check
+
+For each Story being refined, run `scripts/sprint-shared-file-audit.sh --story <KEY>` (if the script exists in the consumer repo) and surface any cross-Story file overlap.
+
+```bash
+scripts/sprint-shared-file-audit.sh --story PROJ-124
+```
+
+**Purpose:** detect file-collision pairs at refinement time so blocking Jira links (`is blocked by` / `blocks`) are created before sprint planning — not discovered at merge time via the merge-train conflict map.
+
+**Action on overlap found:**
+- Report the overlapping file(s) and the other Story key(s) to the user.
+- Create a blocking Jira link via `mcp__atlassian__createIssueLink` between the two Stories (type: `Blocks` / `is blocked by` based on dependency direction) — ask the user to confirm direction before creating.
+- Note the link in the refinement comment so the merge-train Phase 1 can see it was already handled.
+
+**If `scripts/sprint-shared-file-audit.sh` does not exist in the consumer repo:**
+- Skip this step silently and note in the output: "Shared-file audit skipped — script not found in consumer repo."
+
+**If overlap is found but dependency direction is unclear:**
+- Default to a `Relates` link (neutral) and flag for the user to upgrade to `Blocks`/`is blocked by` once the ordering is known.
+
+---
+
+## Step 3 — Refine each Story
 
 Process Stories one by one. For each Story, run through the four refinement lenses:
 
@@ -111,7 +135,7 @@ If any gate fails → Story is **Not Ready** — do not estimate it, document wh
 
 ---
 
-## Step 3 — Interview for refinement gaps
+## Step 4 — Interview for refinement gaps
 
 After analysing each Story through the four lenses, gather what you cannot resolve from the existing content.
 
@@ -148,7 +172,7 @@ Wait for answers before updating Jira.
 
 ---
 
-## Step 4 — Update Stories in Jira
+## Step 5 — Update Stories in Jira
 
 After the interview, update each Story in Jira:
 
@@ -173,6 +197,7 @@ Changes made:
 - [AC 2 rewritten for specificity]
 - [Edge case added: network timeout]
 - [Dependency on PROJ-124 added]
+Shared-file audit: [no collisions found | collisions: PROJ-X ↔ PROJ-Y on file Z — Blocks link created]
 Status: ✅ Ready for Sprint / ❌ Not Ready — [reason]
 ```
 
@@ -187,7 +212,7 @@ For Stories that are Not Ready:
 
 ---
 
-## Step 5 — Resume logic
+## Step 6 — Resume logic
 
 If this skill is re-run:
 - Re-scan Jira for the current state of each Story — do not assume previous refinement state is still accurate
@@ -197,12 +222,13 @@ If this skill is re-run:
 
 ---
 
-## Step 6 — Advise on next steps
+## Step 7 — Advise on next steps
 
 ```
 ✅ Done:
 - [N] Stories refined and marked Ready for Sprint
 - [N] Stories marked Not Ready — details in Jira comments
+- Shared-file audit: [N] collision pairs found and linked / no collisions
 
 Refined Stories summary:
 | Story | Points | Status |
@@ -226,6 +252,7 @@ Refined Stories summary:
 ## Principles (apply to every run)
 
 - **Three lenses, every Story** — PM (value), Tech Lead (feasibility), QA (testability) — never skip a lens
+- **Shared-file audit, every Story** — run `sprint-shared-file-audit.sh` per Story before the lenses; collisions resolved via Jira links before sprint planning, not at merge
 - **Readiness gate is binary** — a Story is Ready or Not Ready; no partial readiness
 - **13 points = split, not estimate** — a Story too large to estimate is a Story to return to skill 7
 - **AC must be falsifiable before estimation** — never assign points to a Story with vague AC
