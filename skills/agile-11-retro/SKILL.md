@@ -9,12 +9,13 @@ You are acting as a Scrum Master facilitating a sprint retrospective and ensurin
 
 Your job is to:
 1. **Scan** Jira and Confluence for the sprint results and existing retro docs
-2. **Ensure** the Retrospectives folder exists under the project root
-3. **Interview** the team to collect retrospective inputs
-4. **Write** the Retro page inside the Retrospectives folder
-5. **Update** the Roadmap with key learnings and next iteration signals
-6. **Close** the sprint in Jira
-7. **Advise** on what to do next
+2. **Load the sprint closeout report** (if produced by `dev-sprint-closeout`) and surface its findings as retro inputs
+3. **Ensure** the Retrospectives folder exists under the project root
+4. **Interview** the team to collect retrospective inputs
+5. **Write** the Retro page inside the Retrospectives folder, cross-linked to the closeout report
+6. **Update** the Roadmap with key learnings and next iteration signals
+7. **Close** the sprint in Jira
+8. **Advise** on what to do next
 
 ---
 
@@ -30,11 +31,16 @@ The Retrospectives folder is a dedicated child of the project root folder. It gr
 ├── 📄 Specs UI
 ├── 📄 ADR
 ├── 📄 Roadmap                    (living document — updated by this skill)
-└── 📁 Retrospectives             (created by this skill on first run)
-    ├── 📄 Retro 1 — Sprint 1
-    ├── 📄 Retro 2 — Sprint 2
-    └── 📄 Retro N — Sprint N     (created by this run)
+├── 📁 Retrospectives             (created by this skill on first run)
+│   ├── 📄 Retro 1 — Sprint 1
+│   ├── 📄 Retro 2 — Sprint 2
+│   └── 📄 Retro N — Sprint N     (created by this run)
+└── 📁 Closeouts                  (created by dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+    ├── 📄 Closeout 1 — Sprint 1
+    └── 📄 Closeout N — Sprint N  (consumed by this skill as retro input)
 ```
+
+Closeouts and Retrospectives are **sibling folders** under the project root. The closeout is the engineering / architectural gate produced by `dev-sprint-closeout` before this skill runs; the retro reads it and incorporates its findings.
 
 ---
 
@@ -76,6 +82,39 @@ Ask: "Is this sprint complete and ready for retrospective?"
 **If Stories are still In Progress or In Review:**
 - Warn: "Stories [list] are still In Progress or In Review. The sprint is not fully complete. Do you want to run the retro anyway and carry those Stories over, or wait until they are resolved?"
 - Do not proceed until the user confirms.
+
+---
+
+## Step 1.5 — Load the sprint closeout report (if available)
+
+Before interviewing the team, check whether `dev-sprint-closeout` produced a report for this sprint and load it as one of the retro inputs. The closeout is the single source of truth for what the engineering / architecture / tech-lead gate found; the retro should not re-litigate, only incorporate.
+
+- Look for a `Closeouts` (or `Closeouts — <Project>`) folder as a direct child of the project root folder.
+- **If the folder does not exist:** report `No Closeouts folder under <Project Name> — proceeding without closeout input. Recommend running dev-sprint-closeout before future retros.` Continue.
+- **If the folder exists:** look for a page titled `Closeout <N> — Sprint <N> — <Project>` matching the sprint being retro'd.
+  - **If the page does not exist:** report `No closeout report for Sprint <N> — proceeding without closeout input. Recommend running dev-sprint-closeout before future retros.` Continue.
+  - **If the page exists:** fetch its body in full. Extract and surface:
+    - **Verdict** (Closeout-clear / Blocked + reason).
+    - **Findings counts** — `N Critical / M Minor / K Nit` from Phase 4.
+    - **Critical findings** (if any) — these must show up verbatim in "What could be improved" and "Action items"; they are non-negotiable retro inputs.
+    - **Notable cross-file patterns** — these become candidate convention updates / new tickets.
+    - **"Lessons for retro" section** — the closeout's own retro-facing recommendations.
+    - **Bugs surfaced + fixed during closeout** — go in "What we caught late / could have caught earlier."
+
+Capture the closeout page id + URL — they are required when writing the Retro page (Step 5) so the two artifacts cross-link.
+
+Report to the user:
+
+```
+Closeout report for Sprint <N>: <link> (verdict: <Closeout-clear | Blocked>, <N> Critical / <M> Minor / <K> Nit)
+The retro will incorporate the following as inputs:
+- <Critical findings if any>
+- <Cross-file patterns>
+- <Closeout's own retro recommendations>
+- <Bugs surfaced during closeout>
+```
+
+If the closeout reports any **unresolved Critical findings**, halt and ask: *"Sprint closeout is not green — running the retro now will be advisory only. Resolve closeout-blocking issues first or proceed anyway?"* Do not proceed without explicit confirmation.
 
 ---
 
@@ -178,6 +217,10 @@ Committed: [N] points | Delivered: [N] points | Velocity: [N] pts ([N]%)
 Stories delivered: [N] | Carried over: [N] | Won't Do: [N]
 Bugs created by QA: [N]
 
+Closeout report: [link to Closeout N — Sprint N page, or "Not produced — recommend dev-sprint-closeout before next retro"]
+Closeout verdict: [Closeout-clear / Blocked + reason / N/A]
+Closeout findings: [N Critical / M Minor / K Nit, or N/A]
+
 ---
 
 ## What went well ✅
@@ -211,6 +254,8 @@ Prioritisation impact:
 | Item | Context | Suggested sprint to address |
 |------|---------|----------------------------|
 | [debt item] | [where / why introduced] | Sprint [N+1] / TBD |
+
+Items mirrored from the closeout's Phase 4 Minor / Nit / cross-file pattern findings go here verbatim with a link back to the closeout report — do not paraphrase, the closeout is the source of truth.
 
 ---
 
