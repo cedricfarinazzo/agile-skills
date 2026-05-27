@@ -63,6 +63,10 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - FK targets schema-qualified where multiple schemas exist
 - Time-series / hypertable creation order vs base table
 
+**Lint-rule introduction cascade**
+- **A PR that introduces a new lint rule (regex change, new lint script, tightened threshold) must sweep every file the rule covers — including files added by sibling PRs since the sweep was authored.** Rebase brings sibling-PR files into the tree but the original sweep was written against an older snapshot. Verify with: `grep -rn '<old-pattern>' <target-paths>` on the rebased tree, where `<old-pattern>` is the syntax the new rule rejects (e.g. for a marker rename: grep the old marker name). Any hit is a Critical finding — left unfixed, the first commit to `main` after merge will fail CI on that file. Real example: a "PYTEST-SKIP → pytest-skip" marker rename PR shipped without re-running the lint after rebase pulled in a sibling PR's new test file using the old marker, breaking main-CI.
+- **Look for new lint scripts the PR itself adds**: `git diff main HEAD -- scripts/lint_*.py .github/workflows/*.yml` reveals new lint scripts wired into CI. Run them locally against the rebased tree.
+
 ## Output format
 
 ```
@@ -105,3 +109,4 @@ If no issues: explicitly state "Satisfied — ready to merge." and why.
 - **Project Structure tree drift counts as minor.** New file in a `CLAUDE.md`-documented folder but tree not updated → minor finding. The self-improvement loop rule ("new file → update tree") applies to non-test helpers too, not just test files.
 - **Cross-PR file overlap is a review signal.** If review notices the diff touches a file that other open PRs also touch, flag in the "Good" / "Notes" section so the postmortem can record the Jira-link recommendation.
 - **Review report prose stays in normal English.** The report is a permanent record consumed by the merge-train, postmortem skill, and reviewers reading it later in Jira. Write the report as you would for a code-review comment on GitHub.
+- **A PR introducing a new lint rule must re-sweep the rebased tree, not just the pre-rebase one.** See the "Lint-rule introduction cascade" lens above. Any old-syntax hit on a file that the rebase pulled in is a Critical finding.
