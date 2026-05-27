@@ -1,7 +1,7 @@
 {
   "name": "agile-skills",
   "description": "End-to-end agile workflow skills for Claude Code — from Vision Doc to retrospective, integrated with Confluence and Jira.",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"

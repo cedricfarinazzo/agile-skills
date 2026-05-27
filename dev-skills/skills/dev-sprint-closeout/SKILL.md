@@ -40,7 +40,7 @@ The skill is allowed — and expected — to take 30-60 min. Speed comes from do
 Reads from the consumer repo's `CLAUDE.md` / `AGENTS.md`:
 
 - **`cloudId`** — Atlassian cloud id for `mcp__atlassian__*` calls. Required.
-- **`confluence-project-root`** — Confluence page id (or title) of the project root folder that contains Vision Doc, PRD, Design Brief, ADR, Roadmap, Retrospectives. Required for Phase 3.
+- **`confluence-project-root`** — Confluence page id (or title) of the project root folder that contains Vision Doc, PRD, Design Brief, ADR, Roadmap, Retrospectives, Closeouts. Required for Phase 3 + Phase 7 (closeout report publication).
 - **`done-status-name`** — project-local name for the Done state (e.g. "Done", "Terminé(e)", "Closed"). Used to assert every child ticket is in the terminal column.
 - **Lint / unit / integration commands** — project-specific; the skill calls them as opaque commands.
 - **Dev-stack bring-up commands** — typically `docker compose down && docker compose up -d --build --wait` plus migration.
@@ -220,7 +220,34 @@ If the smoke test fails — even partially, including the DNS-exposure step — 
 
 ## Phase 7 — Final closeout report
 
-Produce a single Markdown report covering:
+Produce a single Markdown report **and publish it to Confluence under a dedicated `Closeouts` folder** (sibling of `Retrospectives`, NOT inside it). The retro skill (`agile-11-retro`) reads it as one of its inputs.
+
+### Step 7.0 — Ensure the Closeouts folder exists
+
+Before writing the closeout report:
+
+- Check if a page named `Closeouts` (or `Closeouts — <Project>`) exists as a direct child of the project root folder identified by `confluence-project-root`.
+- **If it does not exist:** create it now.
+  - Title: `Closeouts — <Project>` (mirrors the `Retrospectives — <Project>` naming).
+  - Parent: project root folder.
+  - Body: minimal index — short description + a Markdown table with columns `Sprint | Period | Verdict | Report`. Pre-populate the row for the closeout being produced; later closeouts append to the same table.
+- **If it already exists:** use it as the parent for the new closeout page. Append (do not replace) a row to the index table for the new sprint.
+
+Closeouts and Retrospectives are sibling folders. Never publish closeouts inside `Retrospectives`; they are different artifacts produced by different skills and consumed in different ways (the retro reads the closeout, not the other way around).
+
+### Step 7.1 — Publish the report page
+
+- Title: `Closeout <N> — Sprint <N> — <Project>` (e.g. `Closeout 5 — Sprint 5 — FinPilot`).
+- Parent: the `Closeouts — <Project>` folder from Step 7.0.
+- Body: the full Markdown report below.
+
+Capture the page id + URL — pass them back in the final user-facing response so the operator (and `agile-11-retro`) can link to the artifact.
+
+### Step 7.2 — Update the Closeouts index
+
+Append a row to the index table on the `Closeouts — <Project>` page: `<Sprint> | <Period> | <Verdict> | <Link to report page>`. Keep newest first or chronological — pick one convention and stick with it; mirror what already exists if the table is non-empty.
+
+### Report body — required sections
 
 ### Ticket roll-up
 Every child ticket of the epic, status, brief.
