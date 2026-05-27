@@ -43,6 +43,12 @@ Ask: "Shall I proceed with refining all of these, or focus on a specific Epic / 
 
 ---
 
+### Optional pre-check — shared-file collision audit
+
+If the consumer project ships a shared-file audit script (e.g. `scripts/sprint-shared-file-audit.sh`), invoke it once per candidate Story to surface cross-Story file overlap. Each overlap becomes a blocking Jira link (`is blocked by` / `relates to`) created during this refinement run, instead of getting rediscovered as a merge conflict during `dev-merge-train` Phase 4. If no such script exists, skip and continue.
+
+---
+
 ## Step 2 — Refine each Story
 
 Process Stories one by one. For each Story, run through the four refinement lenses:
@@ -236,3 +242,4 @@ Refined Stories summary:
 - **Idempotent** — re-running skips already-refined Stories unless explicitly asked to revisit
 - **Resumable** — re-running re-reads live Jira state; picks up Not Ready Stories and checks if gaps were resolved
 - **Transparent assumptions** — every inference stated explicitly, especially on dependencies and DoD
+- **Cross-Story file collisions surfaced at refinement, not at merge** — when the consumer project provides a shared-file audit script, run it per Story and create blocking links upfront. Late detection at `dev-merge-train` Phase 4 compounds into large per-sprint link backlogs and hidden coupling between tickets
