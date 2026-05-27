@@ -218,6 +218,20 @@ If you find yourself thinking "the author probably had a reason" — stop, write
 
 If the smoke test fails — even partially, including the DNS-exposure step — **the epic is not Done.** File a bug Jira ticket linked to the epic and run `dev-merge-train` on the fix PR before claiming closeout.
 
+## Phase 6.5 — Merge-train Phase 4 Jira-link audit
+
+`dev-merge-train` Phase 4 creates `Relates` Jira links between tickets whose PRs collided on shared files during the sprint, and the postmortem comment on each affected ticket announces every link with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks silently into the next sprint's planning.
+
+Steps:
+
+1. **Source the pair list.** Preferred path: if the consumer project ships an audit helper (e.g. `scripts/audit_merge_train_links.py`), invoke it with the sprint identifier and use its output as the canonical list. Fallback: scan this sprint's postmortem comments for `Jira link created: relates to <KEY>` lines and build the list `(from_key, to_key, link_type)` manually.
+
+2. **Verify + reconcile each pair.** For every tuple, query Jira (`getJiraIssue` with `fields=issuelinks`) and confirm a link of the announced type exists in either direction. For any FAIL, decide per pair before continuing: create the link inline using `createIssueLink` (with user confirmation), or file a follow-up ticket if the pairing is disputed. Record the disposition.
+
+3. **Hand off to Phase 7.** Pass the full PASS/FAIL table + dispositions to the closeout report — the `Merge-train link audit` section in Phase 7 publishes it.
+
+A closeout cannot be declared green while any audited pair is FAIL without an explicit recorded disposition. Silent skips are the failure mode this phase exists to prevent. If FAILs cluster around a single hub ticket, flag it as retro input — the merge-train Phase 4 link step may need hardening.
+
 ## Phase 7 — Final closeout report
 
 Produce a single Markdown report **and publish it to Confluence under a dedicated `Closeouts` folder** (sibling of `Retrospectives`, NOT inside it). The retro skill (`agile-11-retro`) reads it as one of its inputs.
@@ -277,6 +291,15 @@ The severity-grouped finding list from Step 4.4. Per-finding: `file:line`, root 
 
 ### Critical bugs found + disposition
 - For each bug surfaced during closeout (any phase): ticket key, severity, fix status (PR open / PR merged / deferred).
+
+### Merge-train link audit (Phase 6.5)
+
+PASS/FAIL table for every `Relates` link the merge-train announced this sprint, plus the disposition for each FAIL:
+
+| from | to | type | status | link_id | disposition |
+|------|----|------|--------|---------|-------------|
+| PROJ-X | PROJ-Y | Relates | ✅ PASS | 10786 | — |
+| PROJ-X | PROJ-Z | Relates | ❌ FAIL | — | link created inline (id 10787) |
 
 ### Recommended next steps
 - Whether to transition the epic to Done.

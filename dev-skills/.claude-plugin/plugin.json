@@ -1,7 +1,7 @@
 {
   "name": "dev-skills",
   "description": "End-to-end developer workflow skills for Claude Code — deep PR review, fix-until-satisfied, rebase with conflict resolution, structured Jira postmortems, multi-PR merge train, sprint-end tech debt sweep + closeout gate. Pairs with agile-skills.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"
