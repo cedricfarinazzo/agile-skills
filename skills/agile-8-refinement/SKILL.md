@@ -160,15 +160,27 @@ After the interview, update each Story in Jira:
 
 ### Fields to update per Story
 
-**Story points:** Set the estimated value (1–8 scale; 13 = flag for split)
+**Story points (MANDATORY — write the structured field, not just the comment).** Call `mcp__atlassian__editJiraIssue` with the Story Points custom field set to the estimated value (1–8 scale; 13 = flag for split). Example:
 
-**AC updates:** Rewrite any AC that was vague, add missing edge cases, add failure path criteria
+```python
+mcp__atlassian__editJiraIssue(
+    cloudId="<configured>",
+    issueIdOrKey="<KEY>",
+    fields={"customfield_10016": 5, "labels": [<existing>, "refined"]},
+)
+```
 
-**Technical notes:** Add any clarifications from the Tech Lead lens — API references, service constraints, performance targets
+The field id is project-dependent — consumer repos should pin it in `CLAUDE.md` (e.g. `story-points-field: customfield_10016`). Default `customfield_10016` matches the standard Jira Software Cloud "Story Points" field. **Writing the estimate into the refinement comment alone is not sufficient** — Jira velocity charts, burndowns, sprint capacity reports, and the `agile-11-retro` "Committed / Delivered / Velocity" summary all read the structured field. Skipping the field write yields silently-broken sprint reporting that only surfaces at retro time.
 
-**Dependencies:** Add or update the dependency field with confirmed blockers
+**AC updates:** Rewrite any AC that was vague, add missing edge cases, add failure path criteria.
 
-**Labels:** Add `refined` label once the Story passes the readiness gate
+**Technical notes:** Add any clarifications from the Tech Lead lens — API references, service constraints, performance targets.
+
+**Dependencies:** Add or update the dependency field with confirmed blockers.
+
+**Labels:** Add `refined` label once the Story passes the readiness gate — include in the same `editJiraIssue` call as Story Points so the two writes never drift apart.
+
+**Verification (mandatory per Story):** After the `editJiraIssue` call, re-read the Story via `mcp__atlassian__getJiraIssue` with `fields=["customfield_10016", "labels"]` and confirm both the points value and the `refined` label round-tripped. If either is missing, retry the write before moving on. The `refined` label without a points value is the signature failure mode this verification exists to catch.
 
 **Comment:** Add a refinement summary comment on the Story:
 ```
@@ -243,3 +255,4 @@ Refined Stories summary:
 - **Resumable** — re-running re-reads live Jira state; picks up Not Ready Stories and checks if gaps were resolved
 - **Transparent assumptions** — every inference stated explicitly, especially on dependencies and DoD
 - **Cross-Story file collisions surfaced at refinement, not at merge** — when the consumer project provides a shared-file audit script, run it per Story and create blocking links upfront. Late detection at `dev-merge-train` Phase 4 compounds into large per-sprint link backlogs and hidden coupling between tickets
+- **Story Points = structured field write, not just comment text** — every Ready-for-Sprint Story must have the points custom field set via `editJiraIssue` (default `customfield_10016`). Writing "Points: N" in the refinement comment without the field write is the most common silent failure: the `refined` label suggests refinement happened, but velocity charts, burndowns, sprint capacity reports, and the retro summary all read `null`. Re-fetch + verify the field round-tripped before declaring the Story Ready.
