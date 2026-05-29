@@ -23,6 +23,22 @@ A user who invokes this skill (or says "implement the sprint", "work the sprint"
 
 When in doubt about a *spec* (what to build), the validation gate decides: pass → infer-and-flag and proceed; fail → comment, send back, skip the ticket, continue the loop. When in doubt about an *action* (whether to run the pipeline), you are already authorised — proceed.
 
+### The only thing worth asking a human: a critical decision
+
+Default to autonomy. Decide and document everything reversible — naming, internal structure, test approach, a standard pattern from the ADR, an HTTP status, a reversible mid-implementation choice. **Flag these in the PR; never stop for them.**
+
+Escalate to the user **only** when a decision is *critical* — meaning it is **both** hard-to-reverse / high-blast-radius **and** genuinely not derivable from the ADR / PRD / Specs / existing code. Concretely, a critical decision is one like:
+- a destructive or non-backward-compatible **data migration** (drop/rewrite a column, irreversible backfill)
+- changing the **security / auth / permission model**, or anything touching secrets / access control
+- a breaking change to a **public API or shared contract** other services depend on
+- introducing a **new external dependency, paid service, or infra/cost commitment** not in the ADR
+- deleting or rewriting a shared component in a way that affects other tickets/services
+- any action whose downside, if the guess is wrong, is data loss, a security hole, or production breakage that a later PR can't cleanly undo
+
+When you hit one: do **not** guess. Pause **that ticket only** — post a `🤖` comment on the Jira ticket stating the decision, the options, and your recommendation, then ask the user **one consolidated question** (batch every critical decision for that ticket into a single message). Keep the loop alive: move on to other eligible tickets while waiting, and resume the parked ticket when the user answers (resume via its markers). Never block the whole run on one critical decision, and never escalate a merely-reversible choice — that is noise.
+
+A genuinely-critical decision that the user has not answered by the time the run ends is reported as **Blocked (awaiting decision)**, not silently guessed.
+
 ## Strictly sequential — one ticket at a time
 
 **Process tickets strictly one at a time. Never run two tickets' pipelines in parallel.** The project has a **single shared Docker Compose stack** — concurrent implement/build/test runs would race on the same ports, database, and containers and corrupt each other's results. Finish a ticket's pipeline through Phase 1h (or its skip/defer) before starting the next ticket's Phase 1a.
@@ -134,7 +150,7 @@ Execute the plan. Implementation rules (carried over — these are non-negotiabl
 - **Cover every AC with a test**; each edge-case AC gets its own test.
 - **Name from the domain** (PRD / ADR vocabulary), not generic names.
 - Run the project's **lint + unit + integration** suites locally and get them green before moving on. Do not push and hope CI catches it.
-- If a decision not covered by the ADR is forced mid-implementation: post a `🤖` comment stating the situation + the option you chose + rationale, implement the lower-risk reversible option, and flag it prominently in the PR for the reviewer. (Autonomy means you decide and document — not that you stop and wait.)
+- If a decision not covered by the ADR is forced mid-implementation: classify it. **Reversible** → decide it (lower-risk option), post a `🤖` comment with the choice + rationale, flag it in the PR, keep going — autonomy means you decide and document, not stop and wait. **Critical** (irreversible / high-blast-radius per the Autonomy contract — destructive migration, auth/security, breaking shared contract, new paid/infra dependency, data-loss risk) → do NOT guess: park this ticket and escalate one consolidated question to the user, then move to the next eligible ticket and resume this one when answered.
 
 ### 1e. Commit and push (silent phase — no marker)
 
@@ -194,10 +210,12 @@ Monitoring is **best-effort within the run**: process whatever review comments /
 | PROJ-40 | Deferred | — | blocked by PROJ-39 (not in sprint) |
 | PROJ-44 | Needs Info | — | no DoD; no AC for size-limit path — sent to refinement |
 | PROJ-50 | Out of scope | — | targets repo `other-service`, not the current repo — left in To Do |
+| PROJ-52 | Blocked (awaiting decision) | — | critical: irreversible backfill — asked user, no answer yet |
 
 Deferred (blocked): [list + blocker + why]
 Sent to refinement (validation rejected): [list + what's missing]
 Out of scope (other repo): [list + the repo each one targets]
+Awaiting critical decision: [list + the question put to the user]
 Rework processed this run: [tickets + what changed]
 Follow-up tickets to file (CRITICAL only): [list / none]
 
@@ -208,7 +226,7 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 
 ## Rules (apply every run)
 
-- **Full autonomy.** Invoking authorises the whole pipeline for every eligible ticket. No mid-loop "should I proceed?" — the Stop conditions and the per-ticket validation gate are the only authorised interruptions.
+- **Full autonomy, escalate only on a critical decision.** Invoking authorises the whole pipeline for every eligible ticket. No mid-loop "should I proceed?" Decide and document everything reversible; the **only** thing you stop a ticket to ask the user is a genuinely critical, irreversible decision not derivable from the ADR/PRD/Specs (see the Autonomy contract) — and even then you park that one ticket and keep the loop running. Stop conditions + the validation gate are the other authorised per-ticket interruptions.
 - **Read everything before writing anything** — ADR, Specs UI, PRD, refinement comments, linked Bugs — before one line of code, per ticket.
 - **Works on Scrum and Kanban boards; never the backlog or a future sprint.** Detect the board type and select accordingly (current sprint for Scrum, on-board non-backlog for Kanban). A backlog or future-sprint ticket is never eligible — re-verify this on every candidate after the JQL fetch.
 - **Only implement tickets that target the current repo.** The 1a gate resolves the agent's repo (git `origin` + consumer `CLAUDE.md`) and the ticket's target repo/component; a mismatch is skipped (out-of-scope, left in `To Do`), never implemented in the wrong codebase. Ambiguous target → treat as missing spec, never assume it belongs here.
@@ -235,5 +253,6 @@ Stop the **whole run** and report immediately if:
 Stop **one ticket** (and continue the run) if:
 - It targets a different repo than the one the agent is in (→ out-of-scope skip, left in `To Do`).
 - The validation gate rejects it (→ Needs Info + skip).
+- It forces a **critical decision** (irreversible / high-blast-radius, not derivable from ADR/PRD/Specs) → park the ticket, ask the user one consolidated question, move on; resume when answered (→ reported as Blocked: awaiting decision if still unanswered at run end).
 - The self-review→fix loop exceeds 3 cycles without converging (→ leave PR open, `🤖` blocked comment, skip).
 - A required dependency is still not `Done` when its turn comes (→ defer).

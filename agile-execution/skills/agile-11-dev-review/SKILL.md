@@ -23,6 +23,8 @@ This skill **never blocks on a human answer.** Where the previous interactive ve
 - **Infer** the intended choice from the ADR, Specs UI, PRD, and surrounding code, and **flag the inference** in the verdict ("Assumed X because ADR §N specifies the polling pattern — confirm if wrong").
 - If a non-obvious choice is genuinely unjustifiable from the available context and would change whether the code is correct, that is a **blocker** ("rationale for X not derivable from ADR/PRD — document it or change the approach"), not a question. The blocker goes in the verdict and the caller resolves it.
 
+This skill **never prompts the user** — not even on a critical finding. It returns a verdict with numbered blockers; the orchestrating loop (`agile-10-implement`) owns all user interaction and is the one that escalates a critical decision to a human. A reviewer that spots a critical, irreversible risk records it as a blocker in the verdict; the loop decides whether that warrants asking the user.
+
 A run always ends in a verdict. It never ends in "waiting for the dev agent to reply".
 
 ## Configuration
