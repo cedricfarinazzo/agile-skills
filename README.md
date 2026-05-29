@@ -20,10 +20,10 @@ The two pair naturally: `agile-skills` plans and ships the sprint; `dev-skills` 
 | 7 | `agile-skills:agile-7-create-stories` | "write stories", "create user stories", "break epics into stories" |
 | 8 | `agile-skills:agile-8-refinement` | "run refinement", "estimate stories", "story points" |
 | 9 | `agile-skills:agile-9-sprint-planning` | "plan the sprint", "start sprint", "assemble sprint" |
-| 10 | `agile-skills:agile-10-qa-validation` | "validate the story", "QA check", "test the implementation" |
-| 11 | `agile-skills:agile-11-retro` | "run retro", "sprint retrospective", "document retro" |
-| 12 | `agile-skills:agile-12-implement` | Dev agent assigned a story, "implement story", "start coding" |
-| 13 | `agile-skills:agile-13-dev-review` | "review the PR", "dev review", "approve the pull request" |
+| 10 | `agile-skills:agile-10-implement` | "implement the sprint", "work the sprint", "pick up tickets", "implement story PROJ-XXX" — **autonomous** sprint loop |
+| 11 | `agile-skills:agile-11-dev-review` | "review the PR", "dev review", "approve the pull request" |
+| 12 | `agile-skills:agile-12-qa-validation` | "validate the story", "QA check", "test the implementation" |
+| 13 | `agile-skills:agile-13-retro` | "run retro", "sprint retrospective", "document retro" |
 
 Skills fire automatically when Claude detects a matching phrase, or invoke directly with `/agile-skills:<skill-name>`.
 
@@ -39,7 +39,9 @@ Skills fire automatically when Claude detects a matching phrase, or invoke direc
 | 6 | `dev-skills:dev-tech-debt-sweep` | "tech debt sweep", "cleanup sweep", "housekeeping", "/tech-debt-sweep" |
 | 7 | `dev-skills:dev-sprint-closeout` | "sprint closeout", "close sprint", "/sprint-closeout" |
 
-`dev-merge-train` composes skills 1–5: rebase → review → fix → CI wait → merge → postmortem, sequentially across the open-PR queue. `dev-tech-debt-sweep` then audits the repo for cruft / CI waste / misplaced artifacts before `dev-sprint-closeout` runs the end-of-sprint smoke gate before `agile-11-retro`.
+`dev-merge-train` composes skills 1–5: rebase → review → fix → CI wait → merge → postmortem, sequentially across the open-PR queue. `dev-tech-debt-sweep` then audits the repo for cruft / CI waste / misplaced artifacts before `dev-sprint-closeout` runs the end-of-sprint smoke gate before `agile-13-retro`.
+
+> `dev-merge-train` clears the **merge** queue (open PR → `main`). Its agile-side counterpart, `agile-10-implement`, clears the **build** queue (`To Do` Story → open PR): it autonomously pulls the sprint, orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review → In Review per ticket — then hands the PRs to `dev-merge-train`.
 
 ## Requirements
 
@@ -120,12 +122,24 @@ gh skill install cedricfarinazzo/agile-skills
                     ────────
   5. Roadmap     →  6. Epics  →  7. Stories
                               →  8. Refinement
-                                  └─ tool: sprint-shared-file-audit.sh
+                                  └─ bundled tool: sprint-shared-file-audit.sh
+                                     (run via ${CLAUDE_PLUGIN_ROOT})
                               →  9. Sprint Planning
 
-                    EXECUTION (per story)
-                    ─────────────────────
- 12. Implement   → 13. Dev Review  → PER-PR MERGE (dev-skills)
+                    EXECUTION  (autonomous, whole sprint)
+                    ─────────────────────────────────────
+ ┌────────────────────────────────────────────────────────┐
+ │  10. agile-10-implement  (one ticket at a time, in     │
+ │      Jira dependency order, no mid-loop confirmation): │
+ │    validate ticket        gate: send under-spec'd back │
+ │    plan                   🤖 plan comment              │
+ │    implement              ADR + Specs UI, all ACs      │
+ │    commit + push                                       │
+ │    open PR                🤖 pr comment                │
+ │    11. agile-11-dev-review  six-lens self-review gate  │
+ │    transition → In Review 🤖 status_change            │
+ │    monitor PR             review comments / CI / rebase│
+ └────────────────────────────────────────────────────────┘
 
                     PER-PR MERGE  (dev-skills)
                     ────────────
@@ -141,7 +155,7 @@ gh skill install cedricfarinazzo/agile-skills
 
                     SPRINT CLOSE
                     ────────────
-  dev-tech-debt-sweep      →  dev-sprint-closeout      →  10. QA Validation         →  11. Retro
+  dev-tech-debt-sweep      →  dev-sprint-closeout      →  12. QA Validation         →  13. Retro
   (dev-skills)                (dev-skills)                (agile-skills, Mode B:       (agile-skills)
   cruft + CI + repo audit     dev-stack smoke gate        confirm-after-merge,         back to 5. Roadmap
   report → approve → apply    on closed-out epic          per signed-off story)
@@ -149,15 +163,15 @@ gh skill install cedricfarinazzo/agile-skills
 
 Plugin ownership:
 
-- **agile-skills:** steps 1–11, 12, 13. Including QA Validation (skill 10) in **Mode B (confirm-after-merge)** after the merge train.
+- **agile-skills:** steps 1–13. Steps 10 (Implement) + 11 (Dev Review) run as one autonomous loop; QA Validation (skill 12) runs in **Mode B (confirm-after-merge)** after the merge train.
 - **dev-skills:** the merge box + the dev-stack closeout gate. Plugs in between Dev Review and QA Validation.
 
-Skill 10 (QA Validation) has two entry modes:
+Skill 12 (QA Validation) has two entry modes:
 
 - **Mode A — classic.** Story is `In Review`, dev-review-approved but not yet merged. QA pass transitions Story to `Done`. Use when not running `dev-merge-train`.
 - **Mode B — confirm-after-merge.** Story is already `Done` (merge train + postmortem closed it). QA confirms ACs hold on `main`, stamps sign-off comment, no transition. Post-merge regression → file Bug, do not reopen Story.
 
-Mode is auto-detected from Story status. See [`skills/agile-10-qa-validation/SKILL.md`](skills/agile-10-qa-validation/SKILL.md) for the full ladder.
+Mode is auto-detected from Story status. See [`skills/agile-12-qa-validation/SKILL.md`](skills/agile-12-qa-validation/SKILL.md) for the full ladder.
 
 Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
 

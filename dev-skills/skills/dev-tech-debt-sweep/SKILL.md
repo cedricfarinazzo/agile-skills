@@ -29,7 +29,7 @@ Project source files (anything tracked in git) must not reference:
 
 - **Personal workflow tags** in TODO comments (e.g. `TODO(<owner-handle>)`, `TODO(<persona-tag>)`) — agent or owner private tags that confuse contributors. Build the project-specific tag list from the owner's known agent / persona vocabulary before grepping.
 - **Personal style / compression modes** in `CLAUDE.md` (e.g. "use `<terse-mode>` style", "always reply in `<style-name>` mode", refs to agent-side compression dialects) — these are agent-side personal preferences, not project conventions.
-- **Personal skill names** in project `CLAUDE.md` (e.g. `dev-sprint-closeout`, `agile-11-retro`, custom slash-commands) — these live in plugin repos and are not installed for every contributor. Either rewrite as workflow-neutral guidance ("run end-of-sprint closeout gate before retro") or delete.
+- **Personal skill names** in project `CLAUDE.md` (e.g. `dev-sprint-closeout`, `agile-13-retro`, custom slash-commands) — these live in plugin repos and are not installed for every contributor. Either rewrite as workflow-neutral guidance ("run end-of-sprint closeout gate before retro") or delete.
 - **Owner-specific URLs / cloudIds / tokens / project keys** sprinkled outside their natural homes (e.g. hardcoded Jira `cloudId` in random workflows; project-specific issue prefixes baked into shared scripts).
 
 **Grep recipe (substitute the alternation list with the consumer's actual personal vocabulary — owner tags, persona names, compression / style modes, custom CLI wrappers, personal skill names, hardcoded owner cloudId / handle / email):**

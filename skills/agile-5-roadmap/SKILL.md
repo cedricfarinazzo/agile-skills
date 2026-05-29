@@ -1,6 +1,6 @@
 ---
 name: agile-5-roadmap
-description: "Roadmap + MVP scope in Confluence. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 11), before skill 6."
+description: "Roadmap + MVP scope in Confluence. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 13), before skill 6."
 ---
 
 # agile_5_roadmap
@@ -203,16 +203,16 @@ Ideas captured but not yet assigned to an iteration:
 
 Use Atlassian tools to:
 - Find and read the existing Roadmap page in Confluence
-- Read the latest retrospective page (created by skill 11) if it exists
+- Read the latest retrospective page (created by skill 13) if it exists
 - Search Jira for Epics from the previous iteration — check their Done/In Progress status
 - Read the PRD to recall the original business goals and KPIs
 
 **If no retrospective page is found:**
-- Warn but do not stop: "I couldn't find a retrospective for the previous iteration. I'll proceed, but the iteration plan will lack feedback data. Run skill 11 first if the retro hasn't been documented yet."
+- Warn but do not stop: "I couldn't find a retrospective for the previous iteration. I'll proceed, but the iteration plan will lack feedback data. Run skill 13 first if the retro hasn't been documented yet."
 
 ### Step IT2 — Extract iteration inputs
 
-From the **retrospective** (skill 11 output):
+From the **retrospective** (skill 13 output):
 - What went well → reinforce in next iteration
 - What to improve → process or scope adjustments
 - User feedback received → may reprioritise Epics

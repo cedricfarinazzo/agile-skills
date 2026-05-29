@@ -45,7 +45,20 @@ Ask: "Shall I proceed with refining all of these, or focus on a specific Epic / 
 
 ### Optional pre-check — shared-file collision audit
 
-If the consumer project ships a shared-file audit script (e.g. `scripts/sprint-shared-file-audit.sh`), invoke it once per candidate Story to surface cross-Story file overlap. Each overlap becomes a blocking Jira link (`is blocked by` / `relates to`) created during this refinement run, instead of getting rediscovered as a merge conflict during `dev-merge-train` Phase 4. If no such script exists, skip and continue.
+This skill **bundles** a shared-file audit script. Invoke it once per sprint to surface cross-Story file overlap. Each overlap becomes a blocking Jira link (`is blocked by` / `relates to`) created during this refinement run, instead of getting rediscovered as a merge conflict during `dev-merge-train` Phase 4.
+
+**Resolve the script path from the plugin root — never a bare relative path.** When the skill runs installed as a plugin, the working directory is the consumer repo, not the skill directory, so `scripts/sprint-shared-file-audit.sh` will not exist. Always invoke via the `CLAUDE_PLUGIN_ROOT` environment variable that Claude Code sets for plugin skills:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh" ABC-28 ABC-30 ABC-39
+```
+
+Resolution order (use the first that resolves to an existing file):
+1. `${CLAUDE_PLUGIN_ROOT}/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh` — installed as a plugin
+2. The script's path relative to this `SKILL.md` file's own directory (`scripts/sprint-shared-file-audit.sh`) — running via `--plugin-dir` or a copied skill dir
+3. If neither resolves and the consumer repo ships its own equivalent under `scripts/`, use that.
+
+If none resolve, skip the audit and continue — it is an optional pre-check. See `docs/sprint-shared-file-audit.md` for full usage.
 
 ---
 
@@ -170,7 +183,7 @@ mcp__atlassian__editJiraIssue(
 )
 ```
 
-The field id is project-dependent — consumer repos should pin it in `CLAUDE.md` (e.g. `story-points-field: customfield_10016`). Default `customfield_10016` matches the standard Jira Software Cloud "Story Points" field. **Writing the estimate into the refinement comment alone is not sufficient** — Jira velocity charts, burndowns, sprint capacity reports, and the `agile-11-retro` "Committed / Delivered / Velocity" summary all read the structured field. Skipping the field write yields silently-broken sprint reporting that only surfaces at retro time.
+The field id is project-dependent — consumer repos should pin it in `CLAUDE.md` (e.g. `story-points-field: customfield_10016`). Default `customfield_10016` matches the standard Jira Software Cloud "Story Points" field. **Writing the estimate into the refinement comment alone is not sufficient** — Jira velocity charts, burndowns, sprint capacity reports, and the `agile-13-retro` "Committed / Delivered / Velocity" summary all read the structured field. Skipping the field write yields silently-broken sprint reporting that only surfaces at retro time.
 
 **AC updates:** Rewrite any AC that was vague, add missing edge cases, add failure path criteria.
 
@@ -254,5 +267,5 @@ Refined Stories summary:
 - **Idempotent** — re-running skips already-refined Stories unless explicitly asked to revisit
 - **Resumable** — re-running re-reads live Jira state; picks up Not Ready Stories and checks if gaps were resolved
 - **Transparent assumptions** — every inference stated explicitly, especially on dependencies and DoD
-- **Cross-Story file collisions surfaced at refinement, not at merge** — when the consumer project provides a shared-file audit script, run it per Story and create blocking links upfront. Late detection at `dev-merge-train` Phase 4 compounds into large per-sprint link backlogs and hidden coupling between tickets
+- **Cross-Story file collisions surfaced at refinement, not at merge** — run the bundled shared-file audit script (resolved via `${CLAUDE_PLUGIN_ROOT}`, see Step 1) across the sprint and create blocking links upfront. Late detection at `dev-merge-train` Phase 4 compounds into large per-sprint link backlogs and hidden coupling between tickets
 - **Story Points = structured field write, not just comment text** — every Ready-for-Sprint Story must have the points custom field set via `editJiraIssue` (default `customfield_10016`). Writing "Points: N" in the refinement comment without the field write is the most common silent failure: the `refined` label suggests refinement happened, but velocity charts, burndowns, sprint capacity reports, and the retro summary all read `null`. Re-fetch + verify the field round-tripped before declaring the Story Ready.

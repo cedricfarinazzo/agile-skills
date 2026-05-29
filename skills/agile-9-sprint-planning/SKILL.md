@@ -206,10 +206,10 @@ Stories not in this sprint (next sprint candidates):
 | PROJ-129 | 8 |
 
 👉 Dev flow from here:
-   1. Skill 12: agile_12_implement — dev agent picks up a Story in To Do, implements it, opens a PR, moves Story to In Review
-   2. Skill 13: agile_13_dev_review — back/infra/ops reviewer reviews the PR before QA
-   3. Skill 10: agile_10_qa_validation — QA validates the Story against ACs and DoD, moves to Done or creates Bugs
-   Run skills 12 → 13 → 10 for each Story in the sprint.
+   1. Skill 10: agile_10_implement — dev agent picks up a Story in To Do, implements it, opens a PR, moves Story to In Review
+   2. Skill 11: agile_11_dev_review — back/infra/ops reviewer reviews the PR before QA
+   3. Skill 12: agile_12_qa_validation — QA validates the Story against ACs and DoD, moves to Done or creates Bugs
+   Run skills 10 → 11 → 12 for each Story in the sprint.
 ```
 
 ---

@@ -1,6 +1,14 @@
 # Sprint Shared-File Audit Workflow
 
-**Script:** `scripts/sprint-shared-file-audit.sh` (bundled with `agile-8-refinement`)
+**Script:** bundled with this skill at `scripts/sprint-shared-file-audit.sh`.
+**Invoke via the plugin root** so it resolves when installed as a plugin (cwd is the consumer repo, not the skill dir):
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh" ...
+```
+
+The `./scripts/sprint-shared-file-audit.sh` form used in the examples below is shorthand — substitute the `${CLAUDE_PLUGIN_ROOT}`-prefixed path (or the script's path relative to this skill dir) when running.
+
 **Watchlist:** optional, per-repo, format: one path per line (`#` for comments)
 
 ---

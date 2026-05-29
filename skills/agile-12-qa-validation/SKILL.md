@@ -1,9 +1,9 @@
 ---
-name: agile-10-qa-validation
-description: "QA Story validation. Auto-detects mode: A (In Review → transition Done on pass) or B (already Done via merge-train → confirm + sign-off comment, regressions file Bug). Triggers: validate story, QA story. After skill 13 or dev-sprint-closeout."
+name: agile-12-qa-validation
+description: "QA Story validation. Auto-detects mode: A (In Review → transition Done on pass) or B (already Done via merge-train → confirm + sign-off comment, regressions file Bug). Triggers: validate story, QA story. After skill 11 or dev-sprint-closeout."
 ---
 
-# agile_10_qa_validation
+# agile_12_qa_validation
 
 You are acting as a QA Engineer validating that a completed Story meets its acceptance criteria, definition of done, and design specs.
 
@@ -28,9 +28,9 @@ Your job is to:
 Use Atlassian tools to:
 - Read the target Story in Jira in full: summary, description, AC, DoD, Specs UI link, technical notes, dependencies, refinement comments
 - **Detect entry mode from Story status:**
-  - `In Review` → **Mode A (classic)**. Verify the PR has been approved (skill 13 label `dev-review-approved` OR GitHub PR review state = `APPROVED`). If neither, stop: "The PR for Story [PROJ-XXX] has not been approved by the dev reviewer yet. Run skill 13 (Dev Review) first."
+  - `In Review` → **Mode A (classic)**. Verify the PR has been approved (skill 11 label `dev-review-approved` OR GitHub PR review state = `APPROVED`). If neither, stop: "The PR for Story [PROJ-XXX] has not been approved by the dev reviewer yet. Run skill 11 (Dev Review) first."
   - `Done` → **Mode B (confirm-after-merge)**. The Story was merged by `dev-merge-train` (which auto-transitions to Done via `dev-jira-postmortem` 3g). Look for the postmortem comment on the Story as confirmation of merge. If no merge evidence found on a Done story, ask the user before proceeding — Done may have been set manually.
-  - Any other status (`To Do`, `In Progress`, etc.) → stop: "Story [PROJ-XXX] has status [status]. This skill runs either after skill 13 (Mode A: In Review) or after dev-merge-train / dev-sprint-closeout (Mode B: Done)."
+  - Any other status (`To Do`, `In Progress`, etc.) → stop: "Story [PROJ-XXX] has status [status]. This skill runs either after skill 11 (Mode A: In Review) or after dev-merge-train / dev-sprint-closeout (Mode B: Done)."
 - Read the PR linked to this Story — record merge state (merged / open / closed). In Mode B the PR is squash-merged + branch deleted; that is expected.
 - Follow the Confluence Specs UI link and read the relevant screen(s)
 - Read the Epic to understand the broader context
@@ -64,7 +64,7 @@ Previous bugs linked: [N bugs / none]
 ```
 
 **If the Specs UI link is missing on a UI Story:**
-- Warn but do not stop: "No Specs UI link found on this Story. I will validate ACs only — visual spec compliance cannot be assessed. Add the Specs UI link and re-run skill 10 to complete the visual validation."
+- Warn but do not stop: "No Specs UI link found on this Story. I will validate ACs only — visual spec compliance cannot be assessed. Add the Specs UI link and re-run skill 12 to complete the visual validation."
 
 ---
 
@@ -235,7 +235,7 @@ For each failure, create a Bug in Jira:
 ```
 ## Bug report — [date]
 Linked Story: [PROJ-XXX]
-Found during: QA validation (skill 10)
+Found during: QA validation (skill 12)
 
 ## What failed
 AC / DoD item: [which one]
@@ -303,8 +303,8 @@ If this skill is re-run on a Story:
 
 👉 Next actions:
 - If all Stories in Epic [PROJ-YYY] are now Done + signed off: the Epic can be closed — check in Jira
-- Mode A path: if this was the last Story in the sprint, run dev-sprint-closeout (dev-skills) BEFORE skill 11 (agile_11_retro)
-- Mode B path: dev-sprint-closeout has likely already run; proceed to skill 11 (agile_11_retro) once every sprint Story is signed off
+- Mode A path: if this was the last Story in the sprint, run dev-sprint-closeout (dev-skills) BEFORE skill 13 (agile_13_retro)
+- Mode B path: dev-sprint-closeout has likely already run; proceed to skill 13 (agile_13_retro) once every sprint Story is signed off
 - If there are more Stories in the sprint still In Progress: continue with dev agents
 ```
 
@@ -317,10 +317,10 @@ If this skill is re-run on a Story:
 ⚠️ Dev agent action required:
 - Fix all linked bugs: [list keys with one-line descriptions]
 - Re-submit the Story for QA (move to In Review)
-- Then re-run skill 10 to re-validate
+- Then re-run skill 12 to re-validate
 
 👉 Once all Stories in the sprint are Done:
-   Run skill 11: agile_11_retro to close the sprint and plan the next iteration.
+   Run skill 13: agile_13_retro to close the sprint and plan the next iteration.
 ```
 
 ---

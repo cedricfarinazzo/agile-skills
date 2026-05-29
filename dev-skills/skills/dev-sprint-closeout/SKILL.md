@@ -7,7 +7,7 @@ description: "Mandatory end-of-sprint epic-level gate — 3 lenses: engineer (de
 
 > **MANDATORY final step of every sprint.** Run after the last story is merged
 > to `main`, after `dev-tech-debt-sweep` has run, and before invoking
-> `agile-11-retro`. The class of bug this skill catches is "all unit +
+> `agile-13-retro`. The class of bug this skill catches is "all unit +
 > integration tests pass + production is broken" — the kind where each
 > story-level AC was met in isolation but the wired-together system has a
 > silent regression nobody exercised.
@@ -234,7 +234,7 @@ A closeout cannot be declared green while any audited pair is FAIL without an ex
 
 ## Phase 7 — Final closeout report
 
-Produce a single Markdown report **and publish it to Confluence under a dedicated `Closeouts` folder** (sibling of `Retrospectives`, NOT inside it). The retro skill (`agile-11-retro`) reads it as one of its inputs.
+Produce a single Markdown report **and publish it to Confluence under a dedicated `Closeouts` folder** (sibling of `Retrospectives`, NOT inside it). The retro skill (`agile-13-retro`) reads it as one of its inputs.
 
 ### Step 7.0 — Ensure the Closeouts folder exists
 
@@ -255,7 +255,7 @@ Closeouts and Retrospectives are sibling folders. Never publish closeouts inside
 - Parent: the `Closeouts — <Project>` folder from Step 7.0.
 - Body: the full Markdown report below.
 
-Capture the page id + URL — pass them back in the final user-facing response so the operator (and `agile-11-retro`) can link to the artifact.
+Capture the page id + URL — pass them back in the final user-facing response so the operator (and `agile-13-retro`) can link to the artifact.
 
 ### Step 7.2 — Update the Closeouts index
 
@@ -342,7 +342,7 @@ Halt and surface to the user if:
 ## Prerequisite chain
 
 - **Before this skill:** `dev-tech-debt-sweep` must have run + approved fixes applied. Closeout assumes `CLAUDE.md` is accurate and the repo is free of obvious cruft.
-- **After this skill:** `agile-11-retro` should verify `dev-sprint-closeout` ran cleanly on the epic before proceeding. Do not invoke `agile-11-retro` until this skill has completed and all surfaced gaps are resolved or explicitly deferred with linked tickets.
+- **After this skill:** `agile-13-retro` should verify `dev-sprint-closeout` ran cleanly on the epic before proceeding. Do not invoke `agile-13-retro` until this skill has completed and all surfaced gaps are resolved or explicitly deferred with linked tickets.
 
 ## When NOT to use
 
