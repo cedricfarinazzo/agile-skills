@@ -31,7 +31,7 @@ For each issue (critical first, then minor):
 3. Verify the fix doesn't break adjacent code (e.g. fixing a field name → grep all test files for the old name)
 4. Run the project's linter on the file (e.g. `ruff check`, `eslint`, `golangci-lint`) — markdown / YAML / TOML / JSON: no linter, just verify the file still parses where applicable (e.g. `python -c "import yaml; yaml.safe_load(open('x.yml'))"`).
 
-**Opportunistic cleanup (verification-mode):** While re-reading changed files in Phase 3, if a low-risk, obvious improvement jumps out — dead branch, unused import, misleading name, copy-paste block worth extracting, comment that lies — fix it here in Phase 1 alongside (or instead of) the review issues. Keep cleanups scoped to files the PR already touches. Out-of-scope refactors: file a follow-up ticket, do not bundle.
+**Opportunistic cleanup (verification mode):** when re-reading the changed files (Phase 3) surfaces a low-risk, in-scope improvement, fix it here in Phase 1 alongside (or instead of) the review issues. The scope threshold and the in/out-of-scope example lists are in the Input section — apply them, don't restate them.
 
 ### Phase 2 — Commit & push
 
