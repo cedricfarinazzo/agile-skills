@@ -8,6 +8,10 @@ user-invocable: false
 
 Build phase for `agile-10-implement` — the only phase that touches the shared Docker Compose stack, so it runs strictly one ticket at a time. Invoked via the Skill tool with a planned ticket (and, on a fix pass, the numbered review findings to address). Posts the `🤖 agile:phase=implement` marker.
 
+## First: load the plan — implement *from* it
+
+**Read the `🤖 agile:phase=plan` comment on the ticket** (written by `implement-plan`). That plan is what you implement — its files-to-touch, its implementation order (data → service → API → frontend → tests), and its AC→test map. Do not re-derive the approach from scratch. On a resumed run the orchestrator passes the ticket key, not the plan in-context, so always read the plan from Jira; re-read the ADR / Specs UI for the details it references. Then implement the plan in its order. If reality forces a deviation from the plan, note it (and follow the reversible/critical rule below).
+
 ## Set up workspace and branch
 
 - `git checkout <base-branch> && git pull` to start from the current tip.

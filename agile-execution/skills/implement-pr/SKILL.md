@@ -8,9 +8,9 @@ user-invocable: false
 
 PR phase for `agile-10-implement`. Invoked via the Skill tool after `implement-code` has pushed the branch. Idempotent — updates an existing open PR rather than opening a duplicate. Posts the `🤖 agile:phase=pr` marker with the PR URL.
 
-## First: load the plan
+## Source the PR body
 
-**Read the `🤖 agile:phase=plan` comment on the ticket** (written by `implement-plan`) and the actual pushed diff (`gh pr diff` / `git diff <base>...HEAD`). The PR body is built **from the plan**, not invented fresh: the plan's files-to-touch list → **Changes**; its AC→test map → **AC coverage** + **Testing**; its flagged decisions → **ADR compliance**. Cross-check the plan against what was actually committed and note any divergence (the implementation deviated from the plan) explicitly in the PR body — don't silently paper over it.
+The build is already done (`implement-code` implemented the plan + pushed). This phase only describes it. Build the body from **the actual pushed diff** (`gh pr diff` / `git diff <base>...HEAD`) plus the ticket's `🤖 agile:phase=plan` and `agile:phase=implement` comments: the plan's AC→test map → **AC coverage** + **Testing**; the diff's files → **Changes**; the plan's flagged decisions + the `implement` comment's noted deviations → **ADR compliance**. Where the diff diverges from the plan, surface it in the body — don't paper over it.
 
 ## Open or update
 
