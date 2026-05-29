@@ -1,6 +1,6 @@
 ---
 name: agile-10-implement
-description: "Autonomously implement an entire sprint: pull every To Do Story in the active sprint, order by Jira dependency links, then per ticket validate → plan → implement → commit → PR → self-review → transition to In Review, and monitor each PR for review comments, failing checks, and conflicts. Resumable via 🤖 Jira markers. Triggers: implement the sprint, work the sprint, run the sprint, pick up tickets, autonomous implement, implement story PROJ-XXX, start coding. After skill 9, before skill 11. Full agent autonomy — no mid-loop confirmation."
+description: "Autonomously implement the active board's work: pull every To Do Story from the current sprint (Scrum) or the board's ready column (Kanban) — never the backlog or a future sprint — order by Jira dependency links, then per ticket validate → plan → implement → commit → PR → self-review → transition to In Review, and monitor each PR for review comments, failing checks, and conflicts. Resumable via 🤖 Jira markers. Triggers: implement the sprint, work the sprint, run the sprint, pick up tickets, autonomous implement, implement story PROJ-XXX, start coding. After skill 9, before skill 11. Full agent autonomy — no mid-loop confirmation."
 ---
 
 # agile_10_implement
@@ -48,6 +48,8 @@ Reads project-specific values from the consumer repo's `CLAUDE.md` / `AGENTS.md`
 - **`ticket-prefix-regex`** — for ticket keys in PR titles / branches. Default `[A-Z]+-\d+`.
 - **`todo-status-name`** / **`in-progress-status-name`** / **`in-review-status-name`** / **`done-status-name`** — match by case-insensitive substring so localised names ("À faire", "En cours", "Revue en cours", "Terminé(e)") work. Defaults: `To Do`, `In Progress`, `In Review`, `Done`.
 - **`needs-info-status-name`** — where validation-rejected tickets go. Default: leave in `To Do` and label `needs-info` if no such status exists.
+- **`backlog-status-name`** — Kanban backlog column/status to exclude. Default `Backlog`.
+- **`board-id`** / **`board-type`** — optional pin for the project's board when auto-detection is ambiguous (`scrum` / `kanban`).
 - **`story-points-field`** — default `customfield_10016`.
 - **`base-branch`** — default repo default branch.
 - **`branch-prefix`** — default `feature/` (branch = `<branch-prefix><TICKET>`).
@@ -61,18 +63,23 @@ Optional: one or more explicit ticket keys → run the pipeline on just those. D
 
 ## Phase 0 — Select and order the work
 
-1. **Discover the sprint queue.** Build JQL from config:
-   - `project = <KEY>` AND status matches `todo-status-name` (substring)
-   - AND `(sprint in openSprints() OR sprint = <named current sprint>)` — Jira Software only; for Kanban (null sprint) add `OR sprint is EMPTY`
-   - exclude backlog issues (query the board's backlog and subtract) and `sprint in futureSprints()`
-   - Run via `mcp__atlassian__searchJiraIssuesUsingJql`.
+1. **Discover the work queue — detect the board type first, then build the matching JQL.** A project runs on either a **Scrum board** (sprints) or a **Kanban board** (no sprints, a backlog column instead). The selection rule differs; the hard exclusion does not.
+
+   **Hard invariant (both board types):** a ticket in the **backlog** or in a **future sprint** is NEVER eligible — do not implement it, full stop. Only work that is committed to the *current* active sprint (Scrum) or pulled onto the *active board* out of the backlog (Kanban) may enter the pipeline.
+
+   Detect the board: find the project's board(s) via the Jira Agile API (`/rest/agile/1.0/board?projectKeyOrId=<KEY>`) and read its `type` (`scrum` / `kanban`). If a project has both, ask which board (single question — this is the one allowed pre-run clarification) or default to the Scrum board if a sprint is active.
+
+   - **Scrum board** — eligible = `project = <KEY>` AND status matches `todo-status-name` AND `sprint in openSprints()`. Explicitly **exclude** `sprint in futureSprints()` and backlog (a `To Do` ticket with no sprint = backlog → excluded). If multiple sprints are open, scope to the named/most recent active one.
+   - **Kanban board** — no sprints exist, so `openSprints()`/`futureSprints()` don't apply. Eligible = `project = <KEY>` AND status matches `todo-status-name` AND the ticket is **on the board, not in the backlog**. Kanban backlog tickets are excluded by either: (a) fetch the board's backlog issue keys via the Agile API (`/rest/agile/1.0/board/<id>/backlog`) and subtract them, or (b) exclude the configurable `backlog-status-name` (default `Backlog`) via JQL. Never treat a backlog-column ticket as ready.
+
+   Run the resolved JQL via `mcp__atlassian__searchJiraIssuesUsingJql`. After fetching, **re-verify the invariant on each candidate** before queueing it: drop anything whose sprint is a future sprint or whose state is the backlog, even if the JQL let it through (belt-and-braces against board-config quirks).
 2. **Load each candidate in full** with `mcp__atlassian__getJiraIssue`: summary, description, AC, DoD, technical notes, Specs UI link, ADR link, labels (layer: backend / frontend / fullstack), points, **`issuelinks`**, and any linked Bugs from a prior QA run.
 3. **Build the dependency graph** from `issuelinks` (`blocks` / `is blocked by`). Topologically sort. If a cycle exists → abort the run and report the cycle (Stop condition). A ticket is **eligible** only if every blocker is `Done` already, or completes earlier in this same run. Otherwise it is **deferred**.
-4. **Build the rework queue.** Separately query `in-review-status-name` tickets in the sprint that carry a `🤖 <!-- agile:phase=pr -->` marker (PR opened by a prior run). These skip Phases 1a–1h and go straight to Phase 2 (PR monitoring / rework).
+4. **Build the rework queue.** Separately query `in-review-status-name` tickets on the same active board / current sprint (Scrum) or board (Kanban) that carry a `🤖 <!-- agile:phase=pr -->` marker (PR opened by a prior run). These skip Phases 1a–1h and go straight to Phase 2 (PR monitoring / rework). Backlog / future-sprint tickets are excluded here too.
 5. **State the plan, then proceed — no confirmation:**
 
 ```
-Sprint implementation plan — Sprint [N] ([active sprint name])
+Implementation plan — [Scrum: Sprint N "name" / Kanban: board "name"]
 
 Eligible (dependency order):
   1. PROJ-31  [summary]  (backend, 3pts)  — no blockers
@@ -198,6 +205,7 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 
 - **Full autonomy.** Invoking authorises the whole pipeline for every eligible ticket. No mid-loop "should I proceed?" — the Stop conditions and the per-ticket validation gate are the only authorised interruptions.
 - **Read everything before writing anything** — ADR, Specs UI, PRD, refinement comments, linked Bugs — before one line of code, per ticket.
+- **Works on Scrum and Kanban boards; never the backlog or a future sprint.** Detect the board type and select accordingly (current sprint for Scrum, on-board non-backlog for Kanban). A backlog or future-sprint ticket is never eligible — re-verify this on every candidate after the JQL fetch.
 - **Dependency order; never force a blocked ticket.** Eligible only when all blockers are `Done` or cleared earlier this run. Cycles abort the run.
 - **The validation gate protects `main` from guessed specs.** Under-specified ticket → comment + send back + skip, never implement against an invented spec, never halt the whole run for one bad ticket.
 - **ADR is law.** New pattern / library / decision → flag in PR + `🤖` Jira comment, never silent. Forced mid-implementation decision → choose the reversible option, document, flag, keep going.

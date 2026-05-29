@@ -41,7 +41,7 @@ Skills fire automatically when Claude detects a matching phrase, or invoke direc
 
 `dev-merge-train` composes skills 1–5: rebase → review → fix → CI wait → merge → postmortem, sequentially across the open-PR queue. `dev-tech-debt-sweep` then audits the repo for cruft / CI waste / misplaced artifacts before `dev-sprint-closeout` runs the end-of-sprint smoke gate before `agile-13-retro`.
 
-> `dev-merge-train` clears the **merge** queue (open PR → `main`). Its agile-side counterpart, `agile-10-implement`, clears the **build** queue (`To Do` Story → open PR): it autonomously pulls the sprint, orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review → In Review per ticket — then hands the PRs to `dev-merge-train`.
+> `dev-merge-train` clears the **merge** queue (open PR → `main`). Its agile-side counterpart, `agile-10-implement`, clears the **build** queue (`To Do` Story → open PR): it autonomously pulls the active board's work (current sprint on a Scrum board, ready column on a Kanban board — never the backlog or a future sprint), orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review → In Review per ticket — then hands the PRs to `dev-merge-train`.
 
 ## Requirements
 
@@ -175,17 +175,39 @@ Mode is auto-detected from Story status. See [`skills/agile-12-qa-validation/SKI
 
 Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
 
+## Confluence structure
+
+Every `agile-skills` skill shares one canonical folder layout (embedded in each Confluence-using skill so it holds regardless of load order). All project docs live under a single root folder created by `agile-1`:
+
+```
+📁 [Project Name]                   (root — agile-1)
+├── 📄 Vision Doc — [Project]       (agile-1)
+├── 📄 PRD — [Project]              (agile-2)
+├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]              (agile-4)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX only)
+│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8, conclusions by agile-13)
+│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
+│   └── 📄 Iteration N — [Project]
+├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
+└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+```
+
+**The Roadmap is a short index.** It holds only the guiding principle, an iterations index table (linking to each `MVP` / `Iteration N` child page), a one-row-per-sprint progress rollup, and the parking lot. All deep detail — goal, success criteria, epics-in-scope, per-sprint backlog, decisions, retro write-ups — lives on the `MVP — [Project]` / `Iteration N — [Project]` child pages. Those pages carry a top **Epic Sprint Plan** index table, one detail section per sprint, and a Dev Flow footer.
+
 ## Per-repo configuration
 
-`dev-skills` reads project-specific values from the consumer repo's `CLAUDE.md` / `AGENTS.md`:
+Both plugins read project-specific values from the consumer repo's `CLAUDE.md` / `AGENTS.md` (`## Skill configuration` section). `dev-skills` and `agile-10-implement` use:
 
 - `cloudId` — Atlassian cloud id for MCP calls (e.g. `yourorg.atlassian.net`)
 - `ticket-prefix-regex` — defaults to `[A-Z]+-\d+`
-- `done-status-name` — project's Done state name (e.g. `Done`, `Terminé(e)`)
+- `done-status-name` / `todo-status-name` / `in-progress-status-name` / `in-review-status-name` — project state names, matched by substring (e.g. `Done`, `Terminé(e)`, `À faire`)
 - Lint / unit / integration commands per language stack
+- `base-branch` / `branch-prefix` (default `feature/`) — used by `agile-10-implement`
 - Optional `done-transition-id` for fast-path Jira transition
 
-Add a `## Skill configuration` section in your repo's `CLAUDE.md` listing these. Skills fall back to lookups when values absent.
+Skills fall back to lookups when values are absent.
 
 ## License
 
