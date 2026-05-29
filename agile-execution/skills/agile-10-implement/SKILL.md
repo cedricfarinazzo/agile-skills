@@ -201,7 +201,7 @@ Out of scope (other repo): [list + the repo each one targets]
 Rework processed this run: [tickets + what changed]
 Follow-up tickets to file (CRITICAL only): [list / none]
 
-👉 Next: dev-merge-train (dev-skills) to review + merge the open PRs, then skill 12 (QA Validation).
+👉 Next: dev-merge-train (agile-merge-review) to review + merge the open PRs, then skill 12 (QA Validation, agile-sprint-close).
 ```
 
 ---

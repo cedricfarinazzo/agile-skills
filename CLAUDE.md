@@ -4,27 +4,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Claude Code marketplace shipping **two plugins**:
+A Claude Code marketplace shipping **five focused plugins** (split by cycle phase so users load only what they run):
 
-- **`agile-skills`** — 13 skills, full product cycle (Vision Doc → Retro), integrated with Confluence + Jira via Atlassian MCP.
-- **`dev-skills`** — 7 skills, developer workflow (deep PR review, fix-until-satisfied, rebase, Jira postmortem, multi-PR merge train, tech-debt sweep, sprint closeout). Needs the `gh` CLI.
+- **`agile-product`** — discovery: Vision Doc, PRD, Design Brief / Specs UI, ADR (Confluence).
+- **`agile-planning`** — Roadmap, Epics, Stories, Refinement, Sprint Planning (Confluence + Jira).
+- **`agile-execution`** — autonomous build loop: Implement (10) + Dev Review (11). Needs `gh`.
+- **`agile-merge-review`** — PR workflow (formerly `dev-skills`): update-pr, review-pr, fix-until-satisfied, jira-postmortem, merge-train. Needs `gh`.
+- **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
 
-Execution (agile skills 10 Implement + 11 Dev Review) is an **autonomous sprint loop** modelled on `nightshift jira run` + `dev-merge-train`: it pulls the sprint, orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review → In Review per ticket with no mid-loop confirmation, then monitors each PR. `agile-10-implement` clears the build queue (`To Do` → open PR); `dev-merge-train` clears the merge queue (open PR → `main`).
+Skills keep global cycle numbering (`agile-1` … `agile-13`) across plugins. Namespace = plugin name, e.g. `/agile-planning:agile-5-roadmap`, `/agile-merge-review:dev-merge-train`.
 
-Install: `/plugin marketplace add cedricfarinazzo/agile-skills` then `/plugin install agile-skills@agile-skills` (and/or `dev-skills@agile-skills`).
-Test locally: `claude --plugin-dir ./agile-skills`
+Execution (skills 10 + 11) is an **autonomous sprint loop** modelled on `nightshift jira run` + `dev-merge-train`: it pulls the active board (Scrum sprint or Kanban ready column — never backlog/future), orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review → In Review per ticket with no mid-loop confirmation, then monitors each PR. `agile-10-implement` clears the build queue (`To Do` → open PR); `dev-merge-train` clears the merge queue (open PR → `main`).
+
+Install: `/plugin marketplace add cedricfarinazzo/agile-skills` then `/plugin install <plugin>@agile-skills` for any subset.
+Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a time).
 
 ## Structure
 
 ```
-.claude-plugin/{plugin.json,marketplace.json}   # agile-skills manifest + marketplace (ships both plugins)
-skills/<name>/SKILL.md                           # agile-skills — one dir per skill
-skills/agile-8-refinement/scripts/               # bundled scripts — invoke via ${CLAUDE_PLUGIN_ROOT}
-dev-skills/.claude-plugin/plugin.json            # dev-skills manifest
-dev-skills/skills/<name>/SKILL.md                # dev-skills — one dir per skill
+.claude-plugin/marketplace.json          # marketplace — lists all 5 plugins (git-subdir per path)
+<plugin>/.claude-plugin/plugin.json       # one manifest per plugin
+<plugin>/skills/<name>/SKILL.md           # one dir per skill
+agile-planning/skills/agile-8-refinement/scripts/   # bundled scripts — invoke via ${CLAUDE_PLUGIN_ROOT}
 ```
 
-Skills are namespaced per plugin: `/agile-skills:<skill-name>`, `/dev-skills:<skill-name>`.
+Plugin → skills:
+- `agile-product/`: agile-1..4
+- `agile-planning/`: agile-5..9
+- `agile-execution/`: agile-10, agile-11
+- `agile-merge-review/`: dev-update-pr, dev-review-pr, dev-fix-until-satisfied, dev-jira-postmortem, dev-merge-train
+- `agile-sprint-close/`: agile-12-qa-validation, agile-13-retro, dev-tech-debt-sweep, dev-sprint-closeout
+
+There is **no root plugin** — the repo root holds only `.claude-plugin/marketplace.json` + the five plugin dirs.
 
 ## SKILL.md format
 
@@ -58,12 +69,16 @@ All `agile-skills` skills share one canonical folder layout (root → Vision/PRD
 
 ## Cycle order
 
-Canonical schema in `README.md` (covers both `agile-skills` and `dev-skills` plugins, the autonomous execution loop, Mode A vs Mode B QA, dev-merge-train integration, sprint-closeout gate).
+Canonical schema in `README.md` (covers all five plugins, the autonomous execution loop, confirm-after-merge QA, dev-merge-train integration, sprint-closeout gate).
 
 Invariant for all skills: read existing Confluence pages + Jira issues before creating anything.
 
-Bundled scripts (e.g. `skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh`) must be invoked via `${CLAUDE_PLUGIN_ROOT}` — a bare relative path won't resolve when installed as a plugin (cwd is the consumer repo).
+Bundled scripts (e.g. `agile-planning/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh`) must be invoked via `${CLAUDE_PLUGIN_ROOT}` — a bare relative path won't resolve when installed as a plugin (cwd is the consumer repo).
 
-## Plugin manifest
+Cross-plugin references: skills call siblings by name (Skill tool / prose). Most compose within one plugin (dev-merge-train → its 4 sub-skills; agile-10 → agile-11). Cross-plugin links that matter: `agile-12-qa-validation` + `agile-13-retro` read `dev-sprint-closeout`'s output (all in `agile-sprint-close`); `agile-9` hands off to `agile-10` (planning → execution).
 
-`plugin.json` fields that matter: `name` (sets skill namespace prefix), `version` (bump on releases). Skills are auto-discovered from `skills/*/SKILL.md`.
+## Plugin + marketplace manifests
+
+Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill namespace prefix), `version` (bump on releases), author/homepage/repo/license. Skills are auto-discovered from that plugin's `skills/*/SKILL.md`.
+
+`.claude-plugin/marketplace.json` (repo root) lists all five plugins, each via a `git-subdir` source pointing at its path (`cedricfarinazzo/agile-skills` + `path: <plugin>`). Adding a plugin = new dir with a manifest + a new marketplace entry. Keep plugin `name` in `plugin.json` and the marketplace entry in sync.

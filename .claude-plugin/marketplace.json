@@ -6,21 +6,29 @@
   },
   "plugins": [
     {
-      "name": "agile-skills",
-      "source": {
-        "source": "github",
-        "repo": "cedricfarinazzo/agile-skills"
-      },
-      "description": "End-to-end agile workflow skills for Claude Code — Vision Doc → Retro, integrated with Confluence and Jira."
+      "name": "agile-product",
+      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-product" },
+      "description": "Product discovery — Vision Doc, PRD, Design Brief / Specs UI, ADR in Confluence."
     },
     {
-      "name": "dev-skills",
-      "source": {
-        "source": "git-subdir",
-        "url": "cedricfarinazzo/agile-skills",
-        "path": "dev-skills"
-      },
-      "description": "Developer workflow skills for Claude Code — deep PR review, fix-until-satisfied, rebase with conflict resolution, structured Jira postmortems, multi-PR merge train, sprint-end tech debt sweep + closeout gate. Pairs with agile-skills."
+      "name": "agile-planning",
+      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-planning" },
+      "description": "Planning — Roadmap (short index + MVP/Iteration pages), Epics, Stories, Refinement, Sprint Planning."
+    },
+    {
+      "name": "agile-execution",
+      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-execution" },
+      "description": "Autonomous execution — implement the active board's sprint (Scrum/Kanban) ticket by ticket and self-review each PR. Needs gh."
+    },
+    {
+      "name": "agile-merge-review",
+      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-merge-review" },
+      "description": "Merge-review — deep PR review, fix-until-satisfied, rebase, Jira postmortem, multi-PR merge train. Needs gh. (Formerly dev-skills.)"
+    },
+    {
+      "name": "agile-sprint-close",
+      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-sprint-close" },
+      "description": "Sprint-close — tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), retrospective."
     }
   ]
 }
