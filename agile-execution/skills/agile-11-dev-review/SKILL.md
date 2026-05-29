@@ -1,6 +1,6 @@
 ---
 name: agile-11-dev-review
-description: "Autonomously review a PR against its Jira Story spec + ADR across six lenses (architecture, security, performance, infra/ops, code quality, AC/DoD), then post the verdict to the PR and Jira and return numbered blockers. No waiting for answers — infer and flag. Invoked by agile-10-implement as its self-review gate, or run standalone. Triggers: review the PR, dev review, code review, tech review, approve the pull request. After skill 10, before skill 12."
+description: "Autonomously review a PR against its Jira Story + ADR across six lenses (architecture, security, performance, infra/ops, code quality, AC/DoD); post the verdict to PR + Jira with numbered blockers. Infers and flags, never waits. Self-review gate for agile-10-implement, or standalone. Triggers: review the PR, dev review, code review, approve the pull request. After skill 10, before skill 12."
 ---
 
 # agile_11_dev_review

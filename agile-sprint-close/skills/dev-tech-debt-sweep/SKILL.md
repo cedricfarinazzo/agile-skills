@@ -1,6 +1,6 @@
 ---
 name: dev-tech-debt-sweep
-description: "End-of-sprint pre-closeout housekeeping: audit cross-repo leakage, useless CI workflows, prebuild-image opportunities, cruft/duplication in CLAUDE.md / SKILL.md, misplaced artifacts. Report before apply. Triggers: tech debt sweep, cleanup sweep, housekeeping, pre-closeout audit, /tech-debt-sweep. Run before dev-sprint-closeout."
+description: "End-of-sprint housekeeping before closeout: audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/SKILL.md cruft, misplaced artifacts. Report before apply. Triggers: tech debt sweep, cleanup sweep, housekeeping, /tech-debt-sweep. Before dev-sprint-closeout."
 ---
 
 # dev-tech-debt-sweep

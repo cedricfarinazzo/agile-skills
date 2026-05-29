@@ -1,6 +1,6 @@
 ---
 name: dev-sprint-closeout
-description: "Mandatory end-of-sprint epic-level gate — 3 lenses: engineer (dev-stack smoke + integration), architect (Confluence specs vs delivered code), tech lead (impartial deep code review of all sprint diffs, severity-graded). Triggers: sprint closeout, close sprint, /sprint-closeout. After last merge + dev-tech-debt-sweep, before retro."
+description: "Mandatory end-of-sprint epic gate, 3 lenses: engineer (smoke + integration), architect (Confluence specs vs delivered code), tech lead (deep severity-graded review of all sprint diffs). Triggers: sprint closeout, close sprint, /sprint-closeout. After last merge + dev-tech-debt-sweep, before retro."
 ---
 
 # dev-sprint-closeout

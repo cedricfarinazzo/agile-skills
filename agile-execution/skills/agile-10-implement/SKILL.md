@@ -1,6 +1,6 @@
 ---
 name: agile-10-implement
-description: "Autonomously implement the active board's work: pull every To Do Story from the current sprint (Scrum) or the board's ready column (Kanban) — never the backlog or a future sprint — order by Jira dependency links, then per ticket validate → plan → implement → commit → PR → self-review → transition to In Review, and monitor each PR for review comments, failing checks, and conflicts. Resumable via 🤖 Jira markers. Triggers: implement the sprint, work the sprint, run the sprint, pick up tickets, autonomous implement, implement story PROJ-XXX, start coding. After skill 9, before skill 11. Full agent autonomy — no mid-loop confirmation."
+description: "Autonomously implement the active board — current sprint (Scrum) or ready column (Kanban), never backlog/future — in Jira dependency order: per ticket validate → plan → implement → commit → PR → self-review → In Review, then monitor the PR. Resumable via 🤖 Jira markers; full autonomy, asks only on critical decisions. Triggers: implement the sprint, work the sprint, pick up tickets, implement story PROJ-XXX, start coding. After skill 9, before skill 11."
 ---
 
 # agile_10_implement

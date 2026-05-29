@@ -1,6 +1,6 @@
 ---
 name: agile-12-qa-validation
-description: "QA Story validation, confirm-after-merge. Story is already Done (merged via merge train); QA confirms ACs hold on main and stamps a sign-off comment — no transition. Post-merge regression → file a Bug, never reopen. Triggers: validate story, QA story, QA check, confirm ACs. After dev-sprint-closeout, before skill 13."
+description: "QA validation, confirm-after-merge: Story already Done (merged) — confirm ACs hold on main, stamp sign-off, no transition. Regression → file a Bug, never reopen. Triggers: validate story, QA story, QA check, confirm ACs. After dev-sprint-closeout, before skill 13."
 ---
 
 # agile_12_qa_validation
