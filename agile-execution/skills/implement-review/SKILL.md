@@ -174,3 +174,14 @@ Re-review — [date]   Checking [N] prior blockers:
 - **Re-review is scoped** to the delta and the previously-failing lenses, not the whole PR from scratch.
 - **Idempotent** — re-running on an already-approved PR reports the approval and advises next steps; it does not re-approve or duplicate comments.
 - **Verdict prose stays in normal English** — it is read by humans at merge and retro time.
+
+## Marker — mandatory, exact format
+
+Posting the phase marker is **not optional** — it is how `agile-10-implement` records progress and resumes. Post it to the ticket via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML-comment marker** so resume detection (which greps `🤖 <!-- agile:phase=... -->`) finds it:
+
+```
+🤖 <!-- agile:phase=review --> **review — agile-10-implement — <YYYY-MM-DD>**
+<phase content>
+```
+
+A comment that omits `<!-- agile:phase=review -->` is invisible to resume — the phase will look unfinished and re-run. Never delete prior markers.

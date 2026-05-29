@@ -23,3 +23,14 @@ Run it with `run_in_background: true`; the completion notification re-invokes yo
 **Best-effort within the run:** process whatever review comments / check results / conflicts exist now. Do not block indefinitely waiting for a human reviewer — once the current state is handled and no new actionable signal remains, record status and return. A later re-run (or `/loop`) picks up new review comments via the marker filter.
 
 Fixes that touch code reuse `implement-code`'s rules (ADR is law, all ACs tested, lint+unit+integration green before push). A critical decision surfacing during rework is escalated to the orchestrator, not guessed.
+
+## Marker — mandatory, exact format
+
+Posting the phase marker is **not optional** — it is how `agile-10-implement` records progress and resumes. Post it to the ticket via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML-comment marker** so resume detection (which greps `🤖 <!-- agile:phase=... -->`) finds it:
+
+```
+🤖 <!-- agile:phase=rework --> **rework — agile-10-implement — <YYYY-MM-DD>**
+<phase content>
+```
+
+A comment that omits `<!-- agile:phase=rework -->` is invisible to resume — the phase will look unfinished and re-run. Never delete prior markers.

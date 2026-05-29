@@ -29,3 +29,14 @@ Given the numbered findings, fix **every** one — Critical *and* Minor (Minor i
 ## Commit and push
 
 Conventional commit; body includes `Refs: <TICKET>` and the `Co-Authored-By` trailer. Push the branch. (Commit/push is silent — no Jira marker; it is reconstructed from the pushed branch.) Then post `🤖 agile:phase=implement` summarising what was built/fixed and confirming the suites are green. Return to the orchestrator.
+
+## Marker — mandatory, exact format
+
+Posting the phase marker is **not optional** — it is how `agile-10-implement` records progress and resumes. Post it to the ticket via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML-comment marker** so resume detection (which greps `🤖 <!-- agile:phase=... -->`) finds it:
+
+```
+🤖 <!-- agile:phase=implement --> **implement — agile-10-implement — <YYYY-MM-DD>**
+<phase content>
+```
+
+A comment that omits `<!-- agile:phase=implement -->` is invisible to resume — the phase will look unfinished and re-run. Never delete prior markers.

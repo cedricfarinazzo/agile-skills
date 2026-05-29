@@ -24,3 +24,14 @@ A concrete, file-level plan:
 - **Flagged decisions** — any place the ADR is silent and a (reversible) choice will be made; note the choice. If a *critical* decision surfaces here, do not plan around a guess — surface it so the orchestrator can escalate.
 
 Post the plan as `🤖 agile:phase=plan`. Return the plan to the orchestrator.
+
+## Marker — mandatory, exact format
+
+Posting the phase marker is **not optional** — it is how `agile-10-implement` records progress and resumes. Post it to the ticket via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML-comment marker** so resume detection (which greps `🤖 <!-- agile:phase=... -->`) finds it:
+
+```
+🤖 <!-- agile:phase=plan --> **plan — agile-10-implement — <YYYY-MM-DD>**
+<phase content>
+```
+
+A comment that omits `<!-- agile:phase=plan -->` is invisible to resume — the phase will look unfinished and re-run. Never delete prior markers.

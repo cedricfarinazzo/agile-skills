@@ -29,3 +29,14 @@ If validating already surfaces a **critical** decision (irreversible / high-blas
 ## Return
 
 Return exactly one of: `pass` · `out-of-scope` (+ target repo) · `rejected` (+ what's missing) · `critical-park` (+ the decision/options/recommendation). The orchestrator branches on it. This sub-skill never asks the user directly — `critical-park` hands the question up to the orchestrator.
+
+## Marker — mandatory, exact format
+
+Posting the phase marker is **not optional** — it is how `agile-10-implement` records progress and resumes. Post it to the ticket via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML-comment marker** so resume detection (which greps `🤖 <!-- agile:phase=... -->`) finds it:
+
+```
+🤖 <!-- agile:phase=validate --> **validate — agile-10-implement — <YYYY-MM-DD>**
+<phase content>
+```
+
+A comment that omits `<!-- agile:phase=validate -->` is invisible to resume — the phase will look unfinished and re-run. Never delete prior markers.
