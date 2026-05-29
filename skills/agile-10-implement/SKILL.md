@@ -46,6 +46,7 @@ Reads project-specific values from the consumer repo's `CLAUDE.md` / `AGENTS.md`
 
 - **`cloudId`** — Atlassian cloud id for `mcp__atlassian__*` calls. Required.
 - **`ticket-prefix-regex`** — for ticket keys in PR titles / branches. Default `[A-Z]+-\d+`.
+- **`repo` / `repo-component-map`** — the current repo's name/slug, and (for multi-repo projects) the mapping from Jira label/component → repo. Used by the 1a repo-scope gate to skip tickets that target a different codebase. Falls back to the git `origin` remote when `repo` is absent.
 - **`todo-status-name`** / **`in-progress-status-name`** / **`in-review-status-name`** / **`done-status-name`** — match by case-insensitive substring so localised names ("À faire", "En cours", "Revue en cours", "Terminé(e)") work. Defaults: `To Do`, `In Progress`, `In Review`, `Done`.
 - **`needs-info-status-name`** — where validation-rejected tickets go. Default: leave in `To Do` and label `needs-info` if no such status exists.
 - **`backlog-status-name`** — Kanban backlog column/status to exclude. Default `Backlog`.
@@ -109,9 +110,11 @@ For each eligible ticket in order. **Resume first:** read the ticket's Jira comm
 
 ### 1a. Validate the ticket — the gate
 
-Score the Story 0–10 on readiness (reuse skill 8's readiness gate): clear persona summary; ≥2 falsifiable Given/When/Then ACs; DoD present; Specs UI link for UI Stories; technical notes referencing the ADR; dependencies resolvable; no open question that would force a mid-implementation architecture decision.
+**Repo-scope check first (hard gate).** Establish which repo the agent is running in — the current working directory's git remote (`git remote get-url origin`) + repo name, cross-referenced with the consumer `CLAUDE.md` (`repo` / `service-name` / per-component mapping). Then determine the ticket's target repo/component from its labels (e.g. `repo:foo`, `backend`/`frontend` when those map to separate repos), component field, technical notes, or the ADR's service→repo mapping. **If the ticket does not target the current repo, do NOT implement it here** — you would open a PR in the wrong codebase. Post `🤖 agile:phase=validate` in **out-of-scope** mode naming the ticket's actual target repo, leave the ticket in `To Do` (do not transition, do not label `needs-info` — it is correctly specified, just not for this repo), and **skip to the next ticket**. When the target repo is genuinely ambiguous (no label/component/mapping resolves it), treat that as a missing-spec rejection (below), not a silent assumption that it belongs here.
 
-- **Score ≥ 6 and AC + DoD present → pass.** Resolve remaining minor ambiguities by **inference from the ADR / Specs UI / PRD standard patterns**, and record *every* inference explicitly in the validation comment (never infer silently). Post `🤖 agile:phase=validate` with the score and the inference list. Transition `To Do → In Progress`.
+Then score the Story 0–10 on readiness (reuse skill 8's readiness gate): clear persona summary; ≥2 falsifiable Given/When/Then ACs; DoD present; Specs UI link for UI Stories; technical notes referencing the ADR; dependencies resolvable; no open question that would force a mid-implementation architecture decision.
+
+- **In current repo AND score ≥ 6 AND AC + DoD present → pass.** Resolve remaining minor ambiguities by **inference from the ADR / Specs UI / PRD standard patterns**, and record *every* inference explicitly in the validation comment (never infer silently). Post `🤖 agile:phase=validate` with the score and the inference list. Transition `To Do → In Progress`.
 - **Score < 6, or no AC / no DoD, or a genuine blocking unknown remains → reject this ticket (not the run).** Post `🤖 agile:phase=validate` in **rejected** mode listing exactly what is missing and what skill 8 (Refinement) must add. Transition to `needs-info-status-name` (or leave in `To Do` + label `needs-info`). **Skip to the next ticket** — do not implement against a guessed spec, and do not halt the whole run.
 
 ### 1b. Plan
@@ -190,9 +193,11 @@ Monitoring is **best-effort within the run**: process whatever review comments /
 | PROJ-33 | In Review | #119 | 1 rework cycle (auth edge case) |
 | PROJ-40 | Deferred | — | blocked by PROJ-39 (not in sprint) |
 | PROJ-44 | Needs Info | — | no DoD; no AC for size-limit path — sent to refinement |
+| PROJ-50 | Out of scope | — | targets repo `other-service`, not the current repo — left in To Do |
 
 Deferred (blocked): [list + blocker + why]
 Sent to refinement (validation rejected): [list + what's missing]
+Out of scope (other repo): [list + the repo each one targets]
 Rework processed this run: [tickets + what changed]
 Follow-up tickets to file (CRITICAL only): [list / none]
 
@@ -206,6 +211,7 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 - **Full autonomy.** Invoking authorises the whole pipeline for every eligible ticket. No mid-loop "should I proceed?" — the Stop conditions and the per-ticket validation gate are the only authorised interruptions.
 - **Read everything before writing anything** — ADR, Specs UI, PRD, refinement comments, linked Bugs — before one line of code, per ticket.
 - **Works on Scrum and Kanban boards; never the backlog or a future sprint.** Detect the board type and select accordingly (current sprint for Scrum, on-board non-backlog for Kanban). A backlog or future-sprint ticket is never eligible — re-verify this on every candidate after the JQL fetch.
+- **Only implement tickets that target the current repo.** The 1a gate resolves the agent's repo (git `origin` + consumer `CLAUDE.md`) and the ticket's target repo/component; a mismatch is skipped (out-of-scope, left in `To Do`), never implemented in the wrong codebase. Ambiguous target → treat as missing spec, never assume it belongs here.
 - **Dependency order; never force a blocked ticket.** Eligible only when all blockers are `Done` or cleared earlier this run. Cycles abort the run.
 - **The validation gate protects `main` from guessed specs.** Under-specified ticket → comment + send back + skip, never implement against an invented spec, never halt the whole run for one bad ticket.
 - **ADR is law.** New pattern / library / decision → flag in PR + `🤖` Jira comment, never silent. Forced mid-implementation decision → choose the reversible option, document, flag, keep going.
@@ -227,6 +233,7 @@ Stop the **whole run** and report immediately if:
 - Two consecutive tickets hit the same unrelated CI infrastructure failure (suggests infra, not code).
 
 Stop **one ticket** (and continue the run) if:
+- It targets a different repo than the one the agent is in (→ out-of-scope skip, left in `To Do`).
 - The validation gate rejects it (→ Needs Info + skip).
 - The self-review→fix loop exceeds 3 cycles without converging (→ leave PR open, `🤖` blocked comment, skip).
 - A required dependency is still not `Done` when its turn comes (→ defer).
