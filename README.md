@@ -12,6 +12,52 @@ Five focused [Claude Code](https://claude.ai/code) plugins for the full agile cy
 
 User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) across plugins, so the order is legible at a glance. The two orchestrators (`agile-10-implement`, `agile-11-merge-train`) compose **unnumbered sub-skills** you don't call directly. Invoke with `/<plugin>:<skill>`, e.g. `/agile-planning:agile-5-roadmap`.
 
+## Cycle order (all plugins together)
+
+```
+                    PRODUCT / DISCOVERY          (agile-product)
+                    ───────────────────
+  1. Vision Doc  →  2. PRD  →  3. Design Brief
+                            →  4. ADR
+
+                    PLANNING                     (agile-planning)
+                    ────────
+  5. Roadmap     →  6. Epics  →  7. Stories
+                              →  8. Refinement
+                                  └─ bundled tool: sprint-shared-file-audit.sh
+                                     (run via ${CLAUDE_PLUGIN_ROOT})
+                              →  9. Sprint Planning
+
+                    EXECUTION  (agile-execution — autonomous, whole sprint)
+                    ─────────────────────────────────────
+ ┌────────────────────────────────────────────────────────┐
+ │  10. agile-10-implement  (one ticket at a time, in     │
+ │      Jira dependency order, no mid-loop confirmation): │
+ │    validate ticket   gate: repo-scope + spec readiness │
+ │    plan / implement / commit / open PR    🤖 markers   │
+ │    implement-review        six-lens self-review gate   │
+ │    transition → In Review · monitor PR (comments/CI)   │
+ └────────────────────────────────────────────────────────┘
+
+                    PER-PR MERGE  (agile-merge-review)
+                    ────────────
+ ┌────────────────────────────────────────────────────────┐
+ │  agile-11-merge-train  (one PR at a time, sequentially):    │
+ │    merge-update-pr · merge-review-pr · merge-fix-until- │
+ │    satisfied · fresh CI · gh pr merge · postmortem+Done│
+ └────────────────────────────────────────────────────────┘
+
+                    SPRINT CLOSE                 (agile-sprint-close)
+                    ────────────
+  12. tech-debt-sweep  →  13. sprint-closeout  →  14. QA Validation   →  15. Retro
+  cruft + CI audit        dev-stack smoke gate     (confirm-after-merge   back to 5. Roadmap
+                          on closed-out epic        per signed-off story)
+```
+
+Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
+
+**QA Validation (skill 14) is confirm-after-merge only.** By the time it runs, the Story was already merged + transitioned to `Done` by `agile-11-merge-train` / `merge-jira-postmortem`. QA confirms the ACs hold on `main` and stamps a sign-off comment — it never transitions the Story. A post-merge regression is filed as a new Bug (linked `is caused by`), never a reopen. See [`agile-sprint-close/skills/agile-14-qa-validation/SKILL.md`](agile-sprint-close/skills/agile-14-qa-validation/SKILL.md).
+
 ## Skills by plugin
 
 ### agile-product
@@ -96,52 +142,6 @@ git clone https://github.com/cedricfarinazzo/agile-skills
 cp -r agile-skills/agile-*/skills/* ~/.agents/skills/      # Codex: all, or pick per plugin
 cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/     # Copilot
 ```
-
-## Cycle order (all plugins together)
-
-```
-                    PRODUCT / DISCOVERY          (agile-product)
-                    ───────────────────
-  1. Vision Doc  →  2. PRD  →  3. Design Brief
-                            →  4. ADR
-
-                    PLANNING                     (agile-planning)
-                    ────────
-  5. Roadmap     →  6. Epics  →  7. Stories
-                              →  8. Refinement
-                                  └─ bundled tool: sprint-shared-file-audit.sh
-                                     (run via ${CLAUDE_PLUGIN_ROOT})
-                              →  9. Sprint Planning
-
-                    EXECUTION  (agile-execution — autonomous, whole sprint)
-                    ─────────────────────────────────────
- ┌────────────────────────────────────────────────────────┐
- │  10. agile-10-implement  (one ticket at a time, in     │
- │      Jira dependency order, no mid-loop confirmation): │
- │    validate ticket   gate: repo-scope + spec readiness │
- │    plan / implement / commit / open PR    🤖 markers   │
- │    implement-review        six-lens self-review gate   │
- │    transition → In Review · monitor PR (comments/CI)   │
- └────────────────────────────────────────────────────────┘
-
-                    PER-PR MERGE  (agile-merge-review)
-                    ────────────
- ┌────────────────────────────────────────────────────────┐
- │  agile-11-merge-train  (one PR at a time, sequentially):    │
- │    merge-update-pr · merge-review-pr · merge-fix-until- │
- │    satisfied · fresh CI · gh pr merge · postmortem+Done│
- └────────────────────────────────────────────────────────┘
-
-                    SPRINT CLOSE                 (agile-sprint-close)
-                    ────────────
-  12. tech-debt-sweep  →  13. sprint-closeout  →  14. QA Validation   →  15. Retro
-  cruft + CI audit        dev-stack smoke gate     (confirm-after-merge   back to 5. Roadmap
-                          on closed-out epic        per signed-off story)
-```
-
-Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
-
-**QA Validation (skill 14) is confirm-after-merge only.** By the time it runs, the Story was already merged + transitioned to `Done` by `agile-11-merge-train` / `merge-jira-postmortem`. QA confirms the ACs hold on `main` and stamps a sign-off comment — it never transitions the Story. A post-merge regression is filed as a new Bug (linked `is caused by`), never a reopen. See [`agile-sprint-close/skills/agile-14-qa-validation/SKILL.md`](agile-sprint-close/skills/agile-14-qa-validation/SKILL.md).
 
 ## Confluence structure
 
