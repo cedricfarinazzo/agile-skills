@@ -16,6 +16,29 @@ Your job is to:
 
 ---
 
+## Confluence structure (canonical — identical across all agile-skills)
+
+All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself.
+
+```
+📁 [Project Name]                   (root — agile-1)
+├── 📄 Vision Doc — [Project]       (agile-1)
+├── 📄 PRD — [Project]              (agile-2)
+├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]              (agile-4)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX: guiding principle + iterations index table + progress rollup + parking lot)
+│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
+│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
+│   └── 📄 Iteration N — [Project]
+├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
+└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+```
+
+Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
+
+---
+
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
@@ -268,4 +291,5 @@ Refined Stories summary:
 - **Resumable** — re-running re-reads live Jira state; picks up Not Ready Stories and checks if gaps were resolved
 - **Transparent assumptions** — every inference stated explicitly, especially on dependencies and DoD
 - **Cross-Story file collisions surfaced at refinement, not at merge** — run the bundled shared-file audit script (resolved via `${CLAUDE_PLUGIN_ROOT}`, see Step 1) across the sprint and create blocking links upfront. Late detection at `dev-merge-train` Phase 4 compounds into large per-sprint link backlogs and hidden coupling between tickets
+- **Refinement output lives in Jira; Confluence detail goes on the MVP/Iteration page, never the Roadmap index** — the authoritative refinement record is the Jira ticket (story points field, ACs, DoD, refinement comment). If you also record a per-sprint refined-backlog summary in Confluence, write it under the `## Per-sprint plan` of the current `MVP — [Project]` / `Iteration N — [Project]` child page (per the canonical short-index rule), not on the Roadmap index
 - **Story Points = structured field write, not just comment text** — every Ready-for-Sprint Story must have the points custom field set via `editJiraIssue` (default `customfield_10016`). Writing "Points: N" in the refinement comment without the field write is the most common silent failure: the `refined` label suggests refinement happened, but velocity charts, burndowns, sprint capacity reports, and the retro summary all read `null`. Re-fetch + verify the field round-tripped before declaring the Story Ready.

@@ -1,6 +1,6 @@
 ---
 name: agile-5-roadmap
-description: "Roadmap + MVP scope in Confluence. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 13), before skill 6."
+description: "Roadmap index + MVP/Iteration scope in Confluence. Roadmap stays a short index; detail lives in MVP/Iteration child pages. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 13), before skill 6."
 ---
 
 # agile_5_roadmap
@@ -8,13 +8,34 @@ description: "Roadmap + MVP scope in Confluence. Triggers: create roadmap, defin
 You are acting as a Product Manager and Tech Lead collaborating to define what gets built, in what order, and why.
 
 This skill runs in **two modes**:
-- **INIT mode** — create the Roadmap page and define the MVP scope (first run, after ADR)
-- **ITERATION mode** — add a new iteration section to the existing Roadmap (after each retrospective)
+- **INIT mode** — create the Roadmap index page + the MVP scope page (first run, after ADR)
+- **ITERATION mode** — add a new Iteration page and update the Roadmap index (after each retrospective)
 
 Detect the mode from context:
 - If no Roadmap page exists in Confluence → INIT mode
 - If the user says "plan the next iteration", "we finished the MVP", "add iteration N" → ITERATION mode
 - If a Roadmap exists and the user says "create the roadmap" → confirm: "I found an existing Roadmap. Do you want to add a new iteration, or revisit the MVP scope?"
+
+## Confluence structure (canonical — identical across all agile-skills)
+
+All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself.
+
+```
+📁 [Project Name]                   (root — agile-1)
+├── 📄 Vision Doc — [Project]       (agile-1)
+├── 📄 PRD — [Project]              (agile-2)
+├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]              (agile-4)
+├── 📄 Roadmap — [Project]          (this skill — SHORT INDEX: guiding principle + iterations index table + progress rollup + parking lot)
+│   ├── 📄 MVP — [Project]          (this skill; per-sprint detail by agile-9, refined backlog by agile-8)
+│   ├── 📄 Iteration 1 — [Project]  (this skill, ITERATION mode)
+│   └── 📄 Iteration N — [Project]
+├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
+└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+```
+
+**The short-index rule is the core invariant of this skill.** The Roadmap page never holds goal text, success-criteria tables, full epic-in-scope lists, per-sprint backlogs, or retro write-ups. Those live in the `MVP — [Project]` and `Iteration N — [Project]` child pages. The Roadmap carries only: the guiding principle, the iterations index table (one row per MVP/iteration, linking to its page), a progress rollup table for the current iteration, and the parking lot. If a section on the Roadmap would not fit on a single screen, it belongs on a child page.
 
 ---
 
@@ -103,88 +124,101 @@ I'm already flagging:
 - [Epic Y] depends on [Epic Z] — sequence matters here.
 ```
 
-Wait for the user's answers before writing the Roadmap.
+Wait for the user's answers before writing anything in Confluence.
 
-### Step I4 — Write the Roadmap in Confluence
+### Step I4 — Write the Roadmap index page (short)
 
-Create a new child page under the project root folder:
+Create a child page under the project root folder:
 - **Parent page:** `[Project Name]` (root folder)
 - **Title:** `Roadmap — [Project Name]`
 
-Use this exact structure:
+Keep it to the four index elements only — guiding principle, iterations index table, progress rollup, parking lot. **Do not put MVP goal / success criteria / epic-in-scope detail here** — that goes on the MVP page in Step I5.
 
 ```
 # Roadmap — [Project Name]
 
-## Status
-Last updated: [date]
-Author: [PM name or "AI-assisted"]
-Related: [link to PRD] | [link to ADR]
-
----
+Last updated: [date] | Author: [PM name or "AI-assisted"]
+Related: [PRD] | [ADR] | [Retrospectives] | [Closeouts]
 
 ## Guiding principle
-One sentence on the product strategy driving prioritisation decisions.
-e.g., "Deliver core value to primary persona as fast as possible; defer power-user features to iteration 2."
+One sentence on the product strategy driving prioritisation.
+e.g., "Ship the smallest working loop first; layer power features one iteration at a time."
 
 ---
 
-## MVP — [Target date or Sprint N]
-
-### Goal
-What hypothesis does the MVP validate? What user problem does it solve at minimum viable quality?
-
-### Success criteria
-| KPI | Target | How measured |
-|-----|--------|--------------|
-| [metric] | [value] | [method] |
-
-### Epics in scope
-| Epic | Complexity | Owner | Status |
-|------|------------|-------|--------|
-| [Epic 1] | M | [team] | Not started |
-| [Epic 2] | S | [team] | Not started |
-
-### Epics deferred to Iteration 1
-| Epic | Reason for deferral |
-|------|---------------------|
-| [Epic 3] | Nice-to-have, does not block hypothesis validation |
-
-### Open questions before MVP launch
-- [Question that must be answered before shipping]
+## Iterations
+| Document | Status | Sprints | Headline | Link |
+|----------|--------|---------|----------|------|
+| **MVP** | 🟡 Planned | S1–S[N] (~[N] weeks) | [one-line scope headline] | [MVP — [Project]] |
+| Iteration 1 | Not started | TBD (after MVP retro) | [headline] | [Iteration 1 — [Project]] |
 
 ---
 
-## Iteration 1 — [Target date or Sprint range — TBD]
+## MVP Progress
+**0 of [N] sprints complete.** [one-line current status]
 
-*To be planned after MVP retrospective — run skill 5 in ITERATION mode.*
+| Sprint | Epic | Velocity | Status | Period |
+|--------|------|----------|--------|--------|
+| S1 | [Epic] | — / — pts | Not started | TBD |
 
----
-
-## Iteration N — [TBD]
-
-*To be planned after Iteration [N-1] retrospective.*
+> Full per-sprint detail (goal, backlog, conclusions, retro + closeout links) lives in **[MVP — [Project]]**. This page is the iteration-level index only.
 
 ---
 
 ## Parking lot (post-roadmap ideas)
-Ideas captured but not yet assigned to an iteration:
 - [idea] — raised by [person] on [date]
 
 ---
 
 ## Next Step
-→ Create Epics in Jira — run skill 6: agile_6_create_epics
+→ Create the MVP scope page (next), then run skill 6 to create Epics in Jira.
 ```
 
-### Step I5 — Advise after init
+### Step I5 — Write the MVP scope page (detail)
+
+Create a child page **under the Roadmap page** (not the root):
+- **Parent page:** `Roadmap — [Project Name]`
+- **Title:** `MVP — [Project Name]`
+
+This is where all the MVP detail lives:
+
+```
+# MVP — [Project Name]
+
+Status: [ ] Draft  [ ] Approved   | Last updated: [date]
+Related: [Roadmap] | [PRD] | [ADR]
+
+## Goal
+What hypothesis does the MVP validate? What user problem does it solve at minimum viable quality?
+
+## Success criteria
+| KPI | Target | How measured |
+|-----|--------|--------------|
+
+## Epics in scope
+| Epic | Complexity | Owner | Status |
+|------|------------|-------|--------|
+
+## Epics deferred to Iteration 1
+| Epic | Reason for deferral |
+|------|---------------------|
+
+## Open questions before MVP launch
+- [Question that must be answered before shipping]
+
+## Per-sprint plan
+*One subsection per sprint, filled by skill 8 (refined backlog) and skill 9 (sprint composition) as the MVP progresses. Marked complete by skill 13 (retro).*
+```
+
+Add the row linking to this page in the Roadmap index Iterations table (Step I4) if not already present.
+
+### Step I5b — Advise after init
 
 ```
 ✅ Done:
-- Roadmap page created under [Project Name] in Confluence
-- MVP scope defined: [N] Epics, target [date/sprint]
-- [N] Epics deferred to Iteration 1
-- [N] ideas in parking lot
+- Roadmap index page created under [Project Name] (short index)
+- MVP scope page created under Roadmap: [N] Epics, target [date/sprint]
+- [N] Epics deferred to Iteration 1, [N] ideas in parking lot
 
 ⚠️ Still needed (human action required):
 - Get MVP scope approved by: [stakeholders named in interview]
@@ -192,7 +226,7 @@ Ideas captured but not yet assigned to an iteration:
 
 👉 Next step — Skill 6: agile_6_create_epics
    Once the MVP scope is approved, run skill 6 to create the Epics in Jira.
-   Input needed: approved Roadmap MVP section.
+   Input needed: approved MVP scope page.
 ```
 
 ---
@@ -202,7 +236,7 @@ Ideas captured but not yet assigned to an iteration:
 ### Step IT1 — Scan existing state
 
 Use Atlassian tools to:
-- Find and read the existing Roadmap page in Confluence
+- Find and read the existing Roadmap index page in Confluence
 - Read the latest retrospective page (created by skill 13) if it exists
 - Search Jira for Epics from the previous iteration — check their Done/In Progress status
 - Read the PRD to recall the original business goals and KPIs
@@ -218,8 +252,8 @@ From the **retrospective** (skill 13 output):
 - User feedback received → may reprioritise Epics
 - Epics completed vs. not completed → unfinished work carries over
 
-From the **current Roadmap**:
-- Epics already listed for this iteration → starting point
+From the **current Roadmap index + previous iteration page**:
+- Epics already earmarked for this iteration → starting point
 - Parking lot ideas → candidates to pull in
 
 From **Jira**:
@@ -254,76 +288,93 @@ I'm already flagging:
 - [Any dependency that blocks a proposed Epic]
 ```
 
-### Step IT4 — Update the Roadmap in Confluence
+### Step IT4 — Write the Iteration page (detail)
 
-Update the existing Roadmap page — do not create a new one.
-
-Find the `Iteration [N] — TBD` placeholder section and replace it with:
+Create a child page **under the Roadmap page**:
+- **Parent page:** `Roadmap — [Project Name]`
+- **Title:** `Iteration [N] — [Project Name]`
 
 ```
-## Iteration [N] — [Target date or Sprint range]
+# Iteration [N] — [Project Name]
 
-### Goal
-What does this iteration deliver on top of the MVP (or previous iteration)?
-How does it move the KPIs forward?
+Status: [ ] Draft  [ ] Approved   | Last updated: [date]
+Related: [Roadmap] | [Retro [N-1]] | [PRD]
 
-### Feedback from previous iteration
-Key learnings that shaped this scope:
+## Goal
+What does this iteration deliver on top of the MVP (or previous iteration)? How does it move the KPIs forward?
+
+## Feedback from previous iteration
 - [learning 1]
 - [learning 2]
 
-### Success criteria
+## Success criteria
 | KPI | Previous value | Target | How measured |
 |-----|---------------|--------|--------------|
 
-### Epics in scope
+## Epics in scope
 | Epic | Complexity | Owner | Status | Carried over? |
 |------|------------|-------|--------|---------------|
-| [Epic] | [size] | [team] | Not started | Yes / No |
 
-### Epics deferred to Iteration [N+1]
+## Epics deferred to Iteration [N+1]
 | Epic | Reason |
 |------|--------|
 
-### Open questions before iteration launch
+## Open questions before iteration launch
 - [question]
+
+## Per-sprint plan
+*Filled by skills 8 + 9 as the iteration progresses.*
 ```
 
-Then add the next empty placeholder:
+### Step IT5 — Update the Roadmap index (short)
 
-```
-## Iteration [N+1] — [TBD]
-*To be planned after Iteration [N] retrospective — run skill 5 in ITERATION mode.*
-```
+Update the existing Roadmap index page — do not create a new one, and do not inline iteration detail.
 
-### Step IT5 — Advise after iteration update
+1. In the **Iterations** table: set the just-ended iteration's row Status to `✅ Complete`, and add (or update) the row for Iteration [N] — Status `Planned`, sprints/headline, link to the new Iteration [N] page from Step IT4.
+2. Replace the **Progress** rollup table with the new iteration's per-sprint rollup (or add a new `## Iteration [N] Progress` section and collapse the prior one to a one-line summary linking its page).
+3. Leave the parking lot intact (only move promoted items out).
+
+### Step IT5b — Advise after iteration update
 
 ```
 ✅ Done:
-- Roadmap updated with Iteration [N] scope
-- [N] Epics planned, [N] carried over, [N] deferred
+- Iteration [N] page created under Roadmap: [N] Epics, [N] carried over, [N] deferred
+- Roadmap index updated: previous iteration marked complete, Iteration [N] row added
 
 ⚠️ Still needed (human action required):
-- Approve the Iteration [N] scope
+- Approve the Iteration [N] scope page
 - Resolve open questions: [list]
 
 👉 Next step — Skill 6: agile_6_create_epics
    Run skill 6 to create or update the Epics in Jira for this iteration.
-   Input needed: approved Roadmap Iteration [N] section.
+   Input needed: approved Iteration [N] scope page.
 ```
+
+---
+
+## Resume logic
+
+If this skill is re-run:
+- Re-read the Roadmap index and the relevant MVP / Iteration child page first — never assume previous state
+- INIT: if the Roadmap index exists but the MVP page is missing, create only the MVP page; if both exist, fill gaps only
+- ITERATION: if the Iteration [N] page already exists, fill its incomplete sections; never duplicate it
+- Re-sync the Roadmap index Iterations table + progress rollup with the child pages' current state
+- Report what changed vs. what was already correct
 
 ---
 
 ## Principles (apply to every run)
 
-- **Detect mode first** — always identify INIT vs. ITERATION before doing anything
-- **Ask before writing** — never assign Epics to MVP scope without explicit confirmation; propose and wait
+- **Roadmap is a short index, detail lives in child pages** — the Roadmap page holds only guiding principle + iterations index table + progress rollup + parking lot; goal, success criteria, epic lists, per-sprint plans, and retro write-ups go on the `MVP` / `Iteration N` child pages. Never inline them into the Roadmap.
+- **MVP and Iteration pages are children of the Roadmap page** — not of the root.
+- **Detect mode first** — INIT vs. ITERATION before doing anything
+- **Ask before writing** — never assign Epics to scope without explicit confirmation; propose and wait
 - **Scope is a tripartite decision** — the skill prepares the proposal, it does not make the final call
 - **Group questions** — one message per interview round; never drip
-- **Read before write** — always read PRD, ADR, and existing Roadmap before touching Confluence
-- **Roadmap is a living document** — never replace past iterations; only add to them
-- **Flag risks proactively** — XL Epics, dependency chains, and capacity signals must be surfaced before scope is locked
-- **Idempotent** — re-running never duplicates content
-- **Resumable** — re-running resumes from where the interview or writing left off
+- **Read before write** — read PRD, ADR, Roadmap index, and the relevant child page before touching Confluence
+- **Roadmap is a living document** — never replace past iterations; mark them complete and keep their child pages
+- **Flag risks proactively** — XL Epics, dependency chains, and capacity signals surfaced before scope is locked
+- **Idempotent / Resumable** — re-running never duplicates pages; it fills gaps and re-syncs the index from the child pages
 - **Transparent assumptions** — every inference stated explicitly, especially around timeline and capacity
-- **Parking lot is permanent** — ideas never get deleted, only promoted to an iteration or left for later
+- **Parking lot is permanent** — ideas are never deleted, only promoted to an iteration
+```

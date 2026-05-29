@@ -18,6 +18,29 @@ Detect the mode from context:
 
 ---
 
+## Confluence structure (canonical — identical across all agile-skills)
+
+All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself.
+
+```
+📁 [Project Name]                   (root — agile-1)
+├── 📄 Vision Doc — [Project]       (agile-1)
+├── 📄 PRD — [Project]              (agile-2)
+├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]              (agile-4)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX: guiding principle + iterations index table + progress rollup + parking lot)
+│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
+│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
+│   └── 📄 Iteration N — [Project]
+├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
+└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+```
+
+Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
+
+---
+
 ## BRIEF MODE
 
 ### Step B1 — Scan existing state

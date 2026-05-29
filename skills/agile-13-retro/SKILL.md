@@ -19,25 +19,27 @@ Your job is to:
 
 ---
 
-## Confluence structure
+## Confluence structure (canonical — identical across all agile-skills)
 
-The Retrospectives folder is a dedicated child of the project root folder. It groups all retros for the project in one place, keeping the root clean.
+All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself. The Retrospectives and Closeouts folders are dedicated siblings under the root, keeping it clean.
 
 ```
-📁 Project X                      (root — created by skill 1)
-├── 📄 Vision Doc
-├── 📄 PRD
-├── 📄 Design Brief
-├── 📄 Specs UI
-├── 📄 ADR
-├── 📄 Roadmap                    (living document — updated by this skill)
-├── 📁 Retrospectives             (created by this skill on first run)
+📁 [Project Name]                   (root — created by agile-1)
+├── 📄 Vision Doc — [Project]       (agile-1)
+├── 📄 PRD — [Project]              (agile-2)
+├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]              (agile-4)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX ONLY: guiding principle + iterations index table + progress rollup + parking lot)
+│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail filled by agile-9, refined backlog by agile-8)
+│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
+│   └── 📄 Iteration N — [Project]
+├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
 │   ├── 📄 Retro 1 — Sprint 1
-│   ├── 📄 Retro 2 — Sprint 2
-│   └── 📄 Retro N — Sprint N     (created by this run)
-└── 📁 Closeouts                  (created by dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+│   └── 📄 Retro N — Sprint N        (created by this run)
+└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
     ├── 📄 Closeout 1 — Sprint 1
-    └── 📄 Closeout N — Sprint N  (consumed by this skill as retro input)
+    └── 📄 Closeout N — Sprint N     (consumed by this skill as retro input)
 ```
 
 Closeouts and Retrospectives are **sibling folders** under the project root. The closeout is the engineering / architectural gate produced by `dev-sprint-closeout` before this skill runs; the retro reads it and incorporates its findings.
@@ -288,30 +290,22 @@ Key inputs for the Roadmap update (skill 5 — ITERATION mode):
 
 ---
 
-## Step 5 — Update the Roadmap in Confluence
+## Step 5 — Update the Roadmap in Confluence (index + child page, never inline detail)
 
-After writing the retro page, update the existing Roadmap page.
+Per the canonical structure (above), the Roadmap is a **short index**. Do not add a completed-iteration section or a retro write-up to the Roadmap page itself. Update two places:
 
-Find the section for the iteration that just ended and mark it as complete:
+1. **Roadmap index — Iterations table.** Set the just-ended iteration's row Status to `✅ Complete`. Ensure the next iteration has a row: `| Iteration [N+1] | Not started | TBD | [headline] | [Iteration [N+1] — [Project]] |` (the page itself is created later by skill 5 ITERATION mode).
 
-```
-## [MVP / Iteration N] — [dates] ✅ COMPLETE
-
-[existing content — do not remove]
-
-### Retrospective
-→ See: [link to Retro N page in Retrospectives folder]
-Velocity: [N] points delivered / [N] committed
-Goal: [Achieved / Partially / Not achieved]
-Key learnings: [2-3 bullet summary]
-```
-
-Then ensure the next iteration placeholder exists:
+2. **The completed iteration's child page** (`MVP — [Project]` or `Iteration N — [Project]`). Add a short retro summary at the top:
 
 ```
-## Iteration [N+1] — [TBD]
-*To be planned — run skill 5 (ITERATION mode) with the retro inputs above.*
+## Retrospective — ✅ Complete [dates]
+→ Retro: [link to Retro N page in Retrospectives folder]
+Velocity: [N] delivered / [N] committed | Goal: [Achieved / Partially / Not achieved]
+Key learnings: [2-3 bullets]
 ```
+
+Leave the Roadmap index's progress rollup as the one-line current-status summary; do not paste the retro detail into it.
 
 ---
 
@@ -384,7 +378,7 @@ Key inputs for next iteration:
 - **Carried-over Stories are explained** — every Story not completed has a documented reason and a disposition
 - **Ask before writing** — always collect team inputs before drafting; do not invent learnings
 - **Group questions** — all seven dimensions in one message; never drip
-- **Roadmap and Retro stay linked** — every completed iteration gets a Roadmap section marked complete with a link to its retro page
+- **Roadmap and Retro stay linked, short-index respected** — mark the iteration `✅ Complete` in the Roadmap index Iterations table and put the retro summary on the iteration's child page; never inline a completed-iteration section or retro write-up into the Roadmap index itself. Every completed iteration links to its retro page.
 - **Idempotent** — re-running fills only missing sections; never overwrites existing retro content
 - **Resumable** — re-running re-reads sprint state in Jira and the existing retro page; resumes from what is incomplete
 - **Transparent assumptions** — velocity signals, improvement flags, and carried-over Story reasons are always stated as inferences, not conclusions

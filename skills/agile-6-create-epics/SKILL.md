@@ -15,11 +15,34 @@ Your job is to:
 
 ---
 
+## Confluence structure (canonical — identical across all agile-skills)
+
+All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself.
+
+```
+📁 [Project Name]                   (root — agile-1)
+├── 📄 Vision Doc — [Project]       (agile-1)
+├── 📄 PRD — [Project]              (agile-2)
+├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]              (agile-4)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX: guiding principle + iterations index table + progress rollup + parking lot)
+│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
+│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
+│   └── 📄 Iteration N — [Project]
+├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
+└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+```
+
+Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
+
+---
+
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
 - Find the project root folder in Confluence
-- Read the Roadmap page in full — focus on the current iteration's Epic list
+- Read the Roadmap index to find the current iteration, then open its `MVP — [Project]` / `Iteration N — [Project]` child page and read the **Epics in scope** table there (the Roadmap index itself only links to it)
 - Read the ADR section 11 (Epic Breakdown Proposal) for complexity estimates and dependencies
 - Search Jira for Epics already created for this project (by name, label, or Confluence link)
 
@@ -151,11 +174,9 @@ For each Epic confirmed by the user:
 
 ---
 
-## Step 4 — Update the Roadmap in Confluence
+## Step 4 — Update the MVP/Iteration page in Confluence
 
-After creating or updating Epics in Jira, update the Roadmap page:
-
-For each Epic in the current iteration's table, add or update the Jira link:
+After creating or updating Epics in Jira, update the **Epics in scope** table on the current `MVP — [Project]` / `Iteration N — [Project]` child page (not the Roadmap index — per the canonical short-index rule, epic-level detail lives on the child page). For each Epic, add or update the Jira link:
 
 ```
 | Epic | Complexity | Owner | Status | Jira link |
@@ -163,7 +184,7 @@ For each Epic in the current iteration's table, add or update the Jira link:
 | [Epic 1] | M | [team] | To Do | [PROJ-123] |
 ```
 
-This keeps Confluence and Jira in sync — the Roadmap is always the human-readable view of what is in Jira.
+This keeps Confluence and Jira in sync — the MVP/Iteration page is the human-readable view of what is in Jira; the Roadmap index just links to it.
 
 ---
 
@@ -173,7 +194,7 @@ If this skill is re-run:
 - Re-scan Jira for current Epic statuses — do not assume the previous state is still accurate
 - Only create Epics that are still missing
 - Only update Epics whose description has drifted from the current Roadmap/ADR
-- Re-sync the Roadmap table with current Jira links and statuses
+- Re-sync the MVP/Iteration page's Epics-in-scope table with current Jira links and statuses
 - Report what changed vs. what was already correct
 
 ---
@@ -184,7 +205,7 @@ If this skill is re-run:
 ✅ Done:
 - [N] Epics created in Jira: [list with Jira keys]
 - [N] Epics already existed and were reviewed / updated
-- Roadmap table updated with Jira links
+- MVP/Iteration page Epics table updated with Jira links
 
 ⚠️ Still needed (human action required):
 - Assign owners to: [list of Epics without assignees]
@@ -206,7 +227,7 @@ If this skill is re-run:
 - **Ask before writing** — clarify vague Epic names, scope boundaries, or ownership before creating cards
 - **Group questions** — one message per interview round; never drip
 - **Dependencies drive order** — create Epics in dependency order, flag conflicts
-- **Confluence and Jira stay in sync** — every Epic created in Jira gets a link back in the Roadmap
+- **Confluence and Jira stay in sync** — every Epic created in Jira gets a link back on the MVP/Iteration page (and the Roadmap index links to that page)
 - **Never delete** — only transition to Won't Do or Cancelled with user confirmation and a comment
 - **Idempotent** — re-running never duplicates Epics; it catches drift and updates
 - **Resumable** — re-running re-scans live Jira state and resumes from what is still missing

@@ -16,6 +16,29 @@ Your job is to:
 
 ---
 
+## Confluence structure (canonical — identical across all agile-skills)
+
+All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself.
+
+```
+📁 [Project Name]                   (root — agile-1)
+├── 📄 Vision Doc — [Project]       (agile-1)
+├── 📄 PRD — [Project]              (agile-2)
+├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]              (agile-4)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX: guiding principle + iterations index table + progress rollup + parking lot)
+│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
+│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
+│   └── 📄 Iteration N — [Project]
+├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
+└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+```
+
+Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
+
+---
+
 ## Step 1 — Scan existing state
 
 Use Atlassian tools to:
@@ -163,16 +186,29 @@ After the user confirms the proposal:
 - Set the rank within the sprint to reflect dependency order (blocking Stories ranked first)
 - Do not change Story status — they remain `To Do`; dev agents will transition them when they start
 
-### Update Confluence Roadmap
-- Find the current iteration section in the Roadmap page
-- Update the Epic status table to reflect which Stories are now in the sprint:
+### Update Confluence — detail on the MVP/Iteration page, rollup only on the Roadmap index
+
+Per the canonical structure (above), the Roadmap is a **short index** — per-sprint detail never goes on it. Write to two pages:
+
+1. **Detail → the current `MVP — [Project]` / `Iteration N — [Project]` page** (child of Roadmap). Under its `## Per-sprint plan`, add a subsection for this sprint with the goal, capacity, and the full sprint backlog table:
 
 ```
-| Epic | Stories in sprint | Points | Sprint |
-|------|------------------|--------|--------|
-| [Epic 1] | PROJ-124, PROJ-125 | 8 | Sprint N |
-| [Epic 2] | PROJ-127, PROJ-128 | 5 | Sprint N |
+### Sprint [N] — [start] → [end]   (goal: "[sprint goal]")
+Capacity: [N] pts | Committed: [N] pts
+| Story | Epic | Points | Dependency |
+|-------|------|--------|------------|
+| PROJ-124 | [Epic] | 3 | none |
 ```
+
+2. **Rollup → the Roadmap index progress table** (one row per sprint, no story-level detail):
+
+```
+| Sprint | Epic | Velocity | Status | Period |
+|--------|------|----------|--------|--------|
+| S[N] | [Epic(s)] | — / [committed] pts | 🔄 In Progress | [start] → [end] |
+```
+
+Do not add an Epic/story breakdown table to the Roadmap index — that detail belongs on the MVP/Iteration page only.
 
 ---
 
@@ -193,7 +229,7 @@ If this skill is re-run:
 ✅ Done:
 - Sprint [N] created / populated in Jira
 - [N] Stories in sprint / [N] points / [sprint goal]
-- Roadmap Confluence updated with sprint assignment
+- MVP/Iteration page updated with the sprint backlog; Roadmap index progress rollup updated
 
 ⚠️ Still needed (human action required):
 - Start the sprint in Jira (click "Start Sprint") when the team is ready
@@ -223,7 +259,7 @@ Stories not in this sprint (next sprint candidates):
 - **Propose before act** — always show the composition and wait for confirmation before touching Jira
 - **Ask before writing** — clarify velocity and goal before proposing; never assume capacity
 - **Never remove In Progress Stories** — only the team can decide to pull a Story mid-sprint
-- **Confluence stays in sync** — every sprint planning updates the Roadmap table
+- **Confluence stays in sync, short-index respected** — per-sprint backlog detail goes on the `MVP`/`Iteration N` child page; the Roadmap index gets only the one-row progress rollup, never a story breakdown table
 - **Idempotent** — re-running shows current state and fills only what is missing
 - **Resumable** — re-running re-reads live Jira sprint state; picks up from remaining capacity
 - **Transparent assumptions** — velocity, duration, and carry-over are always stated explicitly before the proposal
