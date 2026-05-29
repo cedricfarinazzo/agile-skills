@@ -1,177 +1,108 @@
 # agile-skills
 
-Two complementary plugins for [Claude Code](https://claude.ai/code), distributed from the same marketplace:
+Five focused [Claude Code](https://claude.ai/code) plugins for the full agile cycle — raw idea → sprint retrospective — integrated with **Confluence** and **Jira**. Distributed from one marketplace; install only the phases you want so you load only the skills you need.
 
-- **`agile-skills`** — full product cycle, raw idea → sprint retrospective, integrated with **Confluence** and **Jira**.
-- **`dev-skills`** — developer workflow: deep PR review, fix-until-satisfied, rebase with conflict resolution, structured Jira postmortems, multi-PR merge train, and sprint-end closeout gate.
+| Plugin | Phase | Skills | Needs |
+|--------|-------|--------|-------|
+| [**agile-product**](agile-product/README.md) | Discovery — *what & why* | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
+| [**agile-planning**](agile-planning/README.md) | Planning | Roadmap, Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
+| [**agile-execution**](agile-execution/README.md) | Build (autonomous) | Implement (+ 6 sub-skills) | Atlassian MCP + `gh` |
+| [**agile-merge-review**](agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
+| [**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
 
-The two pair naturally: `agile-skills` plans and ships the sprint; `dev-skills` reviews, merges, and closes it out.
+**Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
 
-## Plugin: agile-skills
+User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) across plugins, so the order is legible at a glance. The two orchestrators (`agile-10-implement`, `agile-11-merge-train`) compose **unnumbered sub-skills** you don't call directly. Invoke with `/<plugin>:<skill>`, e.g. `/agile-planning:agile-5-roadmap`.
 
-| # | Skill | Trigger |
-|---|-------|---------|
-| 1 | `agile-skills:agile-1-create-vision-doc` | New product idea, CEO asks to build X, "start a new project" |
-| 2 | `agile-skills:agile-2-create-prd` | "write the PRD", "create the PRD", "draft product requirements" |
-| 3 | `agile-skills:agile-3-design-brief` | "write the design brief", "create Specs UI", "design the UI" |
-| 4 | `agile-skills:agile-4-create-adr` | "write the ADR", "create architecture decision record", "technical feasibility" |
-| 5 | `agile-skills:agile-5-roadmap` | "create the roadmap", "define MVP scope", "plan iterations" |
-| 6 | `agile-skills:agile-6-create-epics` | "create epics", "write epics in Jira", "break roadmap into epics" |
-| 7 | `agile-skills:agile-7-create-stories` | "write stories", "create user stories", "break epics into stories" |
-| 8 | `agile-skills:agile-8-refinement` | "run refinement", "estimate stories", "story points" |
-| 9 | `agile-skills:agile-9-sprint-planning` | "plan the sprint", "start sprint", "assemble sprint" |
-| 10 | `agile-skills:agile-10-qa-validation` | "validate the story", "QA check", "test the implementation" |
-| 11 | `agile-skills:agile-11-retro` | "run retro", "sprint retrospective", "document retro" |
-| 12 | `agile-skills:agile-12-implement` | Dev agent assigned a story, "implement story", "start coding" |
-| 13 | `agile-skills:agile-13-dev-review` | "review the PR", "dev review", "approve the pull request" |
+## Cycle order (all plugins together)
 
-Skills fire automatically when Claude detects a matching phrase, or invoke directly with `/agile-skills:<skill-name>`.
+```
+                    PRODUCT / DISCOVERY          (agile-product)
+                    ───────────────────
+  1. Vision Doc  →  2. PRD  →  3. Design Brief
+                            →  4. ADR
 
-## Plugin: dev-skills
+                    PLANNING                     (agile-planning)
+                    ────────
+  5. Roadmap     →  6. Epics  →  7. Stories
+                              →  8. Refinement
+                                  └─ bundled tool: sprint-shared-file-audit.sh
+                                     (run via ${CLAUDE_PLUGIN_ROOT})
+                              →  9. Sprint Planning
 
-| # | Skill | Trigger |
-|---|-------|---------|
-| 1 | `dev-skills:dev-update-pr` | "update pr", "merge main into", "/update-pr" |
-| 2 | `dev-skills:dev-review-pr` | "review pr", "/review-pr" |
-| 3 | `dev-skills:dev-fix-until-satisfied` | "fix all", "fix everything", "/fix-until-satisfied" |
-| 4 | `dev-skills:dev-jira-postmortem` | "comment jira", "jira postmortem", "/jira-postmortem" |
-| 5 | `dev-skills:dev-merge-train` | "merge train", "process all open prs", "/merge-train" |
-| 6 | `dev-skills:dev-tech-debt-sweep` | "tech debt sweep", "cleanup sweep", "housekeeping", "/tech-debt-sweep" |
-| 7 | `dev-skills:dev-sprint-closeout` | "sprint closeout", "close sprint", "/sprint-closeout" |
+                    EXECUTION  (agile-execution — autonomous, whole sprint)
+                    ─────────────────────────────────────
+ ┌────────────────────────────────────────────────────────┐
+ │  10. agile-10-implement  (one ticket at a time, in     │
+ │      Jira dependency order, no mid-loop confirmation): │
+ │    validate ticket   gate: repo-scope + spec readiness │
+ │    plan / implement / commit / open PR    🤖 markers   │
+ │    implement-review        six-lens self-review gate   │
+ │    transition → In Review · monitor PR (comments/CI)   │
+ └────────────────────────────────────────────────────────┘
 
-`dev-merge-train` composes skills 1–5: rebase → review → fix → CI wait → merge → postmortem, sequentially across the open-PR queue. `dev-tech-debt-sweep` then audits the repo for cruft / CI waste / misplaced artifacts before `dev-sprint-closeout` runs the end-of-sprint smoke gate before `agile-11-retro`.
+                    PER-PR MERGE  (agile-merge-review)
+                    ────────────
+ ┌────────────────────────────────────────────────────────┐
+ │  agile-11-merge-train  (one PR at a time, sequentially):│
+ │    merge-update-pr · merge-review-pr · merge-fix-until- │
+ │    satisfied · fresh CI · gh pr merge · postmortem+Done │
+ └────────────────────────────────────────────────────────┘
+
+                    SPRINT CLOSE                 (agile-sprint-close)
+                    ────────────
+  12. tech-debt-sweep  →  13. sprint-closeout  →  14. QA Validation   →  15. Retro
+  cruft + CI audit        dev-stack smoke gate     (confirm-after-merge   back to 5. Roadmap
+                          on closed-out epic        per signed-off story)
+```
+
+Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
+
+`agile-10-implement` clears the **build** queue (`To Do` Story → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`); `agile-sprint-close` ends the sprint. The same code is reviewed by **three different roles** — author self-review ([implement-review](agile-execution/README.md)), independent PR review ([merge-review-pr](agile-merge-review/README.md)), and a global sprint review ([sprint-closeout](agile-sprint-close/README.md)) — by design, not redundancy.
 
 ## Requirements
 
 - [Claude Code](https://claude.ai/code) v2.1.128+
-- Atlassian MCP configured (Confluence + Jira access) — both plugins
-- GitHub CLI (`gh`) — `dev-skills` only
+- Atlassian MCP configured (Confluence + Jira) — all plugins use Jira/Confluence
+- GitHub CLI (`gh`) — `agile-execution`, `agile-merge-review`, `agile-sprint-close`
 
 ## Install
 
-### From GitHub (recommended)
-
 ```bash
 /plugin marketplace add cedricfarinazzo/agile-skills
-/plugin install agile-skills@agile-skills      # full agile cycle
-/plugin install dev-skills@agile-skills        # dev / PR / merge-train skills
+# install any subset:
+/plugin install agile-product@agile-skills
+/plugin install agile-planning@agile-skills
+/plugin install agile-execution@agile-skills
+/plugin install agile-merge-review@agile-skills
+/plugin install agile-sprint-close@agile-skills
 /reload-plugins
 ```
 
-Install one or both. The marketplace ships both plugins from this repo.
+Install only the phases you run. Common combos: planning + execution + merge-review for an active dev loop; product + planning for discovery only.
 
 ### Local (dev / test)
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
-claude --plugin-dir ./agile-skills
+claude --plugin-dir ./agile-skills/agile-execution   # one plugin dir at a time
 ```
 
-### Codex CLI
+### Codex CLI / GitHub Copilot CLI
 
-Skills follow the [Agent Skills](https://agentskills.io) open standard — copy skill directories to your skills folder:
+Skills follow the [Agent Skills](https://agentskills.io) open standard — copy the skill directories you want:
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
-# User-level (all projects)
-cp -r agile-skills/skills/* ~/.agents/skills/
-# Or repo-level (current project only)
-cp -r agile-skills/skills/* .agents/skills/
+cp -r agile-skills/agile-*/skills/* ~/.agents/skills/      # Codex: all, or pick per plugin
+cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/     # Copilot
 ```
 
-Or use the built-in installer:
+## Confluence structure & per-repo configuration
 
-```
-$skill-installer https://github.com/cedricfarinazzo/agile-skills
-```
+All Confluence-using skills share one canonical folder layout with a **short-index Roadmap** (detail on `MVP` / `Iteration N` child pages) — see [agile-planning ▸ Confluence structure](agile-planning/README.md#confluence-structure).
 
-### GitHub Copilot CLI
-
-```bash
-git clone https://github.com/cedricfarinazzo/agile-skills
-# User-level (all projects)
-cp -r agile-skills/skills/* ~/.copilot/skills/
-# Or repo-level
-cp -r agile-skills/skills/* .github/skills/
-```
-
-Then reload:
-
-```
-/skills reload
-/skills info agile-1-create-vision-doc
-```
-
-Or use the GitHub CLI:
-
-```bash
-gh skill install cedricfarinazzo/agile-skills
-```
-
-## Cycle order (both plugins together)
-
-```
-                    PRODUCT / DISCOVERY
-                    ───────────────────
-  1. Vision Doc  →  2. PRD  →  3. Design Brief
-                            →  4. ADR
-
-                    PLANNING
-                    ────────
-  5. Roadmap     →  6. Epics  →  7. Stories
-                              →  8. Refinement
-                                  └─ tool: sprint-shared-file-audit.sh
-                              →  9. Sprint Planning
-
-                    EXECUTION (per story)
-                    ─────────────────────
- 12. Implement   → 13. Dev Review  → PER-PR MERGE (dev-skills)
-
-                    PER-PR MERGE  (dev-skills)
-                    ────────────
- ┌────────────────────────────────────────────────────────┐
- │  dev-merge-train  (one PR at a time, sequentially):    │
- │    dev-update-pr            rebase on main             │
- │    dev-review-pr            read every file, vs ACs    │
- │    dev-fix-until-satisfied  fix Critical + Minor       │
- │    CI wait                  fresh post-rebase green    │
- │    gh pr merge --squash                                │
- │    dev-jira-postmortem      comment + transition Done  │
- └────────────────────────────────────────────────────────┘
-
-                    SPRINT CLOSE
-                    ────────────
-  dev-tech-debt-sweep      →  dev-sprint-closeout      →  10. QA Validation         →  11. Retro
-  (dev-skills)                (dev-skills)                (agile-skills, Mode B:       (agile-skills)
-  cruft + CI + repo audit     dev-stack smoke gate        confirm-after-merge,         back to 5. Roadmap
-  report → approve → apply    on closed-out epic          per signed-off story)
-```
-
-Plugin ownership:
-
-- **agile-skills:** steps 1–11, 12, 13. Including QA Validation (skill 10) in **Mode B (confirm-after-merge)** after the merge train.
-- **dev-skills:** the merge box + the dev-stack closeout gate. Plugs in between Dev Review and QA Validation.
-
-Skill 10 (QA Validation) has two entry modes:
-
-- **Mode A — classic.** Story is `In Review`, dev-review-approved but not yet merged. QA pass transitions Story to `Done`. Use when not running `dev-merge-train`.
-- **Mode B — confirm-after-merge.** Story is already `Done` (merge train + postmortem closed it). QA confirms ACs hold on `main`, stamps sign-off comment, no transition. Post-merge regression → file Bug, do not reopen Story.
-
-Mode is auto-detected from Story status. See [`skills/agile-10-qa-validation/SKILL.md`](skills/agile-10-qa-validation/SKILL.md) for the full ladder.
-
-Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
-
-## Per-repo configuration
-
-`dev-skills` reads project-specific values from the consumer repo's `CLAUDE.md` / `AGENTS.md`:
-
-- `cloudId` — Atlassian cloud id for MCP calls (e.g. `yourorg.atlassian.net`)
-- `ticket-prefix-regex` — defaults to `[A-Z]+-\d+`
-- `done-status-name` — project's Done state name (e.g. `Done`, `Terminé(e)`)
-- Lint / unit / integration commands per language stack
-- Optional `done-transition-id` for fast-path Jira transition
-
-Add a `## Skill configuration` section in your repo's `CLAUDE.md` listing these. Skills fall back to lookups when values absent.
+The dev-side plugins read project values (`cloudId`, status names, lint commands, board/branch settings) from the consumer repo's `CLAUDE.md` / `AGENTS.md` — see each plugin README ([execution](agile-execution/README.md#configuration), [merge-review](agile-merge-review/README.md#configuration)).
 
 ## License
 
