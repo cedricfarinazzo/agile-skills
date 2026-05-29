@@ -22,7 +22,9 @@ Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a
 ## Structure
 
 ```
+README.md                                 # root README — OVERVIEW only (plugin table, cycle diagram, install, links)
 .claude-plugin/marketplace.json          # marketplace — lists all 5 plugins (git-subdir per path)
+<plugin>/README.md                        # per-plugin README — the detail for that plugin
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 agile-planning/skills/agile-8-refinement/scripts/   # bundled scripts — invoke via ${CLAUDE_PLUGIN_ROOT}
@@ -35,7 +37,9 @@ Plugin → skills:
 - `agile-merge-review/`: **agile-11-merge-train** (orchestrator, numbered) + unnumbered sub-skills `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem`
 - `agile-sprint-close/`: agile-12-tech-debt-sweep, agile-13-sprint-closeout, agile-14-qa-validation, agile-15-retro
 
-There is **no root plugin** — the repo root holds only `.claude-plugin/marketplace.json` + the five plugin dirs.
+There is **no root plugin** — the repo root holds only `README.md`, `.claude-plugin/marketplace.json`, and the five plugin dirs.
+
+**Docs split:** the root `README.md` is an **overview** (plugin table, cycle diagram, three-review-roles note, install, requirements) that **links** to each plugin's README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, the autonomous-loop / merge-train internals) lives in `<plugin>/README.md`. When you change a skill, update its plugin README; keep the root as overview-only and don't re-duplicate plugin detail there. The canonical Confluence tree lives in full in `agile-planning/README.md` (others link to it).
 
 ## SKILL.md format
 
