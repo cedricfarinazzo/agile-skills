@@ -32,7 +32,7 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
 ```
 
 Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
@@ -68,7 +68,7 @@ Ask: "Shall I proceed with refining all of these, or focus on a specific Epic / 
 
 ### Optional pre-check — shared-file collision audit
 
-This skill **bundles** a shared-file audit script. Invoke it once per sprint to surface cross-Story file overlap. Each overlap becomes a blocking Jira link (`is blocked by` / `relates to`) created during this refinement run, instead of getting rediscovered as a merge conflict during `dev-merge-train` Phase 4.
+This skill **bundles** a shared-file audit script. Invoke it once per sprint to surface cross-Story file overlap. Each overlap becomes a blocking Jira link (`is blocked by` / `relates to`) created during this refinement run, instead of getting rediscovered as a merge conflict during `agile-11-merge-train` Phase 4.
 
 **Resolve the script path from the plugin root — never a bare relative path.** When the skill runs installed as a plugin, the working directory is the consumer repo, not the skill directory, so `scripts/sprint-shared-file-audit.sh` will not exist. Always invoke via the `CLAUDE_PLUGIN_ROOT` environment variable that Claude Code sets for plugin skills:
 
@@ -206,7 +206,7 @@ mcp__atlassian__editJiraIssue(
 )
 ```
 
-The field id is project-dependent — consumer repos should pin it in `CLAUDE.md` (e.g. `story-points-field: customfield_10016`). Default `customfield_10016` matches the standard Jira Software Cloud "Story Points" field. **Writing the estimate into the refinement comment alone is not sufficient** — Jira velocity charts, burndowns, sprint capacity reports, and the `agile-13-retro` "Committed / Delivered / Velocity" summary all read the structured field. Skipping the field write yields silently-broken sprint reporting that only surfaces at retro time.
+The field id is project-dependent — consumer repos should pin it in `CLAUDE.md` (e.g. `story-points-field: customfield_10016`). Default `customfield_10016` matches the standard Jira Software Cloud "Story Points" field. **Writing the estimate into the refinement comment alone is not sufficient** — Jira velocity charts, burndowns, sprint capacity reports, and the `agile-15-retro` "Committed / Delivered / Velocity" summary all read the structured field. Skipping the field write yields silently-broken sprint reporting that only surfaces at retro time.
 
 **AC updates:** Rewrite any AC that was vague, add missing edge cases, add failure path criteria.
 
@@ -290,6 +290,6 @@ Refined Stories summary:
 - **Idempotent** — re-running skips already-refined Stories unless explicitly asked to revisit
 - **Resumable** — re-running re-reads live Jira state; picks up Not Ready Stories and checks if gaps were resolved
 - **Transparent assumptions** — every inference stated explicitly, especially on dependencies and DoD
-- **Cross-Story file collisions surfaced at refinement, not at merge** — run the bundled shared-file audit script (resolved via `${CLAUDE_PLUGIN_ROOT}`, see Step 1) across the sprint and create blocking links upfront. Late detection at `dev-merge-train` Phase 4 compounds into large per-sprint link backlogs and hidden coupling between tickets
+- **Cross-Story file collisions surfaced at refinement, not at merge** — run the bundled shared-file audit script (resolved via `${CLAUDE_PLUGIN_ROOT}`, see Step 1) across the sprint and create blocking links upfront. Late detection at `agile-11-merge-train` Phase 4 compounds into large per-sprint link backlogs and hidden coupling between tickets
 - **Refinement output lives in Jira; Confluence detail goes on the MVP/Iteration page, never the Roadmap index** — the authoritative refinement record is the Jira ticket (story points field, ACs, DoD, refinement comment). If you also record a refined-backlog summary in Confluence, write it into the relevant `## Sprint [N]` section's **Backlog** table on the current `MVP — [Project]` / `Iteration N — [Project]` child page (per the canonical short-index rule), not on the Roadmap index
 - **Story Points = structured field write, not just comment text** — every Ready-for-Sprint Story must have the points custom field set via `editJiraIssue` (default `customfield_10016`). Writing "Points: N" in the refinement comment without the field write is the most common silent failure: the `refined` label suggests refinement happened, but velocity charts, burndowns, sprint capacity reports, and the retro summary all read `null`. Re-fetch + verify the field round-tripped before declaring the Story Ready.

@@ -24,13 +24,13 @@ PR number or branch name from args. If not given, ask.
 If step 3 prints `Already up to date.` (no new commits to integrate, no merge commit created):
 
 - **Do not push.** There is nothing new to push; pushing would be a no-op and may falsely trigger CI re-runs depending on hook config.
-- **Do not force an empty merge commit just to trigger CI.** The branch tree already matches what would land. If a caller (e.g. `dev-merge-train` 3e) needs fresh CI on the exact tree, check whether the existing CI run on the branch HEAD is still valid:
+- **Do not force an empty merge commit just to trigger CI.** The branch tree already matches what would land. If a caller (e.g. `agile-11-merge-train` 3e) needs fresh CI on the exact tree, check whether the existing CI run on the branch HEAD is still valid:
   - Verify with `git merge-base --is-ancestor main <existing-CI-run-sha>` (does the branch HEAD contain all of main?):
     - Exit 0 → branch HEAD is a descendant of (or equal to) main; existing CI on this sha covers the landable tree; proceed.
     - Exit 1 → branch is behind main (impossible if step 3 said "Already up to date" — would indicate a state-tracking bug; investigate before proceeding).
 - **Report explicitly** in the final status, including the existing run's conclusion so callers can act without an extra `gh run view`:
   `Already on top of main — no merge commit, no push. Existing CI run <id> (<conclusion>, sha <sha>) covers the tree that will land.`
-  Fetch the conclusion with `gh pr view <N> --json statusCheckRollup,mergeStateStatus`. A no-op rebase does NOT imply CI is green — the existing run may be `FAILURE` / `UNSTABLE`. Caller (e.g. `dev-merge-train` 3a) is responsible for routing red CI into the fix loop instead of merging.
+  Fetch the conclusion with `gh pr view <N> --json statusCheckRollup,mergeStateStatus`. A no-op rebase does NOT imply CI is green — the existing run may be `FAILURE` / `UNSTABLE`. Caller (e.g. `agile-11-merge-train` 3a) is responsible for routing red CI into the fix loop instead of merging.
 
 4. If conflicts:
    - `git diff --name-only --diff-filter=U` to list conflicting files
@@ -61,4 +61,4 @@ If step 3 prints `Already up to date.` (no new commits to integrate, no merge co
 - **Detect no-op via `git merge` stdout containing `Already up to date.`** — do not rely on exit code alone (a successful merge with conflicts that auto-resolved also exits 0).
 - **Lint-after-rebase is mandatory whenever a merge commit was created.** Even on auto-resolved conflicts — the textual merge can leave formatter-rejected artifacts. See step 4.5.
 - **PR-introduced lints run after rebase too.** A PR introducing a new lint rule must re-run that lint against the rebased tree, not just the pre-rebase one. Sibling PRs that landed during the same sprint may have added files in the lint's target paths that the original sweep never saw — without re-running, those files become a silent CI fail-on-master after merge. See step 4.5 inner bullet.
-- **Skill output prose stays in normal English.** Status lines (Pushed merge commit / No-op / Conflict still open) are consumed by `dev-merge-train` 3a to route to the correct next step — full sentences keep that trace unambiguous.
+- **Skill output prose stays in normal English.** Status lines (Pushed merge commit / No-op / Conflict still open) are consumed by `agile-11-merge-train` 3a to route to the correct next step — full sentences keep that trace unambiguous.

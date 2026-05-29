@@ -1,15 +1,15 @@
 ---
-name: agile-12-qa-validation
-description: "QA validation, confirm-after-merge: Story already Done (merged) — confirm ACs hold on main, stamp sign-off, no transition. Regression → file a Bug, never reopen. Triggers: validate story, QA story, QA check, confirm ACs. After dev-sprint-closeout, before skill 13."
+name: agile-14-qa-validation
+description: "QA validation, confirm-after-merge: Story already Done (merged) — confirm ACs hold on main, stamp sign-off, no transition. Regression → file a Bug, never reopen. Triggers: validate story, QA story, QA check, confirm ACs. After agile-13-sprint-closeout, before skill 15."
 ---
 
-# agile_12_qa_validation
+# agile_14_qa_validation
 
 You are acting as a QA Engineer confirming that a **merged** Story still meets its acceptance criteria, definition of done, and design specs on `main`.
 
-This skill runs **confirm-after-merge** only: by the time it runs, the Story was already merged and transitioned to `Done` by `dev-merge-train` / `dev-jira-postmortem` (usually after `dev-sprint-closeout`). QA validates the ACs against `main` and stamps a sign-off comment — it does **not** transition the Story. If a failure is found, the Story stays `Done` and a regression **Bug** is filed; the Done audit trail is never reversed.
+This skill runs **confirm-after-merge** only: by the time it runs, the Story was already merged and transitioned to `Done` by `agile-11-merge-train` / `dev-jira-postmortem` (usually after `agile-13-sprint-closeout`). QA validates the ACs against `main` and stamps a sign-off comment — it does **not** transition the Story. If a failure is found, the Story stays `Done` and a regression **Bug** is filed; the Done audit trail is never reversed.
 
-> Classic pre-merge QA (transition In Review → Done) is intentionally out of scope here — merging is owned by `agile-merge-review` (`dev-merge-train`), which closes the Story. This skill is the post-merge confirmation gate that runs at sprint close.
+> Classic pre-merge QA (transition In Review → Done) is intentionally out of scope here — merging is owned by `agile-merge-review` (`agile-11-merge-train`), which closes the Story. This skill is the post-merge confirmation gate that runs at sprint close.
 
 Your job is to:
 1. **Scan** Jira for the target Story and read everything relevant to validate it
@@ -36,7 +36,7 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
 ```
 
 Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
@@ -47,8 +47,8 @@ Read this tree before creating any page: every page is a child of the root (MVP 
 
 Use Atlassian tools to:
 - Read the target Story in Jira in full: summary, description, AC, DoD, Specs UI link, technical notes, dependencies, refinement comments
-- **Confirm the Story is `Done`** (the only valid entry state). The Story was merged by `dev-merge-train` (which auto-transitions to Done via `dev-jira-postmortem` 3g). Look for the postmortem comment on the Story as confirmation of merge.
-  - If the Story is **not `Done`** → stop: "Story [PROJ-XXX] is [status], not Done. This skill validates already-merged Stories (confirm-after-merge). Run it through `dev-merge-train` first — the merge train reviews, merges, and transitions the Story to Done."
+- **Confirm the Story is `Done`** (the only valid entry state). The Story was merged by `agile-11-merge-train` (which auto-transitions to Done via `dev-jira-postmortem` 3g). Look for the postmortem comment on the Story as confirmation of merge.
+  - If the Story is **not `Done`** → stop: "Story [PROJ-XXX] is [status], not Done. This skill validates already-merged Stories (confirm-after-merge). Run it through `agile-11-merge-train` first — the merge train reviews, merges, and transitions the Story to Done."
   - If the Story is `Done` but there is **no merge evidence** (no postmortem comment / linked merged PR) → ask the user before proceeding; Done may have been set manually.
 - Read the PR linked to this Story — it is expected to be squash-merged + branch deleted; record the merge commit.
 - Follow the Confluence Specs UI link and read the relevant screen(s)
@@ -81,7 +81,7 @@ Previous bugs linked: [N bugs / none]
 ```
 
 **If the Specs UI link is missing on a UI Story:**
-- Warn but do not stop: "No Specs UI link found on this Story. I will validate ACs only — visual spec compliance cannot be assessed. Add the Specs UI link and re-run skill 12 to complete the visual validation."
+- Warn but do not stop: "No Specs UI link found on this Story. I will validate ACs only — visual spec compliance cannot be assessed. Add the Specs UI link and re-run skill 14 to complete the visual validation."
 
 ---
 
@@ -209,7 +209,7 @@ Overall: ❌ NOT signed off — 2 items failed
 - Do **NOT** transition (the Story is already `Done`). Do **NOT** reopen.
 - Add the QA sign-off comment below — note that validation was confirm-after-merge so the audit trail is clear.
 - Add label `qa-approved`.
-- If `dev-sprint-closeout` ran before this validation, reference it in the comment ("Closeout report: [link]") so the chain of evidence is complete.
+- If `agile-13-sprint-closeout` ran before this validation, reference it in the comment ("Closeout report: [link]") so the chain of evidence is complete.
 
 **Sign-off comment:**
 ```
@@ -225,7 +225,7 @@ Signed off. ✅
 
 The Story is already `Done` on `main`. This is a **post-merge regression** — escalate accordingly:
 - Do **NOT** move the Story back to In Progress; transitioning a Done story backwards loses the "closed" audit trail and breaks the merge-train invariant. Leave the Story `Done` with a `qa-regression` label and **file a new Bug** linked to the Story (link type: `is caused by`) and to the Epic.
-- The Bug becomes the unit of remaining work. It enters the next sprint and follows the normal `dev-merge-train` path.
+- The Bug becomes the unit of remaining work. It enters the next sprint and follows the normal `agile-11-merge-train` path.
 - Add a comment on the original Story noting the regression Bug key.
 
 **Bug structure (one Bug per failure):**
@@ -234,7 +234,7 @@ The Story is already `Done` on `main`. This is a **post-merge regression** — e
 ```
 ## Bug report — [date]
 Linked Story: [PROJ-XXX]
-Found during: QA validation (confirm-after-merge, skill 12)
+Found during: QA validation (confirm-after-merge, skill 14)
 
 ## What failed
 AC / DoD item: [which one]
@@ -261,7 +261,7 @@ Environment: [where tested]
 ## QA post-merge regression found — [date]
 Story remains Done on main; regression Bug(s) filed instead of reopening.
 Regression bugs: [list Bug keys] — linked via "is caused by".
-Next step: bugs enter the next sprint and follow the normal dev-merge-train path.
+Next step: bugs enter the next sprint and follow the normal agile-11-merge-train path.
 ```
 
 ---
@@ -287,8 +287,8 @@ If this skill is re-run on a Story:
 
 👉 Next actions:
 - If all Stories in Epic [PROJ-YYY] are now Done + signed off: the Epic can be closed — check in Jira
-- Once every sprint Story is signed off, proceed to skill 13 (agile_13_retro)
-- dev-sprint-closeout has usually already run; if not, run it before the retro
+- Once every sprint Story is signed off, proceed to skill 15 (agile_15_retro)
+- agile-13-sprint-closeout has usually already run; if not, run it before the retro
 ```
 
 ### If a regression Bug was filed
@@ -298,11 +298,11 @@ If this skill is re-run on a Story:
 [N] regression bugs: [list keys]
 
 ⚠️ Action required:
-- Bugs enter the next sprint and follow the normal dev-merge-train path
-- Re-run skill 12 after the bugs are merged to re-confirm
+- Bugs enter the next sprint and follow the normal agile-11-merge-train path
+- Re-run skill 14 after the bugs are merged to re-confirm
 
 👉 Once all sprint Stories are signed off:
-   Run skill 13: agile_13_retro to close the sprint and plan the next iteration.
+   Run skill 15: agile_15_retro to close the sprint and plan the next iteration.
 ```
 
 ---
@@ -312,7 +312,7 @@ If this skill is re-run on a Story:
 - **Confirm-after-merge only** — the Story is already `Done`; this skill confirms ACs on `main`, it never transitions the Story.
 - **Never assume a pass without evidence** — every AC requires confirmation; absence of failure is not a pass
 - **Every DoD item is checked, every run** — DoD is not carried over without re-confirmation
-- **Post-merge regressions become Bugs, never reopens** — leave the Story Done, file a Bug linked `is caused by`, label the Story `qa-regression`. Transitioning Done → In Progress backwards loses the merge audit trail and breaks dev-merge-train's invariants.
+- **Post-merge regressions become Bugs, never reopens** — leave the Story Done, file a Bug linked `is caused by`, label the Story `qa-regression`. Transitioning Done → In Progress backwards loses the merge audit trail and breaks agile-11-merge-train's invariants.
 - **Bugs are filed per failure, not per Story** — one AC failure = one Bug; multiple failures = multiple Bugs
 - **Specs UI deviations are flagged, not auto-rejected** — a deviation may be intentional; ask before failing
 - **Ask before concluding** — always collect test results before producing the validation report

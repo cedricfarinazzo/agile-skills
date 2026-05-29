@@ -1,11 +1,11 @@
 ---
-name: dev-tech-debt-sweep
-description: "End-of-sprint housekeeping before closeout: audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/SKILL.md cruft, misplaced artifacts. Report before apply. Triggers: tech debt sweep, cleanup sweep, housekeeping, /tech-debt-sweep. Before dev-sprint-closeout."
+name: agile-12-tech-debt-sweep
+description: "End-of-sprint housekeeping before closeout: audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/SKILL.md cruft, misplaced artifacts. Report before apply. Triggers: tech debt sweep, cleanup sweep, housekeeping, /tech-debt-sweep. Before agile-13-sprint-closeout."
 ---
 
-# dev-tech-debt-sweep
+# agile_12_tech_debt_sweep
 
-Audit the consumer repo for low-value drift that accumulated during the sprint. Report findings grouped by category, get explicit approval, apply behavior-preserving fixes, file cross-repo follow-ups. Runs **before** `dev-sprint-closeout` so the smoke gate runs on a clean repo.
+Audit the consumer repo for low-value drift that accumulated during the sprint. Report findings grouped by category, get explicit approval, apply behavior-preserving fixes, file cross-repo follow-ups. Runs **before** `agile-13-sprint-closeout` so the smoke gate runs on a clean repo.
 
 ## Goal & non-goals
 
@@ -29,7 +29,7 @@ Project source files (anything tracked in git) must not reference:
 
 - **Personal workflow tags** in TODO comments (e.g. `TODO(<owner-handle>)`, `TODO(<persona-tag>)`) — agent or owner private tags that confuse contributors. Build the project-specific tag list from the owner's known agent / persona vocabulary before grepping.
 - **Personal style / compression modes** in `CLAUDE.md` (e.g. "use `<terse-mode>` style", "always reply in `<style-name>` mode", refs to agent-side compression dialects) — these are agent-side personal preferences, not project conventions.
-- **Personal skill names** in project `CLAUDE.md` (e.g. `dev-sprint-closeout`, `agile-13-retro`, custom slash-commands) — these live in plugin repos and are not installed for every contributor. Either rewrite as workflow-neutral guidance ("run end-of-sprint closeout gate before retro") or delete.
+- **Personal skill names** in project `CLAUDE.md` (e.g. `agile-13-sprint-closeout`, `agile-15-retro`, custom slash-commands) — these live in plugin repos and are not installed for every contributor. Either rewrite as workflow-neutral guidance ("run end-of-sprint closeout gate before retro") or delete.
 - **Owner-specific URLs / cloudIds / tokens / project keys** sprinkled outside their natural homes (e.g. hardcoded Jira `cloudId` in random workflows; project-specific issue prefixes baked into shared scripts).
 
 **Grep recipe (substitute the alternation list with the consumer's actual personal vocabulary — owner tags, persona names, compression / style modes, custom CLI wrappers, personal skill names, hardcoded owner cloudId / handle / email):**
@@ -162,7 +162,7 @@ Final summary message:
 - Per-repo commit list (consumer + each cross-repo destination)
 - Cross-repo PR list (which repos need separate PRs, in what order — e.g. "docker-images PR first → wait for `<image>-v1.0.0` to ship → then consumer swap PR")
 - Follow-up tickets filed (e.g. "FIN-XX: swap rover service to prebuilt image after rover-v1.0.0 publishes")
-- Note that `dev-sprint-closeout` may now proceed
+- Note that `agile-13-sprint-closeout` may now proceed
 
 ## Rules
 
@@ -172,7 +172,7 @@ Final summary message:
 - **Deferred swaps for D.** When extracting a Dockerfile to a prebuilt image, the consumer's `docker-compose.yml` swap is a **follow-up ticket**, not part of this sweep. The image must exist on the registry before the swap can land — file the ticket and let the normal sprint flow handle it.
 - **Use sibling-image templates verbatim for D.** Copy an existing `build-<sibling>.yml` workflow + Dockerfile + versions.json + package.json + .releaserc.json + README from a working image in the docker-images repo. SHA-pin every `uses:` (Renovate keeps them current). Do not invent a new pattern.
 - **One commit per approved category per repo.** Reviewers can revert a single bucket without unwinding the whole sweep.
-- **Run before `dev-sprint-closeout`.** Closeout's dev-stack smoke depends on a clean repo + accurate `CLAUDE.md` (smoke-test selects the user flow described there). Running this sweep after closeout would invalidate the closeout's signal.
+- **Run before `agile-13-sprint-closeout`.** Closeout's dev-stack smoke depends on a clean repo + accurate `CLAUDE.md` (smoke-test selects the user flow described there). Running this sweep after closeout would invalidate the closeout's signal.
 - **Skip categories the consumer repo doesn't have.** Single-language repo with no Docker → D is N/A. Project with no plugin-side skills bundled locally → E is N/A. Report the skip explicitly so the user knows you checked.
 - **Audit report prose stays in normal English regardless of session-level compression modes.** The report is read by humans + drives destructive actions; full sentences avoid ambiguity.
 
@@ -184,6 +184,6 @@ Final summary message:
 
 ## When NOT to use
 
-- Mid-sprint check-in. This is end-of-sprint pre-closeout — run **after** the last story merged + **before** `dev-sprint-closeout`.
+- Mid-sprint check-in. This is end-of-sprint pre-closeout — run **after** the last story merged + **before** `agile-13-sprint-closeout`.
 - A quick CLAUDE.md tweak. Use direct edits for one-line changes; this skill is for the full 5-category sweep.
 - A new-repo scaffold. This skill assumes an established repo with accumulated drift; for greenfield repos the categories don't apply.

@@ -96,7 +96,7 @@ Two-tier severity is deliberate. No "Moderate" / "Suggestion" / "Nit" tiers — 
 
 If no issues: explicitly state "Satisfied — ready to merge." and why.
 
-**This skill is review-only — it does NOT merge, monitor CI, or close the loop.** When invoked standalone, return after the report. When invoked from `dev-merge-train` 3b, the caller continues to 3c (`dev-fix-until-satisfied`) → 3e (CI) → 3f (merge) → 3g (postmortem). Do not append "should I merge now?" prompts; the caller decides.
+**This skill is review-only — it does NOT merge, monitor CI, or close the loop.** When invoked standalone, return after the report. When invoked from `agile-11-merge-train` 3b, the caller continues to 3c (`dev-fix-until-satisfied`) → 3e (CI) → 3f (merge) → 3g (postmortem). Do not append "should I merge now?" prompts; the caller decides.
 
 ## Rules
 

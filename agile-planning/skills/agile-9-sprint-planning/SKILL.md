@@ -32,7 +32,7 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
 ```
 
 Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
@@ -210,7 +210,7 @@ Per the canonical structure (above), the Roadmap is a **short index** — per-sp
 |---|-------|---------|-----|-------|------------|
 | 1 | PROJ-124 | [summary] | 3 | backend | none |
 ```
-(Leave the `### Sprint conclusion` + retro/closeout links empty — skill 13 fills them at sprint end.)
+(Leave the `### Sprint conclusion` + retro/closeout links empty — skill 15 fills them at sprint end.)
 
 3. **Progress rollup row → the Roadmap index** (one row per sprint, no story-level detail):
 
@@ -254,10 +254,10 @@ Stories not in this sprint (next sprint candidates):
 | PROJ-129 | 8 |
 
 👉 Dev flow from here:
-   1. Skill 10: agile_10_implement — dev agent picks up a Story in To Do, implements it, opens a PR, moves Story to In Review
-   2. Skill 11: agile_11_dev_review — back/infra/ops reviewer reviews the PR before QA
-   3. Skill 12: agile_12_qa_validation — QA validates the Story against ACs and DoD, moves to Done or creates Bugs
-   Run skills 10 → 11 → 12 for each Story in the sprint.
+   1. Skill 10: agile_10_implement — autonomously implements every eligible Story (validate → plan → code → PR → self-review via implement-review), moving each to In Review with an open PR
+   2. Skill 11: agile_11_merge_train — reviews + merges the open PRs to main, one at a time, and transitions each Story to Done
+   3. Sprint close: agile-12-tech-debt-sweep → agile-13-sprint-closeout → skill 14 (agile_14_qa_validation, confirm-after-merge) → skill 15 (agile_15_retro)
+   Run skill 10 → 11, then the sprint-close chain once the sprint's Stories are merged.
 ```
 
 ---

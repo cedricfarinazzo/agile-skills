@@ -34,7 +34,7 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
 ```
 
 Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.

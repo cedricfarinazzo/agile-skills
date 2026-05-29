@@ -1,18 +1,18 @@
 ---
-name: dev-sprint-closeout
-description: "Mandatory end-of-sprint epic gate, 3 lenses: engineer (smoke + integration), architect (Confluence specs vs delivered code), tech lead (deep severity-graded review of all sprint diffs). Triggers: sprint closeout, close sprint, /sprint-closeout. After last merge + dev-tech-debt-sweep, before retro."
+name: agile-13-sprint-closeout
+description: "Mandatory end-of-sprint epic gate, 3 lenses: engineer (smoke + integration), architect (Confluence specs vs delivered code), tech lead (deep severity-graded review of all sprint diffs). Triggers: sprint closeout, close sprint, /sprint-closeout. After last merge + agile-12-tech-debt-sweep, before retro."
 ---
 
-# dev-sprint-closeout
+# agile_13_sprint_closeout
 
 > **MANDATORY final step of every sprint.** Run after the last story is merged
-> to `main`, after `dev-tech-debt-sweep` has run, and before invoking
-> `agile-13-retro`. The class of bug this skill catches is "all unit +
+> to `main`, after `agile-12-tech-debt-sweep` has run, and before invoking
+> `agile-15-retro`. The class of bug this skill catches is "all unit +
 > integration tests pass + production is broken" — the kind where each
 > story-level AC was met in isolation but the wired-together system has a
 > silent regression nobody exercised.
 >
-> **Prerequisite: `dev-tech-debt-sweep`** must run first. Closeout's dev-stack
+> **Prerequisite: `agile-12-tech-debt-sweep`** must run first. Closeout's dev-stack
 > smoke replays the user flow described in `CLAUDE.md`; the sweep ensures
 > `CLAUDE.md` accurately reflects what main looks like (no stale tree comments,
 > no useless CI workflows skewing the CI pipeline, no leaked personal tags) +
@@ -216,11 +216,11 @@ If you find yourself thinking "the author probably had a reason" — stop, write
    docker compose exec -T <db-service> psql -U <user> -d <db> -c "<SELECT verifying the AC>"
    ```
 
-If the smoke test fails — even partially, including the DNS-exposure step — **the epic is not Done.** File a bug Jira ticket linked to the epic and run `dev-merge-train` on the fix PR before claiming closeout.
+If the smoke test fails — even partially, including the DNS-exposure step — **the epic is not Done.** File a bug Jira ticket linked to the epic and run `agile-11-merge-train` on the fix PR before claiming closeout.
 
 ## Phase 6.5 — Merge-train Phase 4 Jira-link audit
 
-`dev-merge-train` Phase 4 creates `Relates` Jira links between tickets whose PRs collided on shared files during the sprint, and the postmortem comment on each affected ticket announces every link with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks silently into the next sprint's planning.
+`agile-11-merge-train` Phase 4 creates `Relates` Jira links between tickets whose PRs collided on shared files during the sprint, and the postmortem comment on each affected ticket announces every link with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks silently into the next sprint's planning.
 
 Steps:
 
@@ -234,7 +234,7 @@ A closeout cannot be declared green while any audited pair is FAIL without an ex
 
 ## Phase 7 — Final closeout report
 
-Produce a single Markdown report **and publish it to Confluence under a dedicated `Closeouts` folder** (sibling of `Retrospectives`, NOT inside it). The retro skill (`agile-13-retro`) reads it as one of its inputs.
+Produce a single Markdown report **and publish it to Confluence under a dedicated `Closeouts` folder** (sibling of `Retrospectives`, NOT inside it). The retro skill (`agile-15-retro`) reads it as one of its inputs.
 
 ### Step 7.0 — Ensure the Closeouts folder exists
 
@@ -255,7 +255,7 @@ Closeouts and Retrospectives are sibling folders. Never publish closeouts inside
 - Parent: the `Closeouts — <Project>` folder from Step 7.0.
 - Body: the full Markdown report below.
 
-Capture the page id + URL — pass them back in the final user-facing response so the operator (and `agile-13-retro`) can link to the artifact.
+Capture the page id + URL — pass them back in the final user-facing response so the operator (and `agile-15-retro`) can link to the artifact.
 
 ### Step 7.2 — Update the Closeouts index
 
@@ -320,11 +320,11 @@ PASS/FAIL table for every `Relates` link the merge-train announced this sprint, 
 - **Tech Lead lens reads every changed file in full.** Diff hides surroundings; bugs hide in surroundings. Same rule as `dev-review-pr`.
 - **Impartiality is the Tech Lead lens's whole job.** If you find yourself softening a finding — write it harder, not softer. The team will dismiss what's intentional.
 - **Nits are valid output of Phase 4.** Closeout is the exhaustive review. Don't promote nits to Minor to feel rigorous, and don't drop them to feel kind.
-- **Bugs found at closeout get new Jira tickets.** Do not silently fix them in main. File a bug ticket, branch `feat/<KEY>-...`, PR via `dev-merge-train`.
-- **The new bug fix PR itself goes through `dev-merge-train`.** No hotfix shortcuts.
+- **Bugs found at closeout get new Jira tickets.** Do not silently fix them in main. File a bug ticket, branch `feat/<KEY>-...`, PR via `agile-11-merge-train`.
+- **The new bug fix PR itself goes through `agile-11-merge-train`.** No hotfix shortcuts.
 - **Epic-level Done transition is not part of this skill.** Closeout produces a recommendation; the user transitions the epic only after acknowledging the report.
 - **Add coverage for any gap discovered.** If a smoke-test bug surfaces because no integration test exercised path X, the fix PR must include a new integration test that covers path X. Same for spec drift caught in Phase 3 (add a test that would have failed if the drift recurred) and a Critical correctness finding caught in Phase 4.
-- **Cross-PR conflict awareness still applies.** When the closeout fix PR enters `dev-merge-train`, Phase 1 conflict detection + Phase 4 Jira link creation run normally.
+- **Cross-PR conflict awareness still applies.** When the closeout fix PR enters `agile-11-merge-train`, Phase 1 conflict detection + Phase 4 Jira link creation run normally.
 
 ## Stop conditions
 
@@ -341,11 +341,11 @@ Halt and surface to the user if:
 
 ## Prerequisite chain
 
-- **Before this skill:** `dev-tech-debt-sweep` must have run + approved fixes applied. Closeout assumes `CLAUDE.md` is accurate and the repo is free of obvious cruft.
-- **After this skill:** `agile-13-retro` should verify `dev-sprint-closeout` ran cleanly on the epic before proceeding. Do not invoke `agile-13-retro` until this skill has completed and all surfaced gaps are resolved or explicitly deferred with linked tickets.
+- **Before this skill:** `agile-12-tech-debt-sweep` must have run + approved fixes applied. Closeout assumes `CLAUDE.md` is accurate and the repo is free of obvious cruft.
+- **After this skill:** `agile-15-retro` should verify `agile-13-sprint-closeout` ran cleanly on the epic before proceeding. Do not invoke `agile-15-retro` until this skill has completed and all surfaced gaps are resolved or explicitly deferred with linked tickets.
 
 ## When NOT to use
 
-- Mid-sprint check-in. This is end-of-sprint or end-of-epic. Use `dev-merge-train` for individual PR processing during the sprint.
-- A single-story closeout. Story-level Done is owned by `dev-jira-postmortem` triggered from `dev-merge-train` 3g.
+- Mid-sprint check-in. This is end-of-sprint or end-of-epic. Use `agile-11-merge-train` for individual PR processing during the sprint.
+- A single-story closeout. Story-level Done is owned by `dev-jira-postmortem` triggered from `agile-11-merge-train` 3g.
 - Quick sanity check that "things still work." This skill is deliberately heavy; reach for a lighter check.

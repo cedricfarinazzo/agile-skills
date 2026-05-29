@@ -1,6 +1,6 @@
 ---
 name: agile-5-roadmap
-description: "Roadmap index + MVP/Iteration scope in Confluence. Roadmap stays a short index; detail lives in MVP/Iteration child pages. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 13), before skill 6."
+description: "Roadmap index + MVP/Iteration scope in Confluence. Roadmap stays a short index; detail lives in MVP/Iteration child pages. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 15), before skill 6."
 ---
 
 # agile_5_roadmap
@@ -32,7 +32,7 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 │   ├── 📄 Iteration 1 — [Project]  (this skill, ITERATION mode)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
 ```
 
 **The short-index rule is the core invariant of this skill.** The Roadmap page never holds goal text, success-criteria tables, full epic-in-scope lists, per-sprint backlogs, or retro write-ups. Those live in the `MVP — [Project]` and `Iteration N — [Project]` child pages. The Roadmap carries only: the guiding principle, the iterations index table (one row per MVP/iteration, linking to its page), a progress rollup table for the current iteration, and the parking lot. If a section on the Roadmap would not fit on a single screen, it belongs on a child page.
@@ -192,7 +192,7 @@ Related: [Roadmap] | [PRD] | [ADR] | [Retrospectives] | [Closeouts]
 ---
 
 ## Epic Sprint Plan
-One row per sprint — the index of every sprint that makes up this MVP. Filled out by skill 9 as each sprint is planned; the Status + Retro columns are updated by skill 13.
+One row per sprint — the index of every sprint that makes up this MVP. Filled out by skill 9 as each sprint is planned; the Status + Retro columns are updated by skill 15.
 
 | Sprint | Epic | Jira | Milestone | Velocity | Status | Retro |
 |--------|------|------|-----------|----------|--------|-------|
@@ -203,7 +203,7 @@ One row per sprint — the index of every sprint that makes up this MVP. Filled 
 ---
 
 ## Sprint [N] — [Epic] — [status]
-*One section per sprint. Skeleton created by skill 9 (sprint planning); backlog refined by skill 8; conclusion + retro/closeout links + status flip added by skill 13.*
+*One section per sprint. Skeleton created by skill 9 (sprint planning); backlog refined by skill 8; conclusion + retro/closeout links + status flip added by skill 15.*
 
 **Period:** [start] → [end] | **Velocity:** [delivered]/[committed] pts | **Stories:** [N]
 
@@ -232,9 +232,9 @@ Retrospective: [link] | Closeout: [link]
 ---
 
 ## Dev Flow
-For each Story: implement → PR → dev review → QA → Done.
-Skills: agile-10-implement → agile-11-dev-review → agile-12-qa-validation (Mode B after merge-train).
-Sprint lifecycle: dev-tech-debt-sweep → dev-sprint-closeout → agile-12-qa-validation (sprint-wide) → agile-13-retro → agile-5-roadmap (ITERATION mode for next sprint).
+For each Story: implement → self-review → PR → merge → QA → Done.
+Skills: agile-10-implement (builds + self-reviews via implement-review) → agile-11-merge-train (reviews + merges) → agile-14-qa-validation (Mode B, confirm-after-merge).
+Sprint lifecycle: agile-12-tech-debt-sweep → agile-13-sprint-closeout → agile-14-qa-validation (sprint-wide) → agile-15-retro → agile-5-roadmap (ITERATION mode for next sprint).
 ```
 
 On first creation, populate only the Status block, the Epic Sprint Plan index (one row per planned sprint, all `Not started`), and the Dev Flow footer — plus a one-line MVP goal under Status. The per-sprint detail sections are added by skill 9 as each sprint is planned, not upfront. Add the row linking to this page in the Roadmap index Iterations table (Step I4) if not already present.
@@ -264,16 +264,16 @@ On first creation, populate only the Status block, the Epic Sprint Plan index (o
 
 Use Atlassian tools to:
 - Find and read the existing Roadmap index page in Confluence
-- Read the latest retrospective page (created by skill 13) if it exists
+- Read the latest retrospective page (created by skill 15) if it exists
 - Search Jira for Epics from the previous iteration — check their Done/In Progress status
 - Read the PRD to recall the original business goals and KPIs
 
 **If no retrospective page is found:**
-- Warn but do not stop: "I couldn't find a retrospective for the previous iteration. I'll proceed, but the iteration plan will lack feedback data. Run skill 13 first if the retro hasn't been documented yet."
+- Warn but do not stop: "I couldn't find a retrospective for the previous iteration. I'll proceed, but the iteration plan will lack feedback data. Run skill 15 first if the retro hasn't been documented yet."
 
 ### Step IT2 — Extract iteration inputs
 
-From the **retrospective** (skill 13 output):
+From the **retrospective** (skill 15 output):
 - What went well → reinforce in next iteration
 - What to improve → process or scope adjustments
 - User feedback received → may reprioritise Epics

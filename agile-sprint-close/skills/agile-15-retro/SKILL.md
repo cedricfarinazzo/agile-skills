@@ -1,15 +1,15 @@
 ---
-name: agile-13-retro
+name: agile-15-retro
 description: "Sprint retro in Confluence + Roadmap update. Triggers: run retro, close sprint, what did we learn. After all Stories Done, hands off to skill 5."
 ---
 
-# agile_13_retro
+# agile_15_retro
 
 You are acting as a Scrum Master facilitating a sprint retrospective and ensuring learnings feed directly into the next iteration.
 
 Your job is to:
 1. **Scan** Jira and Confluence for the sprint results and existing retro docs
-2. **Load the sprint closeout report** (if produced by `dev-sprint-closeout`) and surface its findings as retro inputs
+2. **Load the sprint closeout report** (if produced by `agile-13-sprint-closeout`) and surface its findings as retro inputs
 3. **Ensure** the Retrospectives folder exists under the project root
 4. **Interview** the team to collect retrospective inputs
 5. **Write** the Retro page inside the Retrospectives folder, cross-linked to the closeout report
@@ -37,12 +37,12 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 ├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
 │   ├── 📄 Retro 1 — Sprint 1
 │   └── 📄 Retro N — Sprint N        (created by this run)
-└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
     ├── 📄 Closeout 1 — Sprint 1
     └── 📄 Closeout N — Sprint N     (consumed by this skill as retro input)
 ```
 
-Closeouts and Retrospectives are **sibling folders** under the project root. The closeout is the engineering / architectural gate produced by `dev-sprint-closeout` before this skill runs; the retro reads it and incorporates its findings.
+Closeouts and Retrospectives are **sibling folders** under the project root. The closeout is the engineering / architectural gate produced by `agile-13-sprint-closeout` before this skill runs; the retro reads it and incorporates its findings.
 
 ---
 
@@ -89,12 +89,12 @@ Ask: "Is this sprint complete and ready for retrospective?"
 
 ## Step 1.5 — Load the sprint closeout report (if available)
 
-Before interviewing the team, check whether `dev-sprint-closeout` produced a report for this sprint and load it as one of the retro inputs. The closeout is the single source of truth for what the engineering / architecture / tech-lead gate found; the retro should not re-litigate, only incorporate.
+Before interviewing the team, check whether `agile-13-sprint-closeout` produced a report for this sprint and load it as one of the retro inputs. The closeout is the single source of truth for what the engineering / architecture / tech-lead gate found; the retro should not re-litigate, only incorporate.
 
 - Look for a `Closeouts` (or `Closeouts — <Project>`) folder as a direct child of the project root folder.
-- **If the folder does not exist:** report `No Closeouts folder under <Project Name> — proceeding without closeout input. Recommend running dev-sprint-closeout before future retros.` Continue.
+- **If the folder does not exist:** report `No Closeouts folder under <Project Name> — proceeding without closeout input. Recommend running agile-13-sprint-closeout before future retros.` Continue.
 - **If the folder exists:** look for a page titled `Closeout <N> — Sprint <N> — <Project>` matching the sprint being retro'd.
-  - **If the page does not exist:** report `No closeout report for Sprint <N> — proceeding without closeout input. Recommend running dev-sprint-closeout before future retros.` Continue.
+  - **If the page does not exist:** report `No closeout report for Sprint <N> — proceeding without closeout input. Recommend running agile-13-sprint-closeout before future retros.` Continue.
   - **If the page exists:** fetch its body in full. Extract and surface:
     - **Verdict** (Closeout-clear / Blocked + reason).
     - **Findings counts** — `N Critical / M Minor / K Nit` from Phase 4.
@@ -219,7 +219,7 @@ Committed: [N] points | Delivered: [N] points | Velocity: [N] pts ([N]%)
 Stories delivered: [N] | Carried over: [N] | Won't Do: [N]
 Bugs created by QA: [N]
 
-Closeout report: [link to Closeout N — Sprint N page, or "Not produced — recommend dev-sprint-closeout before next retro"]
+Closeout report: [link to Closeout N — Sprint N page, or "Not produced — recommend agile-13-sprint-closeout before next retro"]
 Closeout verdict: [Closeout-clear / Blocked + reason / N/A]
 Closeout findings: [N Critical / M Minor / K Nit, or N/A]
 

@@ -1,21 +1,18 @@
 ---
-name: agile-11-dev-review
-description: "Autonomously review a PR against its Jira Story + ADR across six lenses (architecture, security, performance, infra/ops, code quality, AC/DoD); post the verdict to PR + Jira with numbered blockers. Infers and flags, never waits. Self-review gate for agile-10-implement, or standalone. Triggers: review the PR, dev review, code review, approve the pull request. After skill 10, before skill 12."
+name: implement-review
+description: "Sub-skill of agile-10-implement: the self-review gate. Autonomously review a PR against its Jira Story + ADR across six lenses (architecture, security, performance, infra/ops, code quality, AC/DoD); post the verdict to PR + Jira and return numbered blockers. Infers and flags, never waits, never prompts the user. Not user-invoked."
+disable-model-invocation: true
 ---
 
-# agile_11_dev_review
+# implement_review
 
-You are a senior back/infra/ops reviewer running the last technical gate before the merge train and QA. The review is **autonomous**: you do not pause to ask the dev agent questions and wait — you infer non-obvious choices from the ADR/Specs/PRD, flag every inference explicitly, and produce a verdict in one pass.
-
-Two invocation contexts, same logic:
-- **As a sub-skill** — `agile-10-implement` calls this via the Skill tool as its self-review gate. Return a clear verdict (approved / changes requested + numbered blockers); the caller does the fixing and re-invokes.
-- **Standalone** — a human points it at a PR / Story. Same review, same posting; the closing summary advises next steps.
+The self-review gate invoked by `agile-10-implement` (Skill tool) before a ticket transitions to In Review. You are a senior back/infra/ops reviewer running the last technical gate before the merge train and QA. The review is **autonomous**: you do not pause to ask questions and wait — you infer non-obvious choices from the ADR/Specs/PRD, flag every inference explicitly, and produce a verdict in one pass. Return a clear verdict (approved / changes requested + numbered blockers); the orchestrator does the fixing (`implement-code`) and re-invokes until approved.
 
 ## Goal & non-goals
 
 **Goal:** no PR reaches the merge train without having been read file-by-file against its Story spec and the ADR, across all six lenses, with a recorded verdict on both the PR and the Jira Story.
 
-**Non-goals:** merging (that is `dev-merge-train`); transitioning the Story to `Done` (that is QA, skill 12); style-bikeshedding that blocks a correct PR; asking the dev agent a question and stopping the run to wait for a human reply.
+**Non-goals:** merging (that is `agile-11-merge-train`); transitioning the Story to `Done` (that is QA, skill 14); style-bikeshedding that blocks a correct PR; asking the dev agent a question and stopping the run to wait for a human reply.
 
 ## Autonomy contract
 
@@ -99,7 +96,7 @@ PR: [link]   Story: [PROJ-XXX]
 Lenses: ✅ Architecture ✅ Security ✅ Performance ✅ Infra/ops ✅ Code quality ✅ AC/DoD
 Inferences flagged: [list each "assumed X because ADR §N" / none]
 Warnings (follow-up, non-blocking): ⚠️ [..]
-Approved. Ready for dev-merge-train / QA (skill 12).
+Approved. Ready for agile-11-merge-train / QA (skill 14).
 ```
 - `gh pr review <N> --approve --body "<verdict>"`.
 - Add the verdict as a `🤖 agile:phase=review` comment on the Story.
@@ -145,9 +142,9 @@ Re-review — [date]   Checking [N] prior blockers:
 
 **Standalone:**
 ```
-✅ APPROVED → 👉 dev-merge-train (review+merge) then skill 12 (QA Validation).
+✅ APPROVED → 👉 agile-11-merge-train (review+merge) then skill 14 (QA Validation).
    — or —
-❌ [N] blockers → 👉 dev agent / agile-10-implement addresses them and re-invokes agile-11-dev-review.
+❌ [N] blockers → 👉 dev agent / agile-10-implement addresses them and re-invokes implement-review.
 ```
 
 ---
@@ -162,7 +159,7 @@ Re-review — [date]   Checking [N] prior blockers:
 - **Security is always a blocker; infra changes require IaC.** No security finding is downgraded to a warning.
 - **Warnings never block a correct PR.** Style/quality nits are follow-up, not gates.
 - **Post to both PR and Jira.** The verdict is a permanent artifact in both systems; the Story gets a `🤖 agile:phase=review` marker for the implement loop's resume logic.
-- **Never transition the Story** — approval labels it, QA (skill 12) closes it.
+- **Never transition the Story** — approval labels it, QA (skill 14) closes it.
 - **Re-review is scoped** to the delta and the previously-failing lenses, not the whole PR from scratch.
 - **Idempotent** — re-running on an already-approved PR reports the approval and advises next steps; it does not re-approve or duplicate comments.
 - **Verdict prose stays in normal English** — it is read by humans at merge and retro time.

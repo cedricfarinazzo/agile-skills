@@ -10,7 +10,7 @@ Five focused [Claude Code](https://claude.ai/code) plugins for the full agile cy
 | **agile-merge-review** | Merge (formerly `dev-skills`) | Update-PR, Review-PR, Fix-until-satisfied, Jira Postmortem, Merge Train | `gh` + Atlassian MCP |
 | **agile-sprint-close** | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
 
-Skills keep their global cycle numbering (`agile-1` … `agile-13`) across plugins, so the order is still legible. Invoke with `/<plugin>:<skill>`, e.g. `/agile-planning:agile-5-roadmap`.
+User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) across plugins, so the order is legible at a glance. The two orchestrators (`agile-10-implement`, `agile-11-merge-train`) compose **unnumbered sub-skills** you don't call directly. Invoke with `/<plugin>:<skill>`, e.g. `/agile-planning:agile-5-roadmap`.
 
 ## Skills by plugin
 
@@ -34,31 +34,28 @@ Skills keep their global cycle numbering (`agile-1` … `agile-13`) across plugi
 ### agile-execution
 | # | Skill | Trigger |
 |---|-------|---------|
-| 10 | `agile-10-implement` | "implement the sprint", "work the sprint", "pick up tickets" — **autonomous** loop |
-| 11 | `agile-11-dev-review` | "review the PR", "dev review", "approve the pull request" |
+| 10 | `agile-10-implement` | "implement the sprint", "work the sprint", "pick up tickets" — **autonomous** orchestrator |
+| — | `implement-validate` / `implement-plan` / `implement-code` / `implement-pr` / `implement-review` / `implement-monitor` | composed by agile-10; not called directly |
 
 ### agile-merge-review
 | # | Skill | Trigger |
 |---|-------|---------|
-| 1 | `dev-update-pr` | "update pr", "merge main into", "/update-pr" |
-| 2 | `dev-review-pr` | "review pr", "/review-pr" |
-| 3 | `dev-fix-until-satisfied` | "fix all", "fix everything", "/fix-until-satisfied" |
-| 4 | `dev-jira-postmortem` | "comment jira", "jira postmortem", "/jira-postmortem" |
-| 5 | `dev-merge-train` | "merge train", "process all open prs", "/merge-train" |
+| 11 | `agile-11-merge-train` | "merge train", "process all open prs", "/merge-train" — orchestrator |
+| — | `dev-update-pr` / `dev-review-pr` / `dev-fix-until-satisfied` / `dev-jira-postmortem` | composed by the merge train; not called directly |
 
 ### agile-sprint-close
 | # | Skill | Trigger |
 |---|-------|---------|
-| — | `dev-tech-debt-sweep` | "tech debt sweep", "cleanup sweep", "housekeeping" |
-| — | `dev-sprint-closeout` | "sprint closeout", "close sprint", "/sprint-closeout" |
-| 12 | `agile-12-qa-validation` | "validate the story", "QA check" — confirm-after-merge |
-| 13 | `agile-13-retro` | "run retro", "sprint retrospective", "document retro" |
+| 12 | `agile-12-tech-debt-sweep` | "tech debt sweep", "cleanup sweep", "housekeeping" |
+| 13 | `agile-13-sprint-closeout` | "sprint closeout", "close sprint", "/sprint-closeout" |
+| 14 | `agile-14-qa-validation` | "validate the story", "QA check" — confirm-after-merge |
+| 15 | `agile-15-retro` | "run retro", "sprint retrospective", "document retro" |
 
 Skills fire automatically when Claude detects a matching phrase, or invoke directly with `/<plugin>:<skill>`.
 
 ## How the pieces compose
 
-`agile-10-implement` clears the **build** queue (`To Do` Story → open PR): it autonomously pulls the active board's work (current sprint on a Scrum board, ready column on a Kanban board — never the backlog or a future sprint), orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review (`agile-11-dev-review`) → In Review per ticket. `dev-merge-train` (agile-merge-review) then clears the **merge** queue (open PR → `main`): rebase → deep review → fix → fresh CI → merge → Jira postmortem + Done, one PR at a time. `agile-sprint-close` ends the sprint: tech-debt sweep → closeout smoke gate → QA confirm-after-merge → retro.
+`agile-10-implement` clears the **build** queue (`To Do` Story → open PR): it autonomously pulls the active board's work (current sprint on a Scrum board, ready column on a Kanban board — never the backlog or a future sprint), orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review (`implement-review`) → In Review per ticket. `agile-11-merge-train` (agile-merge-review) then clears the **merge** queue (open PR → `main`): rebase → deep review → fix → fresh CI → merge → Jira postmortem + Done, one PR at a time. `agile-sprint-close` ends the sprint: tech-debt sweep → closeout smoke gate → QA confirm-after-merge → retro.
 
 ## Requirements
 
@@ -121,28 +118,28 @@ cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/     # Copilot
  │      Jira dependency order, no mid-loop confirmation): │
  │    validate ticket   gate: repo-scope + spec readiness │
  │    plan / implement / commit / open PR    🤖 markers   │
- │    11. agile-11-dev-review  six-lens self-review gate  │
+ │    implement-review        six-lens self-review gate   │
  │    transition → In Review · monitor PR (comments/CI)   │
  └────────────────────────────────────────────────────────┘
 
                     PER-PR MERGE  (agile-merge-review)
                     ────────────
  ┌────────────────────────────────────────────────────────┐
- │  dev-merge-train  (one PR at a time, sequentially):    │
+ │  agile-11-merge-train  (one PR at a time, sequentially):    │
  │    dev-update-pr · dev-review-pr · dev-fix-until-       │
  │    satisfied · fresh CI · gh pr merge · postmortem+Done│
  └────────────────────────────────────────────────────────┘
 
                     SPRINT CLOSE                 (agile-sprint-close)
                     ────────────
-  dev-tech-debt-sweep  →  dev-sprint-closeout  →  12. QA Validation   →  13. Retro
+  12. tech-debt-sweep  →  13. sprint-closeout  →  14. QA Validation   →  15. Retro
   cruft + CI audit        dev-stack smoke gate     (confirm-after-merge   back to 5. Roadmap
                           on closed-out epic        per signed-off story)
 ```
 
 Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
 
-**QA Validation (skill 12) is confirm-after-merge only.** By the time it runs, the Story was already merged + transitioned to `Done` by `dev-merge-train` / `dev-jira-postmortem`. QA confirms the ACs hold on `main` and stamps a sign-off comment — it never transitions the Story. A post-merge regression is filed as a new Bug (linked `is caused by`), never a reopen. See [`agile-sprint-close/skills/agile-12-qa-validation/SKILL.md`](agile-sprint-close/skills/agile-12-qa-validation/SKILL.md).
+**QA Validation (skill 14) is confirm-after-merge only.** By the time it runs, the Story was already merged + transitioned to `Done` by `agile-11-merge-train` / `dev-jira-postmortem`. QA confirms the ACs hold on `main` and stamps a sign-off comment — it never transitions the Story. A post-merge regression is filed as a new Bug (linked `is caused by`), never a reopen. See [`agile-sprint-close/skills/agile-14-qa-validation/SKILL.md`](agile-sprint-close/skills/agile-14-qa-validation/SKILL.md).
 
 ## Confluence structure
 
@@ -160,7 +157,7 @@ Every Confluence-using skill shares one canonical folder layout (embedded in eac
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, dev-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
 ```
 
 **The Roadmap is a short index** — guiding principle, an iterations index table (linking to each `MVP` / `Iteration N` child page), a one-row-per-sprint progress rollup, and the parking lot. All deep detail — goal, success criteria, epics-in-scope, per-sprint backlog, decisions, retro write-ups — lives on the `MVP — [Project]` / `Iteration N — [Project]` child pages, which carry a top **Epic Sprint Plan** index table, one detail section per sprint, and a Dev Flow footer.

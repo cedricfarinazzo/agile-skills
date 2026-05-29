@@ -1,0 +1,25 @@
+---
+name: implement-monitor
+description: "Sub-skill of agile-10-implement. Monitor a pre-merge PR and rework it: process new review comments, diagnose + fix failing status checks, rebase on conflicts. Idempotent via the 🤖 rework marker. Not user-invoked."
+disable-model-invocation: true
+---
+
+# implement_monitor
+
+PR monitoring + rework phase for `agile-10-implement` — the `nightshift` review-feedback loop plus the merge-train CI/conflict handling, applied to the **pre-merge** PR. Invoked via the Skill tool per ticket whose PR is open (just-built or from the rework queue). Rework touches the shared stack, so it runs sequentially with the build loop, never concurrently.
+
+For the PR, check three things and act:
+
+1. **New review comments.** `gh pr view <N> --json reviews,comments` + `gh api` for review threads. **Filter to comments newer than the last `🤖 agile:phase=rework` marker** (idempotency — never re-process a comment). For each new actionable comment: implement the fix, commit, push, reply to the thread. Post `🤖 agile:phase=rework` recording what was addressed.
+2. **Failing status checks.** Poll `statusCheckRollup`. On `FAILURE` / `UNSTABLE`, run the **flake-vs-regression diagnosis** before re-running (was the same test green on a recent `main` run? does the PR add a test file collected before the failing one? repro locally `<runner> <new-test> <failing-test>`). Real failure → fix, push. Confirmed flake → `gh run rerun --failed`. Never blind-rerun.
+3. **Merge conflicts / staleness.** `mergeStateStatus` `DIRTY` / `BEHIND` → rebase: `git checkout <base> && git pull`, then `git merge --no-ff <base>` on the branch, resolve conflicts, run lint-after-rebase, push. (`git merge --continue` rejects `--no-edit` — use `GIT_EDITOR=true git merge --continue`.)
+
+**Poll without foreground `sleep`.** Use a single background `until` loop and read the output when it fires:
+```bash
+until [ "$(gh pr view <N> --json statusCheckRollup --jq '[.statusCheckRollup[]|select(.status!="COMPLETED")]|length')" = "0" ]; do sleep 20; done; gh pr view <N> --json statusCheckRollup,mergeStateStatus,reviewDecision --jq '{merge:.mergeStateStatus,decision:.reviewDecision,checks:[.statusCheckRollup[]|{n:.name,c:.conclusion}]}'
+```
+Run it with `run_in_background: true`; the completion notification re-invokes you — read the file and act. Do not chain foreground `sleep`s, and do not poll in a foreground loop.
+
+**Best-effort within the run:** process whatever review comments / check results / conflicts exist now. Do not block indefinitely waiting for a human reviewer — once the current state is handled and no new actionable signal remains, record status and return. A later re-run (or `/loop`) picks up new review comments via the marker filter.
+
+Fixes that touch code reuse `implement-code`'s rules (ADR is law, all ACs tested, lint+unit+integration green before push). A critical decision surfacing during rework is escalated to the orchestrator, not guessed.

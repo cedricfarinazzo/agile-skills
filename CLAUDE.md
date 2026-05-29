@@ -12,9 +12,9 @@ A Claude Code marketplace shipping **five focused plugins** (split by cycle phas
 - **`agile-merge-review`** — PR workflow (formerly `dev-skills`): update-pr, review-pr, fix-until-satisfied, jira-postmortem, merge-train. Needs `gh`.
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
 
-Skills keep global cycle numbering (`agile-1` … `agile-13`) across plugins. Namespace = plugin name, e.g. `/agile-planning:agile-5-roadmap`, `/agile-merge-review:dev-merge-train`.
+User-facing skills keep global cycle numbering (`agile-1` … `agile-15`) across plugins; composed sub-skills (the `implement-*` blocks and the `dev-*` merge-train blocks) are **unnumbered** because the user does not call them directly. Namespace = plugin name, e.g. `/agile-planning:agile-5-roadmap`, `/agile-merge-review:agile-11-merge-train`.
 
-Execution (skills 10 + 11) is an **autonomous sprint loop** modelled on `nightshift jira run` + `dev-merge-train`: it pulls the active board (Scrum sprint or Kanban ready column — never backlog/future), orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review → In Review per ticket with no mid-loop confirmation, then monitors each PR. `agile-10-implement` clears the build queue (`To Do` → open PR); `dev-merge-train` clears the merge queue (open PR → `main`).
+Execution (skill 10, `agile-10-implement`) is an **autonomous sprint loop** modelled on `nightshift jira run` + `agile-11-merge-train`. It is an orchestrator that composes its unnumbered `implement-*` sub-skills (validate → plan → code → pr → review → monitor) per ticket: it pulls the active board (Scrum sprint or Kanban ready column — never backlog/future), orders tickets by Jira dependency links, and drives each to In Review with an open, self-reviewed PR — no mid-loop confirmation. `agile-10-implement` clears the build queue (`To Do` → open PR); `agile-11-merge-train` clears the merge queue (open PR → `main`).
 
 Install: `/plugin marketplace add cedricfarinazzo/agile-skills` then `/plugin install <plugin>@agile-skills` for any subset.
 Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a time).
@@ -31,9 +31,9 @@ agile-planning/skills/agile-8-refinement/scripts/   # bundled scripts — invoke
 Plugin → skills:
 - `agile-product/`: agile-1..4
 - `agile-planning/`: agile-5..9
-- `agile-execution/`: agile-10, agile-11
-- `agile-merge-review/`: dev-update-pr, dev-review-pr, dev-fix-until-satisfied, dev-jira-postmortem, dev-merge-train
-- `agile-sprint-close/`: agile-12-qa-validation, agile-13-retro, dev-tech-debt-sweep, dev-sprint-closeout
+- `agile-execution/`: **agile-10-implement** (orchestrator, numbered) + unnumbered sub-skills `implement-validate` / `implement-plan` / `implement-code` / `implement-pr` / `implement-review` / `implement-monitor`
+- `agile-merge-review/`: **agile-11-merge-train** (orchestrator, numbered) + unnumbered sub-skills `dev-update-pr` / `dev-review-pr` / `dev-fix-until-satisfied` / `dev-jira-postmortem`
+- `agile-sprint-close/`: agile-12-tech-debt-sweep, agile-13-sprint-closeout, agile-14-qa-validation, agile-15-retro
 
 There is **no root plugin** — the repo root holds only `.claude-plugin/marketplace.json` + the five plugin dirs.
 
@@ -58,7 +58,7 @@ Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `
 - Skills are **idempotent**: re-running must not duplicate Confluence pages or Jira issues (read before write)
 - Skills are **resumable**: if interrupted, re-run picks up where it stopped. The autonomous loop (`agile-10-implement`) resumes per ticket via `🤖 <!-- agile:phase=x -->` Jira comment markers
 - Every assumption must be stated explicitly (no silent inference)
-- **Interactive skills** (1–9, 12, 13) ask all missing info in a single message, never drip; they stop on missing prerequisites. **The autonomous loop** (`agile-10-implement` + its `agile-11-dev-review` self-review gate) is the exception: it does NOT pause for confirmation — it infers-and-flags, and its per-ticket validation gate sends an under-specified ticket back (Needs Info) rather than asking
+- **Interactive skills** (1–9, 14, 15) ask all missing info in a single message, never drip; they stop on missing prerequisites. **The autonomous loop** (`agile-10-implement` + its `implement-*` sub-skills) is the exception: it does NOT pause for confirmation — it infers-and-flags, escalates only on a critical decision, and its validation gate sends an under-specified ticket back (Needs Info) rather than asking. `agile-11-merge-train` is likewise autonomous across the open-PR queue
 - End every interactive skill run with a clear `✅ Done / ⚠️ Still needed / 👉 Next step` summary; the autonomous loop ends with a per-ticket outcome report
 
 ## Confluence structure invariant
@@ -69,13 +69,13 @@ All `agile-skills` skills share one canonical folder layout (root → Vision/PRD
 
 ## Cycle order
 
-Canonical schema in `README.md` (covers all five plugins, the autonomous execution loop, confirm-after-merge QA, dev-merge-train integration, sprint-closeout gate).
+Canonical schema in `README.md` (covers all five plugins, the autonomous execution loop, confirm-after-merge QA, agile-11-merge-train integration, sprint-closeout gate).
 
 Invariant for all skills: read existing Confluence pages + Jira issues before creating anything.
 
 Bundled scripts (e.g. `agile-planning/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh`) must be invoked via `${CLAUDE_PLUGIN_ROOT}` — a bare relative path won't resolve when installed as a plugin (cwd is the consumer repo).
 
-Cross-plugin references: skills call siblings by name (Skill tool / prose). Most compose within one plugin (dev-merge-train → its 4 sub-skills; agile-10 → agile-11). Cross-plugin links that matter: `agile-12-qa-validation` + `agile-13-retro` read `dev-sprint-closeout`'s output (all in `agile-sprint-close`); `agile-9` hands off to `agile-10` (planning → execution).
+Cross-plugin references: skills call siblings by name (Skill tool / prose). Most compose within one plugin (agile-11-merge-train → its 4 sub-skills; agile-10 → agile-11). Cross-plugin links that matter: `agile-14-qa-validation` + `agile-15-retro` read `agile-13-sprint-closeout`'s output (all in `agile-sprint-close`); `agile-9` hands off to `agile-10` (planning → execution).
 
 ## Plugin + marketplace manifests
 

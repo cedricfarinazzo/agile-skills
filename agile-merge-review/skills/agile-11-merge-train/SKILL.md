@@ -1,9 +1,9 @@
 ---
-name: dev-merge-train
+name: agile-11-merge-train
 description: "Process every open PR sequentially: rebase → deep review → fix → fresh CI → merge → Jira postmortem + Done. Block PRs too broken to fix in one pass. Triggers: merge train, process all open prs, /merge-train."
 ---
 
-# dev-merge-train
+# agile_11_merge_train
 
 End-to-end pipeline for clearing the open-PR queue **safely**. Composes existing skills (`dev-review-pr`, `dev-fix-until-satisfied`, `dev-update-pr`, `dev-jira-postmortem`) and adds the multi-PR coordination layer: dependency ordering, conflict detection, Jira state, and a final report.
 
@@ -54,7 +54,7 @@ State the order and the rationale before processing.
 
 ## Phase 3 — Process each PR sequentially
 
-**Per-PR mandatory sequence — do not skip, do not stop mid-sequence, do not wait for user confirmation between steps.** A user typing `/dev-merge-train` (or "merge train", "process all open PRs") has authorised the full sequence below for every PR in the queue. Stop only on the explicit stop conditions at the bottom of this file.
+**Per-PR mandatory sequence — do not skip, do not stop mid-sequence, do not wait for user confirmation between steps.** A user typing `/agile-11-merge-train` (or "merge train", "process all open PRs") has authorised the full sequence below for every PR in the queue. Stop only on the explicit stop conditions at the bottom of this file.
 
 ```
 3a  dev-update-pr           (Skill tool)  rebase (push only if merge commit created)
