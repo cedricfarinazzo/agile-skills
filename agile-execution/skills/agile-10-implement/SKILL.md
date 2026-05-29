@@ -7,7 +7,7 @@ description: "Autonomously implement the active board — current sprint (Scrum)
 
 Autonomous, end-to-end sprint implementation pipeline — the agile-side analogue of `agile-11-merge-train`, modelled on the `nightshift jira run` loop. It is an **orchestrator**: it selects the board's work, orders it by Jira dependency, and drives each ticket from `To Do` to `In Review` with an open, self-reviewed PR by **composing the `implement-*` sub-skills** — without stopping to ask between steps.
 
-`agile-11-merge-train` clears the **merge** queue (open PR → `main`) by composing `dev-update-pr` / `dev-review-pr` / `dev-fix-until-satisfied` / `dev-jira-postmortem`. This skill clears the **build** queue (`To Do` Story → open PR) by composing its own sub-skills. The two compose end-to-end: this skill produces the PRs that the merge train later reviews and merges.
+`agile-11-merge-train` clears the **merge** queue (open PR → `main`) by composing `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem`. This skill clears the **build** queue (`To Do` Story → open PR) by composing its own sub-skills. The two compose end-to-end: this skill produces the PRs that the merge train later reviews and merges.
 
 ## Sub-skills (composed via the Skill tool — never inline their logic)
 

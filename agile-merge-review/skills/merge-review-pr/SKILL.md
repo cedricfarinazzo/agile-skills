@@ -1,9 +1,9 @@
 ---
-name: dev-review-pr
+name: merge-review-pr
 description: "Deep PR review: read every changed file in full, check correctness/security/naming/tests/docs/ACs. Report by severity. Triggers: review pr, /review-pr. Use instead of /review for file-level depth."
 ---
 
-# dev-review-pr
+# merge-review-pr
 
 **Independent review of an open PR by someone other than the author.** The implementer already self-reviewed and fixed the obvious in `implement-review`; this is the *second pair of eyes* — the authoritative pre-merge gate before the PR lands on `main` (invoked by `agile-11-merge-train` 3b). Review as a reviewer who did not write the code: don't trust the author's self-assessment, verify against the spec and the ADR yourself. (The third layer, `agile-13-sprint-closeout`, is a later *global* review of the whole sprint against its goal — not this per-PR gate.)
 
@@ -98,7 +98,7 @@ Two-tier severity is deliberate. No "Moderate" / "Suggestion" / "Nit" tiers — 
 
 If no issues: explicitly state "Satisfied — ready to merge." and why.
 
-**This skill is review-only — it does NOT merge, monitor CI, or close the loop.** When invoked standalone, return after the report. When invoked from `agile-11-merge-train` 3b, the caller continues to 3c (`dev-fix-until-satisfied`) → 3e (CI) → 3f (merge) → 3g (postmortem). Do not append "should I merge now?" prompts; the caller decides.
+**This skill is review-only — it does NOT merge, monitor CI, or close the loop.** When invoked standalone, return after the report. When invoked from `agile-11-merge-train` 3b, the caller continues to 3c (`merge-fix-until-satisfied`) → 3e (CI) → 3f (merge) → 3g (postmortem). Do not append "should I merge now?" prompts; the caller decides.
 
 ## Rules
 

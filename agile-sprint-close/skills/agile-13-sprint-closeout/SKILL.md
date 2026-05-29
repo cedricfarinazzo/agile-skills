@@ -27,7 +27,7 @@ End-to-end gate before declaring a sprint or epic done. Runs **three lenses**:
 
 A single Critical finding from any lens blocks closeout.
 
-**This is the third and broadest review layer, by a different role than the per-PR reviews.** The author self-reviewed each change (`implement-review`) and an independent reviewer gated each PR (`dev-review-pr`) — both *per PR*. This is the **global, impartial** pass: whether the *whole sprint, wired together*, is aligned with the sprint/epic goal and the documented product + architecture intent. Different scope (the sprint, not one PR), different question (goal alignment + system-level correctness, not diff correctness). Do not assume the per-PR reviews already covered system-level drift — they couldn't see it.
+**This is the third and broadest review layer, by a different role than the per-PR reviews.** The author self-reviewed each change (`implement-review`) and an independent reviewer gated each PR (`merge-review-pr`) — both *per PR*. This is the **global, impartial** pass: whether the *whole sprint, wired together*, is aligned with the sprint/epic goal and the documented product + architecture intent. Different scope (the sprint, not one PR), different question (goal alignment + system-level correctness, not diff correctness). Do not assume the per-PR reviews already covered system-level drift — they couldn't see it.
 
 ## Goal & non-goals
 
@@ -319,7 +319,7 @@ PASS/FAIL table for every `Relates` link the merge-train announced this sprint, 
 - **Rebuild dev + test stacks from scratch every closeout.** `docker compose down -v` then `up -d --build --wait`. Cached images and stale volumes are the most common silent-failure cause; the closeout is the one place that guarantees a fresh build still works.
 - **Monitor with a wide filter.** Silence is not success unless your filter would have emitted on a crash. Default filter: `Traceback|Error|ERROR|FAILED|crashed|<domain-specific signatures>`.
 - **Architect lens reads docs in full, not summaries.** Vision Doc, PRD, ADR, Roadmap — each whole. Drift catches require knowing what the spec actually says, not your memory of what it said.
-- **Tech Lead lens reads every changed file in full.** Diff hides surroundings; bugs hide in surroundings. Same rule as `dev-review-pr`.
+- **Tech Lead lens reads every changed file in full.** Diff hides surroundings; bugs hide in surroundings. Same rule as `merge-review-pr`.
 - **Impartiality is the Tech Lead lens's whole job.** If you find yourself softening a finding — write it harder, not softer. The team will dismiss what's intentional.
 - **Nits are valid output of Phase 4.** Closeout is the exhaustive review. Don't promote nits to Minor to feel rigorous, and don't drop them to feel kind.
 - **Bugs found at closeout get new Jira tickets.** Do not silently fix them in main. File a bug ticket, branch `feat/<KEY>-...`, PR via `agile-11-merge-train`.
@@ -349,5 +349,5 @@ Halt and surface to the user if:
 ## When NOT to use
 
 - Mid-sprint check-in. This is end-of-sprint or end-of-epic. Use `agile-11-merge-train` for individual PR processing during the sprint.
-- A single-story closeout. Story-level Done is owned by `dev-jira-postmortem` triggered from `agile-11-merge-train` 3g.
+- A single-story closeout. Story-level Done is owned by `merge-jira-postmortem` triggered from `agile-11-merge-train` 3g.
 - Quick sanity check that "things still work." This skill is deliberately heavy; reach for a lighter check.

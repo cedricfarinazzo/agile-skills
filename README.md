@@ -41,7 +41,7 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
 | # | Skill | Trigger |
 |---|-------|---------|
 | 11 | `agile-11-merge-train` | "merge train", "process all open prs", "/merge-train" — orchestrator |
-| — | `dev-update-pr` / `dev-review-pr` / `dev-fix-until-satisfied` / `dev-jira-postmortem` | composed by the merge train; not called directly |
+| — | `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem` | composed by the merge train; not called directly |
 
 ### agile-sprint-close
 | # | Skill | Trigger |
@@ -57,7 +57,7 @@ Skills fire automatically when Claude detects a matching phrase, or invoke direc
 
 `agile-10-implement` clears the **build** queue (`To Do` Story → open PR): it autonomously pulls the active board's work (current sprint on a Scrum board, ready column on a Kanban board — never the backlog or a future sprint), orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review (`implement-review`) → In Review per ticket. `agile-11-merge-train` (agile-merge-review) then clears the **merge** queue (open PR → `main`): rebase → deep review → fix → fresh CI → merge → Jira postmortem + Done, one PR at a time. `agile-sprint-close` ends the sprint: tech-debt sweep → closeout smoke gate → QA confirm-after-merge → retro.
 
-**Three review layers, three roles — by design, not redundancy.** `implement-review` is the *author* self-reviewing and fixing their own change before handover; `dev-review-pr` (in the merge train) is a *different person* independently gating the open PR before it hits `main`; `agile-13-sprint-closeout` is a *global, impartial* review of the whole wired-together sprint against its goal. Same code seen three times, but each by a different role asking a different question.
+**Three review layers, three roles — by design, not redundancy.** `implement-review` is the *author* self-reviewing and fixing their own change before handover; `merge-review-pr` (in the merge train) is a *different person* independently gating the open PR before it hits `main`; `agile-13-sprint-closeout` is a *global, impartial* review of the whole wired-together sprint against its goal. Same code seen three times, but each by a different role asking a different question.
 
 ## Requirements
 
@@ -128,7 +128,7 @@ cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/     # Copilot
                     ────────────
  ┌────────────────────────────────────────────────────────┐
  │  agile-11-merge-train  (one PR at a time, sequentially):    │
- │    dev-update-pr · dev-review-pr · dev-fix-until-       │
+ │    merge-update-pr · merge-review-pr · merge-fix-until- │
  │    satisfied · fresh CI · gh pr merge · postmortem+Done│
  └────────────────────────────────────────────────────────┘
 
@@ -141,7 +141,7 @@ cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/     # Copilot
 
 Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
 
-**QA Validation (skill 14) is confirm-after-merge only.** By the time it runs, the Story was already merged + transitioned to `Done` by `agile-11-merge-train` / `dev-jira-postmortem`. QA confirms the ACs hold on `main` and stamps a sign-off comment — it never transitions the Story. A post-merge regression is filed as a new Bug (linked `is caused by`), never a reopen. See [`agile-sprint-close/skills/agile-14-qa-validation/SKILL.md`](agile-sprint-close/skills/agile-14-qa-validation/SKILL.md).
+**QA Validation (skill 14) is confirm-after-merge only.** By the time it runs, the Story was already merged + transitioned to `Done` by `agile-11-merge-train` / `merge-jira-postmortem`. QA confirms the ACs hold on `main` and stamps a sign-off comment — it never transitions the Story. A post-merge regression is filed as a new Bug (linked `is caused by`), never a reopen. See [`agile-sprint-close/skills/agile-14-qa-validation/SKILL.md`](agile-sprint-close/skills/agile-14-qa-validation/SKILL.md).
 
 ## Confluence structure
 

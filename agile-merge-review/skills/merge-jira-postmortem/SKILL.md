@@ -1,9 +1,9 @@
 ---
-name: dev-jira-postmortem
+name: merge-jira-postmortem
 description: "Post structured post-merge comment to Jira ticket + transition to Done (skip transition in blocked mode). Mandatory even on 0-issue PRs. Triggers: jira postmortem, comment jira, /jira-postmortem."
 ---
 
-# dev-jira-postmortem
+# merge-jira-postmortem
 
 Post a structured post-merge review findings comment to a Jira ticket. Synthesises from the current session's review and fix work. If the PR merged successfully, also transition the ticket to **Done**. If the PR was blocked (too broken to merge), post the postmortem in block mode and leave the ticket state untouched.
 

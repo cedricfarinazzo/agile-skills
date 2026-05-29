@@ -1,9 +1,9 @@
 ---
-name: dev-update-pr
+name: merge-update-pr
 description: "Rebase PR branch on main: merge --no-ff, resolve conflicts intelligently, lint-after-rebase gate, push only if merge commit created. Triggers: update pr, merge main into, /update-pr."
 ---
 
-# dev-update-pr
+# merge-update-pr
 
 Update a PR branch with latest main and push. Resolve conflicts intelligently — never blindly accept one side.
 

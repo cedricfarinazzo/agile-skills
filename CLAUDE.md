@@ -32,7 +32,7 @@ Plugin → skills:
 - `agile-product/`: agile-1..4
 - `agile-planning/`: agile-5..9
 - `agile-execution/`: **agile-10-implement** (orchestrator, numbered) + unnumbered sub-skills `implement-validate` / `implement-plan` / `implement-code` / `implement-pr` / `implement-review` / `implement-monitor`
-- `agile-merge-review/`: **agile-11-merge-train** (orchestrator, numbered) + unnumbered sub-skills `dev-update-pr` / `dev-review-pr` / `dev-fix-until-satisfied` / `dev-jira-postmortem`
+- `agile-merge-review/`: **agile-11-merge-train** (orchestrator, numbered) + unnumbered sub-skills `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem`
 - `agile-sprint-close/`: agile-12-tech-debt-sweep, agile-13-sprint-closeout, agile-14-qa-validation, agile-15-retro
 
 There is **no root plugin** — the repo root holds only `.claude-plugin/marketplace.json` + the five plugin dirs.

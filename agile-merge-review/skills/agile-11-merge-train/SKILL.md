@@ -5,7 +5,7 @@ description: "Process every open PR sequentially: rebase → deep review → fix
 
 # agile_11_merge_train
 
-End-to-end pipeline for clearing the open-PR queue **safely**. Composes existing skills (`dev-review-pr`, `dev-fix-until-satisfied`, `dev-update-pr`, `dev-jira-postmortem`) and adds the multi-PR coordination layer: dependency ordering, conflict detection, Jira state, and a final report.
+End-to-end pipeline for clearing the open-PR queue **safely**. Composes existing skills (`merge-review-pr`, `merge-fix-until-satisfied`, `merge-update-pr`, `merge-jira-postmortem`) and adds the multi-PR coordination layer: dependency ordering, conflict detection, Jira state, and a final report.
 
 ## Goal & non-goals
 
@@ -21,7 +21,7 @@ Reads from the consumer repo's `CLAUDE.md` / `AGENTS.md`:
 
 - **`cloudId`** — Atlassian cloud id for `mcp__atlassian__*` calls. Required.
 - **`ticket-prefix-regex`** — for inferring ticket key from PR title / branch name. Defaults to `[A-Z]+-\d+`.
-- **Lint commands** per touched path family — see `dev-update-pr` for the lint-after-rebase gate.
+- **Lint commands** per touched path family — see `merge-update-pr` for the lint-after-rebase gate.
 
 ## Input
 
@@ -38,7 +38,7 @@ Optional repo name (default: current repo). Optional max PRs (default: all).
 ## Phase 1 — Detect cross-PR conflicts
 
 For each file touched by more than one PR:
-- If both PRs only **append** to the same file (e.g. both add a row to a shared docs table), the merge order must guarantee the second one rebases cleanly. Flag for `dev-update-pr` reuse.
+- If both PRs only **append** to the same file (e.g. both add a row to a shared docs table), the merge order must guarantee the second one rebases cleanly. Flag for `merge-update-pr` reuse.
 - If both PRs **modify the same lines** (e.g. both rewrite the same function signature), this is a real conflict. Sequence the smaller / less risky PR first so the second one can rebase.
 - Record the conflict map in the final report.
 
@@ -57,13 +57,13 @@ State the order and the rationale before processing.
 **Per-PR mandatory sequence — do not skip, do not stop mid-sequence, do not wait for user confirmation between steps.** A user typing `/agile-11-merge-train` (or "merge train", "process all open PRs") has authorised the full sequence below for every PR in the queue. Stop only on the explicit stop conditions at the bottom of this file.
 
 ```
-3a  dev-update-pr           (Skill tool)  rebase (push only if merge commit created)
-3b  dev-review-pr           (Skill tool)  deep review
-3c  dev-fix-until-satisfied (Skill tool)  ALWAYS — even on 0-issue review (satisfaction gate)
+3a  merge-update-pr           (Skill tool)  rebase (push only if merge commit created)
+3b  merge-review-pr           (Skill tool)  deep review
+3c  merge-fix-until-satisfied (Skill tool)  ALWAYS — even on 0-issue review (satisfaction gate)
 3d  bad-PR escape hatch     (CONDITIONAL — only if 3b/3c surface an unfixable defect; replaces 3e–3g)
 3e  CI monitor              wait for COMPLETED + SUCCESS on the post-rebase tip
 3f  gh pr merge             --squash --delete-branch
-3g  dev-jira-postmortem     (Skill tool)  comment + transition
+3g  merge-jira-postmortem     (Skill tool)  comment + transition
 ```
 
 3d is an exit path, not a step in the linear flow: if 3b or 3c determines the PR cannot be salvaged, jump to 3d and skip 3e/3f/3g (3d still posts a postmortem in `blocked` mode, but does NOT transition the ticket).
@@ -73,16 +73,16 @@ After 3g, immediately loop to the next PR's 3a. Never stop after 3b just because
 For each PR in merge order:
 
 ### 3a. Always rebase on latest main
-- **Invoke `dev-update-pr` via the Skill tool.** Do not run the rebase commands inline — the sub-skill handles main pull + checkout + merge + conflict resolution + lint-after-rebase + push as one unit. Train relies on this — do not duplicate the gate inline.
-- The `dev-update-pr` skill will: `git checkout main && git pull`, `gh pr checkout <N>`, `git merge --no-ff main`, resolve conflicts, lint-after-rebase, push (only if new merge commit created). The merge commit triggers a fresh CI run on the exact tree that will land.
+- **Invoke `merge-update-pr` via the Skill tool.** Do not run the rebase commands inline — the sub-skill handles main pull + checkout + merge + conflict resolution + lint-after-rebase + push as one unit. Train relies on this — do not duplicate the gate inline.
+- The `merge-update-pr` skill will: `git checkout main && git pull`, `gh pr checkout <N>`, `git merge --no-ff main`, resolve conflicts, lint-after-rebase, push (only if new merge commit created). The merge commit triggers a fresh CI run on the exact tree that will land.
 - The sub-skill returns one of three outcomes (act accordingly in 3e):
   - **Pushed merge commit** → 3e waits for the fresh CI run
-  - **No-op (already up to date)** → check the existing CI run conclusion on branch HEAD *before* proceeding to 3b. If `SUCCESS` + `mergeStateStatus: CLEAN` → 3e references it, no new run needed. If `FAILURE` / `UNSTABLE` / any non-SUCCESS conclusion → **do not assume green**; jump straight to 3c (`dev-fix-until-satisfied`) so the fix loop investigates the failing checks, fixes them, pushes, and re-enters 3e on the fresh run. A no-op rebase with red CI means the existing tree is broken — proceeding to merge would land broken code.
+  - **No-op (already up to date)** → check the existing CI run conclusion on branch HEAD *before* proceeding to 3b. If `SUCCESS` + `mergeStateStatus: CLEAN` → 3e references it, no new run needed. If `FAILURE` / `UNSTABLE` / any non-SUCCESS conclusion → **do not assume green**; jump straight to 3c (`merge-fix-until-satisfied`) so the fix loop investigates the failing checks, fixes them, pushes, and re-enters 3e on the fresh run. A no-op rebase with red CI means the existing tree is broken — proceeding to merge would land broken code.
   - **Conflict still open** → halt this PR; do not proceed to 3b
 - **`git merge --continue` does not accept `--no-edit`** — use `GIT_EDITOR=true git merge --continue` to skip the editor.
 
 ### 3b. Deep review — this is the main work
-- **Invoke `dev-review-pr` via the Skill tool** (not just its semantics inline). The sub-skill exists; use it. The merge-train layer is for ordering and Jira state — the file-by-file review work belongs to `dev-review-pr`. If `dev-review-pr` is missing something this train needs, edit *that* skill rather than re-implementing review logic here.
+- **Invoke `merge-review-pr` via the Skill tool** (not just its semantics inline). The sub-skill exists; use it. The merge-train layer is for ordering and Jira state — the file-by-file review work belongs to `merge-review-pr`. If `merge-review-pr` is missing something this train needs, edit *that* skill rather than re-implementing review logic here.
 - **Read every changed file in full** (not just the diff hunks). The diff hides context; the file shows whether the change makes sense in its surroundings.
 - For each changed file ask: does this file still make sense as a whole after the change? Are imports unused? Does naming match neighbours? Are there dead branches or copy-paste leftovers?
 - Cross-check against Jira ACs loaded in Phase 0, one by one. For each AC: locate the code that satisfies it. If you can't point to a line, the AC is not satisfied.
@@ -93,7 +93,7 @@ For each PR in merge order:
 - Be explicit about satisfaction. If you can't write "I read every changed file in full and verified each AC against specific lines" — go back and do it. Do not merge on partial review.
 
 ### 3c. Fix until satisfied — ALWAYS invoke, even on clean review
-- **Always invoke `dev-fix-until-satisfied` via the Skill tool, even when 3b reported 0 issues.** The sub-skill is the explicit satisfaction gate: it re-examines the changed files, verifies fixes did not introduce new issues, runs lint + unit + integration tests, and returns the "Satisfied. No remaining issues." verdict that authorises 3e. A 0-issue review without a Satisfied verdict is incomplete.
+- **Always invoke `merge-fix-until-satisfied` via the Skill tool, even when 3b reported 0 issues.** The sub-skill is the explicit satisfaction gate: it re-examines the changed files, verifies fixes did not introduce new issues, runs lint + unit + integration tests, and returns the "Satisfied. No remaining issues." verdict that authorises 3e. A 0-issue review without a Satisfied verdict is incomplete.
 - **Every issue from 3b's report must be fixed — Critical AND Minor.** "Minor" is a severity classification, not a permission to defer. The fix loop must address every numbered finding from the review report before declaring Satisfied. The only acceptable skip is an out-of-scope finding that would expand the PR diff into untouched files — in which case file a follow-up ticket inline and reference it in the postmortem.
 - If 3b found issues: the sub-skill fixes them (Critical first, then Minor), commits, pushes, re-verifies.
 - If 3b found no issues: the sub-skill confirms the verdict by re-running lint + tests + a final re-examination. Phase 2 (Commit & push) is a no-op when nothing changed.
@@ -132,7 +132,7 @@ If the PR is too broken to fix in one pass — wrong approach, missing core ACs,
 - Confirm `mergedAt` is set.
 
 ### 3g. Postmortem + Jira state
-- **Invoke `dev-jira-postmortem` via the Skill tool** — mandatory, even when 0 issues found. It posts the structured review-findings comment AND handles the Done transition. Do not duplicate that work inline; do not skip on the grounds that the PR was clean.
+- **Invoke `merge-jira-postmortem` via the Skill tool** — mandatory, even when 0 issues found. It posts the structured review-findings comment AND handles the Done transition. Do not duplicate that work inline; do not skip on the grounds that the PR was clean.
 - Pass the cross-PR conflict info from Phase 1 to the postmortem: if this PR collided with another on shared files, the postmortem must note "ticket should have been linked in Jira to <other>" — a missing `relates to` / `blocks` link is what let the overlap reach merge time.
 - If a follow-up Jira ticket is warranted (e.g. discovered bug class, refactor opportunity), note it in the report — but don't auto-create.
 
@@ -212,11 +212,11 @@ Produce a single Markdown report covering:
 - **Process sequentially, not in parallel.** Each merge changes `main`; the next PR must rebase on the new tip and re-run CI.
 - **Postmortem is mandatory** on both merge and block. Include the "What was correct" section even when blocking — acknowledge what was right before listing what was wrong.
 - **Transition Jira to Done only on merge.** Blocked PRs leave the ticket in its current state.
-- **Reuse, don't duplicate — and that means calling the sub-skill via the Skill tool, not just performing its semantics inline.** Invoke `dev-review-pr`, `dev-fix-until-satisfied`, `dev-update-pr`, `dev-jira-postmortem` as actual Skill calls during 3a/3b/3c/3g. If one of those needs improvement to handle a case you hit, edit *that* skill — don't fork its logic here.
+- **Reuse, don't duplicate — and that means calling the sub-skill via the Skill tool, not just performing its semantics inline.** Invoke `merge-review-pr`, `merge-fix-until-satisfied`, `merge-update-pr`, `merge-jira-postmortem` as actual Skill calls during 3a/3b/3c/3g. If one of those needs improvement to handle a case you hit, edit *that* skill — don't fork its logic here.
 - **Cross-PR conflict = missing Jira link.** Any time two PRs collide on a shared file during the train, that signals the two tickets should have been linked in Jira (`relates to` / `blocks` / `is blocked by`). The postmortem on the second PR must call this out so the link can be added retroactively and so sprint planning catches the next overlap earlier.
 - **No destructive git ops without confirmation.** Force-push only with `--force-with-lease`. Never `git reset --hard` on a shared branch without saying so first.
 - **Don't stop on "satisfied".** A clean review (0 issues) means proceed through 3c → 3e (CI monitor) → 3f (merge) → 3g (postmortem). Do NOT end the turn after 3b just because the review passed. The next user-visible message should be the final report (Phase 5), not "do you want me to merge?".
-- **`dev-fix-until-satisfied` is mandatory even on clean reviews.** It is the satisfaction gate, not a fix-only loop. Skipping it because "nothing to fix" leaves the merge unauthorised.
+- **`merge-fix-until-satisfied` is mandatory even on clean reviews.** It is the satisfaction gate, not a fix-only loop. Skipping it because "nothing to fix" leaves the merge unauthorised.
 - **No mid-train confirmation prompts.** The user authorised the full per-PR sequence by invoking the train. Do not ask "should I merge?", "should I post the postmortem?", "should I link the tickets?" — execute. The stop conditions below are the only authorised stops.
 - **Cross-PR conflict → mandatory Jira link.** Postmortem recommendation alone is not sufficient: Phase 4 must actually create the `Relates` link via `mcp__atlassian__createIssueLink`, then append a confirmation one-liner to each side's postmortem.
 - **Train output prose stays in normal English.** Report sections, postmortem bodies, and Jira comments are permanent artifacts read by humans during retro.

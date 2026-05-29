@@ -7,7 +7,7 @@ description: "QA validation, confirm-after-merge: Story already Done (merged) �
 
 You are acting as a QA Engineer confirming that a **merged** Story still meets its acceptance criteria, definition of done, and design specs on `main`.
 
-This skill runs **confirm-after-merge** only: by the time it runs, the Story was already merged and transitioned to `Done` by `agile-11-merge-train` / `dev-jira-postmortem` (usually after `agile-13-sprint-closeout`). QA validates the ACs against `main` and stamps a sign-off comment — it does **not** transition the Story. If a failure is found, the Story stays `Done` and a regression **Bug** is filed; the Done audit trail is never reversed.
+This skill runs **confirm-after-merge** only: by the time it runs, the Story was already merged and transitioned to `Done` by `agile-11-merge-train` / `merge-jira-postmortem` (usually after `agile-13-sprint-closeout`). QA validates the ACs against `main` and stamps a sign-off comment — it does **not** transition the Story. If a failure is found, the Story stays `Done` and a regression **Bug** is filed; the Done audit trail is never reversed.
 
 > Classic pre-merge QA (transition In Review → Done) is intentionally out of scope here — merging is owned by `agile-merge-review` (`agile-11-merge-train`), which closes the Story. This skill is the post-merge confirmation gate that runs at sprint close.
 
@@ -47,7 +47,7 @@ Read this tree before creating any page: every page is a child of the root (MVP 
 
 Use Atlassian tools to:
 - Read the target Story in Jira in full: summary, description, AC, DoD, Specs UI link, technical notes, dependencies, refinement comments
-- **Confirm the Story is `Done`** (the only valid entry state). The Story was merged by `agile-11-merge-train` (which auto-transitions to Done via `dev-jira-postmortem` 3g). Look for the postmortem comment on the Story as confirmation of merge.
+- **Confirm the Story is `Done`** (the only valid entry state). The Story was merged by `agile-11-merge-train` (which auto-transitions to Done via `merge-jira-postmortem` 3g). Look for the postmortem comment on the Story as confirmation of merge.
   - If the Story is **not `Done`** → stop: "Story [PROJ-XXX] is [status], not Done. This skill validates already-merged Stories (confirm-after-merge). Run it through `agile-11-merge-train` first — the merge train reviews, merges, and transitions the Story to Done."
   - If the Story is `Done` but there is **no merge evidence** (no postmortem comment / linked merged PR) → ask the user before proceeding; Done may have been set manually.
 - Read the PR linked to this Story — it is expected to be squash-merged + branch deleted; record the merge commit.
