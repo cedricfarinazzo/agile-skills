@@ -1,7 +1,7 @@
 ---
 name: implement-monitor
 description: "Sub-skill of agile-10-implement. Monitor a pre-merge PR and rework it: process new review comments, diagnose + fix failing status checks, rebase on conflicts. Idempotent via the 🤖 rework marker. Not user-invoked."
-disable-model-invocation: true
+user-invocable: false
 ---
 
 # implement_monitor

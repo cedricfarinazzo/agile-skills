@@ -54,7 +54,9 @@ description: <when Claude should invoke this — include trigger phrases>
 # Instructions...
 ```
 
-Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `disable-model-invocation`.
+Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `disable-model-invocation`, `user-invocable`.
+
+**Sub-skills composed by an orchestrator use `user-invocable: false`, NOT `disable-model-invocation: true`.** `disable-model-invocation: true` means *only the user* can invoke it — Claude can't, which would break an orchestrator calling it via the Skill tool. `user-invocable: false` hides the skill from the `/` menu while keeping it Claude-invocable (so `agile-10-implement` can compose the `implement-*` blocks). The `merge-*` blocks leave both open (also fine — orchestrator-invocable).
 
 ## Skill authoring rules
 

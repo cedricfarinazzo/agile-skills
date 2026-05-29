@@ -1,7 +1,7 @@
 ---
 name: implement-code
 description: "Sub-skill of agile-10-implement. Set up the feature branch, implement the plan per ADR + Specs UI with full AC test coverage, get lint+unit+integration green, then commit and push. Also runs the fix pass for review findings. Not user-invoked."
-disable-model-invocation: true
+user-invocable: false
 ---
 
 # implement_code

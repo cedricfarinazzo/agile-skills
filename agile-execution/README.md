@@ -24,7 +24,7 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP + `gh`.
 | — | `implement-review` | six-lens **self-review** by the author; verdict + numbered blockers |
 | — | `implement-monitor` | PR rework loop — new review comments, failing checks, conflicts |
 
-The `implement-*` blocks are **unnumbered sub-skills** (`disable-model-invocation`) — you don't call them directly; the orchestrator composes them via the Skill tool. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
+The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` — hidden from the `/` menu, but the orchestrator still composes them via the Skill tool) — you don't call them directly. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
 
 ## The loop (per ticket, in Jira dependency order)
 

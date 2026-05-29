@@ -1,7 +1,7 @@
 ---
 name: implement-review
 description: "Sub-skill of agile-10-implement: the self-review gate. Autonomously review a PR against its Jira Story + ADR across six lenses (architecture, security, performance, infra/ops, code quality, AC/DoD); post the verdict to PR + Jira and return numbered blockers. Infers and flags, never waits, never prompts the user. Not user-invoked."
-disable-model-invocation: true
+user-invocable: false
 ---
 
 # implement_review

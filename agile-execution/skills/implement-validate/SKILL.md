@@ -1,7 +1,7 @@
 ---
 name: implement-validate
 description: "Sub-skill of agile-10-implement. The per-ticket gate: confirm the ticket targets the current repo, then score readiness (AC/DoD/Specs/ADR). Returns pass / out-of-scope / rejected(Needs Info) / critical-park. Not user-invoked."
-disable-model-invocation: true
+user-invocable: false
 ---
 
 # implement_validate
