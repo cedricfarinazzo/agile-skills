@@ -8,20 +8,24 @@ user-invocable: false
 
 PR phase for `agile-10-implement`. Invoked via the Skill tool after `implement-code` has pushed the branch. Idempotent — updates an existing open PR rather than opening a duplicate. Posts the `🤖 agile:phase=pr` marker with the PR URL.
 
+## First: load the plan
+
+**Read the `🤖 agile:phase=plan` comment on the ticket** (written by `implement-plan`) and the actual pushed diff (`gh pr diff` / `git diff <base>...HEAD`). The PR body is built **from the plan**, not invented fresh: the plan's files-to-touch list → **Changes**; its AC→test map → **AC coverage** + **Testing**; its flagged decisions → **ADR compliance**. Cross-check the plan against what was actually committed and note any divergence (the implementation deviated from the plan) explicitly in the PR body — don't silently paper over it.
+
 ## Open or update
 
 - `findExistingPR`: `gh pr list --state open --head <branch> --json number,url`.
   - found → `gh pr edit` (refresh title/body)
   - none → `gh pr create --base <base-branch>`
 - **Title:** `[TICKET] <Story summary>`
-- **Body sections:**
+- **Body sections** (built from the plan + the actual diff):
   - **Story** — link to the Jira ticket
-  - **What this PR does** — 2–3 sentences
-  - **AC coverage** — each AC → the test / verification that covers it
-  - **Changes** — files/modules touched and why
-  - **Testing** — unit / integration / manual; edge cases covered
+  - **What this PR does** — 2–3 sentences, from the plan's intent
+  - **AC coverage** — each AC → the test / verification that covers it (the plan's AC→test map, confirmed against the committed tests)
+  - **Changes** — files/modules touched and why (the plan's files-to-touch list, reconciled with the real diff; flag any addition/omission vs the plan)
+  - **Testing** — unit / integration / manual; edge cases covered (per the plan's AC→test map)
   - **Specs UI match** — states implemented; any deviation + reason (UI Stories)
-  - **ADR compliance** — new decisions / libraries introduced, each flagged for the reviewer
+  - **ADR compliance** — new decisions / libraries introduced (the plan's flagged decisions), each flagged for the reviewer
   - **Checklist** — ACs tested · lint/type clean · no regressions · PR linked to Jira · Specs UI match · ADR compliance
 
 Post `🤖 agile:phase=pr` with the PR URL. Return the PR number/URL to the orchestrator.
