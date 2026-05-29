@@ -121,14 +121,27 @@ Starting on PROJ-31.
 
 ## Phase 1 — Per-ticket pipeline (compose the sub-skills, resumable)
 
-For each eligible ticket in dependency order. **Resume first:** read the ticket's Jira comments for `🤖 <!-- agile:phase=<x> -->` markers (newest wins) and jump to the first unfinished phase. Marker → next phase: none → `validate`; `validate` → `plan`; `plan` → `implement`; `implement` → `pr`; `pr` → `review`; `review` → transition + monitor; `status_change` → done (monitor only). Recover the plan body and PR URL from their comments rather than regenerating.
+For each eligible ticket in dependency order. **Resume first — a ticket may be partially implemented** (e.g. plan posted but no code yet, or code pushed but no PR). Never restart a ticket from scratch when earlier phases are already done; pick up at the first unfinished phase.
+
+**Detect the resume point, then reconcile it against the real artifacts** (markers can lie — a phase can crash after doing the work but before posting its marker, or after posting it but before finishing):
+
+1. Read the ticket's Jira comments for the latest `🤖 <!-- agile:phase=<x> -->` marker. Marker → tentative next phase: none → `validate`; `validate` → `plan`; `plan` → `implement`; `implement` → `pr`; `pr` → `review`; `review` → transition + monitor; `status_change` → done (monitor only). Recover the plan body from the `plan` comment and the PR URL from the `pr` comment rather than regenerating them.
+2. **Cross-check against git/gh, and trust the real artifact over the marker** — resume at the earliest phase whose output is actually missing:
+   - feature branch missing → resume at `implement` (`implement-code` recreates it), regardless of a `plan` marker.
+   - branch exists with un-pushed/partial work, no commits on remote → resume at `implement` (it reuses the branch, finishes, commits, pushes).
+   - commits pushed but **no open PR** → resume at `pr` even if no `pr` marker (the marker post may have failed after push).
+   - open PR exists but no `review` marker → resume at `review`.
+   - PR open + `status_change` marker present → the build is done; go straight to Phase 2 monitoring.
+3. **Rework vs implement ordering (the nightshift VC-84 gotcha):** when both an `implement`/`pr` marker *and* a later `rework` marker exist, compare timestamps — the newest marker wins. A ticket already `In Review` with a `rework` marker newer than its `pr` marker resumes in Phase 2 (monitoring), not back at the build phases. Do not route a reworked ticket back to `implement` just because an old `implement` marker is still present.
+
+Each sub-skill is itself idempotent on partial state (`implement-code` reuses an existing branch; `implement-pr` updates an existing PR instead of opening a duplicate), so re-entering a phase that was half-done is safe.
 
 > **Marker format** (each sub-skill posts its own, via `mcp__atlassian__addCommentToJiraIssue`, `contentFormat="markdown"`):
 > ```
 > 🤖 <!-- agile:phase=plan --> **Plan — agile-10-implement — <YYYY-MM-DD>**
 > <phase content>
 > ```
-> Never delete prior markers.
+> Never delete prior markers — the trail is the resume state.
 
 Invoke each sub-skill via the **Skill tool**, passing the ticket key + the resolved config. Branch on the outcome:
 
@@ -188,7 +201,7 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 - **Works on Scrum and Kanban boards; never the backlog or a future sprint.** Re-verify per candidate after the JQL fetch.
 - **Only implement tickets that target the current repo** (`implement-validate`'s repo-scope gate).
 - **Dependency order; never force a blocked ticket.** Cycles abort the run.
-- **Resumable + idempotent.** `🤖` markers drive resume; re-running never duplicates a PR or repeats a phase, and never re-processes a review comment older than the last rework marker.
+- **Resumable + idempotent — handle partially-implemented tickets.** `🤖` markers drive resume, but reconcile them against the real artifacts (branch / pushed commits / open PR) and resume at the earliest genuinely-missing phase — never restart a ticket whose plan/code/PR already exist. Re-running never duplicates a PR or repeats a completed phase, never re-processes a review comment older than the last rework marker, and uses marker timestamps to keep a reworked ticket from routing back to the build phases.
 - **Never transition to `Done`.** This skill ends a ticket at `In Review` with an open PR.
 - **Strictly sequential — one ticket at a time** (single shared Docker Compose stack).
 - **Delegate read-only work to subagents; serialise stack access.**
