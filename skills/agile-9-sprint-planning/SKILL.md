@@ -188,19 +188,31 @@ After the user confirms the proposal:
 
 ### Update Confluence — detail on the MVP/Iteration page, rollup only on the Roadmap index
 
-Per the canonical structure (above), the Roadmap is a **short index** — per-sprint detail never goes on it. Write to two pages:
+Per the canonical structure (above), the Roadmap is a **short index** — per-sprint detail never goes on it. The detail lives on the `MVP — [Project]` / `Iteration N — [Project]` child page, which uses an `## Epic Sprint Plan` index table + one `## Sprint [N]` detail section per sprint (template defined in skill 5). Write to three places:
 
-1. **Detail → the current `MVP — [Project]` / `Iteration N — [Project]` page** (child of Roadmap). Under its `## Per-sprint plan`, add a subsection for this sprint with the goal, capacity, and the full sprint backlog table:
+1. **Epic Sprint Plan row → the MVP/Iteration page.** Update this sprint's row in the index table to reflect the planned epic, milestone, committed points, and `🔄 In Progress` status:
 
 ```
-### Sprint [N] — [start] → [end]   (goal: "[sprint goal]")
-Capacity: [N] pts | Committed: [N] pts
-| Story | Epic | Points | Dependency |
-|-------|------|--------|------------|
-| PROJ-124 | [Epic] | 3 | none |
+| Sprint | Epic | Jira | Milestone | Velocity | Status | Retro |
+|--------|------|------|-----------|----------|--------|-------|
+| S[N] — [start] → [end] | [Epic] | [PROJ-Epic] | [milestone] | — / [committed] pts | 🔄 In Progress | — |
 ```
 
-2. **Rollup → the Roadmap index progress table** (one row per sprint, no story-level detail):
+2. **`## Sprint [N]` detail section → the MVP/Iteration page.** Create (or fill) the section for this sprint with the goal, period/capacity, decisions locked, and the full backlog table:
+
+```
+## Sprint [N] — [Epic] — 🔄 In Progress
+**Period:** [start] → [end] | **Velocity:** — / [committed] pts | **Stories:** [N]
+**Goal:** _"[sprint goal]"_ — In progress
+
+### Backlog
+| # | Story | Summary | Pts | Layer | Depends on |
+|---|-------|---------|-----|-------|------------|
+| 1 | PROJ-124 | [summary] | 3 | backend | none |
+```
+(Leave the `### Sprint conclusion` + retro/closeout links empty — skill 13 fills them at sprint end.)
+
+3. **Progress rollup row → the Roadmap index** (one row per sprint, no story-level detail):
 
 ```
 | Sprint | Epic | Velocity | Status | Period |

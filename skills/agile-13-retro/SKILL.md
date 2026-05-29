@@ -292,20 +292,24 @@ Key inputs for the Roadmap update (skill 5 — ITERATION mode):
 
 ## Step 5 — Update the Roadmap in Confluence (index + child page, never inline detail)
 
-Per the canonical structure (above), the Roadmap is a **short index**. Do not add a completed-iteration section or a retro write-up to the Roadmap page itself. Update two places:
+Per the canonical structure (above), the Roadmap is a **short index** and the per-sprint detail lives on the `MVP — [Project]` / `Iteration N — [Project]` child page (which carries an `## Epic Sprint Plan` index table + one `## Sprint [N]` section per sprint — template in skill 5). Do not add a completed-iteration section or a retro write-up to the Roadmap page itself. Update three places:
 
-1. **Roadmap index — Iterations table.** Set the just-ended iteration's row Status to `✅ Complete`. Ensure the next iteration has a row: `| Iteration [N+1] | Not started | TBD | [headline] | [Iteration [N+1] — [Project]] |` (the page itself is created later by skill 5 ITERATION mode).
-
-2. **The completed iteration's child page** (`MVP — [Project]` or `Iteration N — [Project]`). Add a short retro summary at the top:
+1. **MVP/Iteration page — the `## Sprint [N]` section that just ended.** Flip its heading status to `✅ Complete`, set the actual delivered/committed velocity, and fill the `### Sprint conclusion` prose + the retro/closeout links:
 
 ```
-## Retrospective — ✅ Complete [dates]
-→ Retro: [link to Retro N page in Retrospectives folder]
-Velocity: [N] delivered / [N] committed | Goal: [Achieved / Partially / Not achieved]
-Key learnings: [2-3 bullets]
+## Sprint [N] — [Epic] — ✅ Complete
+**Period:** … | **Velocity:** [delivered]/[committed] pts | **Stories:** …
+**Goal:** _"…"_ — [Achieved / Partially / Not achieved]
+…
+### Sprint conclusion
+[what shipped, what slipped, key lessons]
+
+Retrospective: [Retro N link] | Closeout: [Closeout N link]
 ```
 
-Leave the Roadmap index's progress rollup as the one-line current-status summary; do not paste the retro detail into it.
+2. **MVP/Iteration page — the `## Epic Sprint Plan` index row** for this sprint: set Status `✅ Complete`, fill the Velocity column with the delivered/committed figure, and add the `[Retro N]` (and `[Closeout N]`) link in the Retro column.
+
+3. **Roadmap index — Iterations table** (only when the whole MVP/iteration is finished, not per sprint). Set the just-ended iteration's row Status to `✅ Complete` and ensure the next iteration has a row: `| Iteration [N+1] | Not started | TBD | [headline] | [Iteration [N+1] — [Project]] |` (the page itself is created later by skill 5 ITERATION mode). Leave the index's progress rollup as the one-line current-status summary; never paste retro detail into it.
 
 ---
 

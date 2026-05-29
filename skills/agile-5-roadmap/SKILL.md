@@ -180,37 +180,64 @@ Create a child page **under the Roadmap page** (not the root):
 - **Parent page:** `Roadmap — [Project Name]`
 - **Title:** `MVP — [Project Name]`
 
-This is where all the MVP detail lives:
+This is where all the MVP detail lives. Use this structure (the same shape works for an Iteration page — see Step IT4):
 
 ```
 # MVP — [Project Name]
 
-Status: [ ] Draft  [ ] Approved   | Last updated: [date]
-Related: [Roadmap] | [PRD] | [ADR]
+## Status
+**[Not started / In Progress / Complete]** | Last updated: [date] ([one-line current status])
+Related: [Roadmap] | [PRD] | [ADR] | [Retrospectives] | [Closeouts]
 
-## Goal
-What hypothesis does the MVP validate? What user problem does it solve at minimum viable quality?
+---
 
-## Success criteria
-| KPI | Target | How measured |
-|-----|--------|--------------|
+## Epic Sprint Plan
+One row per sprint — the index of every sprint that makes up this MVP. Filled out by skill 9 as each sprint is planned; the Status + Retro columns are updated by skill 13.
 
-## Epics in scope
-| Epic | Complexity | Owner | Status |
-|------|------------|-------|--------|
+| Sprint | Epic | Jira | Milestone | Velocity | Status | Retro |
+|--------|------|------|-----------|----------|--------|-------|
+| S1 — [dates] | [Epic name] | [FIN-1] | [milestone] | — / — pts | Not started | — |
 
-## Epics deferred to Iteration 1
-| Epic | Reason for deferral |
-|------|---------------------|
+> Scope-decision notes / backfill notes go here as blockquotes when they affect the plan.
 
-## Open questions before MVP launch
-- [Question that must be answered before shipping]
+---
 
-## Per-sprint plan
-*One subsection per sprint, filled by skill 8 (refined backlog) and skill 9 (sprint composition) as the MVP progresses. Marked complete by skill 13 (retro).*
+## Sprint [N] — [Epic] — [status]
+*One section per sprint. Skeleton created by skill 9 (sprint planning); backlog refined by skill 8; conclusion + retro/closeout links + status flip added by skill 13.*
+
+**Period:** [start] → [end] | **Velocity:** [delivered]/[committed] pts | **Stories:** [N]
+
+**Goal:** _"[sprint goal]"_ — [Achieved / Partially / In progress]
+
+### Decisions locked   (optional — only when the sprint locks design choices)
+| Area | Choice |
+|------|--------|
+
+### Backlog
+| # | Story | Summary | Pts | Layer | Depends on |
+|---|-------|---------|-----|-------|------------|
+
+### Scope   (for in-progress sprints — in/out of scope from the epic)
+**In scope:** …   **Out of scope:** …
+
+### Success criteria   (epic ACs for the sprint)
+| # | Criterion | Target |
+|---|-----------|--------|
+
+### Sprint conclusion
+[prose written at retro time — what shipped, what slipped, key lessons]
+
+Retrospective: [link] | Closeout: [link]
+
+---
+
+## Dev Flow
+For each Story: implement → PR → dev review → QA → Done.
+Skills: agile-10-implement → agile-11-dev-review → agile-12-qa-validation (Mode B after merge-train).
+Sprint lifecycle: dev-tech-debt-sweep → dev-sprint-closeout → agile-12-qa-validation (sprint-wide) → agile-13-retro → agile-5-roadmap (ITERATION mode for next sprint).
 ```
 
-Add the row linking to this page in the Roadmap index Iterations table (Step I4) if not already present.
+On first creation, populate only the Status block, the Epic Sprint Plan index (one row per planned sprint, all `Not started`), and the Dev Flow footer — plus a one-line MVP goal under Status. The per-sprint detail sections are added by skill 9 as each sprint is planned, not upfront. Add the row linking to this page in the Roadmap index Iterations table (Step I4) if not already present.
 
 ### Step I5b — Advise after init
 
@@ -294,37 +321,36 @@ Create a child page **under the Roadmap page**:
 - **Parent page:** `Roadmap — [Project Name]`
 - **Title:** `Iteration [N] — [Project Name]`
 
+**Use the same structure as the MVP page** (Step I5): a Status block, an `## Epic Sprint Plan` index table, one `## Sprint [N]` detail section per sprint, and the `## Dev Flow` footer. The only iteration-specific addition is a short feedback block under Status:
+
 ```
 # Iteration [N] — [Project Name]
 
-Status: [ ] Draft  [ ] Approved   | Last updated: [date]
-Related: [Roadmap] | [Retro [N-1]] | [PRD]
+## Status
+**[Not started / In Progress / Complete]** | Last updated: [date] ([one-line current status])
+Related: [Roadmap] | [Retro [N-1]] | [PRD] | [ADR] | [Retrospectives] | [Closeouts]
 
-## Goal
-What does this iteration deliver on top of the MVP (or previous iteration)? How does it move the KPIs forward?
+**Goal:** What does this iteration deliver on top of the MVP / previous iteration? How does it move the KPIs forward?
 
-## Feedback from previous iteration
-- [learning 1]
-- [learning 2]
+**Feedback from previous iteration:** [2-3 learnings that shaped this scope]
 
-## Success criteria
-| KPI | Previous value | Target | How measured |
-|-----|---------------|--------|--------------|
+---
 
-## Epics in scope
-| Epic | Complexity | Owner | Status | Carried over? |
-|------|------------|-------|--------|---------------|
+## Epic Sprint Plan
+(same columns as the MVP page: Sprint | Epic | Jira | Milestone | Velocity | Status | Retro)
 
-## Epics deferred to Iteration [N+1]
-| Epic | Reason |
-|------|--------|
+---
 
-## Open questions before iteration launch
-- [question]
+## Sprint [N] — [Epic] — [status]
+(same per-sprint section template as the MVP page: Period/Velocity/Stories, Goal, Decisions locked, Backlog, Scope, Success criteria, Sprint conclusion + retro/closeout links)
 
-## Per-sprint plan
-*Filled by skills 8 + 9 as the iteration progresses.*
+---
+
+## Dev Flow
+(same footer as the MVP page)
 ```
+
+On first creation, populate the Status + feedback block, the Epic Sprint Plan index (one `Not started` row per planned sprint), and the Dev Flow footer. Per-sprint detail sections are added by skill 9 as each sprint is planned.
 
 ### Step IT5 — Update the Roadmap index (short)
 
