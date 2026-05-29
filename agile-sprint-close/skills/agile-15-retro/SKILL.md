@@ -34,7 +34,7 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 │   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail filled by agile-9, refined backlog by agile-8)
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
-├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
+├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
 │   ├── 📄 Retro 1 — Sprint 1
 │   └── 📄 Retro N — Sprint N        (created by this run)
 └── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)

@@ -156,7 +156,7 @@ Every Confluence-using skill shares one canonical folder layout (embedded in eac
 │   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8, conclusions by agile-13)
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
-├── 📁 Retrospectives — [Project]   (folder, agile-13; one Retro page per sprint)
+├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
 └── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
 ```
 
