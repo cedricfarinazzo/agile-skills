@@ -5,6 +5,8 @@ description: "Deep PR review: read every changed file in full, check correctness
 
 # dev-review-pr
 
+**Independent review of an open PR by someone other than the author.** The implementer already self-reviewed and fixed the obvious in `implement-review`; this is the *second pair of eyes* — the authoritative pre-merge gate before the PR lands on `main` (invoked by `agile-11-merge-train` 3b). Review as a reviewer who did not write the code: don't trust the author's self-assessment, verify against the spec and the ADR yourself. (The third layer, `agile-13-sprint-closeout`, is a later *global* review of the whole sprint against its goal — not this per-PR gate.)
+
 Thorough PR review. Reads every changed file in full — not just the diff. Reports findings grouped by severity.
 
 ## Input

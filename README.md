@@ -57,6 +57,8 @@ Skills fire automatically when Claude detects a matching phrase, or invoke direc
 
 `agile-10-implement` clears the **build** queue (`To Do` Story → open PR): it autonomously pulls the active board's work (current sprint on a Scrum board, ready column on a Kanban board — never the backlog or a future sprint), orders tickets by Jira dependency links, and runs validate → plan → implement → commit → PR → self-review (`implement-review`) → In Review per ticket. `agile-11-merge-train` (agile-merge-review) then clears the **merge** queue (open PR → `main`): rebase → deep review → fix → fresh CI → merge → Jira postmortem + Done, one PR at a time. `agile-sprint-close` ends the sprint: tech-debt sweep → closeout smoke gate → QA confirm-after-merge → retro.
 
+**Three review layers, three roles — by design, not redundancy.** `implement-review` is the *author* self-reviewing and fixing their own change before handover; `dev-review-pr` (in the merge train) is a *different person* independently gating the open PR before it hits `main`; `agile-13-sprint-closeout` is a *global, impartial* review of the whole wired-together sprint against its goal. Same code seen three times, but each by a different role asking a different question.
+
 ## Requirements
 
 - [Claude Code](https://claude.ai/code) v2.1.128+

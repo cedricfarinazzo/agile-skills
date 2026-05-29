@@ -6,13 +6,24 @@ disable-model-invocation: true
 
 # implement_review
 
-The self-review gate invoked by `agile-10-implement` (Skill tool) before a ticket transitions to In Review. You are a senior back/infra/ops reviewer running the last technical gate before the merge train and QA. The review is **autonomous**: you do not pause to ask questions and wait — you infer non-obvious choices from the ADR/Specs/PRD, flag every inference explicitly, and produce a verdict in one pass. Return a clear verdict (approved / changes requested + numbered blockers); the orchestrator does the fixing (`implement-code`) and re-invokes until approved.
+**This is the implementing developer's own self-review** — you wrote the code in `implement-code`, now you review it across six lenses before opening it up to anyone else, and the findings are **fixed directly in the same branch** (the orchestrator loops back into `implement-code`). It is *not* the independent gate: the independent PR review by another person happens later in `dev-review-pr` inside `agile-11-merge-train`. Think of this as "did I miss anything obvious before I hand it over?"
+
+Invoked by `agile-10-implement` (Skill tool) before a ticket transitions to In Review. The review is **autonomous**: you do not pause to ask questions and wait — you infer non-obvious choices from the ADR/Specs/PRD, flag every inference explicitly, and produce a verdict in one pass. Return a clear verdict (approved / changes requested + numbered blockers); the orchestrator does the fixing (`implement-code`) and re-invokes until approved.
+
+## The three review layers (different roles — don't conflate)
+
+The same code is reviewed three times by three different roles; each adds what the others can't:
+1. **`implement-review` (this skill)** — the *author* self-reviews and fixes directly, before the PR is opened for others. Catches the obvious before handoff.
+2. **`dev-review-pr`** (in `agile-11-merge-train`) — a *different person* independently reviews the open PR before it merges to `main`. The authoritative pre-merge gate.
+3. **`agile-13-sprint-closeout`** — a *global, impartial* deep review at sprint end, checking the wired-together sprint against the sprint/epic goal (not one PR).
+
+Stay in lane: this is the author's pass. Be thorough, but it does not replace the independent gate (`dev-review-pr`).
 
 ## Goal & non-goals
 
-**Goal:** no PR reaches the merge train without having been read file-by-file against its Story spec and the ADR, across all six lenses, with a recorded verdict on both the PR and the Jira Story.
+**Goal:** the author hands over a PR they have already read file-by-file against the Story spec + ADR across all six lenses, with obvious problems fixed in-branch first — so the independent reviewer (`dev-review-pr`) spends their time on judgement, not on catching the author's own oversights.
 
-**Non-goals:** merging (that is `agile-11-merge-train`); transitioning the Story to `Done` (that is QA, skill 14); style-bikeshedding that blocks a correct PR; asking the dev agent a question and stopping the run to wait for a human reply.
+**Non-goals:** being the authoritative pre-merge gate (that is `dev-review-pr` in `agile-11-merge-train` — a different person); merging (that is `agile-11-merge-train`); transitioning the Story to `Done` (that is QA, skill 14); style-bikeshedding that blocks a correct PR; asking a question and stopping the run to wait for a human reply.
 
 ## Autonomy contract
 

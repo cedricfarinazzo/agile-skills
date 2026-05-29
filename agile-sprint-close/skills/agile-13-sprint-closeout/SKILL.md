@@ -27,6 +27,8 @@ End-to-end gate before declaring a sprint or epic done. Runs **three lenses**:
 
 A single Critical finding from any lens blocks closeout.
 
+**This is the third and broadest review layer, by a different role than the per-PR reviews.** The author self-reviewed each change (`implement-review`) and an independent reviewer gated each PR (`dev-review-pr`) — both *per PR*. This is the **global, impartial** pass: whether the *whole sprint, wired together*, is aligned with the sprint/epic goal and the documented product + architecture intent. Different scope (the sprint, not one PR), different question (goal alignment + system-level correctness, not diff correctness). Do not assume the per-PR reviews already covered system-level drift — they couldn't see it.
+
 ## Goal & non-goals
 
 **Goal:** every epic-level AC is provably satisfied along three axes — runs on the real stack, matches the documented product/architecture spec, and survives an impartial line-by-line review of the sprint diff.

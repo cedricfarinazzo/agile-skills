@@ -63,7 +63,13 @@ Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `
 
 ## Confluence structure invariant
 
-All `agile-skills` skills share one canonical folder layout (root → Vision/PRD/Brief/Specs/ADR/Roadmap → `MVP`/`Iteration N` child pages of Roadmap; `Retrospectives` + `Closeouts` sibling folders). The full tree is embedded verbatim in every Confluence-using skill (`## Confluence structure (canonical …)`) — when it changes, update **all** copies, not one.
+All `agile-skills` skills share one canonical folder layout (root → Vision/PRD/Brief/Specs/ADR/Roadmap → `MVP`/`Iteration N` child pages of Roadmap; `Retrospectives` + `Closeouts` sibling folders). The full tree is embedded verbatim under a `## Confluence structure (canonical …)` heading in **every** Confluence-using skill.
+
+**RULE — when you change the Confluence structure (add/rename/move a page or folder, change a parent, change the short-index split, or renumber a skill referenced in the tree), you MUST update the `## Confluence structure` block in ALL skills that carry it, in the same change. Updating one copy and leaving the others stale is a bug.**
+
+- Skills carrying the block: `agile-1-create-vision-doc`, `agile-2-create-prd`, `agile-3-design-brief`, `agile-4-create-adr`, `agile-5-roadmap`, `agile-6-create-epics`, `agile-8-refinement`, `agile-9-sprint-planning`, `agile-14-qa-validation`, `agile-15-retro` (plus the README "Confluence structure" section). Re-confirm the list with `grep -rl "Confluence structure (canonical" agile-*/skills` before editing.
+- Watch the **bare skill-number attributions inside the tree** (e.g. `(folder, agile-15; one Retro page per sprint)`, `(agile-5 — SHORT INDEX…)`) — these are not slugs, so a name-only find/replace will miss them. Update them too.
+- Edit all copies with a single scripted pass (Python, not a hand sed loop), then `grep` to prove zero stale copies remain.
 
 **The Roadmap is a short index** — guiding principle + iterations index table + per-sprint progress rollup + parking lot only. All deep detail (goal, success criteria, epics-in-scope, per-sprint backlog, decisions, retro write-ups) lives on the `MVP` / `Iteration N` child pages, which use an Epic Sprint Plan index table + one detail section per sprint. Skills must never inline that detail into the Roadmap.
 
