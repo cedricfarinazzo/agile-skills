@@ -164,6 +164,7 @@ Invoke each sub-skill via the **Skill tool**, passing the ticket key + the resol
    - **changes requested** → re-invoke `implement-code` with the numbered findings (fix Critical *and* Minor), then re-invoke `implement-review`. Loop until **approved**. Hard cap: >3 cycles without converging → leave PR open, post a `🤖` blocked comment, skip the ticket (per-ticket stop).
    - **approved** → post `🤖 review` and continue.
 6. **Transition + hand off** (orchestrator, inline): transition the Story to `in-review-status-name`; post `🤖 agile:phase=status_change` (2–3 line summary, PR link, AC coverage, flagged decisions, "Ready for merge train / QA"). **Never transition to `Done`.**
+7. **Return to the base branch before the next ticket.** After hand-off, `git checkout <base-branch>` so the working tree lands back on a clean, known base. The tree is currently on this ticket's feature branch; leaving it there means the next ticket's `implement-code` may branch *off this feature branch* instead of base — stacking unrelated work and polluting the new ticket's diff and PR. `implement-code` also checks out + pulls base at its own start (the safety net), but return here too so a resumed or skipped ticket never leaves the tree parked on the wrong branch.
 
 Then loop to the next ticket. Run `implement-monitor` per Phase 2.
 
