@@ -1,6 +1,6 @@
 ---
 name: agile-10-implement
-description: "Autonomously implement the active board — current sprint (Scrum) or ready column (Kanban), never backlog/future — in Jira dependency order, composing the implement-* sub-skills per ticket: validate → plan → code → pr → review → monitor. Resumable via 🤖 Jira markers; full autonomy, asks only on critical decisions. Triggers: implement the sprint, work the sprint, pick up tickets, implement story PROJ-XXX, start coding. After skill 9, before skill 11."
+description: "Autonomously implement the active board (Scrum sprint / Kanban ready column, never backlog/future) in Jira dependency order, composing implement-* sub-skills per ticket: validate → plan → code → pr → review → monitor. Resumable via 🤖 Jira markers; asks only on critical decisions. Triggers: implement the sprint, work the sprint, pick up tickets, implement story PROJ-XXX, start coding. After skill 9, before skill 11."
 ---
 
 # agile_10_implement
