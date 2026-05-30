@@ -45,6 +45,12 @@ Given the numbered findings, fix **every** one — Critical *and* Minor (Minor i
 
 Conventional commit; body includes `Refs: <TICKET>` and the `Co-Authored-By` trailer. Push the branch. (Commit/push is silent — no Jira marker; it is reconstructed from the pushed branch.) Then post `🤖 agile:phase=implement` summarising what was built/fixed and confirming the suites are green. Return to the orchestrator.
 
+**Stage by explicit add, then verify the commit actually captured every intended file.** Two silent-omission traps cost a green-locally / red-in-CI round trip:
+- **A bad pathspec aborts the whole stage.** `git add a b c` where one path does not exist (a typo, a lockfile that has a different name than you assumed) can fail and stage *nothing* — yet a following `git commit` of separately-staged files still succeeds, shipping a partial change. Prefer `git add -A` (or add real paths only), and after committing run `git status --porcelain` — it must be **empty of files that belong to this change**. A leftover modified/untracked manifest, lockfile, generated file, or barrel/index export is a silent omission that builds locally (your working tree has it) but breaks CI (the branch does not).
+- **Dependency + lockfile must travel together.** If the change adds a dependency, the commit must include *both* the manifest and its lockfile, plus any index/barrel file that re-exports new modules. A component committed without its dependency, or without being exported, compiles in your tree and fails on a clean checkout.
+
+Confirm the pushed branch is what you think: `git show --stat HEAD` lists every file you expected, and `git status` is clean. Only then post the marker.
+
 ## Marker — mandatory, exact format
 
 Posting the phase marker is **not optional** — it is how `agile-10-implement` records progress and resumes. Post it to the ticket via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML-comment marker** so resume detection (which greps `🤖 <!-- agile:phase=... -->`) finds it:
