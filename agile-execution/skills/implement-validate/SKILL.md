@@ -19,7 +19,14 @@ Establish which repo the agent is running in — `git remote get-url origin` + r
 
 Score the Story 0–10 (reuse skill 8's readiness gate): clear persona summary; ≥2 falsifiable Given/When/Then ACs; DoD present; Specs UI link for UI Stories; technical notes referencing the ADR; dependencies resolvable; no open question that would force a mid-implementation architecture decision.
 
-- **In current repo AND score ≥ 6 AND AC + DoD present → `pass`.** Resolve remaining minor ambiguities by inference from the ADR / Specs UI / PRD standard patterns, and record *every* inference explicitly in the validation comment (never infer silently). Post `🤖 agile:phase=validate` with the score + inference list. Transition `To Do → In Progress`. Return `pass`.
+- **In current repo AND score ≥ 6 AND AC + DoD present → `pass`.** Resolve remaining minor ambiguities by inference from the ADR / Specs UI / PRD standard patterns, and record *every* inference explicitly in the validation comment (never infer silently). Post `🤖 agile:phase=validate` with the score + inference list. Transition `To Do → In Progress` (see the transition rule below), and **record it in the marker** with a literal `Transitioned: <from> → <to>` line. This line is the resume signal: on re-entry the orchestrator reads it to confirm the move actually happened — a `validate` marker with no `Transitioned:` line means the transition was skipped and must be re-applied before `plan` starts. Return `pass`.
+
+### Transitioning by discovery (never hardcode a transition id)
+
+Transition ids are **per-project and unstable** — never assume `21`/`31`/etc. To move a Story:
+1. Call `mcp__atlassian__getTransitionsForJiraIssue` for the ticket.
+2. Match the target status (`in-progress-status-name`, default `In Progress`) **case-insensitively, by substring, against each transition's target `name`** — so localised names ("En cours", "Revue en cours") resolve. Use that transition's `id`.
+3. **Before concluding a status does not exist, read this list** — do not assume a board "has no In-Progress / In-Review column" from memory. Only if no transition's target name matches after reading the list do you fall back (leave in place + note it).
 - **Score < 6, or no AC / no DoD, or a genuine blocking unknown remains → `rejected`.** Post `🤖 agile:phase=validate` (rejected mode) listing exactly what is missing and what skill 8 (Refinement) must add. Transition to `needs-info-status-name` (or leave in `To Do` + label `needs-info`). Return `rejected`.
 
 ## Critical-decision pre-check
