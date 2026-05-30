@@ -1,6 +1,6 @@
 ---
 name: implement-pr
-description: "Sub-skill of agile-10-implement. Open (off the base/main branch) or update the pull request for the ticket's pushed branch, linked to the Jira Story, with AC coverage + ADR-compliance sections. This skill — not implement-code — owns opening the PR. Posts the 🤖 pr marker. Not user-invoked."
+description: "Sub-skill of agile-10-implement. Open (off base/main) or update the PR for the ticket's pushed branch, linked to the Jira Story, with AC coverage + ADR-compliance sections. This skill — not implement-code — owns opening the PR. Posts the 🤖 pr marker. Not user-invoked."
 user-invocable: false
 ---
 
