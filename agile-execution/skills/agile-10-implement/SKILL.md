@@ -17,8 +17,8 @@ Per ticket, in order. Each maps to one 🤖 resume-marker phase; each is invoked
 |-------|-----------|------|
 | validate | `implement-validate` | repo-scope + readiness gate; pass / reject(Needs Info) / out-of-scope / critical-park |
 | plan | `implement-plan` | read ADR/Specs/PRD/bugs → concrete plan + AC→test map |
-| implement | `implement-code` | branch, implement per ADR/Specs, all-AC tests, lint+unit+integration green, commit, push |
-| pr | `implement-pr` | open/update the PR linked to the ticket |
+| implement | `implement-code` | branch off base/main, implement per ADR/Specs, all-AC tests, lint+unit+integration green, commit, push — finishes only when all lint + all tests + every AC pass. Does **not** open the PR |
+| pr | `implement-pr` | **open** (off base/main) or update the PR linked to the ticket |
 | review | `implement-review` | six-lens self-review; verdict + numbered blockers |
 | (monitor) | `implement-monitor` | PR rework loop — new review comments, failing checks, conflicts |
 
@@ -99,7 +99,14 @@ Optional: one or more explicit ticket keys → run the pipeline on just those. D
 2. **Load each candidate in full** with `mcp__atlassian__getJiraIssue`: summary, description, AC, DoD, technical notes, Specs UI link, ADR link, labels, points, **`issuelinks`**, and any linked Bugs from a prior QA run.
 3. **Build the dependency graph** from `issuelinks` (`blocks` / `is blocked by`). Topologically sort. Cycle → abort the run and report (Stop condition). A ticket is **eligible** only if every blocker is `Done` already, or completes earlier in this same run. Otherwise it is **deferred**.
 4. **Build the rework queue.** Separately query `in-review-status-name` tickets on the same active board / current sprint that carry a `🤖 <!-- agile:phase=pr -->` marker (PR opened by a prior run). These skip the build phases and go straight to `implement-monitor`. Backlog / future-sprint tickets are excluded here too.
-5. **State the plan, then proceed — no confirmation:**
+5. **No work → stop the run.** If, after selection and ordering, there is **nothing to do**, stop immediately and report — do not idle, poll, or invent work. "Nothing to do" covers every empty case:
+   - **No open sprint** (Scrum) — `openSprints()` returns nothing.
+   - **No board / empty board** (Kanban) — no board for the project, or the board's non-backlog columns are empty.
+   - **No eligible ticket** — the `To Do` queue is empty, or every `To Do` ticket is excluded (backlog / future sprint / wrong repo).
+   - **No *unblocked* eligible ticket and no rework** — every remaining ticket is deferred (blocked by something not `Done` and not clearing this run) **and** the rework queue is empty, so the run can make no progress.
+
+   In any of these, emit the Phase 3 report with an empty work table and a one-line reason (e.g. "No open sprint", "All N tickets deferred — blocked", "Board empty"), then end. This is a clean stop, not an error.
+6. **State the plan, then proceed — no confirmation:**
 
 ```
 Implementation plan — [Scrum: Sprint N "name" / Kanban: board "name"]
@@ -151,8 +158,8 @@ Invoke each sub-skill via the **Skill tool**, passing the ticket key + the resol
    - `critical-park` → escalate one consolidated question, park the ticket, continue with the next; resume when answered.
    - `pass` → continue to plan.
 2. **`implement-plan`** → produces the plan (`🤖 plan`).
-3. **`implement-code`** → branch + implement + tests + lint/unit/integration green + commit + push (`🤖 implement`).
-4. **`implement-pr`** → open/update the PR (`🤖 pr`).
+3. **`implement-code`** → branch off base/main + implement + tests + lint/unit/integration green + every AC covered + commit + push (`🤖 implement`). Returns only when all lint + all tests + every AC pass. Does **not** open the PR.
+4. **`implement-pr`** → **open** (off base/main) or update the PR (`🤖 pr`).
 5. **`implement-review`** (self-review gate) → verdict.
    - **changes requested** → re-invoke `implement-code` with the numbered findings (fix Critical *and* Minor), then re-invoke `implement-review`. Loop until **approved**. Hard cap: >3 cycles without converging → leave PR open, post a `🤖` blocked comment, skip the ticket (per-ticket stop).
    - **approved** → post `🤖 review` and continue.
@@ -197,6 +204,8 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 ## Rules (apply every run)
 
 - **Compose, don't inline.** Invoke `implement-validate` / `implement-plan` / `implement-code` / `implement-pr` / `implement-review` / `implement-monitor` via the Skill tool. The orchestrator owns selection, ordering, the per-ticket sequence, transitions, and the report — the sub-skills own the work. Fix a sub-skill in its own file, never fork its logic here.
+- **Narrate progress — one short line per step.** Before each phase, tell the user what's starting in a single plain line: `▶ VC-123 — validation`, then `▶ VC-123 — plan`, `▶ VC-123 — implementing`, `▶ VC-123 — opening PR`, `▶ VC-123 — self-review`. Announce each ticket switch (`── VC-124 (2/5) ──`) and each per-ticket outcome (`✓ VC-123 → In Review (PR #118)`, `⤼ VC-124 deferred — blocked by VC-123`). This is a heartbeat, **not** a log — no command output, diffs, file lists, or tool transcripts; one line, then move on. The detailed trail lives in the `🤖` Jira markers and the final report, not in chat.
+- **One phase at a time — never batch phase calls.** Invoke a single sub-skill, wait for its return, and apply its side effects (the Jira transition, the posted marker) *before* invoking the next. Do not fire `validate` + `plan` + `code` in one turn. A `plan`/`code` call started before `validate` returns runs on stale assumptions instead of the freshly-read ticket, and the `To Do → In Progress` transition (which lives in `validate`'s pass branch) gets skipped. After `validate` returns `pass`, confirm the ticket is actually `In Progress` before starting `plan`. (FIN-114 case study: batched calls → plan written from memory, contradicted AC2; transition missed.)
 - **Full autonomy, escalate only on a critical decision.** No mid-loop "should I proceed?" Decide and document everything reversible; the only stop-and-ask is a genuinely critical, irreversible decision not derivable from ADR/PRD/Specs — and even then park that one ticket and keep the loop running.
 - **Works on Scrum and Kanban boards; never the backlog or a future sprint.** Re-verify per candidate after the JQL fetch.
 - **Only implement tickets that target the current repo** (`implement-validate`'s repo-scope gate).
@@ -210,6 +219,7 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 ## Stop conditions
 
 Stop the **whole run** and report immediately if:
+- **No work is available** (Phase 0 step 5): no open sprint, no board / empty board, no eligible `To Do` ticket, or every remaining ticket is deferred (blocked) with an empty rework queue. Clean stop — emit the empty report and end; never idle or poll for work to appear.
 - A Jira ticket can't be loaded (auth, deleted, wrong project / `cloudId`).
 - The dependency graph has a cycle.
 - `git push` / `gh pr create` fails for an auth/permissions reason (not a transient blip).

@@ -11,6 +11,7 @@ Planning phase for `agile-10-implement`. Invoked via the Skill tool with a valid
 ## Read everything before planning
 
 Fan out read-only subagents where useful. Read:
+- **The ticket itself, re-fetched in full** (`mcp__atlassian__getJiraIssue` — description, *every* AC, DoD, technical notes). This is the spec of record. Plan from it, never from memory or prior-context assumptions about what the ticket "probably" says. If any planned change contradicts an AC (column list, table shape, API surface), stop and re-read the ticket before continuing — the AC wins.
 - **ADR** — tech stack, API style, auth, data model, infra constraints.
 - **Specs UI** — every screen + every state (default / loading / empty / error / success) for UI Stories.
 - **PRD** — edge-case context behind the ACs.

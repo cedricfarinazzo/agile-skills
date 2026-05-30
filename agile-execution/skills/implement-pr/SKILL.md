@@ -1,12 +1,12 @@
 ---
 name: implement-pr
-description: "Sub-skill of agile-10-implement. Open or update the pull request for the ticket's pushed branch, linked to the Jira Story, with AC coverage + ADR-compliance sections. Posts the 🤖 pr marker. Not user-invoked."
+description: "Sub-skill of agile-10-implement. Open (off the base/main branch) or update the pull request for the ticket's pushed branch, linked to the Jira Story, with AC coverage + ADR-compliance sections. This skill — not implement-code — owns opening the PR. Posts the 🤖 pr marker. Not user-invoked."
 user-invocable: false
 ---
 
 # implement_pr
 
-PR phase for `agile-10-implement`. Invoked via the Skill tool after `implement-code` has pushed the branch. Idempotent — updates an existing open PR rather than opening a duplicate. Posts the `🤖 agile:phase=pr` marker with the PR URL.
+PR phase for `agile-10-implement`. Invoked via the Skill tool after `implement-code` has pushed the branch. **This skill owns opening the PR** — `implement-code` never opens it. Opens the PR **off `<base-branch>` (the main branch)**. Idempotent — updates an existing open PR rather than opening a duplicate. Posts the `🤖 agile:phase=pr` marker with the PR URL.
 
 ## Source the PR body
 
@@ -16,7 +16,7 @@ The build is already done (`implement-code` implemented the plan + pushed). This
 
 - `findExistingPR`: `gh pr list --state open --head <branch> --json number,url`.
   - found → `gh pr edit` (refresh title/body)
-  - none → `gh pr create --base <base-branch>`
+  - none → `gh pr create --base <base-branch>` (off the base/main branch)
 - **Title:** `[TICKET] <Story summary>`
 - **Body sections** (built from the plan + the actual diff):
   - **Story** — link to the Jira ticket
