@@ -109,7 +109,7 @@ Inferences flagged: [list each "assumed X because ADR §N" / none]
 Warnings (follow-up, non-blocking): ⚠️ [..]
 Approved. Ready for agile-11-merge-train / QA (skill 14).
 ```
-- `gh pr review <N> --approve --body "<verdict>"`.
+- `gh pr review <N> --approve --body "<verdict>"`. **Self-approval is blocked by the forge:** when the review identity is the same account that opened the PR, `--approve` fails (`Can not approve your own pull request`). This is expected for an author self-review — fall back to posting the verdict as a normal PR comment (`gh pr comment <N> --body "<verdict>"`) and note in it that formal approval is left to the independent pre-merge gate. The verdict still lands; do not treat the failed `--approve` as a review failure.
 - Add the verdict as a `🤖 agile:phase=review` comment on the Story.
 - Label the Story `dev-review-approved`. **Do not transition the Story.**
 
@@ -124,7 +124,7 @@ Blockers (must fix before re-review):
 Warnings (address after blockers): ⚠️ 3. [..]
 Inferences flagged: [..]
 ```
-- `gh pr review <N> --request-changes --body "<verdict>"`; where useful, attach inline comments on specific lines.
+- `gh pr review <N> --request-changes --body "<verdict>"`; where useful, attach inline comments on specific lines. (Same self-review caveat: if the forge blocks a formal review on your own PR, post the verdict as a PR comment instead — the numbered blockers are what the loop acts on, not the review state.)
 - Add the verdict as a `🤖 agile:phase=review` comment on the Story.
 - Label the Story `dev-review-changes-requested`. **Do not transition the Story.**
 

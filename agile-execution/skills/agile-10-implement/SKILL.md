@@ -172,13 +172,21 @@ Then loop to the next ticket. Run `implement-monitor` per Phase 2.
 
 ## Phase 2 — PR monitoring and rework
 
-For every ticket in the rework queue (Phase 0) **and** every ticket this run just moved to `In Review`, invoke **`implement-monitor`** (Skill tool) on its PR. It processes new review comments, failing status checks, and merge conflicts/staleness — filtered by the last `🤖 agile:phase=rework` marker for idempotency — and is best-effort within the run (it does not block indefinitely on a human reviewer; a later re-run or `/loop` picks up new comments). Monitoring rework touches the shared stack, so it runs sequentially with the build loop, never concurrently.
+**Mandatory — not skippable just because the build loop finished.** The run is **not complete** until every ticket in the rework queue (Phase 0) **and** every ticket this run moved to `In Review` has been through **`implement-monitor`** (Skill tool) on its PR. The most common orchestrator failure mode is jumping straight from the last build to the Phase 3 report and silently skipping this phase — do not. A just-opened PR whose CI has not been looked at is **not** done; a green self-review says nothing about whether CI is green.
+
+For each such PR, invoke `implement-monitor`. It processes new review comments, failing status checks, and merge conflicts/staleness — filtered by the last `🤖 agile:phase=rework` marker for idempotency. It is best-effort on *human* review latency (it does not block indefinitely waiting for a reviewer; a later re-run or `/loop` picks up new comments), but it is **not** best-effort on CI: a `FAILURE`/`UNSTABLE` check caused by this run's code must be diagnosed and fixed now, not deferred to the report. Monitoring rework touches the shared stack, so it runs sequentially with the build loop, never concurrently.
+
+A ticket may not be reported as `In Review` in Phase 3 until its PR has been monitored at least once this run — evidenced by a `🤖 rework` marker, or a recorded clean-monitor result when there was nothing to fix.
 
 ---
 
 ## Phase 3 — Final report
 
 Before printing the report, **reconcile the actual end-state of every ticket this run touched** — do not report from memory of what you intended. For each: confirm the PR is open (`gh pr list --head <branch>`), the Jira status is the expected one (`getJiraIssue` — `in-review-status-name`, or `in-progress-status-name` if the board has no In-Review column), and the expected `🤖` markers are present (validate → plan → implement → pr → review → status_change). Any mismatch (PR missing, transition not applied, a marker absent) is fixed now — re-apply the missing mutation — not silently reported as done. This catches a partially-applied hand-off (e.g. markers posted but the transition never landed) before it reaches the user.
+
+Two reconcile checks are easy to skip and routinely hide a broken hand-off — verify both explicitly:
+- **Phase 2 ran for this ticket.** Confirm `implement-monitor` was invoked on the PR this run (a `🤖 rework` marker or a recorded clean-monitor result). If it was skipped, run it **now** before reporting — never report `In Review` for a PR whose CI was never looked at.
+- **CI is actually green (or its red is understood).** Read the PR's check rollup. Reporting a ticket as cleanly `In Review` while a check is `FAILURE`/`UNSTABLE` from this run's own code is a false report — loop back into Phase 2 and fix it first. Only an unrelated, diagnosed infra flake (or a human-review-pending state) may be reported with the red called out.
 
 ```
 ## Sprint implementation — [Sprint N / board] — [date]
@@ -214,6 +222,8 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 - **Works on Scrum and Kanban boards; never the backlog or a future sprint.** Re-verify per candidate after the JQL fetch.
 - **Only implement tickets that target the current repo** (`implement-validate`'s repo-scope gate).
 - **Dependency order; never force a blocked ticket.** Cycles abort the run.
+- **`In Review` ≠ `Done` — never stub, stack, or bypass an unmerged blocker.** A blocker that is still an open PR (`In Review`) has **not** cleared: its code is not on the base branch, so a ticket that depends on it is **deferred**, full stop. It only becomes eligible if that blocker actually reaches `Done` (merges) earlier in *this* run. Do not work around the gap by branching the dependent off the blocker's feature branch, by stubbing/vendoring the blocker's unmerged code, or by "it'll be fine once both merge" — that fabricates a green build against code the base branch doesn't have. Defer and report the blocker. (If two same-run tickets are genuinely independent at the code level but happen to touch one shared file, that is a build-off-base + expected merge-train conflict, not a license to stack branches.)
+- **Phase 2 is part of the run, not an optional epilogue.** Every PR opened or reworked this run goes through `implement-monitor` before the final report. Skipping it — ending on a freshly-opened PR whose CI was never inspected — is the single most common way a "green" run ships a red PR.
 - **Resumable + idempotent — handle partially-implemented tickets.** `🤖` markers drive resume, but reconcile them against the real artifacts (branch / pushed commits / open PR) and resume at the earliest genuinely-missing phase — never restart a ticket whose plan/code/PR already exist. Re-running never duplicates a PR or repeats a completed phase, never re-processes a review comment older than the last rework marker, and uses marker timestamps to keep a reworked ticket from routing back to the build phases.
 - **Never transition to `Done`.** This skill ends a ticket at `In Review` with an open PR.
 - **Strictly sequential — one ticket at a time** (single shared Docker Compose stack).
