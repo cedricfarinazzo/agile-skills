@@ -1,6 +1,6 @@
 ---
 name: implement-code
-description: "Sub-skill of agile-10-implement. Set up the feature branch, implement the plan per ADR + Specs UI with full AC test coverage, get lint+unit+integration green, then commit and push. Also runs the fix pass for review findings. Not user-invoked."
+description: "Sub-skill of agile-10-implement. Branch off the base/main branch, implement the plan per ADR + Specs UI with full AC test coverage, and finish only when all lint + all tests + every AC are green; then commit and push. Does not open the PR (that is implement-pr). Also runs the fix pass for review findings. Not user-invoked."
 user-invocable: false
 ---
 
@@ -14,8 +14,9 @@ Build phase for `agile-10-implement` — the only phase that touches the shared 
 
 ## Set up workspace and branch
 
-- `git checkout <base-branch> && git pull` to start from the current tip.
-- Create or reuse the feature branch `<branch-prefix><TICKET>` — idempotent: `gh pr checkout` / `git checkout -B` only if no open PR branch already exists for this ticket.
+- `git checkout <base-branch> && git pull` to start from the current tip of `<base-branch>` — the **main branch** is the base for both the feature branch and the eventual PR.
+- Create or reuse the feature branch `<branch-prefix><TICKET>`, branched **off `<base-branch>`** (never off another feature branch) — idempotent: `gh pr checkout` / `git checkout -B` only if no open PR branch already exists for this ticket.
+- **Do not open the PR here.** Opening the pull request is `implement-pr`'s job, not this phase's. This phase only prepares the branch and implements; the orchestrator invokes `implement-pr` after this phase returns.
 
 ## Implement (non-negotiable rules)
 
@@ -24,6 +25,15 @@ Build phase for `agile-10-implement` — the only phase that touches the shared 
 - **Cover every AC with a test**; each edge-case AC gets its own test.
 - **Name from the domain** (PRD / ADR vocabulary), not generic names.
 - Run the project's **lint + unit + integration** suites locally and get them green before finishing. Do not push and hope CI catches it. This holds the shared stack — never run it concurrently with another ticket's build.
+
+### Finish gate — only return when ALL three hold
+
+This phase is **not done** until, on the latest pushed commit:
+1. **All lint** passes (every configured linter/formatter, zero errors).
+2. **All tests** pass green — **unit + integration**, run locally, no skips/xfails hiding a failure.
+3. **Every AC is satisfied and test-covered** — walk the plan's AC→test map; each AC has a passing test that actually exercises it. An AC with no test, or a failing/red test, means the gate is **not** met.
+
+If any one fails, keep working (or return `critical` on a critical block) — do **not** return success and do not hand off to `implement-pr`. Only when all three hold do you commit, push, post the `🤖 implement` marker, and return — then the orchestrator runs `implement-pr` to open the PR.
 - **Forced ADR-uncovered decision:** **reversible** → decide the lower-risk option, post a `🤖` comment with the choice + rationale, flag it in the PR, keep going. **Critical** (irreversible / high-blast-radius — destructive migration, auth/security, breaking shared contract, new paid/infra dependency, data-loss risk) → stop and return `critical` to the orchestrator (which parks the ticket and escalates one question). Never guess a critical decision.
 
 ## Fix pass (when re-invoked after `implement-review`)
