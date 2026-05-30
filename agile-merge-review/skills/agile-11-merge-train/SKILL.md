@@ -61,8 +61,8 @@ State the order and the rationale before processing.
 3b  merge-review-pr           (Skill tool)  deep review
 3c  merge-fix-until-satisfied (Skill tool)  ALWAYS — even on 0-issue review (satisfaction gate)
 3d  bad-PR escape hatch     (CONDITIONAL — only if 3b/3c surface an unfixable defect; replaces 3e–3g)
-3e  CI monitor              wait for COMPLETED + SUCCESS on the post-rebase tip
-3f  gh pr merge             --squash --delete-branch
+3e  CI monitor              HARD GATE, separate turn from the 3a/3c push. Wait for a NEW run to START, then COMPLETED + SUCCESS on the post-push tip. Never push and merge in the same turn.
+3f  gh pr merge             --squash --delete-branch (only after 3e names a completed all-green run)
 3g  merge-jira-postmortem     (Skill tool)  comment + transition
 ```
 
@@ -108,7 +108,9 @@ If the PR is too broken to fix in one pass — wrong approach, missing core ACs,
 - Do NOT transition the ticket. Move on to the next PR in the queue.
 
 ### 3e. Wait for **fresh** CI green
+- **This step is a HARD GATE and must be its own turn, after the turn that pushed (3a or 3c). Never issue a push and the `gh pr merge` in the same turn — a merge in the same batch as the push runs before CI has even registered, so it cannot have read a green result.**
 - After 3a's push, CI registers a new run. Verify checks are running against the post-rebase tip.
+- **Two conditions, both required, before 3f: (1) a NEW run has STARTED on the post-push tip — "no new run yet" is not green, it's not-yet-started; (2) every check on that new run is COMPLETED + SUCCESS.** A green read milliseconds after a push is the PREVIOUS run. Capture the latest run id BEFORE pushing (`gh run list --branch <branch> -L1 --json databaseId`); after pushing, poll until a DIFFERENT id appears, then poll that id to all-green.
 - Poll pattern (Bash `run_in_background: true` with `until` loop):
   ```bash
   until [ "$(gh pr view <N> --json statusCheckRollup --jq '[.statusCheckRollup[]|select(.status!="COMPLETED")]|length')" = "0" ]; do sleep 20; done; gh pr view <N> --json statusCheckRollup,mergeStateStatus --jq '{merge:.mergeStateStatus,checks:[.statusCheckRollup[]|{name:.name,c:.conclusion}]}'
@@ -206,6 +208,8 @@ Produce a single Markdown report covering:
 - **Deep review is the whole point.** This skill exists to make sure `main` only receives code you have actually read, file by file, against the spec. A fast merge train that skips file reads is worse than no merge train.
 - **Always rebase before review.** Every PR gets a `merge --no-ff main` before review and merge. The CI run that gates the merge must be on the exact tree that will land. A "green CI from yesterday" is not a green CI.
 - **Wait for the fresh CI run.** After push, use one of the stale-run mitigations in 3e (preferred: capture run id before push, wait until a different id appears). Do NOT chain `sleep` calls in the foreground — use a single `until` loop in `run_in_background: true`.
+- **The push and the merge are never in the same turn.** The push (3a/3c) and `gh pr merge` (3f) are separate turns with the 3e gate between them. Issuing both in one batch means the merge fires before CI registers — the squash then captures whatever the branch tip is, green or not.
+- **`gh pr merge` requires a named completed all-green run id on the post-push tip.** If you cannot state the run id you verified, you may not merge. `mergeStateStatus: CLEAN` / `mergeable: MERGEABLE` is NOT a CI signal — read `statusCheckRollup` conclusions yourself. A repo without required-status-check branch protection will merge red without complaint; the gate is yours, not the host's.
 - **Never merge without explicit satisfaction.** All ACs validated against specific lines, all tests green locally + on the fresh CI run, branch rebased on the current `main`. Any of those missing → fix or block.
 - **Read the Jira ticket before reading the diff.** Otherwise the review measures the diff against itself, not the spec.
 - **Read every changed file in full** during 3b. The diff hides surroundings; bugs hide in surroundings.
@@ -228,3 +232,5 @@ Stop the train and report immediately if:
 - Two consecutive PRs hit unrelated CI flakes (suggests infra problem)
 - A Jira ticket can't be loaded (auth, deleted, wrong project) — block and report
 - The fix loop in 3c iterates more than 3 times on the same PR without converging
+- The post-push CI run is FAILURE, or has not started — never merge on red or absent CI
+- **Tooling output looks corrupted or garbled, or a file read returns content that contradicts a prior read or the spec.** Do not edit, merge, push, or post on an unverified read. Re-establish ground truth first — re-read via a fresh copy, `gh api`, or `git show` — before any write. A confident action on a bad read is how broken code reaches `main`.
