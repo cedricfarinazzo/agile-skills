@@ -1,6 +1,10 @@
 # agile-skills
 
-Five focused [Claude Code](https://claude.ai/code) plugins for the full agile cycle — raw idea → sprint retrospective — integrated with **Confluence** and **Jira**. Distributed from one marketplace; install only the phases you want so you load only the skills you need.
+### Ship sprints while you sleep. 🌙
+
+[Claude Code](https://claude.ai/code) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
+
+Raw idea → sprint retro, wired into **Confluence** and **Jira**. Five focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
 
 | Plugin | Phase | Skills | Needs |
 |--------|-------|--------|-------|
@@ -11,6 +15,8 @@ Five focused [Claude Code](https://claude.ai/code) plugins for the full agile cy
 | [**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
+
+⭐ **The headline act:** `agile-execution` pulls the active sprint, walks tickets in Jira dependency order, and drives each one to an open, self-reviewed PR — no mid-loop hand-holding. It even tells you what it's doing as it goes (`▶ VC-123 — implementing`, `✓ VC-123 → In Review`).
 
 User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) across plugins, so the order is legible at a glance. The two orchestrators (`agile-10-implement`, `agile-11-merge-train`) compose **unnumbered sub-skills** you don't call directly. Invoke with `/<plugin>:<skill>`, e.g. `/agile-planning:agile-5-roadmap`.
 
