@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Claude Code marketplace shipping **five focused plugins** (split by cycle phase so users load only what they run):
+A Claude Code marketplace shipping **six focused plugins** (split by cycle phase so users load only what they run):
 
 - **`agile-product`** — discovery: Vision Doc, PRD, Design Brief / Specs UI, ADR (Confluence).
 - **`agile-planning`** — Roadmap, Epics, Stories, Refinement, Sprint Planning (Confluence + Jira).
 - **`agile-execution`** — autonomous build loop: Implement (10) + Dev Review (11). Needs `gh`.
 - **`agile-merge-review`** — PR workflow (formerly `dev-skills`): update-pr, review-pr, fix-until-satisfied, jira-postmortem, merge-train. Needs `gh`.
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
+- **`agile-sprint-drain`** — autonomous outer loop: `agile-sprint-drain` alternates `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (progress guard → STUCK/DRAINED). Composes the two orchestrators cross-plugin; requires `agile-execution` + `agile-merge-review` installed. Needs `gh` + Atlassian.
 
 User-facing skills keep global cycle numbering (`agile-1` … `agile-15`) across plugins; composed sub-skills (the `implement-*` blocks and the `dev-*` merge-train blocks) are **unnumbered** because the user does not call them directly. Namespace = plugin name, e.g. `/agile-planning:agile-5-roadmap`, `/agile-merge-review:agile-11-merge-train`.
 
@@ -36,8 +37,9 @@ Plugin → skills:
 - `agile-execution/`: **agile-10-implement** (orchestrator, numbered) + unnumbered sub-skills `implement-validate` / `implement-plan` / `implement-code` / `implement-pr` / `implement-review` / `implement-monitor`
 - `agile-merge-review/`: **agile-11-merge-train** (orchestrator, numbered) + unnumbered sub-skills `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem`
 - `agile-sprint-close/`: agile-12-tech-debt-sweep, agile-13-sprint-closeout, agile-14-qa-validation, agile-15-retro
+- `agile-sprint-drain/`: **agile-sprint-drain** (outer orchestrator, unnumbered — it spans the 10/11 phases rather than occupying a cycle slot) — composes `agile-10-implement` + `agile-11-merge-train` cross-plugin
 
-There is **no root plugin** — the repo root holds only `README.md`, `.claude-plugin/marketplace.json`, and the five plugin dirs.
+There is **no root plugin** — the repo root holds only `README.md`, `.claude-plugin/marketplace.json`, and the six plugin dirs.
 
 **Docs split:** the root `README.md` is an **overview** (plugin table, cycle diagram, three-review-roles note, install, requirements) that **links** to each plugin's README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, the autonomous-loop / merge-train internals) lives in `<plugin>/README.md`. When you change a skill, update its plugin README; keep the root as overview-only and don't re-duplicate plugin detail there. The canonical Confluence tree lives in full in `agile-planning/README.md` (others link to it).
 
@@ -81,16 +83,16 @@ All `agile-skills` skills share one canonical folder layout (root → Vision/PRD
 
 ## Cycle order
 
-Canonical schema in `README.md` (covers all five plugins, the autonomous execution loop, confirm-after-merge QA, agile-11-merge-train integration, sprint-closeout gate).
+Canonical schema in `README.md` (covers all six plugins, the autonomous execution loop, confirm-after-merge QA, agile-11-merge-train integration, the agile-sprint-drain outer loop, sprint-closeout gate).
 
 Invariant for all skills: read existing Confluence pages + Jira issues before creating anything.
 
 Bundled scripts (e.g. `agile-planning/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh`) must be invoked via `${CLAUDE_PLUGIN_ROOT}` — a bare relative path won't resolve when installed as a plugin (cwd is the consumer repo).
 
-Cross-plugin references: skills call siblings by name (Skill tool / prose). Most compose within one plugin (agile-11-merge-train → its 4 sub-skills; agile-10 → agile-11). Cross-plugin links that matter: `agile-14-qa-validation` + `agile-15-retro` read `agile-13-sprint-closeout`'s output (all in `agile-sprint-close`); `agile-9` hands off to `agile-10` (planning → execution).
+Cross-plugin references: skills call siblings by name (Skill tool / prose). Most compose within one plugin (agile-11-merge-train → its 4 sub-skills; agile-10 → agile-11). Cross-plugin links that matter: `agile-14-qa-validation` + `agile-15-retro` read `agile-13-sprint-closeout`'s output (all in `agile-sprint-close`); `agile-9` hands off to `agile-10` (planning → execution); `agile-sprint-drain` composes BOTH `agile-10-implement` (in `agile-execution`) and `agile-11-merge-train` (in `agile-merge-review`) via the Skill tool and requires both plugins installed.
 
 ## Plugin + marketplace manifests
 
 Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill namespace prefix), `version` (bump on releases), author/homepage/repo/license. Skills are auto-discovered from that plugin's `skills/*/SKILL.md`.
 
-`.claude-plugin/marketplace.json` (repo root) lists all five plugins, each via a `git-subdir` source pointing at its path (`cedricfarinazzo/agile-skills` + `path: <plugin>`). Adding a plugin = new dir with a manifest + a new marketplace entry. Keep plugin `name` in `plugin.json` and the marketplace entry in sync.
+`.claude-plugin/marketplace.json` (repo root) lists all six plugins, each via a `git-subdir` source pointing at its path (`cedricfarinazzo/agile-skills` + `path: <plugin>`). Adding a plugin = new dir with a manifest + a new marketplace entry. Keep plugin `name` in `plugin.json` and the marketplace entry in sync.

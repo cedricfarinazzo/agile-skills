@@ -29,6 +29,11 @@
       "name": "agile-sprint-close",
       "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-sprint-close" },
       "description": "Sprint-close — tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), retrospective."
+    },
+    {
+      "name": "agile-sprint-drain",
+      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-sprint-drain" },
+      "description": "Sprint-drain — auto-alternate agile-10-implement and agile-11-merge-train to a fixed point, with a progress guard. Requires agile-execution + agile-merge-review. Needs gh + Atlassian MCP."
     }
   ]
 }
