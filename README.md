@@ -4,7 +4,7 @@
 
 [Claude Code](https://claude.ai/code) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
 
-Raw idea → sprint retro, wired into **Confluence** and **Jira**. Five focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
+Raw idea → sprint retro, wired into **Confluence** and **Jira**. Six focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
 
 | Plugin | Phase | Skills | Needs |
 |--------|-------|--------|-------|
@@ -13,6 +13,7 @@ Raw idea → sprint retro, wired into **Confluence** and **Jira**. Five focused 
 | [**agile-execution**](agile-execution/README.md) | Build (autonomous) | Implement (+ 6 sub-skills) | Atlassian MCP + `gh` |
 | [**agile-merge-review**](agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
 | [**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
+| [**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
 
@@ -54,6 +55,13 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
  │    merge-update-pr · merge-review-pr · merge-fix-until- │
  │    satisfied · fresh CI · gh pr merge · postmortem+Done │
  └────────────────────────────────────────────────────────┘
+
+         DRAIN (agile-sprint-drain — autonomous outer loop)
+         ──────────────────────────────────────────────────
+   agile-sprint-drain  alternates 10 ⇄ 11 to a fixed point:
+     each pass: implement eligible To-Do → merge open PRs →
+     /compact ; progress guard stops (STUCK) if a pass makes
+     zero progress ; DRAINED hands off to agile-sprint-close
 
                     SPRINT CLOSE                 (agile-sprint-close)
                     ────────────

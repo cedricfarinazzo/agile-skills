@@ -1,0 +1,9 @@
+{
+  "name": "agile-sprint-drain",
+  "description": "Sprint-drain orchestrator for Claude Code — runs the active sprint to a fixed point by auto-alternating agile-10-implement (build queue) and agile-11-merge-train (merge queue) until the Jira dependency graph is fully resolved. A progress guard stops with a report instead of spinning on a permanently-blocked ticket. Requires the agile-execution and agile-merge-review plugins installed. Needs the gh CLI + Atlassian MCP.",
+  "version": "0.1.0",
+  "author": { "name": "cedricfarinazzo", "email": "cedric.farinazzo@gmail.com" },
+  "homepage": "https://github.com/cedricfarinazzo/agile-skills",
+  "repository": "https://github.com/cedricfarinazzo/agile-skills",
+  "license": "MIT"
+}
