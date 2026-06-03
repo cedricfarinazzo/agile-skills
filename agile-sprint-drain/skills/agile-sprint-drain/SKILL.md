@@ -1,15 +1,6 @@
 ---
 name: agile-sprint-drain
-description: >
-  Drain the active sprint end-to-end in one session by alternating the build
-  queue (agile-10-implement) and the merge queue (agile-11-merge-train) until the
-  Jira dependency graph is fully resolved. Triggers on phrases like "drain the
-  sprint", "run the sprint to completion", "implement and merge until done",
-  "clear the whole board", "ship the sprint". Use when a sprint has tickets whose
-  dependencies unlock each other — implement clears every eligible ticket, merge
-  promotes those PRs to Done, which unblocks dependent tickets for the next
-  implement pass. Loops with a progress guard so a permanently-blocked ticket
-  stops the run with a report instead of spinning. Compacts between phases.
+description: "Drain the active sprint to a fixed point: auto-alternate agile-10-implement (build queue) and agile-11-merge-train (merge queue), compacting between, until both empty. Each merge unblocks the next build pass; a progress guard stops with a report instead of spinning on a blocked ticket. Triggers: drain the sprint, run the sprint to completion, implement and merge until done, clear the whole board, ship the sprint."
 user-invocable: true
 ---
 
