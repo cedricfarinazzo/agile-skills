@@ -22,14 +22,15 @@ Build phase for `agile-10-implement` — the only phase that touches the shared 
 
 - **Follow the ADR exactly.** No new pattern, library, or architectural decision without flagging it (PR body + a `🤖` Jira comment) — never silently deviate.
 - **Implement every Specs UI state** (default / loading / empty / error / success), not just the happy path. Match the spec; flag deviations, never silently "improve".
-- **Cover every AC with a test**; each edge-case AC gets its own test.
+- **Cover every AC with a test**; each edge-case AC gets its own test. The test must exercise real behaviour, not assert the mock or restate the implementation.
 - **Name from the domain** (PRD / ADR vocabulary), not generic names.
+- **Write the minimum that satisfies the spec — no slop, no dead code.** Match the surrounding file's style + idioms; no speculative abstraction, unused imports/variables/params, commented-out code, or "just in case" branches. A new file/export must be wired (imported, routed, referenced) or it is dead — and a change that makes existing code unreachable deletes it rather than leaving it. Comment only to state a constraint the code can't; never to narrate the diff.
 - Run the project's **lint + unit + integration** suites locally and get them green before finishing. Do not push and hope CI catches it. This holds the shared stack — never run it concurrently with another ticket's build.
 
 ### Finish gate — only return when ALL three hold
 
 This phase is **not done** until, on the latest pushed commit:
-1. **All lint** passes (every configured linter/formatter, zero errors).
+1. **All lint gates** pass — "lint" means *every command the CI lint job runs*, not just the formatter. CI lint jobs often bundle extra checks (style/asset validators, i18n / dead-string, schema-drift & generated-file guards, bundle-size budgets, custom scripts); read the CI workflow and run each locally. Verify by **real exit code** — a piped/`xargs` exit can mask the tool's own status. A green formatter is not a green lint job, and a missed gate fails CI and **skips** the downstream jobs.
 2. **All tests** pass green — **unit + integration**, run locally, no skips/xfails hiding a failure.
 3. **Every AC is satisfied and test-covered** — walk the plan's AC→test map; each AC has a passing test that actually exercises it. An AC with no test, or a failing/red test, means the gate is **not** met.
 4. **If the change adds a schema/DB migration: it applies cleanly on a fresh database, and the migration history stays linear with no conflicting versions.** A new migration that collides with an existing one (duplicate version identifier, or two scripts sharing a parent) can split the history so the migrate step runs only an older/no-op version and **silently skips the new schema objects** — while tests still pass against a stale schema. Confirm the history resolves to a single latest version, apply it on a clean database, confirm the expected objects exist, and re-apply once to confirm idempotency.

@@ -116,6 +116,10 @@ plans, diffs, and review threads are disposable; the underlying skills re-derive
 them from Jira markers and git artifacts on the next pass (both orchestrators
 already resume from markers, never restart).
 
+## Shared-CI note
+
+A drain pass can leave several open PRs at once. On a **capacity-limited CI runner** (a self-hosted / single shared runner), several PRs' heavy jobs (full-stack / e2e) running concurrently can OOM-cancel each other — reported as `CANCELLED`, not `FAILURE`. When the CI backend is capacity-limited, monitor and merge the open PRs **serially** (one PR's heavy jobs at a time) rather than watching them all in parallel.
+
 ## What it does NOT do
 
 - It does not bypass either orchestrator's own pauses. A **critical decision**
