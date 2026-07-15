@@ -128,6 +128,7 @@ If the PR is too broken to fix in one pass — wrong approach, missing core ACs,
   1. **Was the same test green on a recent main run?** If yes, the test is healthy on main right now — failure is likely PR-introduced contamination, not a flake. If no, it's a pre-existing breakage and a rerun won't help.
   2. **Does the PR add new test files that the test runner collects before the failing file?** Order-dependent contamination (`sys.modules` pollution, env var leaks, module-level state) is invisible in single-file local runs but lethal in full-suite CI runs. Run locally: `<runner> <PR's new test file> <failing test file>` — repro = real bug, not flake.
   3. Only after both checks pass should you call it a flake and rerun. If the rerun fails identically, it was never a flake — investigate root cause as a Critical PR issue.
+- **A `CANCELLED` job is not automatically preemption.** A hung test that exhausts the job's wall-clock, or a canceling concurrency group, also reports `CANCELLED` — often with the downstream jobs `SKIPPED`. Before reflexively rerunning, read the job log for `timeout` / `exceeded` / `waiting for`: a hung test reproduces on every rerun, so diagnose and fix it rather than burning rerun cycles.
 
 ### 3f. Merge
 - `gh pr merge <N> --squash --delete-branch`

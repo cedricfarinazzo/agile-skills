@@ -62,6 +62,8 @@ This applies to every stage that touches the shared stack: `docker compose up/do
 
 Use the **Agent tool (subagents) as much as possible** to keep the orchestration context lean and the work parallel-safe. Each `implement-*` sub-skill may itself fan out to subagents for its read-only work (context gathering, file-by-file review). Hard rule: **read-only / analysis subagents may run in parallel; anything that touches the shared Docker Compose stack (build, migrate, run, integration tests) must not** — the main thread owns the stack and serialises access. Only one stack-touching sub-skill (`implement-code`, a rework in `implement-monitor`) may be in flight at a time.
 
+**Delegating a BUILD? Hand the subagent the finish gate explicitly.** A subagent doesn't inherit the consumer `CLAUDE.md` / `AGENTS.md` or the CI workflow, so it can't *discover* the project's gate commands. Paste the complete gate list verbatim (every CI lint command — not just the formatter — plus unit/integration + repo validators) and require it to report each gate's real exit result before committing. A gate left out of the prompt is the usual way a delegated build passes locally and fails CI.
+
 ## Configuration
 
 Reads project-specific values from the consumer repo's `CLAUDE.md` / `AGENTS.md` (`## Skill configuration` section); the sub-skills read the same block. Fall back to lookups when absent.
