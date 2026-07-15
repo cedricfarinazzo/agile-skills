@@ -80,7 +80,7 @@ Read every `Dockerfile` in `docker/` plus all `build:` blocks in `docker-compose
 - Compile / download stable third-party tools (TA-Lib C lib, Apollo Rover binary, Playwright browsers, native bindings) every CI run.
 - Take >20s to build and are invalidated by source-only changes that have nothing to do with them.
 
-Each such layer is a candidate for extraction into the **shared docker-images repo** (canonical pattern: `cedricfarinazzo/docker-images`). Recipe per image:
+Each such layer is a candidate for extraction into the org's **shared docker-images repo** (a dedicated multi-arch base-image repo whose registry the consumer's compose then pulls from). Recipe per image:
 
 1. New folder at repo root: `<image-name>/`
 2. `Dockerfile` parameterized by axes (versions, distros), multi-arch via `TARGETARCH`
@@ -161,7 +161,7 @@ Final summary message:
 
 - Per-repo commit list (consumer + each cross-repo destination)
 - Cross-repo PR list (which repos need separate PRs, in what order — e.g. "docker-images PR first → wait for `<image>-v1.0.0` to ship → then consumer swap PR")
-- Follow-up tickets filed (e.g. "FIN-XX: swap rover service to prebuilt image after rover-v1.0.0 publishes")
+- Follow-up tickets filed (e.g. "PROJ-XX: swap `<service>` to the prebuilt image once `<image>-vX.Y.Z` publishes")
 - Note that `agile-13-sprint-closeout` may now proceed
 
 ## Rules
