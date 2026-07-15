@@ -196,7 +196,7 @@ One row per sprint — the index of every sprint that makes up this MVP. Filled 
 
 | Sprint | Epic | Jira | Milestone | Velocity | Status | Retro |
 |--------|------|------|-----------|----------|--------|-------|
-| S1 — [dates] | [Epic name] | [FIN-1] | [milestone] | — / — pts | Not started | — |
+| S1 — [dates] | [Epic name] | [PROJ-1] | [milestone] | — / — pts | Not started | — |
 
 > Scope-decision notes / backfill notes go here as blockquotes when they affect the plan.
 
