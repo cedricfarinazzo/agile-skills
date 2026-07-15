@@ -15,13 +15,13 @@ Audit the consumer repo for low-value drift that accumulated during the sprint. 
 
 ## Input
 
-No args required. Optional: focus area (`leakage` / `claude-md` / `ci` / `docker` / `misplacement`) to scope the audit to one bucket instead of all five.
+No args required. Optional: focus area (`leakage` / `claude-md` / `ci` / `docker` / `misplacement` / `dead-code`) to scope the audit to one bucket instead of all six.
 
 ## Phase 0 — Inventory
 
 Read the repo's structure end-to-end (project root + all sub-folder `CLAUDE.md` / `AGENTS.md`, `.github/workflows/`, `docker/**`, `docker-compose*.yml`, all `SKILL.md` files under `.claude/skills/`). Build a one-line manifest per category so the report is grounded in actual files, not assumptions.
 
-## Phase 1 — Audit (5 categories, all run by default)
+## Phase 1 — Audit (6 categories, all run by default)
 
 ### Category A — Cross-repo / personal leakage
 
@@ -80,7 +80,7 @@ Read every `Dockerfile` in `docker/` plus all `build:` blocks in `docker-compose
 - Compile / download stable third-party tools (TA-Lib C lib, Apollo Rover binary, Playwright browsers, native bindings) every CI run.
 - Take >20s to build and are invalidated by source-only changes that have nothing to do with them.
 
-Each such layer is a candidate for extraction into the **shared docker-images repo** (canonical pattern: `cedricfarinazzo/docker-images`). Recipe per image:
+Each such layer is a candidate for extraction into the org's **shared docker-images repo** (a dedicated multi-arch base-image repo whose registry the consumer's compose then pulls from). Recipe per image:
 
 1. New folder at repo root: `<image-name>/`
 2. `Dockerfile` parameterized by axes (versions, distros), multi-arch via `TARGETARCH`
@@ -98,14 +98,26 @@ Each such layer is a candidate for extraction into the **shared docker-images re
 Files / scripts / skills that live in the consumer repo but logically belong elsewhere:
 
 - **Plugin skills bundled with the consumer repo** (e.g. `.claude/skills/dev-*` shipped inside an app repo) → move to the dedicated plugin repo, add to plugin marketplace, delete locals (or leave as thin wrappers).
-- **Generalizable scripts** scoped to one project (e.g. a sprint-shared-file-audit script with hardcoded `project = FIN` JQL) → generalize via args / env, move alongside the skill that calls it in the plugin repo, delete from consumer.
+- **Generalizable scripts** scoped to one project (e.g. a sprint-shared-file-audit script with hardcoded `project = PROJ` JQL) → generalize via args / env, move alongside the skill that calls it in the plugin repo, delete from consumer.
 - **Workflow docs / playbooks** that are project-execution conventions, not project-specific → move to the plugin repo where the skill lives, delete from consumer.
 
 For each: verify nothing in the consumer repo references the moved artifact post-move (grep for the filename + the documented invocation). If references exist, decide: rewrite to the new home (plugin path), or delete the now-stale reference.
 
+### Category F — Dead / slop source code
+
+Scan the consumer's **tracked source** (not docs — that's B) for genuinely dead or duplicated code that accumulated during the sprint. Each finding needs **evidence of deadness**, not a hunch:
+
+- **Unreferenced exports / functions / files** — a symbol or module nothing imports or calls. Prove it: the language's unused-export tooling, or a repo-wide grep of the identifier returning only its own definition. A new file a story added but never wired is the common case.
+- **Commented-out code blocks** left behind after a change.
+- **Dead branches / flags** — a feature flag that is now always one value; an `if` whose condition is a constant; a branch made unreachable by an earlier change.
+- **Superseded / duplicated helpers** — a function replaced by a shared util but left in place; two copies of the same logic where one should call the other.
+- **Unused dependencies** — a manifest entry nothing imports (the depcheck-style scan).
+
+**Fix = delete** (behavior-preserving: removing code nothing reaches is a no-op — confirm with the whole test + lint suite after). **Never delete on a weak signal:** a public API / plugin entrypoint / migration / test fixture may be reached only by reflection, config, dynamic import, or a CI runner — a repo-wide grep that finds "no callers" is necessary but not sufficient for those. When a symbol is reachable non-statically, leave it and note why. Behavior change of any kind (not just a deletion that flips a runtime path) is out of scope — file it as a refactor ticket, don't fold it into the sweep.
+
 ## Phase 2 — Report before apply (MANDATORY)
 
-Produce a single Markdown report covering all five categories. Per finding row: file path, line range, what's wrong, proposed fix, behavior preservation note. Total line count saved + cross-repo moves summarised.
+Produce a single Markdown report covering all six categories. Per finding row: file path, line range, what's wrong, proposed fix, behavior preservation note. Total line count saved + cross-repo moves summarised.
 
 **Do not apply anything before the user approves.** This is the hard gate — apply == destructive (deletes files, moves artifacts to other repos, drops workflow files). Wrong call here = lost work. The report is read by a human + sometimes batched: "apply A and C only, skip B" is a valid response.
 
@@ -136,8 +148,12 @@ Report template:
 | Source | Target repo | Notes |
 |---|---|---|
 
+## F — Dead / slop source code
+| File:line | Kind | Evidence (why dead) | Fix |
+|---|---|---|---|
+
 ## Summary
-- N findings across 5 categories
+- N findings across 6 categories
 - Lines saved (CLAUDE.md / SKILL.md): ~X
 - CI minutes saved per run: ~Y (after C + D applied)
 - Cross-repo moves: list
@@ -152,6 +168,7 @@ Only for the categories the user approved. Per category:
 - **A / B / C:** in-repo edits + deletes. Run lint (`ruff` / `biome` / project linter) on touched files. Verify tests still parse (`pytest --collect-only` for Python, `tsc --noEmit` for TS).
 - **D:** scaffold the new image in the shared docker-images repo (Dockerfile + versions.json + package.json + .releaserc.json + README.md + build-<image>.yml workflow + register in root `package.json` workspaces + README + CLAUDE.md Layout). **Do not modify the consumer's `docker-compose.yml`** — image must be published first; file a one-line follow-up ticket for the post-publish swap.
 - **E:** move-to-target-repo edits. After move, grep consumer repo for residual references to the moved artifact and either rewrite (to new home) or delete (if dead).
+- **F:** delete the dead code + its now-orphaned imports. Run the **full** lint + unit + integration suite (not just the touched file) — a false "dead" call that was actually reachable turns red here. If anything breaks, it was not dead: revert and re-classify.
 
 Run the full lint suite + `git status` after each category. Commit per category (one commit per approved bucket, scoped per repo touched).
 
@@ -161,7 +178,7 @@ Final summary message:
 
 - Per-repo commit list (consumer + each cross-repo destination)
 - Cross-repo PR list (which repos need separate PRs, in what order — e.g. "docker-images PR first → wait for `<image>-v1.0.0` to ship → then consumer swap PR")
-- Follow-up tickets filed (e.g. "FIN-XX: swap rover service to prebuilt image after rover-v1.0.0 publishes")
+- Follow-up tickets filed (e.g. "PROJ-XX: swap `<service>` to the prebuilt image once `<image>-vX.Y.Z` publishes")
 - Note that `agile-13-sprint-closeout` may now proceed
 
 ## Rules
