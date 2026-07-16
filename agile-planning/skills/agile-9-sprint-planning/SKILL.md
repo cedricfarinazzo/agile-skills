@@ -181,6 +181,8 @@ After the user confirms the proposal:
   - **End date:** [start + sprint duration]
   - **Goal:** [sprint goal as written]
 
+> **No create-sprint tool? Use the manual fallback.** Many Jira/Atlassian integrations (including the standard Atlassian MCP) expose only issue-level operations — there is **no create/start-sprint tool**. Do not stall. Ask the operator to create + start the board's sprint manually (name/dates/goal above), then: read the sprint id from **any one issue already moved into it** (the Sprint custom field returns `{id, name, state, boardId}`), and assign the remaining Stories by writing that id to each Story's Sprint field (`editJiraIssue`, integer id, not an array). Starting the sprint stays the operator's click — the agent only populates it.
+
 ### Move Stories into the sprint
 - Move each confirmed Story into the sprint in the proposed priority order
 - Set the rank within the sprint to reflect dependency order (blocking Stories ranked first)
