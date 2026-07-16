@@ -309,7 +309,9 @@ Retrospective: [Retro N link] | Closeout: [Closeout N link]
 
 2. **MVP/Iteration page — the `## Epic Sprint Plan` index row** for this sprint: set Status `✅ Complete`, fill the Velocity column with the delivered/committed figure, and add the `[Retro N]` (and `[Closeout N]`) link in the Retro column.
 
-3. **Roadmap index — Iterations table** (only when the whole MVP/iteration is finished, not per sprint). Set the just-ended iteration's row Status to `✅ Complete` and ensure the next iteration has a row: `| Iteration [N+1] | Not started | TBD | [headline] | [Iteration [N+1] — [Project]] |` (the page itself is created later by skill 5 ITERATION mode). Leave the index's progress rollup as the one-line current-status summary; never paste retro detail into it.
+3. **Roadmap index — every retro, even mid-iteration.** Two sub-cases, both required so the index never lags a closed sprint:
+   - **Progress rollup + Next-Step pointer (EVERY sprint).** Flip the just-closed sprint's row in the index's progress-rollup table to `✅ Complete` (with its final velocity), and advance the "current sprint" / Next-Step pointer to the next sprint. Skipping this is the common miss — the index sits stale showing a closed sprint as "in progress." Keep it a one-line rollup; never paste retro detail into it.
+   - **Iterations table status (LAST sprint only).** Set the iteration's row Status to `✅ Complete` **only when its last sprint closes**, and ensure the next iteration has a row: `| Iteration [N+1] | Not started | TBD | [headline] | [Iteration [N+1] — [Project]] |` (the page itself is created later by skill 5 ITERATION mode). If the iteration was extended with another sprint, leave it `In Progress` and update its sprint span instead.
 
 ---
 
