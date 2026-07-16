@@ -189,7 +189,7 @@ If you find yourself thinking "the author probably had a reason" — stop, write
 ## Phase 6 — Dev stack smoke test (the part that catches the silent bugs)
 
 1. **Tear down dev stack with volumes** (`docker compose down -v`). Cached state from prior runs is the most common silent-failure cause.
-2. **Rebuild dev stack from scratch** per the project's documented bring-up commands (typically `docker compose up -d --build --wait` then `docker compose run --rm migrate`). Cached images are not OK — the closeout's point is to verify a clean build still works for the next operator.
+2. **Rebuild dev stack from scratch** per the project's documented bring-up commands (typically `docker compose up -d --build --wait` then `docker compose run --rm migrate`). Cached images are not OK — the closeout's point is to verify a clean build still works for the next operator. **Rebuild the migration runner too, not just the app images.** A containerized migrate step run against a *stale/cached* runner image applies whatever revisions were baked into that image — so a migration added this sprint silently no-ops, the runner reports success, and the app (freshly built / bind-mounted) then hits a schema that lacks the new objects. Force the runner to carry current code (`--build`, or rebuild its image before running), then **confirm the head actually advanced** (query the migration-version table / list applied revisions) — never trust a green migrate log alone.
 3. **Verify the stack is reachable via its documented DNS hostname**, not just `localhost`. If the consumer repo's `CLAUDE.md` declares a `TRAEFIK_DOMAIN` / hosting DNS, hit the stack through it:
    ```bash
    # Replace <DOMAIN> with the value from the consumer repo's CLAUDE.md (Hosting / DNS section)
