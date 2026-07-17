@@ -1,6 +1,6 @@
 ---
 name: agile-sprint-drain
-description: "Drain the active sprint to a fixed point: auto-alternate agile-10-implement (build queue) and agile-11-merge-train (merge queue) — each dispatched to a subagent that returns only a ledger, so the loop never stops to compact — until both empty. Each merge unblocks the next build pass; an actionable-work guard keeps retrying while any item can still advance and stops (STUCK) only when every remaining item is human-blocked, or DRAINED when all tickets are Done and PRs merged. Optional concurrency=N passes through to concurrent build. Triggers: drain the sprint, run the sprint to completion, implement and merge until done, clear the whole board, ship the sprint."
+description: "Drain the active sprint to a fixed point: auto-alternate agile-10-implement (build) and agile-11-merge-train (merge) until both empty (DRAINED) or blocked (STUCK). Optional concurrency=N. Triggers: drain the sprint, run the sprint to completion, implement and merge until done, clear the whole board, ship the sprint."
 user-invocable: true
 ---
 

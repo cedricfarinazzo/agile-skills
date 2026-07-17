@@ -62,7 +62,7 @@ Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `
 
 ## Skill authoring rules
 
-- `description` must include trigger phrases — Claude uses it for auto-invocation
+- `description` must include trigger phrases — Claude uses it for auto-invocation. **Keep it short and strong** — every skill's `description` loads into context each session, so it is a permanent token cost. State what/when + trigger phrases only; no mechanism, receipt, or config detail (that lives in the body). One or two tight sentences, not a paragraph.
 - Skills are **idempotent**: re-running must not duplicate Confluence pages or Jira issues (read before write)
 - Skills are **resumable**: if interrupted, re-run picks up where it stopped. The autonomous loop (`agile-10-implement`) resumes per ticket via `🤖 <!-- agile:phase=x -->` Jira comment markers
 - Every assumption must be stated explicitly (no silent inference)
