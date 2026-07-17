@@ -18,13 +18,13 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 | # | Skill | Role |
 |---|-------|------|
-| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train to a fixed point, with a progress guard |
+| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — dispatches agile-10-implement and agile-11-merge-train (each a subagent, no `/compact`) to a fixed point, with an actionable-work guard; optional `concurrency=N` |
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
 ## Why it exists
 
-`agile-10-implement` clears the build queue (`To Do` Story → open PR, `In Review`); `agile-11-merge-train` clears the merge queue (open PR → merged + `Done`). The two alternate to unblock each other: a ticket A blocked by B is eligible only once **B is `Done` and B's PR is merged**, so every merge pass can unlock new build work. Until now a human ran that loop by hand — deciding implement-vs-merge, `/compact`ing between calls, re-running. This skill is that scheduler.
+`agile-10-implement` clears the build queue (`To Do` Story → open PR, `In Review`); `agile-11-merge-train` clears the merge queue (open PR → merged + `Done`). The two alternate to unblock each other: a ticket A blocked by B is eligible only once **B is `Done` and B's PR is merged**, so every merge pass can unlock new build work. Until now a human ran that loop by hand — deciding implement-vs-merge, `/compact`ing between calls, re-running. This skill is that scheduler — and it needs no `/compact` because it dispatches each orchestrator to a subagent that returns only a ledger.
 
 ## The loop (one **pass** per iteration; recomputed from the live board each time)
 
@@ -33,17 +33,18 @@ One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain 
                  unresolved blocker (blocker must be Done AND PR merged).      → build_count
 2. MERGE QUEUE — open PRs linked to this sprint's tickets (gh pr list).        → merge_count
 3. EXIT      — build_count == 0 AND merge_count == 0  → DRAINED
-4. build>0   → invoke agile-10-implement   → /compact
-5. merge>0   → invoke agile-11-merge-train → /compact
-6. GUARD     — progress = (To Do→In Review this pass) + (PRs merged this pass)
-               progress == 0 → STUCK ;  else loop
+4. build>0   → dispatch subagent: agile-10-implement [concurrency=N]  → fold ledger (no /compact)
+5. merge>0   → dispatch subagent: agile-11-merge-train               → fold ledger (no /compact)
+6. GUARD     — recompute each item's fingerprint; retire an item human-blocked after
+               K identical passes. actionable = items the loop can still advance.
+               actionable empty & items remain → STUCK ;  else loop
 ```
 
-Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers.
+Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. **No `/compact` banners** — each orchestrator runs in a subagent that returns only a small ledger, so the outer loop never grows enough to compact.
 
-## Progress guard, not a retry counter
+## Actionable-work guard, not "zero progress"
 
-By the dependency gate a ticket is un-startable until its blocker's PR merges. If a full implement+merge pass moves zero tickets and merges zero PRs, no ticket can have become newly eligible — re-running would reproduce the identical pass. So the loop stops and reports instead of spinning. The guard is exact: A waits on B reaching `Done`+merged; it fires precisely when no B advanced.
+By the dependency gate a ticket is un-startable until its blocker's PR merges — that insight stands. But a pass that nets zero board movement is **not** proof the work is unresolvable: it may still hold actionable retries (a flaky CI check that reruns green, a rework not yet attempted, a review one fix-cycle from converging). The old "progress == 0 → STUCK" guard stopped on the first such pass and gave up too early. Instead the loop keeps going while **any** item is actionable and STUCKs only when **every** remaining item is human-blocked (parked decision, dead blocker chain, CI failing identically K passes, unconverged review, persistent conflict). The anti-spin guarantee is a **per-item state fingerprint**: a flake that reruns green changes the fingerprint and stays actionable; a genuinely stuck item reproduces identically K passes running and is retired — while every other item keeps advancing. **DRAINED — all tickets Done and PRs merged — is the only healthy stop.**
 
 ## Eligibility & merged signal (mirrors the real sub-skills)
 
@@ -52,14 +53,14 @@ By the dependency gate a ticket is un-startable until its blocker's PR merges. I
 
 ## What it does NOT do
 
-- Never writes `Done`, opens PRs, or merges itself — it only **sequences** the two orchestrators, so every invariant they enforce (strictly sequential builds, single shared Docker stack, repo-scope gate, three-role review) is preserved.
-- Does not bypass either orchestrator's pauses — a critical-decision park in implement still parks that one ticket; the guard treats it as no-progress and STUCK-stops if it's the only thing left.
+- Never writes `Done`, opens PRs, or merges itself — it only **dispatches and sequences** the two orchestrators (each in its own subagent for context isolation), so every invariant they enforce (builds sequential by default / opt-in concurrent via a passed-through `concurrency=N`; single shared Docker stack; strictly sequential merge; repo-scope gate; three-role review; per-step receipt verification) is preserved.
+- Does not bypass either orchestrator's pauses — a critical-decision park in implement still parks that one ticket; the guard marks it human-blocked and keeps running on other actionable items, STUCK-stopping only when the actionable set empties.
 - Does not invoke `agile-sprint-close`. On DRAINED it hands off to it.
 
 ## Reports
 
 - **DRAINED** — lists Done + merged tickets and any that legitimately exited (out-of-scope, Needs Info); then points at [`agile-sprint-close`](../agile-sprint-close/README.md).
-- **STUCK** — per remaining item, names the specific reason in terms of the gate: build ticket → which blocker(s) aren't yet Done+merged; open PR → why the merge train couldn't merge it (CI check name, unconverged review, conflict, parked critical decision). That's your work list — resolve one upstream PR and re-invoke.
+- **STUCK** — the actionable set emptied (or the `MAX_PASSES` ceiling hit) while items remain; per remaining item, names its human-blocked class: parked critical decision, Needs Info, dead blocker chain, CI failed identically K passes (+ the repeated check), unconverged review, or persistent conflict. That's your work list — resolve one upstream blocker and re-invoke.
 
 ## Configuration
 
