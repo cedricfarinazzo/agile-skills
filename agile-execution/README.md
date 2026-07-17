@@ -19,12 +19,12 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP + `gh`.
 | 10 | `agile-10-implement` | **Orchestrator** (user-invoked) — selects the board's work, orders it, drives each ticket through the pipeline |
 | — | `implement-validate` | gate: repo-scope + readiness → pass / out-of-scope / rejected / critical-park |
 | — | `implement-plan` | read ADR/Specs/PRD/bugs → concrete plan + AC→test map |
-| — | `implement-code` | branch, implement per ADR/Specs, all-AC tests, lint+unit+integration green, commit, push (also the fix pass) |
-| — | `implement-pr` | open/update the PR linked to the ticket |
-| — | `implement-review` | six-lens **self-review** by the author; verdict + numbered blockers |
+| — | `implement-code` | branch, implement per ADR/Specs, all-AC tests, gate green (sequential: lint+unit+integration; concurrent: stack-free local + integ/e2e→CI), commit, push (also the fix pass) |
+| — | `implement-pr` | open/update the PR linked to the ticket (+ `Test tiers` section; `integration-deferred` label on concurrent builds) |
+| — | `implement-review` | six-lens **self-review** by the author; verdict + verified receipt (files-read = diff, cite per lens + AC) |
 | — | `implement-monitor` | PR rework loop — new review comments, failing checks, conflicts |
 
-The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` — hidden from the `/` menu, but the orchestrator still composes them via the Skill tool) — you don't call them directly. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
+The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` — hidden from the `/` menu, but the orchestrator still composes them, each dispatched to a subagent that invokes the sub-skill via the Skill tool) — you don't call them directly. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
 
 ## The loop (per ticket, in Jira dependency order)
 
@@ -52,8 +52,9 @@ Other per-ticket exits (skip one, keep the run): out-of-scope (wrong repo), unde
 
 ## Operational rules
 
-- **Strictly sequential** — one ticket at a time. Single shared Docker Compose stack: never run two tickets' build/test concurrently.
-- **Delegate to subagents** — read-only/analysis work fans out in parallel; anything touching the shared stack does not (main thread serialises it).
+- **Dispatch-and-verify** — the orchestrator runs no step's work itself. Each phase (`implement-validate` / `-plan` / `-code` / `-pr` / `-review` / `-monitor`) runs in a dedicated subagent that returns a **receipt**; the orchestrator verifies it against ground truth (git / `gh` / Jira) before advancing. A validate `pass` with no score breakdown, a review whose files-read list ≠ the PR diff, or a phase whose receipt is contradicted is re-dispatched — this is what stops silent shortcuts (skimmed review, skipped gate).
+- **Sequential by default, opt-in concurrent build** — `concurrency=1` (default) processes one ticket at a time. `concurrency=N` builds N independent tickets in parallel **git-worktree subagents**, running the **stack-free tiers** (lint + unit) locally and **deferring integration + e2e to CI** (a worktree can't hold the shared Docker stack). The stack stays strictly serial regardless of N, so PR monitoring/rework is always sequential; the merge train is always sequential.
+- **Test tiers (auto-classified)** — **stack-free** = lint + unit + typecheck + migration history-linearity (safe in a worktree); **stack-bound** = integration + e2e + apply-on-fresh-DB (need the stack → CI-only under concurrency). A project whose "unit" tests hit the DB must run `concurrency=1`.
 - **Repo-scope gate** — `implement-validate` skips tickets targeting another repo (resolved from git `origin` + `repo` / `repo-component-map`).
 
 ## The author's self-review vs the merge gate
@@ -69,7 +70,8 @@ Reads the consumer repo's `CLAUDE.md` / `AGENTS.md` (`## Skill configuration`):
 - `todo-/in-progress-/in-review-/done-/needs-info-/backlog-status-name` — matched by substring (localised names OK)
 - `board-id` / `board-type` — pin when auto-detection is ambiguous
 - `story-points-field` (default `customfield_10016`), `base-branch`, `branch-prefix` (default `feature/`)
-- lint / unit / integration commands per stack
+- lint / unit / integration commands per stack — auto-classified into stack-free (lint + unit) vs stack-bound (integration + e2e) tiers for concurrent build
+- `max-build-concurrency` (default `1`) — per-repo default for the `concurrency=N` arg
 
 ## Where it fits
 

@@ -24,11 +24,14 @@ The build is already done (`implement-code` implemented the plan + pushed). This
   - **AC coverage** — each AC → the test / verification that covers it (the plan's AC→test map, confirmed against the committed tests)
   - **Changes** — files/modules touched and why (the plan's files-to-touch list, reconciled with the real diff; flag any addition/omission vs the plan)
   - **Testing** — unit / integration / manual; edge cases covered (per the plan's AC→test map)
+  - **Test tiers** — read the `implement` marker's `Mode` + gate receipt. **Sequential:** `Verified locally: lint + unit + integration + fresh-DB migration.` **Concurrent:** `Verified locally: lint + unit (stack-free, worktree). Deferred to CI: integration + e2e + fresh-DB migration (concurrent build — not run locally; CI is the gate).` This section tells the merge train and reviewers exactly which tiers CI must confirm.
   - **Specs UI match** — states implemented; any deviation + reason (UI Stories)
   - **ADR compliance** — new decisions / libraries introduced (the plan's flagged decisions), each flagged for the reviewer
-  - **Checklist** — ACs tested · lint/type clean · no regressions · PR linked to Jira · Specs UI match · ADR compliance
+  - **Checklist** — ACs tested · lint/type clean · no regressions · PR linked to Jira · Specs UI match · ADR compliance · test tiers stated (integ/e2e local or CI-deferred)
 
-Post `🤖 agile:phase=pr` with the PR URL. Return the PR number/URL to the orchestrator.
+**Label a concurrent build.** When the `implement` marker's mode is `concurrent`, add the `integration-deferred` label (`gh pr edit <N> --add-label integration-deferred`; create the label once if the repo lacks it). This is the machine-readable signal `agile-11-merge-train` reads to know integration + e2e were not run locally and CI is their sole gate. Sequential PRs carry no such label.
+
+Post `🤖 agile:phase=pr` with the PR URL (and, for a concurrent build, note the `integration-deferred` label in the marker). Return the PR number/URL to the orchestrator.
 
 > This phase does **not** transition the Story — the orchestrator transitions to `In Review` only after `implement-review` approves. Never transition to `Done`.
 

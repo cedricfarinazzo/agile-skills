@@ -6,7 +6,7 @@ user-invocable: false
 
 # implement_monitor
 
-PR monitoring + rework phase for `agile-10-implement` — the `nightshift` review-feedback loop plus the merge-train CI/conflict handling, applied to the **pre-merge** PR. Invoked via the Skill tool per ticket whose PR is open (just-built or from the rework queue). Rework touches the shared stack, so it runs sequentially with the build loop, never concurrently.
+PR monitoring + rework phase for `agile-10-implement` — the `nightshift` review-feedback loop plus the merge-train CI/conflict handling, applied to the **pre-merge** PR. Invoked per ticket whose PR is open (just-built or from the rework queue). **Rework touches the shared stack, so it always runs sequentially — never concurrently, in either mode.** Under `concurrency>1` the Phase-1 build fans out across worktrees (stack-free only), but this phase is the **serial tail**: after a batch converges, its PRs are monitored/reworked **one at a time** holding the stack. This is where the deferred stack-bound tiers (integration + e2e) actually run against the stack — a red integration/e2e check from CI is **reproduced and fixed here**, never pushed-and-deferred back to CI unfixed. Fixing a red check by re-pushing and hoping CI flips is not allowed.
 
 For the PR, check three things and act:
 
@@ -26,7 +26,7 @@ Run it with `run_in_background: true`; the completion notification re-invokes yo
 
 **Best-effort within the run:** process whatever review comments / check results / conflicts exist now. Do not block indefinitely waiting for a human reviewer — once the current state is handled and no new actionable signal remains, record status and return. A later re-run (or `/loop`) picks up new review comments via the marker filter.
 
-Fixes that touch code reuse `implement-code`'s rules (ADR is law, all ACs tested, lint+unit+integration green before push). A critical decision surfacing during rework is escalated to the orchestrator, not guessed.
+Fixes that touch code reuse `implement-code`'s rules (ADR is law, all ACs tested, suites green before push). Because this phase holds the stack, it runs the **full** gate before pushing a fix — lint + unit + **integration** (and e2e / fresh-DB migration where relevant), including the tiers a concurrent build deferred. A critical decision surfacing during rework is escalated to the orchestrator, not guessed.
 
 ## Marker — mandatory, exact format
 

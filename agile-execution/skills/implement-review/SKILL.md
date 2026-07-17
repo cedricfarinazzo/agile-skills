@@ -71,7 +71,7 @@ Prior review cycles: [N]
 
 **Read every changed file in full** (not just diff hunks) — bugs hide in the surroundings the diff omits. For each lens produce: ✅ passes, ⚠️ warnings (non-blocking, address in follow-up), ❌ blockers (must fix before approval).
 
-**Delegate the reads to subagents.** Review is read-only, so fan it out: spawn Agent-tool subagents to read the changed files and run the lenses (e.g. one for security + architecture, one for performance + infra, one for code-quality + AC/DoD), each returning its ✅/⚠️/❌ findings. Read-only subagents are parallel-safe — but do **not** have any subagent build or run the shared Docker Compose stack as part of the review (the implement loop owns the stack and serialises it). Merge the subagents' findings into the single verdict.
+**The review itself runs in a subagent, and its reads fan out to further subagents.** Because `agile-10-implement` dispatches this whole phase to a dedicated `Agent` subagent, the review is produced in a fresh context that cannot rubber-stamp the build it never did. Review is read-only, so fan the reads out: spawn Agent-tool subagents to read the changed files and run the lenses (e.g. one for security + architecture, one for performance + infra, one for code-quality + AC/DoD), each returning its ✅/⚠️/❌ findings **with `file:line` cites**. Read-only subagents are parallel-safe — but do **not** have any subagent build or run the shared Docker Compose stack as part of the review (the implement loop owns the stack and serialises it). Merge the subagents' findings into the single verdict + receipt.
 
 ### Lens 1 — Architecture compliance (vs ADR)
 Layering / separation of concerns; new patterns consistent with ADR & codebase; **unflagged** new architectural decisions (the dev agent should have flagged them — a significant silent one is a blocker); dependencies within the ADR-approved stack; API design (naming, verbs, status codes, response shape) consistent with ADR. Blockers: silent pattern contradicting the ADR; DB call in a controller bypassing the service layer; unapproved external dependency.
@@ -91,7 +91,12 @@ Readable without comments explaining basic logic; domain-vocabulary naming (PRD/
 ### Lens 6 — AC and DoD verification
 Each AC maps to a test/verification in the PR; every AC reachable from the code (point to the line — if you can't, it's not satisfied); edge cases covered, not just happy path; every DoD item checked; Specs UI compliance claim matches the implementation. Blockers: an AC with no test; unchecked DoD item; claimed Specs UI compliance contradicted by a listed deviation without justification.
 
-Be explicit about satisfaction: if you can't write "I read every changed file in full and verified each AC against specific lines," go back and do it. No verdict on a partial review.
+**The verdict must carry a machine-checkable receipt** — a bare "six ✅" line is not a review, and the orchestrator rejects a verdict that lacks these three:
+1. **Files-read list** — every file in the PR diff, each with its line count. The orchestrator computes the diff file set (`gh pr diff <N> --name-only`) and **rejects the verdict if the Files-read list ≠ the diff set**. A partial read (`Read offset=… limit=…`) does not count — only a full-file read. This makes "read every changed file in full" impossible to fake.
+2. **A finding per lens** — each of the six lenses gets an explicit line, each carrying ≥1 `file:line` cite **or** an explicit "N/A because …". A ✅ with no citation is rejected: you can't pass a lens without pointing at what you checked.
+3. **Per-AC line binding** — each AC → the specific `file:line` that satisfies it. "If you can't point to a line, the AC is not satisfied." This is required in the **approved** path too, not only when requesting changes.
+
+If you can't produce all three, the review is partial — go back and finish it. **No verdict on a partial review.**
 
 ---
 
@@ -104,7 +109,15 @@ Compose the verdict, then **post it to both the PR and the Jira Story** (autonom
 ```
 ## Code Review — APPROVED — [date]   (AI-assisted back/infra/ops review)
 PR: [link]   Story: [PROJ-XXX]
-Lenses: ✅ Architecture ✅ Security ✅ Performance ✅ Infra/ops ✅ Code quality ✅ AC/DoD
+Files read in full: `a.py` (123) · `b.ts` (45) · … (must equal the PR diff file set)
+Lenses (each with evidence):
+  ✅ Architecture — <file:line> <what confirmed>
+  ✅ Security ..... — <file:line> or "N/A because no new endpoint/input"
+  ✅ Performance .. — <file:line> or "N/A"
+  ✅ Infra/ops .... — <file:line> or "N/A"
+  ✅ Code quality . — <file:line>
+  ✅ AC/DoD ....... — see AC binding below
+AC binding: AC1 → <file:line> · AC2 → <file:line> · … (every AC → the line that satisfies it)
 Inferences flagged: [list each "assumed X because ADR §N" / none]
 Warnings (follow-up, non-blocking): ⚠️ [..]
 Approved. Ready for agile-11-merge-train / QA (skill 14).
@@ -163,8 +176,9 @@ Re-review — [date]   Checking [N] prior blockers:
 ## Principles (apply every run)
 
 - **Autonomous verdict, never a waiting question.** Infer from ADR/Specs/PRD and flag the inference; an unjustifiable non-obvious choice is a blocker, not a question. A run always ends in a verdict.
-- **Six lenses, every PR** — never skip a lens.
-- **Read every changed file in full** — the diff hides the surroundings where bugs live.
+- **Six lenses, every PR** — never skip a lens; each lens line carries a `file:line` cite or an explicit N/A.
+- **Read every changed file in full** — the diff hides the surroundings where bugs live. The Files-read list must equal the PR diff file set.
+- **The verdict carries a verified receipt** — Files-read list = diff set, a cite per lens, a `file:line` per AC. The orchestrator checks it; a bare six-✅ verdict is rejected as a partial review.
 - **Read the Story before the diff** — otherwise the review measures the diff against itself, not the spec.
 - **Blockers are numbered, located, and actionable.** A vague "security issue" is not a blocker.
 - **Security is always a blocker; infra changes require IaC.** No security finding is downgraded to a warning.
@@ -184,4 +198,4 @@ Posting the phase marker is **not optional** — it is how `agile-10-implement` 
 <phase content>
 ```
 
-A comment that omits `<!-- agile:phase=review -->` is invisible to resume — the phase will look unfinished and re-run. Never delete prior markers.
+A comment that omits `<!-- agile:phase=review -->` is invisible to resume — the phase will look unfinished and re-run. A verdict missing the receipt (Files-read = diff set, per-lens cites, per-AC line binding) fails the orchestrator's gate and is re-dispatched. Never delete prior markers.
