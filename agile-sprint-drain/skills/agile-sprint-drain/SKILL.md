@@ -37,7 +37,7 @@ or `1`).
 Each iteration is one **pass**. Before each pass, compute queue state from the
 live board — never from memory of a previous pass.
 
-    PASS:
+    PASS:  (pass_count += 1)
       1. BUILD QUEUE  — eligible build tickets:
            JQL: status = <todo-status-name>
                 AND <sprint scope: openSprints() | on-board non-backlog>
@@ -51,8 +51,15 @@ live board — never from memory of a previous pass.
          this sprint's tickets, excluding draft if your convention excludes drafts):
          merge_count = number of open PRs
 
+      2b. IN-FLIGHT QUEUE — sprint tickets that are <in-progress-status-name> with
+          NO open PR yet (a build parked mid-code on a critical decision, or a ticket
+          the build left In Progress). These are invisible to build_count (not To Do)
+          and merge_count (no PR) but they are NOT done — count them:
+          inflight_count = number of such tickets
+
       3. EXIT CHECK:
-           if build_count == 0 AND merge_count == 0  -> DRAINED (success report)
+           if build_count == 0 AND merge_count == 0 AND inflight_count == 0
+                                                      -> DRAINED (success report)
 
       4. if build_count > 0:
            dispatch a subagent: agile-10-implement [concurrency=N]   # build queue
@@ -65,7 +72,8 @@ live board — never from memory of a previous pass.
            fold its ledger into LEDGER
 
       6. ACTIONABLE-WORK GUARD (update LEDGER, then decide):
-           for each remaining item (build ticket / open PR):
+           remaining items = build tickets + open PRs + in-flight (2b) tickets
+           for each remaining item:
              recompute its fingerprint (below)
              fingerprint changed vs last pass -> stall_count = 0    (real progress)
              fingerprint identical            -> stall_count += 1
@@ -73,8 +81,12 @@ live board — never from memory of a previous pass.
            actionable = remaining items that are NOT human-blocked
                         AND have a loop-performable retry
            if actionable is empty AND items remain  -> STUCK (report each reason)
-           if pass_count > MAX_PASSES               -> STUCK (oscillation ceiling)
+           if pass_count >= MAX_PASSES              -> STUCK (oscillation ceiling)
            else                                     -> goto PASS
+
+    # A parked/in-flight ticket (2b) is a remaining item: it keeps DRAINED from
+    # firing over it and is fingerprinted + retired like any other. DRAINED means
+    # ALL of build/merge/in-flight are empty — the only healthy stop.
 
 ### Eligibility — mirror agile-10-implement exactly
 
@@ -111,17 +123,18 @@ per-ticket outcomes this pass (each `✓ TICKET -> In Review`).
 
 The loop carries a small **LEDGER** across passes — the one piece of state that is
 **not** re-derivable from Jira/`gh` each pass. Per remaining item: `id`, `type`
-(build | pr), `fingerprint`, `stall_count`, `state` (actionable | human-blocked +
-reason). Loop-level: `pass_count`, constants `K` and `MAX_PASSES`.
+(build | in-flight | pr), `fingerprint`, `stall_count`, `state` (actionable |
+human-blocked + reason). Loop-level: `pass_count`, constants `K` and `MAX_PASSES`.
+An in-flight (2b) ticket fingerprints like a build ticket (it is a build in progress).
 
-**Fingerprint** — the check for "did this item actually change this pass":
+**Fingerprint** — the check for "did this item make real progress this pass":
 - **build ticket:** `(jira status, latest 🤖 phase-marker id, blocker-set hash, park/needs-info flag)`
-- **open PR:** `(head SHA, hash of sorted failing-check-names+conclusions, reviewDecision, mergeStateStatus)`
+- **open PR:** `(hash of sorted failing-check-names+conclusions, reviewDecision, mergeStateStatus)` — deliberately **not** the head SHA. A rebase moves the head SHA every pass while `main` advances, so keying on it would reset the stall counter forever on a PR whose checks fail identically. Progress is a change in the **failure signature** (a check flipped, a review arrived, a conflict cleared) — not a rebase bump. A genuinely new rework commit shows up as a changed failing-check set or `mergeStateStatus`, so it still counts.
 
-A **changed** fingerprint (new commit, a check flipped green, a new review, a blocker
-moved) means real progress → reset `stall_count = 0`. An **identical** fingerprint with
-no progress → `stall_count += 1`. At `stall_count >= K` the item is **retired as
-human-blocked** — it is failing identically and the loop can't move it.
+A **changed** fingerprint (a check flipped green, a new review, a blocker moved, a build
+phase advanced) means real progress → reset `stall_count = 0`. An **identical** fingerprint
+→ `stall_count += 1`. At `stall_count >= K` the item is **retired as human-blocked** — it
+is failing identically and the loop can't move it.
 
 **Actionable** = a remaining item the loop itself can still advance:
 - **build ticket** — eligible (unblocked) with a build attempt left (`stall < K`); OR
@@ -134,9 +147,22 @@ human-blocked** — it is failing identically and the loop can't move it.
   parked critical decision → **human-blocked**.
 
 Recommended **K = 3** for PR/CI items (a legitimate long rework can look identical for
-a pass or two; a new commit or check run resets it), **K = 2** for build tickets (a park
-/ Needs-Info is human-blocked on pass 1 anyway). `MAX_PASSES` is an oscillation ceiling
-for the A/B/A/B case the per-item counter can't catch.
+a pass or two; a check flip resets it), **K = 2** for build tickets. Note a build ticket
+whose subagent is **still building this pass** (not yet returned) is not "no progress" —
+only count a build ticket toward stall once its build subagent has returned without
+advancing it.
+
+**`MAX_PASSES` = `2 × (initial build_count + merge_count) + 10`** (a concrete ceiling,
+not left abstract) — generous enough that healthy work with normal rework never hits it,
+tight enough to stop an A/B/A/B oscillation the per-item counter can't catch. It is the
+sole backstop for oscillation, so it must have a value.
+
+**These counters are per-invocation.** `stall_count` and `pass_count` live in the
+LEDGER, which is the running loop's context — they are not persisted to a durable marker.
+A fresh re-invoke after an interruption starts them at 0: it re-grinds retryable work
+(harmless, DRAINED is re-derivable) and resets the oscillation ceiling. That is
+acceptable — a human re-invoking the drain is itself the decision to retry. STUCK and the
+oscillation ceiling are guarantees **within one invocation**, not across re-invokes.
 
 ### Why an actionable-work guard, not "zero progress this pass"
 
