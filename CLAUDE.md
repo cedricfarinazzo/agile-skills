@@ -11,7 +11,7 @@ A Claude Code marketplace shipping **six focused plugins** (split by cycle phase
 - **`agile-execution`** — autonomous build loop: Implement (10) + Dev Review (11). Needs `gh`.
 - **`agile-merge-review`** — PR workflow (formerly `dev-skills`): update-pr, review-pr, fix-until-satisfied, jira-postmortem, merge-train. Needs `gh`.
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
-- **`agile-sprint-drain`** — autonomous outer loop: `agile-sprint-drain` alternates `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (progress guard → STUCK/DRAINED). Composes the two orchestrators cross-plugin; requires `agile-execution` + `agile-merge-review` installed. Needs `gh` + Atlassian.
+- **`agile-sprint-drain`** — autonomous outer loop: `agile-sprint-drain` alternates `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Dispatches each orchestrator to a subagent that returns only a ledger (no `/compact`); passes an optional `concurrency=N` through to the build. Composes the two orchestrators cross-plugin; requires `agile-execution` + `agile-merge-review` installed. Needs `gh` + Atlassian.
 
 User-facing skills keep global cycle numbering (`agile-1` … `agile-15`) across plugins; composed sub-skills (the `implement-*` blocks and the `dev-*` merge-train blocks) are **unnumbered** because the user does not call them directly. Namespace = plugin name, e.g. `/agile-planning:agile-5-roadmap`, `/agile-merge-review:agile-11-merge-train`.
 

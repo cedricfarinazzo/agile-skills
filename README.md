@@ -59,9 +59,11 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
          DRAIN (agile-sprint-drain — autonomous outer loop)
          ──────────────────────────────────────────────────
    agile-sprint-drain  alternates 10 ⇄ 11 to a fixed point:
-     each pass: implement eligible To-Do → merge open PRs →
-     /compact ; progress guard stops (STUCK) if a pass makes
-     zero progress ; DRAINED hands off to agile-sprint-close
+     each pass: implement eligible To-Do → merge open PRs
+     (each orchestrator in a subagent → ledger, no /compact) ;
+     actionable-work guard keeps retrying while any item can
+     advance, STUCK only when all remaining are human-blocked ;
+     DRAINED (all Done + merged) hands off to agile-sprint-close
 
                     SPRINT CLOSE                 (agile-sprint-close)
                     ────────────
