@@ -57,12 +57,12 @@ live board — never from memory of a previous pass.
       4. if build_count > 0:
            dispatch a subagent: agile-10-implement [concurrency=N]   # build queue
            # the subagent returns ONLY a pass-outcome ledger, never its transcript
-           fold its ledger into LEDGER                               # no /compact
+           fold its ledger into LEDGER
 
       5. if merge_count > 0:
            dispatch a subagent: agile-11-merge-train                # merge queue -> Done
            # strictly sequential; returns ONLY a pass-outcome ledger
-           fold its ledger into LEDGER                               # no /compact
+           fold its ledger into LEDGER
 
       6. ACTIONABLE-WORK GUARD (update LEDGER, then decide):
            for each remaining item (build ticket / open PR):
@@ -158,22 +158,20 @@ passes regardless of progress elsewhere; the per-item fingerprint retires only t
 that is actually stuck. That distinction is why the counter is safe here where a global
 one was not. **DRAINED — all tickets Done and PRs merged — is the only healthy stop.**
 
-## No compaction stop
+## Lean context — the loop runs uninterrupted
 
-**The loop never halts to `/compact`.** Both orchestrators run **inside `Agent`
-subagents** (step 4 dispatches `agile-10-implement`; step 5 dispatches
-`agile-11-merge-train`), and each returns **only a size-capped pass-outcome ledger** —
-never its transcript. The heavy detail (per-ticket plans, diffs, review threads, CI-poll
-logs) stays in the subagent and is discarded on return, so the outer-loop context never
-grows enough to need compacting. Dropping the old `/compact` steps is safe **because**
-the loop only ever holds the LEDGER.
+Both orchestrators run **inside `Agent` subagents** (step 4 dispatches
+`agile-10-implement`; step 5 dispatches `agile-11-merge-train`), and each returns **only a
+size-capped pass-outcome ledger** — never its transcript. The heavy detail (per-ticket
+plans, diffs, review threads, CI-poll logs) stays in the subagent and is discarded on
+return, so the outer loop holds only the LEDGER and stays lean across every pass without
+interruption.
 
-The subagent's return must be **only** the structured pass-outcome block (per-item
-outcome + fingerprint inputs), size-capped — never echo a full report into the outer
-loop, or the context regrows and the compaction problem returns. The queue snapshot
-(ticket→status, open PRs, blocker map) is recomputed from the live board each pass; only
-the fingerprint/stall history is carried in the LEDGER, since it is the one thing not
-re-derivable from Jira/`gh`.
+The subagent's return must be **only** the structured pass-outcome block (per-item outcome
++ fingerprint inputs), size-capped — never echo a full report into the outer loop, or it
+regrows. The queue snapshot (ticket→status, open PRs, blocker map) is recomputed from the
+live board each pass; only the fingerprint/stall history is carried in the LEDGER, since it
+is the one thing not re-derivable from Jira/`gh`.
 
 ## Shared-CI note
 
@@ -191,7 +189,7 @@ A drain pass can leave several open PRs at once. On a **capacity-limited CI runn
   ticket makes no progress.
 - It does not write `Done` itself, open PRs itself, or merge itself — it only
   **dispatches and sequences** the two orchestrators (each in its own subagent for
-  context isolation, which is why it never `/compact`s). All invariants they enforce
+  context isolation, so the loop runs uninterrupted). All invariants they enforce
   (builds **sequential by default, opt-in concurrent** via the passed-through
   `concurrency=N`; single shared Docker stack; strictly sequential merge; repo-scope
   gate; three-role review; per-step receipt verification) are preserved because the
@@ -234,5 +232,5 @@ legible:
     …
     ══ DRAINED ══  12 tickets Done, 0 remaining
 
-No `/compact` banners — each orchestrator runs in a subagent and returns only its
-ledger, so the outer loop never compacts.
+Each orchestrator runs in a subagent and streams its own markers inside; the outer
+loop shows only the pass banners + per-item outcomes folded from each ledger.

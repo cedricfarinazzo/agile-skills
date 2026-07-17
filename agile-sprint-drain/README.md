@@ -18,13 +18,13 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 | # | Skill | Role |
 |---|-------|------|
-| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — dispatches agile-10-implement and agile-11-merge-train (each a subagent, no `/compact`) to a fixed point, with an actionable-work guard; optional `concurrency=N` |
+| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — dispatches agile-10-implement and agile-11-merge-train (each a subagent returning a ledger) to a fixed point, with an actionable-work guard; optional `concurrency=N` |
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
 ## Why it exists
 
-`agile-10-implement` clears the build queue (`To Do` Story → open PR, `In Review`); `agile-11-merge-train` clears the merge queue (open PR → merged + `Done`). The two alternate to unblock each other: a ticket A blocked by B is eligible only once **B is `Done` and B's PR is merged**, so every merge pass can unlock new build work. Until now a human ran that loop by hand — deciding implement-vs-merge, `/compact`ing between calls, re-running. This skill is that scheduler — and it needs no `/compact` because it dispatches each orchestrator to a subagent that returns only a ledger.
+`agile-10-implement` clears the build queue (`To Do` Story → open PR, `In Review`); `agile-11-merge-train` clears the merge queue (open PR → merged + `Done`). The two alternate to unblock each other: a ticket A blocked by B is eligible only once **B is `Done` and B's PR is merged**, so every merge pass can unlock new build work. Until now a human ran that loop by hand — deciding implement-vs-merge, re-running each pass. This skill is that scheduler: it dispatches each orchestrator to a subagent that returns only a ledger, so the loop runs uninterrupted.
 
 ## The loop (one **pass** per iteration; recomputed from the live board each time)
 
@@ -33,14 +33,14 @@ One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain 
                  unresolved blocker (blocker must be Done AND PR merged).      → build_count
 2. MERGE QUEUE — open PRs linked to this sprint's tickets (gh pr list).        → merge_count
 3. EXIT      — build_count == 0 AND merge_count == 0  → DRAINED
-4. build>0   → dispatch subagent: agile-10-implement [concurrency=N]  → fold ledger (no /compact)
-5. merge>0   → dispatch subagent: agile-11-merge-train               → fold ledger (no /compact)
+4. build>0   → dispatch subagent: agile-10-implement [concurrency=N]  → fold ledger
+5. merge>0   → dispatch subagent: agile-11-merge-train               → fold ledger
 6. GUARD     — recompute each item's fingerprint; retire an item human-blocked after
                K identical passes. actionable = items the loop can still advance.
                actionable empty & items remain → STUCK ;  else loop
 ```
 
-Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. **No `/compact` banners** — each orchestrator runs in a subagent that returns only a small ledger, so the outer loop never grows enough to compact.
+Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. Each orchestrator runs in a subagent that returns only a small ledger, so the outer loop stays lean and runs uninterrupted.
 
 ## Actionable-work guard, not "zero progress"
 
