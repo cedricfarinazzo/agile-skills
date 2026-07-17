@@ -61,15 +61,26 @@ live board — never from memory of a previous pass.
            if build_count == 0 AND merge_count == 0 AND inflight_count == 0
                                                       -> DRAINED (success report)
 
-      4. if build_count > 0:
-           dispatch a subagent: agile-10-implement [concurrency=N]   # build queue
+      4. build_todispatch = eligible To-Do tickets + non-parked in-flight (2b) tickets,
+                            MINUS anything already retired HUMAN-BLOCKED in the LEDGER
+                            # don't re-grind a parked/needs-info ticket; DO resume a
+                            # ticket the build left In Progress (crash/interruption)
+         if build_todispatch is non-empty:
+           dispatch a subagent: agile-10-implement [concurrency=N] [keys=<in-flight keys>]
+           # pass in-flight keys explicitly — agile-10 selects To-Do by default and
+           # would otherwise skip an In-Progress ticket; it resumes each via markers.
            # the subagent returns ONLY a pass-outcome ledger, never its transcript
            fold its ledger into LEDGER
 
-      5. if merge_count > 0:
+      5. merge_todispatch = open PRs NOT already retired HUMAN-BLOCKED in the LEDGER
+         if merge_todispatch is non-empty:
            dispatch a subagent: agile-11-merge-train                # merge queue -> Done
            # strictly sequential; returns ONLY a pass-outcome ledger
            fold its ledger into LEDGER
+
+      # counts (build/merge/inflight) still include human-blocked items, so DRAINED
+      # never fires over them; only the DISPATCH set excludes them, so a parked
+      # ticket isn't re-ground every pass until the guard retires the last one.
 
       6. ACTIONABLE-WORK GUARD (update LEDGER, then decide):
            remaining items = build tickets + open PRs + in-flight (2b) tickets

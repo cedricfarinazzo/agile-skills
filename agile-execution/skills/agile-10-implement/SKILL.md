@@ -65,7 +65,7 @@ This is what stops shortcuts. A sub-skill run inline in the orchestrator's conte
 | `validate` | numeric score **+ per-criterion breakdown** (all 7 criteria, AC/DoD text quoted as evidence) + `Transitioned: <from> → <to>` line | read Jira status == `In Progress`; a bare `pass` with **no breakdown** = not-run → re-dispatch |
 | `plan` | AC→test map + files-to-touch list | `plan` marker present with a non-empty AC→test map |
 | `implement` (build) | each gate command **+ its real exit code**; AC→test coverage; (concurrent) the tier-deferral note | `git show --stat <branch>` confirms the pushed commits exist; every gate reports an exit code |
-| `pr` | PR url + `Test tiers` section + label | `gh pr view` confirms the PR is open (+ `integration-deferred` label in concurrent mode) |
+| `pr` | PR url + `Test tiers` section (in the PR body) + label | `gh pr view --json state,body,labels` confirms the PR is open, the body carries the `Test tiers` section, and (concurrent) the `integration-deferred` label is present |
 | `review` | **lens-keyed** findings (a finding or explicit "N/A because…" per lens, each with ≥1 `file:line`); **Files-read list**; **per-AC line binding** | compute the diff file set (`gh pr diff <N> --name-only`); **reject if Files-read ≠ diff set**, **reject any AC with no line cite**, **reject a bare ✅ lens with no citation** |
 | `status_change` | transition applied + marker posted | `getJiraIssue` confirms `in-review-status-name`; marker present |
 

@@ -24,7 +24,7 @@ The build is already done (`implement-code` implemented the plan + pushed). This
   - **AC coverage** — each AC → the test / verification that covers it (the plan's AC→test map, confirmed against the committed tests)
   - **Changes** — files/modules touched and why (the plan's files-to-touch list, reconciled with the real diff; flag any addition/omission vs the plan)
   - **Testing** — unit / integration / manual; edge cases covered (per the plan's AC→test map)
-  - **Test tiers** — read the `implement` marker's `Mode` + gate receipt. **Sequential:** `Verified locally: lint + unit + integration + fresh-DB migration.` **Concurrent:** `Verified locally: lint + unit (stack-free, worktree). Deferred to CI: integration + e2e + fresh-DB migration (concurrent build — not run locally; CI is the gate).` This section tells the merge train and reviewers exactly which tiers CI must confirm.
+  - **Test tiers** — read the `implement` marker's `Mode` + gate receipt. **Sequential:** `Verified locally: lint + unit + integration + fresh-DB migration.` **Concurrent:** `Verified locally: lint + unit + typecheck (stack-free, worktree). Deferred to CI: integration + e2e + fresh-DB migration (concurrent build — not run locally; CI is the gate).` This section tells the merge train and reviewers exactly which tiers CI must confirm.
   - **Specs UI match** — states implemented; any deviation + reason (UI Stories)
   - **ADR compliance** — new decisions / libraries introduced (the plan's flagged decisions), each flagged for the reviewer
   - **Checklist** — ACs tested · lint/type clean · no regressions · PR linked to Jira · Specs UI match · ADR compliance · test tiers stated (integ/e2e local or CI-deferred)
