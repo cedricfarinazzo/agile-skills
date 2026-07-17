@@ -18,11 +18,15 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 |---|-------|------|
 | 11 | `agile-11-merge-train` | **Orchestrator** (user-invoked) — processes every open PR sequentially |
 | — | `merge-update-pr` | rebase on main, resolve conflicts, lint-after-rebase, push only if a merge commit was created |
-| — | `merge-review-pr` | deep **independent** PR review — read every changed file, check vs ACs, report by severity |
-| — | `merge-fix-until-satisfied` | fix every finding (Critical + Minor), re-verify, until satisfied |
-| — | `merge-jira-postmortem` | post structured post-merge comment + transition the Story to Done |
+| — | `merge-review-pr` | deep **independent** PR review — read every changed file, check vs ACs, verifiable receipt (files-read = diff, cite per lens + AC) |
+| — | `merge-fix-until-satisfied` | fix every finding (Critical + Minor), re-verify, until satisfied (named CI run id) |
+| — | `merge-jira-postmortem` | post structured post-merge comment + transition the Story to Done; return receipt (comment id + done-category) |
 
-The `merge-*` blocks are **unnumbered sub-skills** the train composes via the Skill tool; you don't call them directly. Invoke `/agile-merge-review:agile-11-merge-train` ("merge train", "process all open PRs").
+The `merge-*` blocks are **unnumbered sub-skills** the train composes — each **dispatched to a subagent** that invokes the sub-skill via the Skill tool and returns a receipt the train verifies; you don't call them directly. Invoke `/agile-merge-review:agile-11-merge-train` ("merge train", "process all open PRs").
+
+## Dispatch-and-verify — no shortcuts
+
+The train's main agent **orchestrates only**: it runs no step's work in its own context. Each per-PR step (3a–3g) runs in a dedicated subagent that returns a **receipt**, and the train verifies it against ground truth (`gh` / Jira) before advancing. This closes the shortcuts the train is prone to: a shallow review is caught because `merge-review-pr`'s receipt must list a files-read set equal to the PR diff with a `file:line` cite per lens and per AC; a skipped `merge-jira-postmortem` is caught because Phase 5 refuses to report a merged PR as Done without a verified postmortem receipt (comment id + done-category) and re-dispatches it. A PR built concurrently (`integration-deferred` label) has integration + e2e gated by the fresh CI-green run rather than a local re-run.
 
 ## The per-PR sequence
 

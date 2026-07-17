@@ -7,7 +7,7 @@ description: "Deep PR review: read every changed file in full, check correctness
 
 **Independent review of an open PR by someone other than the author.** The implementer already self-reviewed and fixed the obvious in `implement-review`; this is the *second pair of eyes* — the authoritative pre-merge gate before the PR lands on `main` (invoked by `agile-11-merge-train` 3b). Review as a reviewer who did not write the code: don't trust the author's self-assessment, verify against the spec and the ADR yourself. (The third layer, `agile-13-sprint-closeout`, is a later *global* review of the whole sprint against its goal — not this per-PR gate.)
 
-Thorough PR review. Reads every changed file in full — not just the diff. Reports findings grouped by severity.
+Thorough PR review. Reads every changed file in full — not just the diff. Reports findings grouped by severity, with a verifiable receipt (Files-read = diff set, a cite per lens, a `file:line` per AC). When invoked by `agile-11-merge-train`, this runs in a **dedicated subagent with a fresh context** — it did not write the code and cannot rubber-stamp it, and its receipt is checked by the orchestrator before the PR advances.
 
 ## Input
 
@@ -82,6 +82,19 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - `path/b.md` (45 lines)
 - ...
 
+### Lens verdicts (one line per lens — cite or N/A)
+- Correctness ...... ✅ `file:line` <what confirmed>  |  ❌ see Critical
+- Security ......... ✅ `file:line`  |  N/A because <no new endpoint/input>
+- Naming/conventions ✅ `file:line`  |  ...
+- Test coverage .... ✅ `file:line`  |  ...
+- Documentation .... ✅ `file:line`  |  N/A
+- Migration ........ N/A  |  ✅ `file:line`
+
+### AC verification (every AC → the line that satisfies it)
+- AC1 → `file:line` <how satisfied>
+- AC2 → `file:line`
+- ...   (an AC with no line = not satisfied = a Critical finding)
+
 ### Critical
 - **<short title>** (`file:line`): <problem> → <fix>
 
@@ -92,11 +105,14 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - <what was done correctly>
 ```
 
-The "Files read in full" section is mandatory — it is a self-receipt that the skill's core rule ("read every changed file in full") was honoured. List every file in the PR diff with its line count. If a file is not listed, the review is incomplete; go back and read it before reporting. Partial reads (e.g. `Read offset=155 limit=12`) do NOT count — only a full-file Read does. This is the easiest rule to silently violate; the receipt makes the violation impossible to hide.
+**The receipt is verified by the caller (`agile-11-merge-train` 3b) — it is not just a self-attestation.** Three mandatory sections make a shallow review impossible to hide:
+- **Files read in full** — every file in the PR diff with its line count. The caller computes `gh pr diff <N> --name-only` and **rejects the review if this list ≠ the diff set**. A partial read (`Read offset=155 limit=12`) does NOT count — only a full-file read. If a file is not listed, the review is incomplete; read it before reporting.
+- **Lens verdicts** — a line per lens, each with a `file:line` cite or an explicit "N/A because …". A bare ✅ with no citation is rejected: you can't pass a lens without pointing at what you checked.
+- **AC verification** — every AC → the specific `file:line` that satisfies it, in **both** the clean and the has-findings path. "If you can't point to a line, the AC is not satisfied." An AC with no line cite is rejected.
 
 Two-tier severity is deliberate. No "Moderate" / "Suggestion" / "Nit" tiers — promote borderline items to Minor or omit them. Avoiding a third bucket forces a yes/no call.
 
-If no issues: explicitly state "Satisfied — ready to merge." and why.
+If no issues: explicitly state "Satisfied — ready to merge." and why — but the Files-read, Lens-verdicts, and AC-verification sections are still mandatory (a clean verdict with no evidence is a rubber-stamp, and is re-dispatched).
 
 **This skill is review-only — it does NOT merge, monitor CI, or close the loop.** When invoked standalone, return after the report. When invoked from `agile-11-merge-train` 3b, the caller continues to 3c (`merge-fix-until-satisfied`) → 3e (CI) → 3f (merge) → 3g (postmortem). Do not append "should I merge now?" prompts; the caller decides.
 

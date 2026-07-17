@@ -15,6 +15,25 @@ End-to-end pipeline for clearing the open-PR queue **safely**. Composes existing
 
 Speed comes from doing the review carefully once, not from skipping steps. If you find yourself thinking "this PR looks fine, skip the file reads" — stop and read the files.
 
+## Orchestrator = dispatch-and-verify (the main agent does no work itself)
+
+**The main agent orchestrates; it never does a step's work in its own context.** Each per-PR step (3a–3g) runs in a **dedicated `Agent` subagent** that executes the sub-skill and returns **only a size-capped structured receipt** — proof fields, never its full transcript. The orchestrator's loop is: **dispatch the step-subagent → read its receipt → verify the receipt against ground truth (`gh` / Jira) → gate advancement.** A step whose receipt is missing, incomplete, or contradicted by ground truth is **not done** — re-dispatch it; never advance on the subagent's word alone.
+
+This is what stops the shortcuts this skill is prone to — a shallow review, a skipped satisfaction gate, a skipped postmortem. A sub-skill run inline in a long orchestrator context can be skimmed or skipped; a sub-skill run in a fresh subagent whose receipt the orchestrator independently checks cannot. The orchestrator reads no changed files, writes no review, and posts no postmortem itself — it dispatches and verifies.
+
+**Receipt-verification gate — advance only when the receipt proves the work:**
+
+| Step | Receipt proof fields | Independent verification before advancing |
+|------|---------------------|-------------------------------------------|
+| `3a merge-update-pr` | outcome (Pushed / No-op / Conflict) + run id/sha on no-op | `gh pr view` mergeStateStatus matches the claimed outcome |
+| `3b merge-review-pr` | **Files-read list** (= diff set); a **cite per lens**; **per-AC line binding**; verdict | compute `gh pr diff <N> --name-only`; **reject if Files-read ≠ diff set**, reject any AC with no line cite, reject a bare pass |
+| `3c merge-fix-until-satisfied` | 5-gate breakdown + **named CI run id** | `gh pr view --json statusCheckRollup` shows that run id green |
+| `3e CI monitor` | named completed all-green run id on the post-push tip | independent `gh` read of that run |
+| `3f merge` | `mergedAt` set | `gh pr view --json state,mergedAt` == MERGED |
+| `3g merge-jira-postmortem` | **posted comment id + resulting status category** | `getJiraIssue` confirms done-category; **a merged PR whose ticket ≠ Done re-dispatches 3g** |
+
+**Concurrency:** the train stays **strictly sequential** regardless of how the PRs were built (each merge moves `main`; the next PR rebases). Build-side `concurrency` never makes the train parallel.
+
 ## Configuration
 
 Reads from the consumer repo's `CLAUDE.md` / `AGENTS.md`:
@@ -29,10 +48,11 @@ Optional repo name (default: current repo). Optional max PRs (default: all).
 
 ## Phase 0 — Gather
 
-1. `gh pr list --state open --json number,title,headRefName,baseRefName,mergeable,mergeStateStatus,isDraft,statusCheckRollup --limit 50`
+1. `gh pr list --state open --json number,title,headRefName,baseRefName,mergeable,mergeStateStatus,isDraft,statusCheckRollup,labels --limit 50`
 2. For every open PR:
    - Pull Jira key from PR title (e.g. `[ABC-123]`) or branch (`feature/ABC-123`).
    - `mcp__atlassian__getJiraIssue` with the configured `cloudId` — load **summary, description, ACs, status**. Read the full ticket *before* reviewing the diff. The ticket is the spec; the diff is the candidate implementation.
+   - **Note the `integration-deferred` label.** A PR built concurrently (by `agile-10-implement` `concurrency>1`) carries this label: integration + e2e were **not run locally at build**, so **CI is their sole gate**. For such a PR, `merge-fix-until-satisfied` (3c) runs only the stack-free tiers locally and the fresh-CI-green hard gate (3e) is what validates integration + e2e. An unlabelled PR was built with the full local gate — treat it as today.
 3. `gh pr diff <N>` for every PR. Build a `{file → [PRs that touch it]}` map.
 
 ## Phase 1 — Detect cross-PR conflicts
@@ -57,14 +77,15 @@ State the order and the rationale before processing.
 **Per-PR mandatory sequence — do not skip, do not stop mid-sequence, do not wait for user confirmation between steps.** A user typing `/agile-11-merge-train` (or "merge train", "process all open PRs") has authorised the full sequence below for every PR in the queue. Stop only on the explicit stop conditions at the bottom of this file.
 
 ```
-3a  merge-update-pr           (Skill tool)  rebase (push only if merge commit created)
-3b  merge-review-pr           (Skill tool)  deep review
-3c  merge-fix-until-satisfied (Skill tool)  ALWAYS — even on 0-issue review (satisfaction gate)
+3a  merge-update-pr           (subagent)  rebase (push only if merge commit created)
+3b  merge-review-pr           (subagent)  deep review — verify Files-read = diff set, cite per lens + AC
+3c  merge-fix-until-satisfied (subagent)  ALWAYS — even on 0-issue review (satisfaction gate); verify named run id green
 3d  bad-PR escape hatch     (CONDITIONAL — only if 3b/3c surface an unfixable defect; replaces 3e–3g)
 3e  CI monitor              HARD GATE, separate turn from the 3a/3c push. Wait for a NEW run to START, then COMPLETED + SUCCESS on the post-push tip. Never push and merge in the same turn.
 3f  gh pr merge             --squash --delete-branch (only after 3e names a completed all-green run)
-3g  merge-jira-postmortem     (Skill tool)  comment + transition
+3g  merge-jira-postmortem     (subagent)  comment + transition; verify comment id + done-category
 ```
+Each `(subagent)` step is dispatched to a dedicated `Agent` (which runs the sub-skill via the Skill tool) and its receipt is verified before advancing — the orchestrator never runs the sub-skill's work in its own context.
 
 3d is an exit path, not a step in the linear flow: if 3b or 3c determines the PR cannot be salvaged, jump to 3d and skip 3e/3f/3g (3d still posts a postmortem in `blocked` mode, but does NOT transition the ticket).
 
@@ -82,7 +103,8 @@ For each PR in merge order:
 - **`git merge --continue` does not accept `--no-edit`** — use `GIT_EDITOR=true git merge --continue` to skip the editor.
 
 ### 3b. Deep review — this is the main work
-- **Invoke `merge-review-pr` via the Skill tool** (not just its semantics inline). The sub-skill exists; use it. The merge-train layer is for ordering and Jira state — the file-by-file review work belongs to `merge-review-pr`. If `merge-review-pr` is missing something this train needs, edit *that* skill rather than re-implementing review logic here.
+- **Dispatch `merge-review-pr` to a dedicated subagent** (which invokes the sub-skill via the Skill tool) — not its semantics inline. The sub-skill exists; use it. Running the review in a fresh subagent whose receipt the orchestrator checks is exactly what prevents the soft/shallow review this step is prone to. The merge-train layer is for ordering, Jira state, and **verifying the review receipt** — the file-by-file review work belongs to `merge-review-pr`. If `merge-review-pr` is missing something this train needs, edit *that* skill rather than re-implementing review logic here.
+- **Verify the review receipt before advancing:** the returned verdict must carry a **Files-read list equal to the PR diff file set** (`gh pr diff <N> --name-only`), a **`file:line` cite per lens**, and a **`file:line` per AC**. A bare pass, a Files-read list short of the diff, or an AC with no line cite = a partial review → re-dispatch. The orchestrator does not read the files itself; it checks that the subagent did.
 - **Read every changed file in full** (not just the diff hunks). The diff hides context; the file shows whether the change makes sense in its surroundings.
 - For each changed file ask: does this file still make sense as a whole after the change? Are imports unused? Does naming match neighbours? Are there dead branches or copy-paste leftovers?
 - Cross-check against Jira ACs loaded in Phase 0, one by one. For each AC: locate the code that satisfies it. If you can't point to a line, the AC is not satisfied.
@@ -93,12 +115,13 @@ For each PR in merge order:
 - Be explicit about satisfaction. If you can't write "I read every changed file in full and verified each AC against specific lines" — go back and do it. Do not merge on partial review.
 
 ### 3c. Fix until satisfied — ALWAYS invoke, even on clean review
-- **Always invoke `merge-fix-until-satisfied` via the Skill tool, even when 3b reported 0 issues.** The sub-skill is the explicit satisfaction gate: it re-examines the changed files, verifies fixes did not introduce new issues, runs lint + unit + integration tests, and returns the "Satisfied. No remaining issues." verdict that authorises 3e. A 0-issue review without a Satisfied verdict is incomplete.
+- **Always dispatch `merge-fix-until-satisfied` (to a subagent, which invokes the sub-skill via the Skill tool), even when 3b reported 0 issues.** The sub-skill is the explicit satisfaction gate: it re-examines the changed files, verifies fixes did not introduce new issues, runs the tests, and returns the "Satisfied. No remaining issues." verdict (with a named CI run id) that authorises 3e. A 0-issue review without a Satisfied verdict is incomplete. **Verify the receipt:** the named run id must be green (`gh pr view --json statusCheckRollup`).
+- **Test tiers depend on the `integration-deferred` label (Phase 0).** An **unlabelled** PR: run lint + unit + integration locally (the full gate), as today. An **`integration-deferred`** PR (concurrent build): run only the **stack-free** tiers locally (lint + unit); integration + e2e were never run locally by design and their gate is the **fresh CI-green run** at 3e — do not attempt to re-run them locally as a merge precondition. Either way, 3e's fresh-CI-green hard gate is required before merge.
 - **Every issue from 3b's report must be fixed — Critical AND Minor.** "Minor" is a severity classification, not a permission to defer. The fix loop must address every numbered finding from the review report before declaring Satisfied. The only acceptable skip is an out-of-scope finding that would expand the PR diff into untouched files — in which case file a follow-up ticket inline and reference it in the postmortem.
 - If 3b found issues: the sub-skill fixes them (Critical first, then Minor), commits, pushes, re-verifies.
-- If 3b found no issues: the sub-skill confirms the verdict by re-running lint + tests + a final re-examination. Phase 2 (Commit & push) is a no-op when nothing changed.
-- After fixing (or confirming): the project's lint, unit, and integration suites must all be green.
-- **All three must pass locally before pushing.** Don't push and hope CI catches it.
+- If 3b found no issues: the sub-skill confirms the verdict by re-running the mode's local tiers + a final re-examination. Phase 2 (Commit & push) is a no-op when nothing changed.
+- After fixing (or confirming): the local tiers must be green — lint + unit + integration for an unlabelled PR; lint + unit for an `integration-deferred` PR (its integration + e2e are gated by the fresh CI run at 3e).
+- **The applicable local tiers must pass before pushing.** Don't push and hope CI catches what you could run — but for an `integration-deferred` PR, integration/e2e are legitimately CI's job.
 - Re-review the changed files in full after the fix — fixes can introduce new issues.
 
 ### 3d. Bad-PR escape hatch
@@ -136,7 +159,8 @@ If the PR is too broken to fix in one pass — wrong approach, missing core ACs,
 - Confirm `mergedAt` is set.
 
 ### 3g. Postmortem + Jira state
-- **Invoke `merge-jira-postmortem` via the Skill tool** — mandatory, even when 0 issues found. It posts the structured review-findings comment AND handles the Done transition. Do not duplicate that work inline; do not skip on the grounds that the PR was clean.
+- **Dispatch `merge-jira-postmortem` to a subagent** (which invokes the sub-skill via the Skill tool) — mandatory, even when 0 issues found. It posts the structured review-findings comment AND handles the Done transition. Do not duplicate that work inline; do not skip on the grounds that the PR was clean.
+- **Verify the postmortem receipt before counting the PR done:** the sub-skill returns the **posted comment id** + the **resulting status category**. Confirm with `getJiraIssue` that the ticket is now in a `done`-category status. This is the fix for the most-skipped step: 3g is last in the loop, so nothing downstream used to notice it was skipped — now Phase 5 refuses to report a PR as Merged+Done without a verified postmortem receipt, and **re-dispatches 3g** for any merged PR whose ticket is not Done.
 - Pass the cross-PR conflict info from Phase 1 to the postmortem: if this PR collided with another on shared files, the postmortem must note "ticket should have been linked in Jira to <other>" — a missing `relates to` / `blocks` link is what let the overlap reach merge time.
 - If a follow-up Jira ticket is warranted (e.g. discovered bug class, refactor opportunity), note it in the report — but don't auto-create.
 
@@ -169,9 +193,11 @@ mcp__atlassian__addCommentToJiraIssue(
 
 If `createIssueLink` failed (API error, ticket gone), append the failure reason in the same one-liner format — never leave the recommendation untracked.
 
-## Phase 5 — Final report
+## Phase 5 — Reconcile + final report
 
-Produce a single Markdown report covering:
+**Before reporting, reconcile every merged PR against ground truth — do not report from memory.** For each PR marked Merged this run, confirm via `gh pr view --json state,mergedAt` that it actually merged, and via `getJiraIssue` that its ticket reached a `done`-category status with a verified `merge-jira-postmortem` receipt (comment id recorded). **A merged PR whose ticket is not Done, or whose postmortem receipt is missing, is a skipped 3g — re-dispatch `merge-jira-postmortem` now**, before the report. This closes the shortcut where the postmortem (last in the per-PR loop) was silently dropped: it now has a consumer that fails without it.
+
+Then produce a single Markdown report covering:
 
 ### Summary
 - N PRs processed / M merged / K blocked
@@ -207,7 +233,7 @@ Produce a single Markdown report covering:
 
 ## Rules
 
-- **Deep review is the whole point.** This skill exists to make sure `main` only receives code you have actually read, file by file, against the spec. A fast merge train that skips file reads is worse than no merge train.
+- **Deep review is the whole point, and it is receipt-verified.** This skill exists to make sure `main` only receives code that was actually read, file by file, against the spec. The review runs in a subagent and its receipt (Files-read = diff set, cite per lens, `file:line` per AC) is checked by the orchestrator — a review whose Files-read list is short of the diff, or whose ACs lack line cites, is a partial review and is re-dispatched. A fast merge train that skips file reads is worse than no merge train.
 - **Always rebase before review.** Every PR gets a `merge --no-ff main` before review and merge. The CI run that gates the merge must be on the exact tree that will land. A "green CI from yesterday" is not a green CI.
 - **Wait for the fresh CI run.** After push, use one of the stale-run mitigations in 3e (preferred: capture run id before push, wait until a different id appears). Do NOT chain `sleep` calls in the foreground — use a single `until` loop in `run_in_background: true`.
 - **The push and the merge are never in the same turn.** The push (3a/3c) and `gh pr merge` (3f) are separate turns with the 3e gate between them. Issuing both in one batch means the merge fires before CI registers — the squash then captures whatever the branch tip is, green or not.
@@ -215,10 +241,10 @@ Produce a single Markdown report covering:
 - **Never merge without explicit satisfaction.** All ACs validated against specific lines, all tests green locally + on the fresh CI run, branch rebased on the current `main`. Any of those missing → fix or block.
 - **Read the Jira ticket before reading the diff.** Otherwise the review measures the diff against itself, not the spec.
 - **Read every changed file in full** during 3b. The diff hides surroundings; bugs hide in surroundings.
-- **Process sequentially, not in parallel.** Each merge changes `main`; the next PR must rebase on the new tip and re-run CI.
+- **Process sequentially, not in parallel — regardless of how the PRs were built.** Each merge changes `main`; the next PR must rebase on the new tip and re-run CI. Build-side `concurrency>1` never makes the train parallel.
 - **Postmortem is mandatory** on both merge and block. Include the "What was correct" section even when blocking — acknowledge what was right before listing what was wrong.
 - **Transition Jira to Done only on merge.** Blocked PRs leave the ticket in its current state.
-- **Reuse, don't duplicate — and that means calling the sub-skill via the Skill tool, not just performing its semantics inline.** Invoke `merge-review-pr`, `merge-fix-until-satisfied`, `merge-update-pr`, `merge-jira-postmortem` as actual Skill calls during 3a/3b/3c/3g. If one of those needs improvement to handle a case you hit, edit *that* skill — don't fork its logic here.
+- **Reuse, don't duplicate — dispatch each sub-skill to a subagent and verify its receipt, never perform its semantics inline.** Run `merge-review-pr`, `merge-fix-until-satisfied`, `merge-update-pr`, `merge-jira-postmortem` as dedicated subagents (each invoking the sub-skill via the Skill tool) during 3a/3b/3c/3g; verify the returned receipt against ground truth before advancing. The orchestrator reads no changed files, writes no review, and posts no postmortem itself. If one of those needs improvement to handle a case you hit, edit *that* skill — don't fork its logic here.
 - **Cross-PR conflict = missing Jira link.** Any time two PRs collide on a shared file during the train, that signals the two tickets should have been linked in Jira (`relates to` / `blocks` / `is blocked by`). The postmortem on the second PR must call this out so the link can be added retroactively and so sprint planning catches the next overlap earlier.
 - **No destructive git ops without confirmation.** Force-push only with `--force-with-lease`. Never `git reset --hard` on a shared branch without saying so first.
 - **Don't stop on "satisfied".** A clean review (0 issues) means proceed through 3c → 3e (CI monitor) → 3f (merge) → 3g (postmortem). Do NOT end the turn after 3b just because the review passed. The next user-visible message should be the final report (Phase 5), not "do you want me to merge?".

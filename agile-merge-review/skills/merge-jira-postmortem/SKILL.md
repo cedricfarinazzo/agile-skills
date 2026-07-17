@@ -29,13 +29,23 @@ This skill reads two values from the consumer repo's `CLAUDE.md` / `AGENTS.md` o
    - AC-by-AC verification: which ACs are satisfied, which are not, why
    - **Cross-PR conflicts hit during merge.** If this PR collided with another PR on shared files (e.g. shared docs, shared compose files), that is a signal that the two tickets should have been **linked in Jira** (`relates to` / `blocks` / `is blocked by`) so the dependency was visible at sprint planning. List the conflicting PR/ticket pair and recommend the missing link.
 
-2. Post comment to Jira via `mcp__atlassian__addCommentToJiraIssue` with the configured `cloudId`, `contentFormat: markdown`.
+2. Post comment to Jira via `mcp__atlassian__addCommentToJiraIssue` with the configured `cloudId`, `contentFormat: markdown`. **Capture the returned comment id** — it is the proof the comment was posted.
 
 3. If mode is `merged` (default): transition ticket to Done.
    - Call `mcp__atlassian__getTransitionsForJiraIssue`, find the transition whose target status category is `done` / colorName `green`, and call `mcp__atlassian__transitionJiraIssue` with that id.
    - **Optional fast path** — if the consumer repo's `CLAUDE.md` declares a known stable transition id for this project (e.g. `done-transition-id: 31`), call it directly and skip the lookup round-trip. Fall back to the lookup path on failure.
+   - **Then read back the resulting status** (`getJiraIssue`) and capture its **status category** — confirm it is `done`. A transition call that returned without the ticket actually landing in a done-category status is not complete.
 
 4. If mode is `blocked`: do NOT transition. The PR stays open with a block comment on GitHub and the ticket stays in its current column.
+
+5. **Return the receipt.** The caller (`agile-11-merge-train` 3g) verifies this before counting the PR done, and Phase 5 re-dispatches this skill for any merged PR whose ticket is not in a done-category status. Return:
+   ```
+   Postmortem receipt:
+     mode: merged | blocked
+     comment id: <id from step 2>
+     status: <current status name> (category: <done | in-progress | ...>)
+   ```
+   For `merged` mode the receipt must show a `done` category; for `blocked` mode the status is left unchanged by design (no transition), and the receipt says so.
 
 ## Comment structure
 
@@ -101,6 +111,7 @@ When invoked with mode `blocked`, head the comment with a clear block notice and
 - Be specific: file names, line numbers, function names where relevant
 - Never omit the "What was correct" section even if there were many issues
 - **Always run, even on 0-issue PRs.** Open with "0 issues found during PR review." then go straight to "What was correct" + cross-PR conflicts (if any). The transition to Done is mandatory regardless of issue count.
+- **Return the postmortem receipt** (comment id + read-back status category). This is the proof the orchestrator gates on — it is why a skipped postmortem no longer goes unnoticed: `agile-11-merge-train` Phase 5 refuses to report a merged PR as Done without it and re-dispatches this skill.
 - **Cross-PR conflict ≠ Jira link creation.** This skill records the recommendation in the comment; `agile-11-merge-train` Phase 4 actually creates the link via `createIssueLink`. Do not call `createIssueLink` from this skill — keeps responsibility clean.
 - **Comment prose stays in normal English.** The Jira comment is a permanent ticket artifact read by humans during retro + future incident investigations; write full sentences.
 - **Phase 4 confirms the Jira link inline.** When `agile-11-merge-train` Phase 4 successfully creates a `Relates` (or stronger) link between two tickets that collided on shared files, it appends a one-line confirmation comment to the most recent postmortem on each side: `Jira link created: relates to <KEY> (Phase 4, merge-train run <date>).` This closes the loop so reviewers reading the postmortem later can see the link was actually applied, not just recommended. If Phase 4 was unable to create the link (API error, ticket gone, etc.), append the failure reason instead — never leave the recommendation untracked.
