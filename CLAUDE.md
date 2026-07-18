@@ -11,7 +11,7 @@ A Claude Code marketplace shipping **six focused plugins** (split by cycle phase
 - **`agile-execution`** — autonomous build loop: Implement (10) + Dev Review (11). Needs `gh`.
 - **`agile-merge-review`** — PR workflow (formerly `dev-skills`): update-pr, review-pr, fix-until-satisfied, jira-postmortem, merge-train. Needs `gh`.
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
-- **`agile-sprint-drain`** — autonomous outer loop: `agile-sprint-drain` alternates `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (progress guard → STUCK/DRAINED). Composes the two orchestrators cross-plugin; requires `agile-execution` + `agile-merge-review` installed. Needs `gh` + Atlassian.
+- **`agile-sprint-drain`** — autonomous outer loop: `agile-sprint-drain` alternates `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Dispatches each orchestrator to a subagent that returns only a ledger (loop stays lean, runs uninterrupted); passes an optional `concurrency=N` through to the build. Composes the two orchestrators cross-plugin; requires `agile-execution` + `agile-merge-review` installed. Needs `gh` + Atlassian.
 
 User-facing skills keep global cycle numbering (`agile-1` … `agile-15`) across plugins; composed sub-skills (the `implement-*` blocks and the `dev-*` merge-train blocks) are **unnumbered** because the user does not call them directly. Namespace = plugin name, e.g. `/agile-planning:agile-5-roadmap`, `/agile-merge-review:agile-11-merge-train`.
 
@@ -62,7 +62,7 @@ Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `
 
 ## Skill authoring rules
 
-- `description` must include trigger phrases — Claude uses it for auto-invocation
+- `description` must include trigger phrases — Claude uses it for auto-invocation. **Keep it short and strong** — every skill's `description` loads into context each session, so it is a permanent token cost. State what/when + trigger phrases only; no mechanism, receipt, or config detail (that lives in the body). One or two tight sentences, not a paragraph.
 - Skills are **idempotent**: re-running must not duplicate Confluence pages or Jira issues (read before write)
 - Skills are **resumable**: if interrupted, re-run picks up where it stopped. The autonomous loop (`agile-10-implement`) resumes per ticket via `🤖 <!-- agile:phase=x -->` Jira comment markers
 - Every assumption must be stated explicitly (no silent inference)

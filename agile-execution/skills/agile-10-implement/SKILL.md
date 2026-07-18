@@ -1,6 +1,6 @@
 ---
 name: agile-10-implement
-description: "Autonomously implement the active board (Scrum sprint / Kanban ready column, never backlog/future) in Jira dependency order, composing implement-* sub-skills per ticket: validate → plan → code → pr → review → monitor. Resumable via 🤖 Jira markers; asks only on critical decisions. Triggers: implement the sprint, work the sprint, pick up tickets, implement story PROJ-XXX, start coding. After skill 9, before skill 11."
+description: "Autonomously build the active sprint/board (never backlog/future) in Jira dependency order — validate → plan → code → pr → review → monitor per ticket, each to In Review with an open PR. Optional concurrency=N. Triggers: implement the sprint, work the sprint, pick up tickets, implement story PROJ-XXX, start coding."
 ---
 
 # agile_10_implement
@@ -9,15 +9,15 @@ Autonomous, end-to-end sprint implementation pipeline — the agile-side analogu
 
 `agile-11-merge-train` clears the **merge** queue (open PR → `main`) by composing `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem`. This skill clears the **build** queue (`To Do` Story → open PR) by composing its own sub-skills. The two compose end-to-end: this skill produces the PRs that the merge train later reviews and merges.
 
-## Sub-skills (composed via the Skill tool — never inline their logic)
+## Sub-skills (each dispatched to a subagent — never inline their logic)
 
-Per ticket, in order. Each maps to one 🤖 resume-marker phase; each is invoked with the Skill tool, not reimplemented here. If one needs improvement, edit *that* sub-skill.
+Per ticket, in order. Each maps to one 🤖 resume-marker phase; each runs in a dedicated `Agent` subagent (which invokes the sub-skill via the Skill tool) and returns a verifiable receipt — not reimplemented in the orchestrator. If one needs improvement, edit *that* sub-skill.
 
 | Phase | Sub-skill | Does |
 |-------|-----------|------|
 | validate | `implement-validate` | repo-scope + readiness gate; pass / reject(Needs Info) / out-of-scope / critical-park |
 | plan | `implement-plan` | read ADR/Specs/PRD/bugs → concrete plan + AC→test map |
-| implement | `implement-code` | branch off base/main, implement per ADR/Specs, all-AC tests, lint+unit+integration green, commit, push — finishes only when all lint + all tests + every AC pass. Does **not** open the PR |
+| implement | `implement-code` | branch off base/main, implement per ADR/Specs, all-AC tests, gate green (sequential: lint+unit+integration; concurrent: stack-free tiers local, integ+e2e→CI), commit, push — finishes only when the mode's gate + every AC pass. Does **not** open the PR |
 | pr | `implement-pr` | **open** (off base/main) or update the PR linked to the ticket |
 | review | `implement-review` | six-lens self-review; verdict + numbered blockers |
 | (monitor) | `implement-monitor` | PR rework loop — new review comments, failing checks, conflicts |
@@ -52,17 +52,34 @@ When you hit one: do **not** guess. Pause **that ticket only** — post a `🤖`
 
 A genuinely-critical decision that the user has not answered by the time the run ends is reported as **Blocked (awaiting decision)**, not silently guessed.
 
-## Strictly sequential — one ticket at a time
+## Orchestrator = dispatch-and-verify (the main agent does no work itself)
 
-**Process tickets strictly one at a time. Never run two tickets' pipelines in parallel.** The project has a **single shared Docker Compose stack** — concurrent implement/build/test runs would race on the same ports, database, and containers and corrupt each other's results. Finish a ticket's pipeline (or its skip/defer) before starting the next ticket's.
+**The main agent orchestrates; it never does a step's work in its own context.** Every phase runs in a **dedicated `Agent` subagent** that executes the sub-skill and returns **only a size-capped structured receipt** — the proof fields below, never its full transcript. The orchestrator's loop is: **dispatch the step-subagent → read its receipt → verify the receipt against ground truth (git / `gh` / Jira) → gate advancement.** A step whose receipt is missing, incomplete, or contradicted by ground truth is **not done** — re-dispatch it; never wave it through on the subagent's word alone.
 
-This applies to every stage that touches the shared stack: `docker compose up/down`, migrations, the dev server, and the lint/unit/**integration** suites. Only one ticket may hold the stack at any moment. Tear down (`docker compose down`) or release the stack between tickets so the next one starts clean. PR monitoring (`implement-monitor`) for an earlier ticket may interleave between later tickets, but its rework fixes also use the shared stack — so they too run sequentially.
+This is what stops shortcuts. A sub-skill run inline in the orchestrator's context can be skimmed, skipped, or rubber-stamped across a long run; a sub-skill run in a fresh subagent whose receipt the orchestrator independently checks cannot. The orchestrator reads no changed files, writes no review, scores no ticket, and posts no postmortem itself — it only dispatches and verifies.
 
-## Delegate to subagents
+**Receipt-verification gate — advance only when the receipt proves the work:**
 
-Use the **Agent tool (subagents) as much as possible** to keep the orchestration context lean and the work parallel-safe. Each `implement-*` sub-skill may itself fan out to subagents for its read-only work (context gathering, file-by-file review). Hard rule: **read-only / analysis subagents may run in parallel; anything that touches the shared Docker Compose stack (build, migrate, run, integration tests) must not** — the main thread owns the stack and serialises access. Only one stack-touching sub-skill (`implement-code`, a rework in `implement-monitor`) may be in flight at a time.
+| Phase | Receipt proof fields | Independent verification before advancing |
+|-------|---------------------|-------------------------------------------|
+| `validate` | numeric score **+ per-criterion breakdown** (all 7 criteria, AC/DoD text quoted as evidence) + `Transitioned: <from> → <to>` line | read Jira status == `In Progress`; a bare `pass` with **no breakdown** = not-run → re-dispatch |
+| `plan` | AC→test map + files-to-touch list | `plan` marker present with a non-empty AC→test map |
+| `implement` (build) | each gate command **+ its real exit code**; AC→test coverage; (concurrent) the tier-deferral note | `git show --stat <branch>` confirms the pushed commits exist; every gate reports an exit code |
+| `pr` | PR url + `Test tiers` section (in the PR body) + label | `gh pr view --json state,body,labels` confirms the PR is open, the body carries the `Test tiers` section, and (concurrent) the `integration-deferred` label is present |
+| `review` | **lens-keyed** findings (a finding or explicit "N/A because…" per lens, each with ≥1 `file:line`); **Files-read list**; **per-AC line binding** | compute the diff file set (`gh pr diff <N> --name-only`); **reject if Files-read ≠ diff set**, **reject any AC with no line cite**, **reject a bare ✅ lens with no citation** |
+| `status_change` | transition applied + marker posted | `getJiraIssue` confirms `in-review-status-name`; marker present |
 
-**Delegating a BUILD? Hand the subagent the finish gate explicitly.** A subagent doesn't inherit the consumer `CLAUDE.md` / `AGENTS.md` or the CI workflow, so it can't *discover* the project's gate commands. Paste the complete gate list verbatim (every CI lint command — not just the formatter — plus unit/integration + repo validators) and require it to report each gate's real exit result before committing. A gate left out of the prompt is the usual way a delegated build passes locally and fails CI.
+**Delegating a BUILD? Hand the subagent the finish gate explicitly.** A subagent doesn't inherit the consumer `CLAUDE.md` / `AGENTS.md` or the CI workflow, so it can't *discover* the project's gate commands. Paste the complete gate list verbatim (every CI lint command — not just the formatter — plus the test tiers + repo validators) and require it to report each gate's real exit result in its receipt before committing. A gate left out of the prompt is the usual way a delegated build passes locally and fails CI.
+
+## Sequential by default; opt-in concurrent build
+
+**Default (`concurrency=1`): process tickets strictly one at a time.** The project has a **single shared Docker Compose stack** — concurrent implement/build/test runs would race on the same ports, database, and containers and corrupt each other's results. Finish a ticket's pipeline (or its skip/defer) before starting the next.
+
+**Opt-in (`concurrency=N`, N>1): build up to N independent tickets in parallel, each in its own git worktree subagent.** A worktree isolates the *filesystem*, but the Docker stack is a **shared external resource** — parallel worktrees still cannot each `docker compose up` on the same ports/DB. So concurrent build-subagents run the **stack-free gate only** (lint + unit + typecheck + migration history-linearity) locally and **never touch the shared stack** (no `docker compose up`, no DB, no port bind); the **stack-bound tiers** (integration + e2e + apply-on-fresh-DB) **defer to CI** (see `implement-code`). Only tickets that are **mutually independent** (no blocker edge among them, no planned-file overlap) may share a batch — see Phase 0.5.
+
+The shared stack stays strictly serial regardless of `N`: `docker compose up/down`, migrations, the dev server, and any stack-bound suite. Only one stack-touching operation may be in flight at any moment — which is why **Phase 2 monitoring/rework always runs sequentially** (a red integration check needs the stack to reproduce), even when the Phase 1 build fanned out. Read-only / analysis subagents may always run in parallel.
+
+**Precondition for `concurrency>1`: CI must actually run the stack-bound tiers on the PR.** Deferring integration + e2e to CI is only safe if the consumer repo's CI runs those tiers **on pull requests** — if a repo runs integration nightly, on-main-only, or behind a manual label, then in concurrent mode integration is run *nowhere* before merge (not at build, not by the merge train). Confirm the CI workflow runs the stack-bound suites on PRs before using `concurrency>1`; if it does not, run `concurrency=1` (which runs them locally at build). This is the floor under the whole defer-to-CI story.
 
 ## Configuration
 
@@ -78,11 +95,14 @@ Reads project-specific values from the consumer repo's `CLAUDE.md` / `AGENTS.md`
 - **`story-points-field`** — default `customfield_10016`.
 - **`base-branch`** — default repo default branch.
 - **`branch-prefix`** — default `feature/` (branch = `<branch-prefix><TICKET>`).
-- **Lint / unit / integration commands** per touched path family.
+- **Lint / unit / integration commands** per touched path family. **Auto-classified into two tiers** for concurrent build: **stack-free** (lint + unit + typecheck) runs locally in a worktree; **stack-bound** (integration + e2e + anything needing `docker compose`/the DB) defers to CI under `concurrency>1`. A project whose "unit" tests hit the DB must run `concurrency=1` (they are really stack-bound).
+- **`max-build-concurrency`** — optional per-repo default for `concurrency` when no arg is passed. Default `1`.
 
 ## Input
 
-Optional: one or more explicit ticket keys → run the pipeline on just those. Default (no input): the whole active sprint.
+Optional:
+- One or more explicit ticket keys → run the pipeline on just those. Default (no input): the whole active sprint.
+- **`concurrency=N`** — max independent tickets to build in parallel (worktree subagents). The arg wins; else `max-build-concurrency` from config; else **`1`** (strictly sequential — the ticket-by-ticket ordering and the local finish gate are unchanged from before this feature; the dispatch-and-verify receipt model below applies in both modes). Merge is never affected — that is always sequential (`agile-11-merge-train`).
 
 ---
 
@@ -128,6 +148,22 @@ Starting on PROJ-31.
 
 ---
 
+## Phase 0.5 — Batch selection (only when `concurrency > 1`)
+
+Skipped entirely when `concurrency=1` (the eligible list is processed one at a time, as today). When `concurrency=N` (N>1), form the parallel batch from the eligible (unblocked, dependency-ordered) list:
+
+1. **Mutually independent only.** Keep tickets with **no "is blocked by" edge among them** — they are independent leaves of the dependency graph. A ticket whose blocker is still unmerged stays deferred exactly as in Phase 0; concurrency never relaxes the blocker gate.
+2. **Drop planned-file overlap.** Two independent tickets that touch the same file would collide at merge-train time. Cheaply compare each ticket's plan `files-to-touch` (the `plan` receipt) — reuse the `sprint-shared-file-audit` idea from `agile-8-refinement` or a light grep — and keep only a non-overlapping set in the batch; overlapping tickets run in a later batch.
+3. **Drop migration collisions.** Two tickets that each **add a DB migration** touch *different* files (distinct version scripts), so the file-overlap filter misses them — but both landing splits the migration history (colliding/duplicate versions), and each ticket's local history-linearity gate can't see the sibling's migration in its own worktree. Keep **at most one migration-adding ticket per batch**; the rest run in later batches (serialised) so history stays linear.
+4. **Cap at N.** Take the first N of the surviving set (dependency order). The rest wait for the next batch.
+5. **N caps to CI capacity.** N parallel builds → N simultaneous open PRs → N concurrent heavy CI jobs. On a capacity-limited / self-hosted runner these can OOM-cancel each other (reported `CANCELLED`, not `FAILURE`) — keep N low, or `1`, when CI is capacity-limited.
+
+Announce the batch (`══ batch: PROJ-31, PROJ-34, PROJ-37 (concurrency 3) ══`), then run Phase 1 for each batch member in a parallel worktree subagent. After a batch converges (all returned), monitor/rework it in Phase 2 **sequentially**, then form the next batch from the now-recomputed eligible list.
+
+**Graceful fallback:** if worktree subagents can't be created in this environment (nesting depth, tooling), drop to `concurrency=1` for the rest of the run and say so — never fall back to running the pipeline inline in the orchestrator (that reintroduces the shortcut + context-bloat problems dispatch-and-verify exists to prevent).
+
+---
+
 ## Phase 1 — Per-ticket pipeline (compose the sub-skills, resumable)
 
 For each eligible ticket in dependency order. **Resume first — a ticket may be partially implemented** (e.g. plan posted but no code yet, or code pushed but no PR). Never restart a ticket from scratch when earlier phases are already done; pick up at the first unfinished phase.
@@ -152,7 +188,9 @@ Each sub-skill is itself idempotent on partial state (`implement-code` reuses an
 > ```
 > Never delete prior markers — the trail is the resume state.
 
-Invoke each sub-skill via the **Skill tool**, passing the ticket key + the resolved config. Branch on the outcome:
+**Dispatch each phase to a dedicated `Agent` subagent** (which runs the sub-skill via the Skill tool), passing the ticket key + the resolved config + the receipt the phase must return. **Verify the returned receipt against ground truth** (the gate table above) before advancing; a missing/incomplete/contradicted receipt means the phase is not done — re-dispatch it. Branch on the outcome:
+
+**Concurrent mode (`concurrency>1`):** the whole per-ticket pipeline (validate → plan → code → pr → review → status_change) runs **inside one worktree build-subagent per ticket**, and the orchestrator dispatches the whole Phase-0.5 batch of them in parallel, then verifies each ticket's returned receipt bundle. Pass `mode=concurrent` to `implement-code` (it defaults to `sequential`) so it runs the **stack-free gate only** and never touches the shared stack. The blocker gate, resume/reconcile logic, and the review gate are unchanged per ticket — only the fan-out differs.
 
 1. **`implement-validate`** →
    - `out-of-scope` (wrong repo) → skip ticket, continue loop.
@@ -160,12 +198,12 @@ Invoke each sub-skill via the **Skill tool**, passing the ticket key + the resol
    - `critical-park` → escalate one consolidated question, park the ticket, continue with the next; resume when answered.
    - `pass` → continue to plan.
 2. **`implement-plan`** → produces the plan (`🤖 plan`).
-3. **`implement-code`** → branch off base/main + implement + tests + lint/unit/integration green + every AC covered + commit + push (`🤖 implement`). Returns only when all lint + all tests + every AC pass. Does **not** open the PR.
+3. **`implement-code`** → branch off base/main + implement + tests + gate green (sequential: lint/unit/integration; concurrent: stack-free tiers local + integ/e2e deferred to CI) + every AC covered + commit + push (`🤖 implement`). Returns only when the mode's gate + every AC pass. Does **not** open the PR.
 4. **`implement-pr`** → **open** (off base/main) or update the PR (`🤖 pr`).
 5. **`implement-review`** (self-review gate) → verdict.
    - **changes requested** → re-invoke `implement-code` with the numbered findings (fix Critical *and* Minor), then re-invoke `implement-review`. Loop until **approved**. Hard cap: >3 cycles without converging → leave PR open, post a `🤖` blocked comment, skip the ticket (per-ticket stop).
    - **approved** → post `🤖 review` and continue.
-6. **Transition + hand off** (orchestrator, inline): transition the Story to `in-review-status-name`; post `🤖 agile:phase=status_change` (2–3 line summary, PR link, AC coverage, flagged decisions, "Ready for merge train / QA"). **Never transition to `Done`.**
+6. **Transition + hand off** (`status_change`): transition the Story to `in-review-status-name`; post `🤖 agile:phase=status_change` (2–3 line summary, PR link, AC coverage, flagged decisions, "Ready for merge train / QA"). In concurrent mode this runs inside the ticket's build-subagent; the orchestrator **verifies** it via `getJiraIssue` (status == `in-review-status-name`) + marker presence before counting the ticket handed off. **Never transition to `Done`.**
 7. **Return to the base branch before the next ticket.** After hand-off, `git checkout <base-branch>` so the working tree lands back on a clean, known base. The tree is currently on this ticket's feature branch; leaving it there means the next ticket's `implement-code` may branch *off this feature branch* instead of base — stacking unrelated work and polluting the new ticket's diff and PR. `implement-code` also checks out + pulls base at its own start (the safety net), but return here too so a resumed or skipped ticket never leaves the tree parked on the wrong branch.
 
 Then loop to the next ticket. Run `implement-monitor` per Phase 2.
@@ -176,7 +214,7 @@ Then loop to the next ticket. Run `implement-monitor` per Phase 2.
 
 **Mandatory — not skippable just because the build loop finished.** The run is **not complete** until every ticket in the rework queue (Phase 0) **and** every ticket this run moved to `In Review` has been through **`implement-monitor`** (Skill tool) on its PR. The most common orchestrator failure mode is jumping straight from the last build to the Phase 3 report and silently skipping this phase — do not. A just-opened PR whose CI has not been looked at is **not** done; a green self-review says nothing about whether CI is green.
 
-For each such PR, invoke `implement-monitor`. It processes new review comments, failing status checks, and merge conflicts/staleness — filtered by the last `🤖 agile:phase=rework` marker for idempotency. It is best-effort on *human* review latency (it does not block indefinitely waiting for a reviewer; a later re-run or `/loop` picks up new comments), but it is **not** best-effort on CI: a `FAILURE`/`UNSTABLE` check caused by this run's code must be diagnosed and fixed now, not deferred to the report. Monitoring rework touches the shared stack, so it runs sequentially with the build loop, never concurrently.
+For each such PR, invoke `implement-monitor`. It processes new review comments, failing status checks, and merge conflicts/staleness — filtered by the last `🤖 agile:phase=rework` marker for idempotency. It is best-effort on *human* review latency (it does not block indefinitely waiting for a reviewer; a later re-run or `/loop` picks up new comments), but it is **not** best-effort on CI: a `FAILURE`/`UNSTABLE` check caused by this run's code must be diagnosed and fixed now, not deferred to the report. Monitoring rework touches the shared stack, so it runs sequentially with the build loop, never concurrently — **including after a concurrent (`concurrency>1`) Phase-1 batch:** the batch fans out for the stack-free build, then its PRs are monitored/reworked **one at a time** on the stack. Under concurrency, when CI reports a **red** integration/e2e check on a deferred PR, it is reproduced and fixed on the stack here (never pushed-and-deferred back to CI unfixed). Note this is *reactive* — a green CI run means those tiers passed in CI and monitor exercises nothing; the guarantee that integration/e2e actually ran comes from CI running them on the PR (the concurrency precondition), not from Phase 2.
 
 A ticket may not be reported as `In Review` in Phase 3 until its PR has been monitored at least once this run — evidenced by a `🤖 rework` marker, or a recorded clean-monitor result when there was nothing to fix.
 
@@ -186,9 +224,10 @@ A ticket may not be reported as `In Review` in Phase 3 until its PR has been mon
 
 Before printing the report, **reconcile the actual end-state of every ticket this run touched** — do not report from memory of what you intended. For each: confirm the PR is open (`gh pr list --head <branch>`), the Jira status is the expected one (`getJiraIssue` — `in-review-status-name`, or `in-progress-status-name` if the board has no In-Review column), and the expected `🤖` markers are present (validate → plan → implement → pr → review → status_change). Any mismatch (PR missing, transition not applied, a marker absent) is fixed now — re-apply the missing mutation — not silently reported as done. This catches a partially-applied hand-off (e.g. markers posted but the transition never landed) before it reaches the user.
 
-Two reconcile checks are easy to skip and routinely hide a broken hand-off — verify both explicitly:
+Reconcile checks that are easy to skip and routinely hide a broken hand-off — verify each explicitly:
 - **Phase 2 ran for this ticket.** Confirm `implement-monitor` was invoked on the PR this run (a `🤖 rework` marker or a recorded clean-monitor result). If it was skipped, run it **now** before reporting — never report `In Review` for a PR whose CI was never looked at.
 - **CI is actually green (or its red is understood).** Read the PR's check rollup. Reporting a ticket as cleanly `In Review` while a check is `FAILURE`/`UNSTABLE` from this run's own code is a false report — loop back into Phase 2 and fix it first. Only an unrelated, diagnosed infra flake (or a human-review-pending state) may be reported with the red called out.
+- **Receipt content, not just marker presence.** A marker existing does not mean the phase had depth. Confirm the `validate` receipt carried a real per-criterion score breakdown (not a bare `pass`), the `review` receipt's Files-read list equals the PR diff file set with a `file:line` cite per AC and per lens, and (concurrent mode) the `pr` receipt marked the PR `integration-deferred`. A phase whose receipt fails its gate (per the receipt-verification table) is re-dispatched now, before the report — a shallow review or a skipped score is a broken hand-off just like a missing transition.
 
 ```
 ## Sprint implementation — [Sprint N / board] — [date]
@@ -216,10 +255,10 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 
 ## Rules (apply every run)
 
-- **Compose, don't inline.** Invoke `implement-validate` / `implement-plan` / `implement-code` / `implement-pr` / `implement-review` / `implement-monitor` via the Skill tool. The orchestrator owns selection, ordering, the per-ticket sequence, transitions, and the report — the sub-skills own the work. Fix a sub-skill in its own file, never fork its logic here.
+- **Dispatch every phase to a subagent; verify its receipt; never do the work inline.** Each of `implement-validate` / `implement-plan` / `implement-code` / `implement-pr` / `implement-review` / `implement-monitor` runs in a dedicated `Agent` subagent that returns a size-capped receipt; the orchestrator verifies that receipt against ground truth (per the receipt-verification table) before advancing. The orchestrator owns selection, ordering, the per-ticket sequence, and the report — it reads no changed files, writes no review, and scores no ticket itself. A phase whose receipt is missing/incomplete/contradicted is re-dispatched, not waved through. Fix a sub-skill in its own file, never fork its logic here.
 - **Narrate progress — one short line per step.** Before each phase, tell the user what's starting in a single plain line: `▶ VC-123 — validation`, then `▶ VC-123 — plan`, `▶ VC-123 — implementing`, `▶ VC-123 — opening PR`, `▶ VC-123 — self-review`. Announce each ticket switch (`── VC-124 (2/5) ──`) and each per-ticket outcome (`✓ VC-123 → In Review (PR #118)`, `⤼ VC-124 deferred — blocked by VC-123`). This is a heartbeat, **not** a log — no command output, diffs, file lists, or tool transcripts; one line, then move on. The detailed trail lives in the `🤖` Jira markers and the final report, not in chat.
 - **One phase at a time — never batch phase calls.** Invoke a single sub-skill, wait for its return, and apply its side effects (the Jira transition, the posted marker) *before* invoking the next. Do not fire `validate` + `plan` + `code` in one turn. A `plan`/`code` call started before `validate` returns runs on stale assumptions instead of the freshly-read ticket, and the `To Do → In Progress` transition (which lives in `validate`'s pass branch) gets skipped. After `validate` returns `pass`, confirm the ticket is actually `In Progress` before starting `plan`. (Failure mode this guards against: batched phase calls let `plan`/`code` run from memory instead of the freshly-read ticket — contradicting an AC — and the validate-phase transition gets skipped.)
-- **Mutating ops run one at a time — never in a parallel batch with fallible reads.** Every state-changing call (a Jira transition, a `🤖` marker comment, `git push`, `gh pr create`/`edit`, a PR review post) must be issued on its own and confirmed before the next. Do **not** pack several mutations — or mutations interleaved with reads that might error — into a single parallel tool block: if any one call in that block fails, the whole block is cancelled and you are left with half-posted markers, an un-applied transition, and inconsistent resume state that the next run has to untangle. Reads can be parallelised freely; mutations are sequential. (Failure mode this guards against: a transition + several markers + a push + a PR-open batched in one parallel block are all cancelled together when an unrelated read in the same block errors — leaving the ticket half-handed-off.)
+- **Mutating ops run one at a time — never in a parallel batch with fallible reads.** Every state-changing call (a Jira transition, a `🤖` marker comment, `git push`, `gh pr create`/`edit`, a PR review post) must be issued on its own and confirmed before the next. Do **not** pack several mutations — or mutations interleaved with reads that might error — into a single parallel tool block: if any one call in that block fails, the whole block is cancelled and you are left with half-posted markers, an un-applied transition, and inconsistent resume state that the next run has to untangle. Reads can be parallelised freely; mutations are sequential. (Failure mode this guards against: a transition + several markers + a push + a PR-open batched in one parallel block are all cancelled together when an unrelated read in the same block errors — leaving the ticket half-handed-off.) **This rule is per-pipeline** — in concurrent mode each ticket's pipeline (and its mutations) runs inside its **own** worktree subagent, so N tickets' pipelines proceed in parallel, but *within* each subagent phases and mutations stay one-at-a-time. Distinct tickets touch distinct branches + distinct Jira issues, so their mutations don't collide.
 - **Full autonomy, escalate only on a critical decision.** No mid-loop "should I proceed?" Decide and document everything reversible; the only stop-and-ask is a genuinely critical, irreversible decision not derivable from ADR/PRD/Specs — and even then park that one ticket and keep the loop running.
 - **Works on Scrum and Kanban boards; never the backlog or a future sprint.** Re-verify per candidate after the JQL fetch.
 - **Only implement tickets that target the current repo** (`implement-validate`'s repo-scope gate).
@@ -228,8 +267,8 @@ Follow-up tickets to file (CRITICAL only): [list / none]
 - **Phase 2 is part of the run, not an optional epilogue.** Every PR opened or reworked this run goes through `implement-monitor` before the final report. Skipping it — ending on a freshly-opened PR whose CI was never inspected — is the single most common way a "green" run ships a red PR.
 - **Resumable + idempotent — handle partially-implemented tickets.** `🤖` markers drive resume, but reconcile them against the real artifacts (branch / pushed commits / open PR) and resume at the earliest genuinely-missing phase — never restart a ticket whose plan/code/PR already exist. Re-running never duplicates a PR or repeats a completed phase, never re-processes a review comment older than the last rework marker, and uses marker timestamps to keep a reworked ticket from routing back to the build phases.
 - **Never transition to `Done`.** This skill ends a ticket at `In Review` with an open PR.
-- **Strictly sequential — one ticket at a time** (single shared Docker Compose stack).
-- **Delegate read-only work to subagents; serialise stack access.**
+- **Sequential by default (`concurrency=1`); opt-in concurrent build (`concurrency=N`).** N>1 builds independent tickets in parallel worktree subagents under the **stack-free gate only** (integration + e2e defer to CI); the single shared Docker Compose stack stays strictly serial regardless of N, so Phase 2 monitoring/rework is always sequential.
+- **Delegate every task to subagents; serialise stack access.** Read-only work parallelises freely; only one stack-touching operation may be in flight at a time.
 - **Output prose stays in normal English** — PR bodies, Jira comments, and the report are permanent artifacts.
 
 ## Stop conditions
