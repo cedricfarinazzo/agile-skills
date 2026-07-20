@@ -24,7 +24,7 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP + `gh`.
 | — | `implement-review` | six-lens **self-review** by the author; verdict + verified receipt (files-read = diff, cite per lens + AC) |
 | — | `implement-monitor` | PR rework loop — new review comments, failing checks, conflicts |
 
-The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` — hidden from the `/` menu, but the orchestrator still composes them, each dispatched to a subagent that invokes the sub-skill via the Skill tool) — you don't call them directly. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
+The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` — hidden from the `/` menu, but the orchestrator still composes them, each dispatched to a named `agile-execution:*` agent — `agents/` dir, scoped model/effort per phase — that invokes the sub-skill via the Skill tool) — you don't call them directly. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
 
 ## The loop (per ticket, in Jira dependency order)
 
@@ -52,8 +52,8 @@ Other per-ticket exits (skip one, keep the run): out-of-scope (wrong repo), unde
 
 ## Operational rules
 
-- **Dispatch-and-verify** — the orchestrator runs no step's work itself. Each phase (`implement-validate` / `-plan` / `-code` / `-pr` / `-review` / `-monitor`) runs in a dedicated subagent that returns a **receipt**; the orchestrator verifies it against ground truth (git / `gh` / Jira) before advancing. A validate `pass` with no score breakdown, a review whose files-read list ≠ the PR diff, or a phase whose receipt is contradicted is re-dispatched — this is what stops silent shortcuts (skimmed review, skipped gate).
-- **Sequential by default, opt-in concurrent build** — `concurrency=1` (default) processes one ticket at a time. `concurrency=N` builds N independent tickets in parallel **git-worktree subagents**, running the **stack-free tiers** (lint + unit) locally and **deferring integration + e2e to CI** (a worktree can't hold the shared Docker stack). The stack stays strictly serial regardless of N, so PR monitoring/rework is always sequential; the merge train is always sequential.
+- **Dispatch-and-verify** — the orchestrator runs no step's work itself. Each phase (`implement-validate` / `-plan` / `-code` / `-pr` / `-monitor`) runs in its named `agile-execution:*` agent that returns a **receipt**; the orchestrator verifies it against ground truth (git / `gh` / Jira) before advancing. `implement-review` runs inline in the orchestrator by default (single read, all six lenses), fanning out to `review-lens` agents only for a large PR. A validate `pass` with no score breakdown, a review whose files-read list ≠ the PR diff, or a phase whose receipt is contradicted is re-dispatched — this is what stops silent shortcuts (skimmed review, skipped gate).
+- **Three concurrency modes** — `concurrency=0` runs every phase fully inline (no agent, no worktree). `concurrency=1` (default) dispatches each phase to its named agent, one ticket at a time. `concurrency=N>1` builds N independent tickets in parallel **git-worktree agents**, running the **stack-free tiers** (lint + unit) locally and **deferring integration + e2e to CI** (a worktree can't hold the shared Docker stack). The stack stays strictly serial regardless of mode, so PR monitoring/rework is always sequential; the merge train is always sequential.
 - **Test tiers (auto-classified)** — **stack-free** = lint + unit + typecheck + migration history-linearity (safe in a worktree); **stack-bound** = integration + e2e + apply-on-fresh-DB (need the stack → CI-only under concurrency). A project whose "unit" tests hit the DB must run `concurrency=1`.
 - **Repo-scope gate** — `implement-validate` skips tickets targeting another repo (resolved from git `origin` + `repo` / `repo-component-map`).
 

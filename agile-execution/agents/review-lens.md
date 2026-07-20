@@ -1,6 +1,6 @@
 ---
 name: review-lens
-description: Reads a PR's full changed-file set and reports findings for one or more assigned review lenses (architecture/security/performance/infra/code-quality/AC-DoD) from implement-review. Opt-in only, for a large PR where the orchestrator chose to fan out instead of reviewing single-pass; dispatched directly by agile-10-implement, one per lens group — never nests its own subagent dispatch.
+description: Reviews a PR's changed files against one or more assigned implement-review lenses. Opt-in fan-out for a large PR only; dispatched directly by agile-10-implement, one per lens group.
 model: sonnet
 effort: medium
 tools: Read, Grep, Glob, Bash, WebFetch
