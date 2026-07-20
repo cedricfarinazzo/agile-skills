@@ -11,7 +11,7 @@ A Claude Code marketplace shipping **six focused plugins** (split by cycle phase
 - **`agile-execution`** — autonomous build loop: Implement (10) + Dev Review (11). Needs `gh`.
 - **`agile-merge-review`** — PR workflow (formerly `dev-skills`): update-pr, review-pr, fix-until-satisfied, jira-postmortem, merge-train. Needs `gh`.
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
-- **`agile-sprint-drain`** — autonomous outer loop: `agile-sprint-drain` alternates `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Dispatches each orchestrator to a subagent that returns only a ledger (loop stays lean, runs uninterrupted); passes an optional `concurrency=N` through to the build. Composes the two orchestrators cross-plugin; requires `agile-execution` + `agile-merge-review` installed. Needs `gh` + Atlassian.
+- **`agile-sprint-drain`** — autonomous outer loop: `agile-sprint-drain` alternates `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Dispatches each orchestrator to its named agent (`agile-sprint-drain:build-queue-runner` / `:merge-queue-runner`) that returns only a ledger (loop stays lean, runs uninterrupted) — or, under `concurrency=0`, calls the orchestrator inline with no agent/worktree dispatch at all; passes an optional `concurrency=N` through to the build. Composes the two orchestrators cross-plugin; requires `agile-execution` + `agile-merge-review` installed. Needs `gh` + Atlassian.
 
 User-facing skills keep global cycle numbering (`agile-1` … `agile-15`) across plugins; composed sub-skills (the `implement-*` blocks and the `dev-*` merge-train blocks) are **unnumbered** because the user does not call them directly. Namespace = plugin name, e.g. `/agile-planning:agile-5-roadmap`, `/agile-merge-review:agile-11-merge-train`.
 
@@ -59,6 +59,14 @@ description: <when Claude should invoke this — include trigger phrases>
 Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `disable-model-invocation`, `user-invocable`.
 
 **Sub-skills composed by an orchestrator use `user-invocable: false`, NOT `disable-model-invocation: true`.** `disable-model-invocation: true` means *only the user* can invoke it — Claude can't, which would break an orchestrator calling it via the Skill tool. `user-invocable: false` hides the skill from the `/` menu while keeping it Claude-invocable (so `agile-10-implement` can compose the `implement-*` blocks). The `merge-*` blocks leave both open (also fine — orchestrator-invocable).
+
+## Agents (scoped subagent dispatch)
+
+`agile-execution`, `agile-merge-review`, and `agile-sprint-drain` each ship an `agents/` dir (plugin root, auto-discovered — no `plugin.json` field needed, same as `skills/`). Every phase/step an orchestrator dispatches to a subagent uses a **named agent from that dir** (`agile-execution:build-implementer`, `agile-merge-review:pr-reviewer`, etc.) scoped to the phase's actual workload — model, effort, and tool access sized to whether the phase is mechanical (haiku/low, e.g. `build-monitor`) or judgment-heavy (opus/medium for `ticket-planner`, sonnet/high for `build-implementer`), never the generic catch-all agent. An agent's body stays short and points back to its sub-skill via the Skill tool ("run `implement-code`; return its receipt") rather than restating that skill's instructions — the SKILL.md is the source of truth, the agent file is a thin scoped pointer to it.
+
+**RULE — when you add, rename, or remove a dispatch point in an orchestrator SKILL.md, add/rename/remove the matching file under that plugin's `agents/` dir in the same change**, and update the SKILL.md prose that names it. Leaving an orchestrator naming an agent file that doesn't exist (or an orphaned agent file nothing dispatches to) is a bug, same class as a stale Confluence-structure copy.
+
+**No subagent-spawns-subagent.** A dispatch point whose own sub-skill needs further fan-out (e.g. `implement-review`'s six-lens read) is fanned out **directly by the top-level orchestrator**, not by an intermediate agent that then spawns its own children — that extra hop adds latency for no benefit. `agile-10-implement` runs `implement-review` inline and dispatches `agile-execution:review-lens` subagents itself, rather than wrapping the whole review step in its own agent first.
 
 ## Skill authoring rules
 
