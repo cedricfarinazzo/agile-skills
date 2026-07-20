@@ -1,7 +1,7 @@
 {
   "name": "agile-execution",
   "description": "Autonomous execution skills for Claude Code — implement the active board's sprint (Scrum or Kanban) ticket by ticket in dependency order and self-review each PR. Full agent autonomy, resumable via Jira markers. Needs the gh CLI.",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "author": { "name": "cedricfarinazzo", "email": "cedric.farinazzo@gmail.com" },
   "homepage": "https://github.com/cedricfarinazzo/agile-skills",
   "repository": "https://github.com/cedricfarinazzo/agile-skills",
