@@ -24,7 +24,18 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP + `gh`.
 | — | `implement-review` | six-lens **self-review** by the author; verdict + verified receipt (files-read = diff, cite per lens + AC) |
 | — | `implement-monitor` | PR rework loop — new review comments, failing checks, conflicts |
 
-The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` — hidden from the `/` menu, but the orchestrator still composes them, each dispatched to a named `agile-execution:*` agent — `agents/` dir, scoped model/effort per phase — that invokes the sub-skill via the Skill tool) — you don't call them directly. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
+The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` — hidden from the `/` menu, but the orchestrator still composes them, each dispatched to a named `agile-execution:*` agent that invokes the sub-skill via the Skill tool) — you don't call them directly. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
+
+**Agents** (`agents/` dir, one per dispatch point — model/effort scoped to that phase's workload, not the generic catch-all agent):
+
+| Agent | Runs | Model / effort |
+|-------|------|-----------------|
+| `agile-execution:ticket-validator` | `implement-validate` | sonnet / low |
+| `agile-execution:ticket-planner` | `implement-plan` | opus / medium |
+| `agile-execution:build-implementer` | `implement-code` | sonnet / high |
+| `agile-execution:pr-publisher` | `implement-pr` | sonnet / low |
+| `agile-execution:review-lens` | `implement-review` lens fan-out (opt-in, large PR only) | sonnet / medium |
+| `agile-execution:build-monitor` | `implement-monitor` | haiku / low |
 
 ## The loop (per ticket, in Jira dependency order)
 

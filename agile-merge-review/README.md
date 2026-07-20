@@ -22,7 +22,16 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 | — | `merge-fix-until-satisfied` | fix every finding (Critical + Minor), re-verify, until satisfied (named CI run id) |
 | — | `merge-jira-postmortem` | post structured post-merge comment + transition the Story to Done; return receipt (comment id + done-category) |
 
-The `merge-*` blocks are **unnumbered sub-skills** the train composes — each **dispatched to its named `agile-merge-review:*` agent** (`agents/` dir; `pr-updater` / `pr-reviewer` / `fix-until-satisfied` / `jira-postmortem`, scoped model/effort per step) that invokes the sub-skill via the Skill tool and returns a receipt the train verifies; you don't call them directly. Invoke `/agile-merge-review:agile-11-merge-train` ("merge train", "process all open PRs").
+The `merge-*` blocks are **unnumbered sub-skills** the train composes — each **dispatched to its named `agile-merge-review:*` agent** that invokes the sub-skill via the Skill tool and returns a receipt the train verifies; you don't call them directly. Invoke `/agile-merge-review:agile-11-merge-train` ("merge train", "process all open PRs").
+
+**Agents** (`agents/` dir, one per dispatch point — model/effort scoped to that step's workload):
+
+| Agent | Runs | Model / effort |
+|-------|------|-----------------|
+| `agile-merge-review:pr-updater` | `merge-update-pr` (3a) | sonnet / low |
+| `agile-merge-review:pr-reviewer` | `merge-review-pr` (3b) | sonnet / high |
+| `agile-merge-review:fix-until-satisfied` | `merge-fix-until-satisfied` (3c) | sonnet / high |
+| `agile-merge-review:jira-postmortem` | `merge-jira-postmortem` (3g) | sonnet / medium |
 
 ## Dispatch-and-verify — no shortcuts
 

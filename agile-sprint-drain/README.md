@@ -22,6 +22,13 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
+**Agents** (`agents/` dir — wrap the two orchestrators for `concurrency>=1`; skipped entirely under `concurrency=0`, which calls each orchestrator inline instead):
+
+| Agent | Runs | Model / effort |
+|-------|------|-----------------|
+| `agile-sprint-drain:build-queue-runner` | `agile-10-implement` (build queue) | sonnet / medium |
+| `agile-sprint-drain:merge-queue-runner` | `agile-11-merge-train` (merge queue) | sonnet / medium |
+
 ## Why it exists
 
 `agile-10-implement` clears the build queue (`To Do` Story → open PR, `In Review`); `agile-11-merge-train` clears the merge queue (open PR → merged + `Done`). The two alternate to unblock each other: a ticket A blocked by B is eligible only once **B is `Done` and B's PR is merged**, so every merge pass can unlock new build work. Until now a human ran that loop by hand — deciding implement-vs-merge, re-running each pass. This skill is that scheduler: it dispatches each orchestrator to its named agent (`build-queue-runner` / `merge-queue-runner`; inline under `concurrency=0`) that returns only a ledger, so the loop runs uninterrupted.
