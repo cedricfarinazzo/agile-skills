@@ -19,7 +19,7 @@ Raw idea → sprint retro, wired into **Confluence** and **Jira**. Six focused p
 
 ⭐ **The headline act:** `agile-execution` pulls the active sprint, walks tickets in Jira dependency order, and drives each one to an open, self-reviewed PR — no mid-loop hand-holding. It even tells you what it's doing as it goes (`▶ VC-123 — implementing`, `✓ VC-123 → In Review`).
 
-User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) across plugins, so the order is legible at a glance. The two orchestrators (`agile-10-implement`, `agile-11-merge-train`) compose **unnumbered sub-skills** you don't call directly. Invoke with `/<plugin>:<skill>`, e.g. `/agile-planning:agile-5-roadmap`.
+User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) across plugins, so the order is legible at a glance. The two orchestrators (`agile-10-implement`, `agile-11-merge-train`) compose **unnumbered sub-skills** you don't call directly — each dispatched to a scoped subagent (model/effort sized per phase, see each plugin's README). Invoke with `/<plugin>:<skill>`, e.g. `/agile-planning:agile-5-roadmap`.
 
 ## Cycle order (all plugins together)
 
@@ -60,7 +60,7 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
          ──────────────────────────────────────────────────
    agile-sprint-drain  alternates 10 ⇄ 11 to a fixed point:
      each pass: implement eligible To-Do → merge open PRs
-     (each orchestrator in a subagent → ledger) ;
+     (each orchestrator dispatched to its own agent → ledger) ;
      actionable-work guard keeps retrying while any item can
      advance, STUCK only when all remaining are human-blocked ;
      DRAINED (all Done + merged) hands off to agile-sprint-close

@@ -21,8 +21,11 @@ You watch the same marker stream; you no longer decide implement-vs-merge.
 - A sprint is active (Scrum: `openSprints()`; Kanban: on-board, non-backlog).
 - The **`agile-execution`** and **`agile-merge-review`** plugins are installed —
   this skill composes their orchestrators (`agile-10-implement`,
-  `agile-11-merge-train`) by **dispatching each to an `Agent` subagent** (which
-  invokes the orchestrator via the Skill tool) and does nothing if either is absent.
+  `agile-11-merge-train`) by **dispatching each to its named agent**
+  (`agile-sprint-drain:build-queue-runner` / `agile-sprint-drain:merge-queue-runner`,
+  which invoke the orchestrator via the Skill tool — or, under `concurrency=0`, by
+  calling the orchestrator inline via the Skill tool with no agent dispatch) and does
+  nothing if either plugin is absent.
 - Consumer repo `CLAUDE.md` / `AGENTS.md` `## Skill configuration` is present
   (this skill reads nothing extra — it inherits both orchestrators' config:
   `cloudId`, status names, `base-branch`, lint/test commands, `max-build-concurrency`, etc.).
@@ -30,7 +33,12 @@ You watch the same marker stream; you no longer decide implement-vs-merge.
 **Input:** optional `concurrency=N` — passed straight through to `agile-10-implement`
 on the build (step 4) call only; the merge call is never given concurrency (the train is
 always sequential). Absent → the build orchestrator's own default (`max-build-concurrency`
-or `1`).
+or `1`). `concurrency=0` also changes *this* skill's own dispatch: step 4 calls
+`agile-10-implement` inline via the Skill tool instead of dispatching
+`agile-sprint-drain:build-queue-runner` — no agent, no worktree, at either layer. `N>=1`
+keeps the existing behavior: step 4 dispatches `build-queue-runner`, which passes
+`concurrency=N` down into `agile-10-implement`'s own per-ticket dispatch (sequential
+subagents at `N=1`, worktree subagents at `N>1`).
 
 ## The loop
 
@@ -66,16 +74,19 @@ live board — never from memory of a previous pass.
                             # don't re-grind a parked/needs-info ticket; DO resume a
                             # ticket the build left In Progress (crash/interruption)
          if build_todispatch is non-empty:
-           dispatch a subagent: agile-10-implement [concurrency=N] [keys=<in-flight keys>]
+           concurrency==0 -> call agile-10-implement inline (Skill tool, no agent)
+           concurrency>=1 -> dispatch agile-sprint-drain:build-queue-runner:
+                              agile-10-implement [concurrency=N] [keys=<in-flight keys>]
            # pass in-flight keys explicitly — agile-10 selects To-Do by default and
            # would otherwise skip an In-Progress ticket; it resumes each via markers.
-           # the subagent returns ONLY a pass-outcome ledger, never its transcript
+           # the dispatched agent returns ONLY a pass-outcome ledger, never its transcript
            fold its ledger into LEDGER
 
       5. merge_todispatch = open PRs NOT already retired HUMAN-BLOCKED in the LEDGER
          if merge_todispatch is non-empty:
-           dispatch a subagent: agile-11-merge-train                # merge queue -> Done
-           # strictly sequential; returns ONLY a pass-outcome ledger
+           concurrency==0 -> call agile-11-merge-train inline (Skill tool, no agent)
+           concurrency>=1 -> dispatch agile-sprint-drain:merge-queue-runner: agile-11-merge-train
+           # merge queue -> Done; strictly sequential; returns ONLY a pass-outcome ledger
            fold its ledger into LEDGER
 
       # counts (build/merge/inflight) still include human-blocked items, so DRAINED
@@ -197,9 +208,12 @@ one was not. **DRAINED — all tickets Done and PRs merged — is the only healt
 
 ## Lean context — the loop runs uninterrupted
 
-Both orchestrators run **inside `Agent` subagents** (step 4 dispatches
-`agile-10-implement`; step 5 dispatches `agile-11-merge-train`), and each returns **only a
-size-capped pass-outcome ledger** — never its transcript. The heavy detail (per-ticket
+Under `concurrency>=1`, both orchestrators run **inside their named agents**
+(step 4 dispatches `agile-sprint-drain:build-queue-runner`; step 5 dispatches
+`agile-sprint-drain:merge-queue-runner`), and each returns **only a size-capped
+pass-outcome ledger** — never its transcript. Under `concurrency=0`, both run inline via
+the Skill tool instead — no agent, no worktree — but the outer loop still only keeps the
+ledger, discarding the same per-pass detail either way. The heavy detail (per-ticket
 plans, diffs, review threads, CI-poll logs) stays in the subagent and is discarded on
 return, so the outer loop holds only the LEDGER and stays lean across every pass without
 interruption.
@@ -225,8 +239,9 @@ A drain pass can leave several open PRs at once. On a **capacity-limited CI runn
   it STUCK-stops only when the actionable set empties, not on the first pass a parked
   ticket makes no progress.
 - It does not write `Done` itself, open PRs itself, or merge itself — it only
-  **dispatches and sequences** the two orchestrators (each in its own subagent for
-  context isolation, so the loop runs uninterrupted). All invariants they enforce
+  **dispatches and sequences** the two orchestrators (each in its own named agent for
+  context isolation under `concurrency>=1`, or called inline under `concurrency=0`, so
+  the loop runs uninterrupted either way). All invariants they enforce
   (builds **sequential by default, opt-in concurrent** via the passed-through
   `concurrency=N`; single shared Docker stack; strictly sequential merge; repo-scope
   gate; three-role review; per-step receipt verification) are preserved because the
@@ -260,14 +275,15 @@ Reuse the orchestrators' streaming markers; add pass banners so the alternation 
 legible:
 
     ══ drain pass 1 ══  build:5  merge:0  (concurrency 3)
-    ▶ agile-10-implement subagent → ledger
-    ✓ VC-101 → In Review  ✓ VC-102 → In Review  … (build subagent drains 5)
+    ▶ agile-sprint-drain:build-queue-runner → agile-10-implement → ledger
+    ✓ VC-101 → In Review  ✓ VC-102 → In Review  … (build agent drains 5)
     ══ drain pass 1 (merge) ══  open PRs:5
-    ▶ agile-11-merge-train subagent → ledger
-    ✓ VC-101 PR #88 merged → Done  … (merge subagent drains 5)
+    ▶ agile-sprint-drain:merge-queue-runner → agile-11-merge-train → ledger
+    ✓ VC-101 PR #88 merged → Done  … (merge agent drains 5)
     ══ drain pass 2 ══  build:3  merge:0   (3 newly unblocked by pass-1 merges)
     …
     ══ DRAINED ══  12 tickets Done, 0 remaining
 
-Each orchestrator runs in a subagent and streams its own markers inside; the outer
-loop shows only the pass banners + per-item outcomes folded from each ledger.
+Each orchestrator runs in its named agent (`concurrency>=1`) or inline (`concurrency=0`)
+and streams its own markers inside; the outer loop shows only the pass banners +
+per-item outcomes folded from each ledger.
