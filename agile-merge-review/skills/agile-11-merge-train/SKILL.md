@@ -28,9 +28,10 @@ This is what stops the shortcuts this skill is prone to — a shallow review, a 
 | Step | Receipt proof fields | Independent verification before advancing |
 |------|---------------------|-------------------------------------------|
 | `3a merge-update-pr` | outcome (Pushed / No-op / Conflict) + run id/sha on no-op | `gh pr view` mergeStateStatus matches the claimed outcome |
-| `3b merge-review-pr` | **Files-read list** (= diff set); a **cite per lens**; **per-AC line binding**; verdict | compute `gh pr diff <N> --name-only`; **reject if Files-read ≠ diff set**, reject any AC with no line cite, reject a bare pass |
+| `3b merge-review-pr` | **Reviewed sha**; **Files-read list** (= diff set); a **cite per lens**; **per-AC line binding**; verdict | compute `gh pr diff <N> --name-only`; **reject if Files-read ≠ diff set**, reject any AC with no line cite, reject a bare pass; **record the reviewed sha — 3f gates on it** |
 | `3c merge-fix-until-satisfied` | 5-gate breakdown + **pre-push run id + pushed sha** | the pushed sha is the branch tip (`gh pr view --json headRefOid`); 3e then gates the NEW run |
 | `3e CI monitor` | named completed all-green run id on the post-push tip | independent `gh` read of that run |
+| **`3f` reviewed-sha gate** (before merging) | the sha 3b reviewed + the sha about to merge | `gh pr view <N> --json headRefOid` **== the 3b reviewed sha**. Different ⇒ 3c pushed code no review has read → **re-dispatch `:pr-reviewer` on the delta, then re-enter 3e**. Not clearable any other way |
 | `3f merge` | `mergedAt` set | `gh pr view --json state,mergedAt` == MERGED — **the merge command's exit code is not the signal**, the state read is |
 | `3g merge-jira-postmortem` | **posted comment id + resulting status category** | `getJiraIssue` confirms done-category; **a merged PR whose ticket ≠ Done re-dispatches 3g** |
 
@@ -106,7 +107,8 @@ For each PR in merge order:
 
 ### 3b. Deep review — this is the main work
 - **Dispatch to `agile-merge-review:pr-reviewer`** (invokes `merge-review-pr` via the Skill tool) — not its semantics inline. The sub-skill exists; use it. Running the review in a fresh subagent whose receipt the orchestrator checks is exactly what prevents the soft/shallow review this step is prone to. The merge-train layer is for ordering, Jira state, and **verifying the review receipt** — the file-by-file review work belongs to `merge-review-pr`. If `merge-review-pr` is missing something this train needs, edit *that* skill rather than re-implementing review logic here.
-- **Verify the review receipt before advancing:** the returned verdict must carry a **Files-read list equal to the PR diff file set** (`gh pr diff <N> --name-only`), a **`file:line` cite per lens**, and a **`file:line` per AC**. A bare pass, a Files-read list short of the diff, or an AC with no line cite = a partial review → re-dispatch. The orchestrator does not read the files itself; it checks that the subagent did.
+- **Verify the review receipt before advancing:** the returned verdict must carry the **reviewed sha**, a **Files-read list equal to the PR diff file set** (`gh pr diff <N> --name-only`), a **`file:line` cite per lens**, and a **`file:line` per AC**. A bare pass, a Files-read list short of the diff, or an AC with no line cite = a partial review → re-dispatch. The orchestrator does not read the files itself; it checks that the subagent did.
+- **Record the reviewed sha.** The receipt names the branch tip the review actually read (`gh pr view <N> --json headRefOid` at review time). Carry it forward — 3f refuses to merge any other sha. A review is a statement about **one tree**, not about the PR number.
 - **Read every changed file in full** (not just the diff hunks). The diff hides context; the file shows whether the change makes sense in its surroundings.
 - For each changed file ask: does this file still make sense as a whole after the change? Are imports unused? Does naming match neighbours? Are there dead branches or copy-paste leftovers?
 - Cross-check against Jira ACs loaded in Phase 0, one by one. For each AC: locate the code that satisfies it. If you can't point to a line, the AC is not satisfied.
@@ -124,7 +126,7 @@ For each PR in merge order:
 - If 3b found issues: the sub-skill fixes them (Critical first, then Minor), commits, pushes, re-verifies.
 - If 3b found no issues: the sub-skill confirms the verdict by re-running its local gate (lint + a final re-examination) and reading the fresh CI-green run. Phase 2 (Commit & push) is a no-op when nothing changed.
 - **The satisfaction gate must be green before merge:** lint clean locally, then 3e's fresh run all-green (the test tiers' gate). Don't push and merge hoping CI flips.
-- Re-review the changed files in full after the fix — fixes can introduce new issues.
+- Re-review the changed files in full after the fix — fixes can introduce new issues. **This self-re-examination is not the independent review**: if the sub-skill pushed, the new sha is unreviewed and 3f's reviewed-sha gate will send it back to `:pr-reviewer` for the delta. Expect that second review whenever 3c pushes; it is normal flow, not a failure.
 
 ### 3d. Bad-PR escape hatch
 If the PR is too broken to fix in one pass — wrong approach, missing core ACs, would require reworking from scratch — **stop**. Do NOT merge.
@@ -165,6 +167,14 @@ If the PR is too broken to fix in one pass — wrong approach, missing core ACs,
 - **A `CANCELLED` job is not automatically preemption.** A hung test that exhausts the job's wall-clock, or a canceling concurrency group, also reports `CANCELLED` — often with the downstream jobs `SKIPPED`. Before reflexively rerunning, read the job log for `timeout` / `exceeded` / `waiting for`: a hung test reproduces on every rerun, so diagnose and fix it rather than burning rerun cycles.
 
 ### 3f. Merge
+
+**Reviewed-sha gate — run this BEFORE the merge command.** Read the tip about to land (`gh pr view <N> --json headRefOid`) and compare it to the sha 3b reported as reviewed.
+
+- **Equal** → the reviewed tree is the landing tree; merge.
+- **Different** → 3c pushed commits *after* the review, so the landing tree contains code **no independent review has read**. The PR is **not cleared**. Do not merge, and do not accept 3c's own re-examination as the review — the fixer grading its own fix is not an independent gate. **Re-dispatch `agile-merge-review:pr-reviewer` on the delta** (`git diff <reviewed-sha>..<new-tip>`, plus every file that delta touches read in full), verify its receipt exactly as at 3b, record the **new** reviewed sha, then **re-enter 3e** (a fresh green run on that tip) and return here. Repeat until the reviewed sha equals the tip.
+
+This is the common case, not an edge case: any PR whose review found something goes through 3c, so its merge candidate is by construction newer than its review. Treat the second review as normal flow.
+
 - `gh pr merge <N> --squash` — **no `--delete-branch`.** That flag makes the command try to delete the local branch too, which **fails when a git worktree still holds it** (concurrent builds leave worktrees behind) — *after the merge has already happened*.
 - **A non-zero exit from `gh pr merge` is NOT proof the merge failed.** Always verify state before reacting: `gh pr view <N> --json state,mergedAt` — `mergedAt` set (state `MERGED`) means it merged, whatever the exit code said. Retrying a merge that actually succeeded is how a train reports a false failure and thrashes.
 - Only if `mergedAt` is unset did the merge genuinely fail — then read the error and act on it.
@@ -273,6 +283,7 @@ given.
 - **Always rebase before review.** Every PR gets a `merge --no-ff main` before review and merge. The CI run that gates the merge must be on the exact tree that will land. A "green CI from yesterday" is not a green CI.
 - **Wait for the fresh CI run, polling the run id — not the PR head.** Capture the run id before push, wait until a different id appears, then poll `gh run view <id>` to `completed` and assert `conclusion == success`. A `gh pr view --json statusCheckRollup` poll follows the head and re-targets across the push, which makes the reading ambiguous. Do NOT chain `sleep` calls in the foreground — use a single `until` loop in `run_in_background: true`.
 - **The push and the merge are never in the same turn.** The push (3a/3c) and `gh pr merge` (3f) are separate turns with the 3e gate between them. Issuing both in one batch means the merge fires before CI registers — the squash then captures whatever the branch tip is, green or not.
+- **Never merge a sha that no review has read.** 3b reviews the tip as it stood *then*; 3c then pushes new code onto it. So before merging, assert the tip about to land equals the sha 3b reported reviewed — different means the delta is unreviewed, and `merge-fix-until-satisfied`'s own re-examination does **not** close the gap (the fixer grading its own work is not an independent review). Re-dispatch `:pr-reviewer` on the delta, then re-enter 3e. A fix that adds a new module, a new validator, or new tests is exactly the code most in need of a second pair of eyes, and it is precisely the code that used to reach `main` unread.
 - **Verify the merge by state, not by exit code.** `gh pr merge --squash` can exit non-zero after a *successful* merge (e.g. the branch delete it attempts fails because a worktree holds the branch). Always confirm with `gh pr view <N> --json state,mergedAt`. Never pass `--delete-branch`; branch cleanup is Phase 4b, where failure is harmless.
 - **`gh pr merge` requires a named completed all-green run id on the post-push tip.** If you cannot state the run id you verified, you may not merge. `mergeStateStatus: CLEAN` / `mergeable: MERGEABLE` is NOT a CI signal — read `statusCheckRollup` conclusions yourself. A repo without required-status-check branch protection will merge red without complaint; the gate is yours, not the host's.
 - **Never merge without explicit satisfaction.** All ACs validated against specific lines, all tests green locally + on the fresh CI run, branch rebased on the current `main`. Any of those missing → fix or block.

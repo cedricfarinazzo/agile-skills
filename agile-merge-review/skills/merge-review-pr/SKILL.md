@@ -13,9 +13,11 @@ Thorough PR review. Reads every changed file in full — not just the diff. Repo
 
 PR number from args. If not given, run `gh pr list --state open` and ask.
 
+**Delta mode.** The caller may pass a previously-reviewed sha (`reviewed=<sha>`) — the post-fix re-review at `agile-11-merge-train` 3f. Then scope the read to `git diff <sha>..HEAD`: read **in full** every file that delta touches (not only its hunks), re-verify every AC the delta claims to affect, and report the new `headRefOid` as the reviewed sha. The already-reviewed remainder of the diff is not re-read. Everything else in this skill is unchanged — same lenses, same receipt, same severity rules.
+
 ## Steps
 
-1. `gh pr view <N> --json title,body,headRefName,baseRefName,additions,deletions,changedFiles`
+1. `gh pr view <N> --json title,body,headRefName,baseRefName,headRefOid,additions,deletions,changedFiles` — **record `headRefOid` as the reviewed sha.** A review is a statement about one tree; the caller gates the merge on this sha (`agile-11-merge-train` 3f) and re-dispatches you on the delta if the branch moved after you read it.
 2. Extract Jira key from `title` (e.g. `[ABC-123]`) or `headRefName` (e.g. `feature/ABC-123`). Project ticket-prefix regex is configurable per consumer repo — defaults to `[A-Z]+-\d+`. Record for step 4. If no key found, do not abort yet — continue, and apply the "no spec" rule in step 4.
 3. `gh pr diff <N>` — read full diff
 4. For every file in the diff: read the **full file** (not just the changed hunks). Diffs hide context.
@@ -84,6 +86,8 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 ### Overview
 <2-3 sentences: what it does>
 
+Reviewed sha: <headRefOid>   (delta-review only: reviewed `<old-sha>..<new-sha>`)
+
 ### Files read in full
 - `path/a.py` (123 lines)
 - `path/b.md` (45 lines)
@@ -113,7 +117,8 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - <what was done correctly>
 ```
 
-**The receipt is verified by the caller (`agile-11-merge-train` 3b) — it is not just a self-attestation.** Three mandatory sections make a shallow review impossible to hide:
+**The receipt is verified by the caller (`agile-11-merge-train` 3b) — it is not just a self-attestation.** Four mandatory fields make a shallow review impossible to hide:
+- **Reviewed sha** — the branch tip you actually read. The caller gates the merge on it: a tip that moved after your review is unreviewed code and comes back to you.
 - **Files read in full** — every file in the PR diff with its line count. The caller computes `gh pr diff <N> --name-only` and **rejects the review if this list ≠ the diff set**. A partial read (`Read offset=155 limit=12`) does NOT count — only a full-file read. If a file is not listed, the review is incomplete; read it before reporting.
 - **Lens verdicts** — a line per lens, each with a `file:line` cite or an explicit "N/A because …". A bare ✅ with no citation is rejected: you can't pass a lens without pointing at what you checked.
 - **AC verification** — every AC → the specific `file:line` that satisfies it, in **both** the clean and the has-findings path. "If you can't point to a line, the AC is not satisfied." An AC with no line cite is rejected.
