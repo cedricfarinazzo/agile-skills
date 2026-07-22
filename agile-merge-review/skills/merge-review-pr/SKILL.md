@@ -54,6 +54,13 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - **Env-gated tests must still be import-clean.** Tests behind feature flags skip at runtime but their imports + name references still execute at collection time. Missing imports, undefined names, etc. are critical bugs masked by the gate.
 - **Router/auth-guard introduction cascade.** If the PR adds routing guards or any redirect-on-mount logic, grep existing E2E tests for navigation patterns that may now redirect unexpectedly. Each is a critical finding — DOM assertions become stale.
 
+**PR description claims — the PR body is part of the artifact under review**
+- The PR body is a **claim about the diff**, not evidence. Verify each claim against the changed files; a claim contradicted by the diff is a finding, and a **fabricated** one is Critical.
+- **AC-coverage table:** for every row, open the test file it cites and confirm the test that covers that AC actually exists and exercises it. A row citing a test file that does not exist, a test name not in that file, or a test that contains none of the calls the row claims → **Critical**.
+- **Test-tiers / checklist claims:** "integration test added", "e2e updated", "migration tested" must each be traceable to a changed file. A ticked box with nothing in the diff behind it → **Critical**.
+- **Files/scope claims:** a body describing changes the diff does not contain (or omitting a file the diff does change) → Minor, or Critical if it hides a risky change.
+- This lens caught the strongest finding in a real review pass: an AC-coverage table crediting a test file that contained none of the calls it claimed.
+
 **Documentation**
 - Test-suite `CLAUDE.md` updated: project structure tree, coverage table, run command section
 - Backend / frontend `CLAUDE.md` updated if a new convention was established
@@ -87,6 +94,7 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - Security ......... ✅ `file:line`  |  N/A because <no new endpoint/input>
 - Naming/conventions ✅ `file:line`  |  ...
 - Test coverage .... ✅ `file:line`  |  ...
+- PR-body claims ... ✅ <each AC-table row / tier claim traced to a changed file>  |  ❌ see Critical
 - Documentation .... ✅ `file:line`  |  N/A
 - Migration ........ N/A  |  ✅ `file:line`
 
@@ -119,6 +127,7 @@ If no issues: explicitly state "Satisfied — ready to merge." and why — but t
 ## Rules
 
 - Read every changed file in full before reporting
+- **Review the PR description too — it is part of the artifact.** Every AC-table row, test-tier claim, and ticked checklist box is verified against the diff. A cited test that does not exist (or does not exercise what the row claims) is Critical, not a doc nit.
 - Never report an issue without a specific fix
 - Stale ACs count as minor, not critical
 - Missing run command in test-suite `CLAUDE.md` counts as minor

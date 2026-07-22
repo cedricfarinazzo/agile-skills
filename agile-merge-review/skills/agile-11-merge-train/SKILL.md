@@ -113,6 +113,7 @@ For each PR in merge order:
 - Check against `CLAUDE.md` (root + relevant subfolder) conventions and architecture invariants — naming, async patterns, federation rules, scoping, no cross-service imports, etc.
 - Check tests: do the new tests actually exercise the new code paths, or are they smoke tests? Are negative paths covered? Are mocks reasonable?
 - Check security boundaries: input validation, auth checks, no secret leakage, no SQL injection via string interpolation.
+- **Verify the PR body's own claims against the diff** (`merge-review-pr`'s PR-description-claims lens): an AC-coverage table crediting a test that does not exist, or a test-tiers/checklist claim nothing in the diff backs, is a Critical finding — not a documentation nit.
 - Compare delivered ACs against ticket ACs. **Any missing or wrong AC goes in the postmortem and must be reconciled before merge** — either fix the code or explicitly accept the deviation with rationale.
 - Be explicit about satisfaction. If you can't write "I read every changed file in full and verified each AC against specific lines" — go back and do it. Do not merge on partial review.
 
