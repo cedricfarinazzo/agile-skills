@@ -35,7 +35,7 @@ The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` 
 | `agile-execution:build-implementer` | `implement-code` | sonnet / high |
 | `agile-execution:pr-publisher` | `implement-pr` | sonnet / low |
 | `agile-execution:review-lens` | `implement-review` lens fan-out (opt-in, large PR only) | sonnet / medium |
-| `agile-execution:build-monitor` | `implement-monitor` | haiku / low |
+| `agile-execution:build-monitor` | `implement-monitor` | sonnet / medium |
 
 ## The loop (per ticket, in Jira dependency order)
 

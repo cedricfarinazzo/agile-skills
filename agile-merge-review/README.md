@@ -31,7 +31,7 @@ The `merge-*` blocks are **unnumbered sub-skills** the train composes — each *
 | `agile-merge-review:pr-updater` | `merge-update-pr` (3a) | sonnet / low |
 | `agile-merge-review:pr-reviewer` | `merge-review-pr` (3b) | sonnet / high |
 | `agile-merge-review:fix-until-satisfied` | `merge-fix-until-satisfied` (3c) | sonnet / high |
-| `agile-merge-review:jira-postmortem` | `merge-jira-postmortem` (3g) | sonnet / medium |
+| `agile-merge-review:jira-postmortem` | `merge-jira-postmortem` (3g) | sonnet / low |
 
 ## Dispatch-and-verify — no shortcuts
 
