@@ -229,6 +229,27 @@ A ticket may not be reported as `In Review` in Phase 3 until its PR has been mon
 
 ---
 
+## Phase 2b — Worktree cleanup (end of run, best-effort)
+
+**Only when the run used worktrees (`concurrency>1`).** Each batch member built in its own worktree and nothing ever removed them, so they accumulate across runs — four in a single run is normal. They are not inert: a lingering worktree still holds its branch, which makes a later `git branch -d` (and the branch delete `gh pr merge --delete-branch` attempts) fail *after* the merge already happened — the exact false-failure the merge train now guards against by reading state instead of the exit code. Clean up at the source.
+
+After Phase 2 (all monitoring done), in one pass:
+
+```bash
+git worktree list --porcelain          # what exists, and which branch each holds
+git branch --merged <base-branch>      # which of those branches have landed
+git worktree remove <path>             # merged branch only
+git worktree prune                     # drop stale administrative entries
+```
+
+- **Remove only a worktree whose branch is merged into the base branch.** An unmerged branch's worktree is live work — a PR still open, a ticket still in review, possibly the salvage target for a died subagent (Phase 0.5). Leave it, and list it in the report.
+- **Never `--force`.** A worktree with uncommitted changes refuses to be removed; that refusal is the signal that something unpushed lives there. Report the path, do not discard it.
+- **Failure here is harmless.** A worktree that will not go away is a housekeeping item, never a ticket outcome — log what remains and continue to the report.
+
+Pairs with `agile-11-merge-train`'s end-of-train branch cleanup (its Phase 4b): the train deletes the merged branches, this deletes the merged worktrees that would otherwise hold them.
+
+---
+
 ## Phase 3 — Final report
 
 Before printing the report, **reconcile the actual end-state of every ticket this run touched** — do not report from memory of what you intended. For each: confirm the PR is open (`gh pr list --head <branch>`), the Jira status is the expected one (`getJiraIssue` — `in-review-status-name`, or `in-progress-status-name` if the board has no In-Review column), and the expected `🤖` markers are present (validate → plan → implement → pr → review → status_change). Any mismatch (PR missing, transition not applied, a marker absent) is fixed now — re-apply the missing mutation — not silently reported as done. This catches a partially-applied hand-off (e.g. markers posted but the transition never landed) before it reaches the user.
@@ -255,6 +276,7 @@ Sent to refinement (validation rejected): [list + what's missing]
 Out of scope (other repo): [list + target repo]
 Awaiting critical decision: [list + the question]
 Rework processed this run: [tickets + what changed]
+Worktrees removed / kept (concurrent runs): [removed N merged; kept: <path> — branch unmerged / uncommitted work]
 Follow-up tickets to file (CRITICAL only): [list / none]
 
 👉 Next: agile-11-merge-train to review + merge the open PRs, then skill 14 (QA Validation).
@@ -286,6 +308,7 @@ given.
 - **Resumable + idempotent — handle partially-implemented tickets.** `🤖` markers drive resume, but reconcile them against the real artifacts (branch / pushed commits / open PR) and resume at the earliest genuinely-missing phase — never restart a ticket whose plan/code/PR already exist. Re-running never duplicates a PR or repeats a completed phase, never re-processes a review comment older than the last rework marker, and uses marker timestamps to keep a reworked ticket from routing back to the build phases.
 - **Never transition to `Done`.** This skill ends a ticket at `In Review` with an open PR.
 - **Three-way concurrency split.** `0` = fully inline, no agent/worktree at all. Sequential by default (`concurrency=1`) = one ticket at a time, each phase dispatched to its named agent, no worktree. Opt-in concurrent (`concurrency=N`, N>1) = independent tickets in parallel worktree subagents under the **stack-free gate only** (integration + e2e defer to CI). The single shared Docker Compose stack stays strictly serial regardless of mode, so Phase 2 monitoring/rework is always sequential.
+- **Clean up the worktrees you created (Phase 2b).** A concurrent run leaves one worktree per ticket and nothing else removes them; they pile up run over run and each one keeps holding its branch, which turns a later branch delete into a spurious post-merge failure. Remove the merged ones, keep the unmerged ones (live work / salvage material), never `--force`, and report both lists. Best-effort — a cleanup failure is never a ticket outcome.
 - **Delegate every task to its named agent (dispatch modes); serialise stack access.** Read-only work parallelises freely; only one stack-touching operation may be in flight at a time.
 - **Output prose stays in normal English** — PR bodies, Jira comments, and the report are permanent artifacts.
 
