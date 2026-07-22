@@ -80,11 +80,10 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 
 ## Output format
 
+**No preamble, no Overview/Summary section, no "Good"/praise section.** They prove nothing, the caller verifies nothing with them, and the orchestrator pays for them in context. Open on the fields. Prose belongs *inside* a finding and inside a per-AC binding — that is where it is the value: a finding compressed to a label cannot be acted on, so give each one the sentence or two it needs (what is wrong, why it matters, the fix).
+
 ```
 ## PR #<N> Review — [title]
-
-### Overview
-<2-3 sentences: what it does>
 
 Reviewed sha: <headRefOid>   (delta-review only: reviewed `<old-sha>..<new-sha>`)
 
@@ -112,9 +111,6 @@ Reviewed sha: <headRefOid>   (delta-review only: reviewed `<old-sha>..<new-sha>`
 
 ### Minor
 - **<short title>**: <problem> → <fix>
-
-### Good
-- <what was done correctly>
 ```
 
 **The receipt is verified by the caller (`agile-11-merge-train` 3b) — it is not just a self-attestation.** Four mandatory fields make a shallow review impossible to hide:
@@ -139,6 +135,6 @@ If no issues: explicitly state "Satisfied — ready to merge." and why — but t
 - Wrong `server_default` pattern counts as critical (causes ORM autogenerate drift)
 - Field name mismatch between schema and tests counts as critical (causes test failures)
 - **Project Structure tree drift counts as minor.** New file in a `CLAUDE.md`-documented folder but tree not updated → minor finding. The self-improvement loop rule ("new file → update tree") applies to non-test helpers too, not just test files.
-- **Cross-PR file overlap is a review signal.** If review notices the diff touches a file that other open PRs also touch, flag in the "Good" / "Notes" section so the postmortem can record the Jira-link recommendation.
+- **Cross-PR file overlap is a review signal.** If review notices the diff touches a file that other open PRs also touch, report it as a `Cross-PR overlap:` field (the file + the other PR/ticket) so the postmortem can record the Jira-link recommendation.
 - **Review report prose stays in normal English.** The report is a permanent record consumed by the merge-train, postmortem skill, and reviewers reading it later in Jira. Write the report as you would for a code-review comment on GitHub.
 - **A PR introducing a new lint rule must re-sweep the rebased tree, not just the pre-rebase one.** See the "Lint-rule introduction cascade" lens above. Any old-syntax hit on a file that the rebase pulled in is a Critical finding.

@@ -88,8 +88,20 @@ Carried by: the three orchestrator SKILL.mds (`agile-10-implement`, `agile-11-me
 
 **Receipt contract.** Every dispatched agent: never end the turn without emitting its
 receipt; never ask the orchestrator a question (blocked → emit the receipt with a
-`blocked` field naming the blocker); the receipt is **structured fields only** — no
-free-form prose, no narrative, no transcript.
+`blocked` field naming the blocker). **Forbidden in every receipt, no exception:** a
+preamble, an overview/summary section, a "what was good"/praise section — they prove
+nothing and are paid for out of the orchestrator's context. Two permitted forms:
+- **Strict (mechanical agents** — `pr-updater`, `pr-publisher`, `jira-postmortem`,
+  `ticket-validator`, `ticket-planner`, `build-implementer`, `build-monitor`,
+  `fix-until-satisfied`**):** structured fields only, no narrative, no transcript.
+- **Findings (review-type agents** — `pr-reviewer`, `review-lens`**):** the proof fields
+  **plus** its findings, with prose permitted *inside* an individual finding and inside a
+  per-AC binding. There the prose is the value — a finding flattened to a label is not
+  actionable. Nothing that is neither a field nor a finding survives.
+
+Distinct from a **published artifact**: a Jira postmortem comment or a PR body is written
+for humans and keeps its full prose (including "What was correct"). The rule above governs
+what an agent hands *back to its orchestrator*.
 Carried by: every file under `*/agents/`, plus the receipt sections of the two
 orchestrator SKILL.mds.
 
