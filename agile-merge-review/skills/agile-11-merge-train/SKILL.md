@@ -33,7 +33,7 @@ This is what stops the shortcuts this skill is prone to — a shallow review, a 
 | `3e CI monitor` | named completed all-green run id on the post-push tip | independent `gh` read of that run |
 | **`3f` reviewed-sha gate** (before merging) | the sha 3b reviewed + the sha about to merge | `gh pr view <N> --json headRefOid` **== the 3b reviewed sha**. Different ⇒ 3c pushed code no review has read → **re-dispatch `:pr-reviewer` on the delta, then re-enter 3e**. Not clearable any other way |
 | `3f merge` | `mergedAt` set | `gh pr view --json state,mergedAt` == MERGED — **the merge command's exit code is not the signal**, the state read is |
-| `3g merge-jira-postmortem` | **posted comment id + resulting status category** | `getJiraIssue` confirms done-category; **a merged PR whose ticket ≠ Done re-dispatches 3g** |
+| `3g merge-jira-postmortem` | **posted comment id + resulting status category + `collisions recorded`** | `getJiraIssue` confirms done-category; the echoed collisions match the PR's `conflict_map` entry (Phase 1); **a merged PR whose ticket ≠ Done, or whose echo drops a collision, re-dispatches 3g** |
 
 **Concurrency:** the train stays **strictly sequential** regardless of how the PRs were built (each merge moves `main`; the next PR rebases). Build-side `concurrency` never makes the train parallel.
 
@@ -63,7 +63,22 @@ Optional repo name (default: current repo). Optional max PRs (default: all).
 For each file touched by more than one PR:
 - If both PRs only **append** to the same file (e.g. both add a row to a shared docs table), the merge order must guarantee the second one rebases cleanly. Flag for `merge-update-pr` reuse.
 - If both PRs **modify the same lines** (e.g. both rewrite the same function signature), this is a real conflict. Sequence the smaller / less risky PR first so the second one can rebase.
-- Record the conflict map in the final report.
+
+**Record the conflict map as a structured field, keyed by PR — not as prose.** It is consumed three times (3g's postmortem, Phase 4's link creation, Phase 5's report), and a map that lives only as narrative in the orchestrator's head gets re-improvised at each hop and dropped at the first one. Build it once, verbatim:
+
+```
+conflict_map:
+  <PR>: ticket: <KEY>
+        collisions:
+          - file: <path>            # the colliding path
+            with_pr: <other PR>
+            with_ticket: <other KEY>
+            kind: append | same-lines
+  <PR>: ticket: <KEY>
+        collisions: []              # explicit — "none" is a value, not an omission
+```
+
+Every PR gets an entry, including the ones with an empty `collisions` list. Carry this object unchanged through the run.
 
 ## Phase 2 — Determine merge order
 
@@ -183,14 +198,15 @@ This is the common case, not an edge case: any PR whose review found something g
 ### 3g. Postmortem + Jira state
 - **Dispatch to `agile-merge-review:jira-postmortem`** (invokes `merge-jira-postmortem` via the Skill tool) — mandatory, even when 0 issues found. It posts the structured review-findings comment AND handles the Done transition. Do not duplicate that work inline; do not skip on the grounds that the PR was clean.
 - **Verify the postmortem receipt before counting the PR done:** the sub-skill returns the **posted comment id** + the **resulting status category**. Confirm with `getJiraIssue` that the ticket is now in a `done`-category status. This is the fix for the most-skipped step: 3g is last in the loop, so nothing downstream used to notice it was skipped — now Phase 5 refuses to report a PR as Merged+Done without a verified postmortem receipt, and **re-dispatches 3g** for any merged PR whose ticket is not Done.
-- Pass the cross-PR conflict info from Phase 1 to the postmortem: if this PR collided with another on shared files, the postmortem must note "ticket should have been linked in Jira to <other>" — a missing `relates to` / `blocks` link is what let the overlap reach merge time.
+- **Pass this PR's `conflict_map` entry verbatim in the dispatch prompt** — the whole entry, including an empty `collisions: []`. Do not re-summarise it into prose, and do not omit it when empty (an absent field is indistinguishable from a forgotten one, which is how this hand-off degrades into something the orchestrator hand-carries by memory). The postmortem turns each collision into "this ticket should have been linked in Jira to <other KEY>" — a missing `relates to` / `blocks` link is what let the overlap reach merge time.
+- **The receipt must echo which collisions it recorded** (`collisions recorded: <KEY>@<file>, …` / `none`). Verify that echo against the `conflict_map` entry you passed: an entry with collisions whose receipt echoes `none` means the postmortem dropped them → re-dispatch 3g. This is what makes the hand-off checkable rather than hopeful.
 - If a follow-up Jira ticket is warranted (e.g. discovered bug class, refactor opportunity), note it in the report — but don't auto-create.
 
 ## Phase 4 — Auto-link colliding tickets in Jira
 
 After all PRs processed, before producing the final report:
 
-For every pair of tickets whose PRs collided on a shared file (recorded in the Phase 1 conflict map), create a `Relates` link via `mcp__atlassian__createIssueLink`:
+For every pair of tickets whose PRs collided on a shared file — read the pairs straight off the Phase 1 `conflict_map`, do not re-derive them — create a `Relates` link via `mcp__atlassian__createIssueLink`:
 
 ```
 mcp__atlassian__createIssueLink(
@@ -251,8 +267,12 @@ Then produce a single Markdown report covering:
 | #36 | ABC-34 | Blocked | wrong approach — see postmortem |
 
 ### Conflict map (Phase 1)
-- File X: touched by PR A + PR B → resolved in B by rebasing onto A
+
+Rendered from the `conflict_map` object, one line per collision — plus, per pair, whether 3g recorded it and whether Phase 4 created the Jira link:
+
+- `<file>`: PR A (KEY-1) + PR B (KEY-2), same-lines → resolved in B by rebasing onto A · postmortem: recorded · Jira link: created
 - ...
+- No collisions: PR C (KEY-3)
 
 ### Remaining work
 - PRs still open and why
