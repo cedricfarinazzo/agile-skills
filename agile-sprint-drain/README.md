@@ -18,20 +18,15 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 | # | Skill | Role |
 |---|-------|------|
-| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — dispatches agile-10-implement and agile-11-merge-train (each via its named `agile-sprint-drain:*` agent, returning a ledger; or inline under `concurrency=0`) to a fixed point, with an actionable-work guard; optional `concurrency=N` |
+| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train (invoked inline via the Skill tool) to a fixed point, with an actionable-work guard; optional `concurrency=N` passed through to the build |
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
-**Agents** (`agents/` dir — wrap the two orchestrators for `concurrency>=1`; skipped entirely under `concurrency=0`, which calls each orchestrator inline instead):
-
-| Agent | Runs | Model / effort |
-|-------|------|-----------------|
-| `agile-sprint-drain:build-queue-runner` | `agile-10-implement` (build queue) | sonnet / medium |
-| `agile-sprint-drain:merge-queue-runner` | `agile-11-merge-train` (merge queue) | sonnet / medium |
+**No agents.** This plugin ships no `agents/` dir: the drain invokes both orchestrators **inline via the Skill tool**. Wrapping an orchestrator in a subagent cannot work — subagent dispatch does not nest, and an orchestrator's whole job is to dispatch. The parallelism lives one layer down, in `agile-10-implement`'s per-ticket worktree dispatch (`concurrency=N`), which is unaffected.
 
 ## Why it exists
 
-`agile-10-implement` clears the build queue (`To Do` Story → open PR, `In Review`); `agile-11-merge-train` clears the merge queue (open PR → merged + `Done`). The two alternate to unblock each other: a ticket A blocked by B is eligible only once **B is `Done` and B's PR is merged**, so every merge pass can unlock new build work. Until now a human ran that loop by hand — deciding implement-vs-merge, re-running each pass. This skill is that scheduler: it dispatches each orchestrator to its named agent (`build-queue-runner` / `merge-queue-runner`; inline under `concurrency=0`) that returns only a ledger, so the loop runs uninterrupted.
+`agile-10-implement` clears the build queue (`To Do` Story → open PR, `In Review`); `agile-11-merge-train` clears the merge queue (open PR → merged + `Done`). The two alternate to unblock each other: a ticket A blocked by B is eligible only once **B is `Done` and B's PR is merged**, so every merge pass can unlock new build work. Until now a human ran that loop by hand — deciding implement-vs-merge, re-running each pass. This skill is that scheduler: it calls each orchestrator inline and folds only structured per-item outcomes into its ledger.
 
 ## The loop (one **pass** per iteration; recomputed from the live board each time)
 
@@ -40,16 +35,14 @@ One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain 
                  unresolved blocker (blocker must be Done AND PR merged).      → build_count
 2. MERGE QUEUE — open PRs linked to this sprint's tickets (gh pr list).        → merge_count
 3. EXIT      — build_count == 0 AND merge_count == 0  → DRAINED
-4. build>0   → dispatch build-queue-runner: agile-10-implement [concurrency=N]  → fold ledger
-                (concurrency=0: call agile-10-implement inline, no agent)
-5. merge>0   → dispatch merge-queue-runner: agile-11-merge-train               → fold ledger
-                (concurrency=0: call agile-11-merge-train inline, no agent)
+4. build>0   → call agile-10-implement (Skill tool) [concurrency=N]            → fold outcomes
+5. merge>0   → call agile-11-merge-train (Skill tool)                          → fold outcomes
 6. GUARD     — recompute each item's fingerprint; retire an item human-blocked after
                K identical passes. actionable = items the loop can still advance.
                actionable empty & items remain → STUCK ;  else loop
 ```
 
-Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. Each orchestrator runs in its named agent (or inline under `concurrency=0`) and returns only a small ledger, so the outer loop stays lean and runs uninterrupted.
+Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. Context stays lean because every per-ticket phase and per-PR step runs in its own subagent and returns a capped receipt — the loop itself keeps only structured per-item outcomes, never a re-narrated pass.
 
 ## Actionable-work guard, not "zero progress"
 
@@ -62,7 +55,7 @@ By the dependency gate a ticket is un-startable until its blocker's PR merges �
 
 ## What it does NOT do
 
-- Never writes `Done`, opens PRs, or merges itself — it only **dispatches and sequences** the two orchestrators (each in its own named agent for context isolation, or inline under `concurrency=0`), so every invariant they enforce (builds sequential by default / opt-in concurrent via a passed-through `concurrency=N`; single shared Docker stack; strictly sequential merge; repo-scope gate; three-role review; per-step receipt verification) is preserved.
+- Never writes `Done`, opens PRs, or merges itself — it only **sequences** the two orchestrators, so every invariant they enforce (builds sequential by default / opt-in concurrent via a passed-through `concurrency=N`; single shared Docker stack; strictly sequential merge; repo-scope gate; three-role review; per-step receipt verification) is preserved.
 - Does not bypass either orchestrator's pauses — a critical-decision park in implement still parks that one ticket; the guard marks it human-blocked and keeps running on other actionable items, STUCK-stopping only when the actionable set empties.
 - Does not invoke `agile-sprint-close`. On DRAINED it hands off to it.
 
