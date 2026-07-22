@@ -45,8 +45,9 @@ The train's main agent **orchestrates only**: it runs no step's work in its own 
 3c merge-fix-until-satisfied  ALWAYS — fix Critical + Minor; satisfaction gate even on a clean review
 3d bad-PR escape hatch    too broken to fix in one pass → postmortem (blocked), don't merge
 3e CI wait                fresh, post-rebase green (not "green yesterday")
-3f gh pr merge --squash --delete-branch
+3f gh pr merge --squash   verify with `gh pr view --json state,mergedAt` (exit code is not the signal)
 3g merge-jira-postmortem  comment + transition Done
+—  branch cleanup        end of train, best-effort (a worktree holding a branch is harmless)
 ```
 
 One PR at a time — each merge changes `main`, so the next PR rebases on the new tip and re-runs CI. Cross-PR file collisions are detected up front and retro-linked in Jira (`relates to`) at the end.

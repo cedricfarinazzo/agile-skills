@@ -31,7 +31,7 @@ This is what stops the shortcuts this skill is prone to — a shallow review, a 
 | `3b merge-review-pr` | **Files-read list** (= diff set); a **cite per lens**; **per-AC line binding**; verdict | compute `gh pr diff <N> --name-only`; **reject if Files-read ≠ diff set**, reject any AC with no line cite, reject a bare pass |
 | `3c merge-fix-until-satisfied` | 5-gate breakdown + **pre-push run id + pushed sha** | the pushed sha is the branch tip (`gh pr view --json headRefOid`); 3e then gates the NEW run |
 | `3e CI monitor` | named completed all-green run id on the post-push tip | independent `gh` read of that run |
-| `3f merge` | `mergedAt` set | `gh pr view --json state,mergedAt` == MERGED |
+| `3f merge` | `mergedAt` set | `gh pr view --json state,mergedAt` == MERGED — **the merge command's exit code is not the signal**, the state read is |
 | `3g merge-jira-postmortem` | **posted comment id + resulting status category** | `getJiraIssue` confirms done-category; **a merged PR whose ticket ≠ Done re-dispatches 3g** |
 
 **Concurrency:** the train stays **strictly sequential** regardless of how the PRs were built (each merge moves `main`; the next PR rebases). Build-side `concurrency` never makes the train parallel.
@@ -84,7 +84,7 @@ State the order and the rationale before processing.
 3c  merge-fix-until-satisfied (agile-merge-review:fix-until-satisfied)  ALWAYS — even on 0-issue review (satisfaction gate); verify named run id green
 3d  bad-PR escape hatch     (CONDITIONAL — only if 3b/3c surface an unfixable defect; replaces 3e–3g)
 3e  CI monitor              HARD GATE, separate turn from the 3a/3c push. Wait for a NEW run to START, then COMPLETED + SUCCESS on the post-push tip. Never push and merge in the same turn.
-3f  gh pr merge             --squash --delete-branch (only after 3e names a completed all-green run)
+3f  gh pr merge             --squash (NO --delete-branch); confirm via `gh pr view --json state,mergedAt` — exit code is not the signal. Only after 3e names a completed all-green run
 3g  merge-jira-postmortem     (agile-merge-review:jira-postmortem)      comment + transition; verify comment id + done-category
 ```
 Each named-agent step runs the sub-skill via the Skill tool inside its scoped subagent, and its receipt is verified before advancing — the orchestrator never runs the sub-skill's work in its own context.
@@ -156,8 +156,10 @@ If the PR is too broken to fix in one pass — wrong approach, missing core ACs,
 - **A `CANCELLED` job is not automatically preemption.** A hung test that exhausts the job's wall-clock, or a canceling concurrency group, also reports `CANCELLED` — often with the downstream jobs `SKIPPED`. Before reflexively rerunning, read the job log for `timeout` / `exceeded` / `waiting for`: a hung test reproduces on every rerun, so diagnose and fix it rather than burning rerun cycles.
 
 ### 3f. Merge
-- `gh pr merge <N> --squash --delete-branch`
-- Confirm `mergedAt` is set.
+- `gh pr merge <N> --squash` — **no `--delete-branch`.** That flag makes the command try to delete the local branch too, which **fails when a git worktree still holds it** (concurrent builds leave worktrees behind) — *after the merge has already happened*.
+- **A non-zero exit from `gh pr merge` is NOT proof the merge failed.** Always verify state before reacting: `gh pr view <N> --json state,mergedAt` — `mergedAt` set (state `MERGED`) means it merged, whatever the exit code said. Retrying a merge that actually succeeded is how a train reports a false failure and thrashes.
+- Only if `mergedAt` is unset did the merge genuinely fail — then read the error and act on it.
+- Branch deletion is deferred to the end-of-train cleanup step (Phase 4b), where a failure is harmless.
 
 ### 3g. Postmortem + Jira state
 - **Dispatch to `agile-merge-review:jira-postmortem`** (invokes `merge-jira-postmortem` via the Skill tool) — mandatory, even when 0 issues found. It posts the structured review-findings comment AND handles the Done transition. Do not duplicate that work inline; do not skip on the grounds that the PR was clean.
@@ -193,6 +195,22 @@ mcp__atlassian__addCommentToJiraIssue(
 ```
 
 If `createIssueLink` failed (API error, ticket gone), append the failure reason in the same one-liner format — never leave the recommendation untracked.
+
+## Phase 4b — Branch cleanup (end of train, best-effort)
+
+After every PR has been processed, delete the merged branches in one pass:
+
+```
+git worktree prune
+gh pr list --state merged --limit 50 --json number,headRefName   # this train's PRs
+git branch -d <branch>            # local; skip/ignore if a worktree holds it
+git push origin --delete <branch> # remote
+```
+
+**This step may fail harmlessly.** A branch still checked out in a worktree, already
+deleted by the host's auto-delete setting, or protected, all produce errors that mean
+nothing about the merges. Log what could not be deleted and move on — never treat a
+cleanup failure as a merge failure, and never re-run 3f because of one.
 
 ## Phase 5 — Reconcile + final report
 
@@ -238,6 +256,7 @@ Then produce a single Markdown report covering:
 - **Always rebase before review.** Every PR gets a `merge --no-ff main` before review and merge. The CI run that gates the merge must be on the exact tree that will land. A "green CI from yesterday" is not a green CI.
 - **Wait for the fresh CI run.** After push, use one of the stale-run mitigations in 3e (preferred: capture run id before push, wait until a different id appears). Do NOT chain `sleep` calls in the foreground — use a single `until` loop in `run_in_background: true`.
 - **The push and the merge are never in the same turn.** The push (3a/3c) and `gh pr merge` (3f) are separate turns with the 3e gate between them. Issuing both in one batch means the merge fires before CI registers — the squash then captures whatever the branch tip is, green or not.
+- **Verify the merge by state, not by exit code.** `gh pr merge --squash` can exit non-zero after a *successful* merge (e.g. the branch delete it attempts fails because a worktree holds the branch). Always confirm with `gh pr view <N> --json state,mergedAt`. Never pass `--delete-branch`; branch cleanup is Phase 4b, where failure is harmless.
 - **`gh pr merge` requires a named completed all-green run id on the post-push tip.** If you cannot state the run id you verified, you may not merge. `mergeStateStatus: CLEAN` / `mergeable: MERGEABLE` is NOT a CI signal — read `statusCheckRollup` conclusions yourself. A repo without required-status-check branch protection will merge red without complaint; the gate is yours, not the host's.
 - **Never merge without explicit satisfaction.** All ACs validated against specific lines, all tests green locally + on the fresh CI run, branch rebased on the current `main`. Any of those missing → fix or block.
 - **Read the Jira ticket before reading the diff.** Otherwise the review measures the diff against itself, not the spec.
@@ -257,7 +276,7 @@ Then produce a single Markdown report covering:
 ## Stop conditions
 
 Stop the train and report immediately if:
-- A merge silently fails (PR shows merged=false after `gh pr merge`)
+- A merge genuinely fails — i.e. `gh pr view --json state,mergedAt` still shows no `mergedAt` after `gh pr merge`. A non-zero exit code alone is not this condition; verify state first.
 - Two consecutive PRs hit unrelated CI flakes (suggests infra problem)
 - A Jira ticket can't be loaded (auth, deleted, wrong project) — block and report
 - The fix loop in 3c iterates more than 3 times on the same PR without converging
