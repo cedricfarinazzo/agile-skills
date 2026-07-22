@@ -27,6 +27,7 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
    - PR body ACs as a secondary check — if PR body ACs diverge from Jira, flag the divergence as a minor finding; trust Jira.
    - If step 2 yielded no Jira key AND PR body has no ACs: flag as critical — PR lacks a spec, cannot be reviewed against intent. Block.
    - Existing test files that may reference changed code (field names, API contracts, ports)
+   - **Any `🤖 <!-- agile:spec-correction -->` comment on the ticket** — read these with the ACs, before the diff (see the lens below)
 
 ## Review lenses (check all)
 
@@ -63,6 +64,15 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - **Files/scope claims:** a body describing changes the diff does not contain (or omitting a file the diff does change) → Minor, or Critical if it hides a risky change.
 - This lens caught the strongest finding in a real review pass: an AC-coverage table crediting a test file that contained none of the calls it claimed.
 
+**Corrected ACs — review against the correction, not the stale wording**
+
+An AC can be wrong: it names a file, test, or symbol that does not exist, or one that pins a different component's state than the AC describes. The implementer is required to post a `🤖 <!-- agile:spec-correction -->` comment (evidence + the real reference + the intent) and satisfy the AC **by intent**. So:
+
+- **Fetch the ticket's spec-correction comments together with its ACs.** Verify each affected AC against the *corrected* reading. A diff that matches the intent but not the stale literal wording is **correct** — flagging it as a missing AC is a false Critical, and the reviewer holding the stale text is exactly how a correct PR gets blocked.
+- **A deviation with no posted correction is a finding.** If the diff satisfies an AC differently from what the ticket says and nothing on the ticket explains it, the correction was never made public — **Critical**: the deviation exists only in the author's head, so nobody can check it. The fix is to post the correction with evidence, not to rewrite the code.
+- **Check the correction itself.** It carries evidence (`path:line`, a command result, a grep hit) — verify that evidence, and that the corrected target is really what the AC meant. A correction is a claim about the spec and gets the same scrutiny as a claim about the diff. Wrong or unevidenced → Critical.
+- **Report it either way.** Every corrected AC's binding names the correction comment alongside its `file:line`, so the postmortem records that the ticket text and the delivered behaviour diverged — that is the signal refinement needs.
+
 **Documentation**
 - Test-suite `CLAUDE.md` updated: project structure tree, coverage table, run command section
 - Backend / frontend `CLAUDE.md` updated if a new convention was established
@@ -96,6 +106,7 @@ Reviewed sha: <headRefOid>   (delta-review only: reviewed `<old-sha>..<new-sha>`
 - Correctness ...... ✅ `file:line` <what confirmed>  |  ❌ see Critical
 - Security ......... ✅ `file:line`  |  N/A because <no new endpoint/input>
 - Naming/conventions ✅ `file:line`  |  ...
+- Corrected ACs ..... <AC<N> → correction comment verified>  |  N/A no corrections
 - Test coverage .... ✅ `file:line`  |  ...
 - PR-body claims ... ✅ <each AC-table row / tier claim traced to a changed file>  |  ❌ see Critical
 - Documentation .... ✅ `file:line`  |  N/A
@@ -131,6 +142,7 @@ If no issues: explicitly state "Satisfied — ready to merge." and why — but t
 - **Review the PR description too — it is part of the artifact.** Every AC-table row, test-tier claim, and ticked checklist box is verified against the diff. A cited test that does not exist (or does not exercise what the row claims) is Critical, not a doc nit.
 - Never report an issue without a specific fix
 - Stale ACs count as minor, not critical
+- **A wrong AC is verified against its posted correction, never against its stale wording** — and a deviation with *no* posted correction is Critical. See the "Corrected ACs" lens.
 - Missing run command in test-suite `CLAUDE.md` counts as minor
 - Wrong `server_default` pattern counts as critical (causes ORM autogenerate drift)
 - Field name mismatch between schema and tests counts as critical (causes test failures)
