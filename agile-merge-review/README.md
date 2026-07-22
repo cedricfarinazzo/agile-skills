@@ -29,13 +29,15 @@ The `merge-*` blocks are **unnumbered sub-skills** the train composes — each *
 | Agent | Runs | Model / effort |
 |-------|------|-----------------|
 | `agile-merge-review:pr-updater` | `merge-update-pr` (3a) | sonnet / low |
-| `agile-merge-review:pr-reviewer` | `merge-review-pr` (3b) | sonnet / high |
+| `agile-merge-review:pr-reviewer` | `merge-review-pr` (3b) | **opus / high** — last read before the base branch; nothing downstream re-reads the code |
 | `agile-merge-review:fix-until-satisfied` | `merge-fix-until-satisfied` (3c) | sonnet / high |
 | `agile-merge-review:jira-postmortem` | `merge-jira-postmortem` (3g) | sonnet / low |
 
 ## Dispatch-and-verify — no shortcuts
 
 The train's main agent **orchestrates only**: it runs no step's work in its own context. Each per-PR step (3a–3g) runs in its named agent (above) that returns a **receipt**, and the train verifies it against ground truth (`gh` / Jira) before advancing. This closes the shortcuts the train is prone to: a shallow review is caught because `merge-review-pr`'s receipt must list a files-read set equal to the PR diff with a `file:line` cite per lens and per AC; a skipped `merge-jira-postmortem` is caught because Phase 5 refuses to report a merged PR as Done without a verified postmortem receipt (comment id + done-category) and re-dispatches it. A PR built concurrently (`integration-deferred` label) has integration + e2e gated by the fresh CI-green run rather than a local re-run.
+
+**Never merge a sha no review has read.** 3b reviews the tip as it stood then; 3c then pushes fixes onto it. So 3b records the **reviewed sha** and 3f asserts the landing tip equals it — a mismatch means the delta is unreviewed (the fixer re-examining its own fix is not an independent gate), so the reviewer is re-dispatched on the delta and the PR re-enters the CI wait. Any PR whose review found something goes through this second review; it is normal flow.
 
 ## The per-PR sequence
 
@@ -45,12 +47,13 @@ The train's main agent **orchestrates only**: it runs no step's work in its own 
 3c merge-fix-until-satisfied  ALWAYS — fix Critical + Minor; satisfaction gate even on a clean review
 3d bad-PR escape hatch    too broken to fix in one pass → postmortem (blocked), don't merge
 3e CI wait                fresh, post-rebase green (not "green yesterday")
+3f reviewed-sha gate      landing tip == the sha 3b reviewed, else re-review the delta → back to 3e
 3f gh pr merge --squash   verify with `gh pr view --json state,mergedAt` (exit code is not the signal)
-3g merge-jira-postmortem  comment + transition Done
+3g merge-jira-postmortem  comment + transition Done; echoes the collisions it recorded
 —  branch cleanup        end of train, best-effort (a worktree holding a branch is harmless)
 ```
 
-One PR at a time — each merge changes `main`, so the next PR rebases on the new tip and re-runs CI. Cross-PR file collisions are detected up front and retro-linked in Jira (`relates to`) at the end.
+One PR at a time — each merge changes `main`, so the next PR rebases on the new tip and re-runs CI. Cross-PR file collisions are detected up front into a structured `conflict_map` (per PR: colliding file, other PR, other ticket), passed verbatim into each postmortem dispatch and retro-linked in Jira (`relates to`) at the end.
 
 ## Independent review — the second of three layers
 
