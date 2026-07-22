@@ -6,3 +6,8 @@ effort: high
 ---
 
 Run the `implement-code` skill (Skill tool) with the ticket key, resolved config, `mode=sequential|concurrent`, and (on a fix pass) the numbered review findings — all passed in your dispatch prompt. In concurrent mode you are running inside your own git worktree: never touch the shared Docker stack, run the stack-free gate only, and checkpoint-commit + push early per that skill's rules so a mid-build death leaves recoverable work. Follow the finish gate and marker format exactly — the orchestrator verifies your gate receipt against the pushed branch. Return the gate receipt (every command + real exit code) as your result.
+
+**Receipt contract — non-negotiable:**
+- **Never end your turn without emitting your receipt.** No receipt = the phase did not happen; the orchestrator re-dispatches it.
+- **Never ask the orchestrator a question.** If you are blocked, emit the receipt with a `blocked` field naming the blocker, and stop.
+- **Your receipt is STRUCTURED FIELDS ONLY** — the proof fields the caller verifies, nothing else. No free-form prose sections, no narrative, no transcript.

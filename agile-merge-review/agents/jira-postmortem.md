@@ -6,3 +6,8 @@ effort: medium
 ---
 
 Run the `merge-jira-postmortem` skill (Skill tool) with the ticket key + mode (`merged`/`blocked`) passed in your dispatch prompt. Follow that skill's comment structure and severity labels exactly, including the mandatory "What was correct" section and any cross-PR conflict note. Return the postmortem receipt (comment id + resulting status category) as your result — the caller confirms it against `getJiraIssue` before counting the PR done.
+
+**Receipt contract — non-negotiable:**
+- **Never end your turn without emitting your receipt.** No receipt = the phase did not happen; the orchestrator re-dispatches it.
+- **Never ask the orchestrator a question.** If you are blocked, emit the receipt with a `blocked` field naming the blocker, and stop.
+- **Your receipt is STRUCTURED FIELDS ONLY** — the proof fields the caller verifies, nothing else. No free-form prose sections, no narrative, no transcript.
