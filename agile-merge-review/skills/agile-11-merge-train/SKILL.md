@@ -135,15 +135,23 @@ If the PR is too broken to fix in one pass — wrong approach, missing core ACs,
 - **This step is a HARD GATE and must be its own turn, after the turn that pushed (3a or 3c). Never issue a push and the `gh pr merge` in the same turn — a merge in the same batch as the push runs before CI has even registered, so it cannot have read a green result.**
 - After 3a's push, CI registers a new run. Verify checks are running against the post-rebase tip.
 - **Two conditions, both required, before 3f: (1) a NEW run has STARTED on the post-push tip — "no new run yet" is not green, it's not-yet-started; (2) every check on that new run is COMPLETED + SUCCESS.** A green read milliseconds after a push is the PREVIOUS run. Capture the latest run id BEFORE pushing (`gh run list --branch <branch> -L1 --json databaseId`); after pushing, poll until a DIFFERENT id appears, then poll that id to all-green.
-- Poll pattern (Bash `run_in_background: true` with `until` loop):
+- **Poll a run id, never the PR head.** `gh pr view --json statusCheckRollup` follows whatever the PR HEAD currently is, so it silently re-targets to the new run after a push — a poll started on the old run reports on the new one (or vice versa) with no way to tell which you read. That ambiguity is exactly what this gate exists to remove. Resolve one concrete run id first, then poll **that id**:
   ```bash
-  until [ "$(gh pr view <N> --json statusCheckRollup --jq '[.statusCheckRollup[]|select(.status!="COMPLETED")]|length')" = "0" ]; do sleep 20; done; gh pr view <N> --json statusCheckRollup,mergeStateStatus --jq '{merge:.mergeStateStatus,checks:[.statusCheckRollup[]|{name:.name,c:.conclusion}]}'
+  # BEFORE the push (mitigation 1):
+  PREV=$(gh run list --branch <branch> -L1 --json databaseId --jq '.[0].databaseId')
+
+  # AFTER the push — resolve the NEW run id, then poll that id only:
+  until [ "$(gh run list --branch <branch> -L1 --json databaseId --jq '.[0].databaseId')" != "$PREV" ]; do sleep 20; done
+  RUN=$(gh run list --branch <branch> -L1 --json databaseId --jq '.[0].databaseId')
+  until [ "$(gh run view $RUN --json status --jq .status)" = "completed" ]; do sleep 20; done
+  gh run view $RUN --json status,conclusion,jobs --jq '{id:'"$RUN"',status,conclusion,jobs:[.jobs[]|{name:.name,c:.conclusion}]}'
   ```
-  Background completion fires a notification — read the output file and continue. Do NOT chain `sleep` calls in the foreground; do NOT poll in a foreground loop.
+  Then assert `conclusion == "success"` on that named id. `RUN` is the id you must be able to state at 3f — if you cannot name it, you may not merge.
+- Run it with Bash `run_in_background: true`; background completion fires a notification — read the output file and continue. Do NOT chain `sleep` calls in the foreground; do NOT poll in a foreground loop.
 - Stale-run risk: a poll immediately after `git push` can read the *previous* run as `COMPLETED + SUCCESS`. Mitigations (use one):
   1. Capture run id with `gh run list --branch <branch> --limit 1 --json databaseId` *before* push, then in the poll loop wait until a *different* id appears.
   2. Capture push time, then check `started_at` on the latest run is after push time.
-  3. Trust the `until status!="COMPLETED"` loop: when GitHub registers the new run it flips a check from COMPLETED back to IN_PROGRESS, naturally re-blocking the loop. Works in practice; (1) is the most reliable.
+  3. Trust a head-based `until status!="COMPLETED"` loop: when the host registers the new run it flips a check from COMPLETED back to IN_PROGRESS, naturally re-blocking the loop. Works in practice, but it reads the PR HEAD rather than a fixed run — use it only as a fallback. **(1) is the mitigation the poll snippet above implements, and the one to use.**
 - For the **no-op** outcome from 3a: no new run will start. Skip the wait loop entirely and read the existing run on branch `HEAD` once. Verify the run still covers the landable tree with `git merge-base --is-ancestor main <existing-run-sha>`:
   - Exit 0 (branch HEAD ⊇ main) → existing CI is valid, proceed to 3f
   - Exit 1 (branch HEAD lacks main commits) → contradicts the no-op signal from 3a; investigate before proceeding, do not force an empty commit blindly
@@ -254,7 +262,7 @@ Then produce a single Markdown report covering:
 
 - **Deep review is the whole point, and it is receipt-verified.** This skill exists to make sure `main` only receives code that was actually read, file by file, against the spec. The review runs in a subagent and its receipt (Files-read = diff set, cite per lens, `file:line` per AC) is checked by the orchestrator — a review whose Files-read list is short of the diff, or whose ACs lack line cites, is a partial review and is re-dispatched. A fast merge train that skips file reads is worse than no merge train.
 - **Always rebase before review.** Every PR gets a `merge --no-ff main` before review and merge. The CI run that gates the merge must be on the exact tree that will land. A "green CI from yesterday" is not a green CI.
-- **Wait for the fresh CI run.** After push, use one of the stale-run mitigations in 3e (preferred: capture run id before push, wait until a different id appears). Do NOT chain `sleep` calls in the foreground — use a single `until` loop in `run_in_background: true`.
+- **Wait for the fresh CI run, polling the run id — not the PR head.** Capture the run id before push, wait until a different id appears, then poll `gh run view <id>` to `completed` and assert `conclusion == success`. A `gh pr view --json statusCheckRollup` poll follows the head and re-targets across the push, which makes the reading ambiguous. Do NOT chain `sleep` calls in the foreground — use a single `until` loop in `run_in_background: true`.
 - **The push and the merge are never in the same turn.** The push (3a/3c) and `gh pr merge` (3f) are separate turns with the 3e gate between them. Issuing both in one batch means the merge fires before CI registers — the squash then captures whatever the branch tip is, green or not.
 - **Verify the merge by state, not by exit code.** `gh pr merge --squash` can exit non-zero after a *successful* merge (e.g. the branch delete it attempts fails because a worktree holds the branch). Always confirm with `gh pr view <N> --json state,mergedAt`. Never pass `--delete-branch`; branch cleanup is Phase 4b, where failure is harmless.
 - **`gh pr merge` requires a named completed all-green run id on the post-push tip.** If you cannot state the run id you verified, you may not merge. `mergeStateStatus: CLEAN` / `mergeable: MERGEABLE` is NOT a CI signal — read `statusCheckRollup` conclusions yourself. A repo without required-status-check branch protection will merge red without complaint; the gate is yours, not the host's.
