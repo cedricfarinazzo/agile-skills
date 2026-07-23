@@ -74,6 +74,16 @@ An AC can be wrong: it names a file, test, or symbol that does not exist, or one
 - **Check the correction itself.** It carries evidence (`path:line`, a command result, a grep hit) — verify that evidence, and that the corrected target is really what the AC meant. A correction is a claim about the spec and gets the same scrutiny as a claim about the diff. Wrong or unevidenced → Critical.
 - **Report it either way.** Every corrected AC's binding names the correction comment alongside its `file:line`, so the postmortem records that the ticket text and the delivered behaviour diverged — that is the signal refinement needs.
 
+**Documented invariants & conventions — a review axis, not a doc nit**
+
+Review the diff against the story's ACs, its out-of-scope section, **and the documented invariants/conventions it touches** (root + subfolder `CLAUDE.md` / `AGENTS.md`, architecture docs). **A change that makes a documented invariant or convention FALSE is a defect even when the code itself is correct.** Three shapes seen in a single run:
+
+- **A silently-widened invariant.** A change widened the effective key of a documented core invariant without updating the document, so the stated invariant became false. The diff is correct; the doc now lies. Finding.
+- **A limitation comment that outlived its limitation.** A PR left a "KNOWN LIMITATION" comment naming a follow-up ticket; when that follow-up fixed the limitation the stale comment survived, documenting a defect that no longer exists. **The ticket that removes a limitation must remove or rewrite the comment** — check every such comment the diff resolves or touches.
+- **A new domain concept with no conventions entry**, though every sibling story's concept has one. Absent entry → finding.
+
+And **verify a documentation entry accurate against the shipped code, not merely present** — a confidently-worded wrong entry is worse than none.
+
 **Documentation**
 - Test-suite `CLAUDE.md` updated: project structure tree, coverage table, run command section
 - Backend / frontend `CLAUDE.md` updated if a new convention was established
@@ -108,6 +118,7 @@ Reviewed sha: <headRefOid>   (delta-review only: reviewed `<old-sha>..<new-sha>`
 - Security ......... ✅ `file:line`  |  N/A because <no new endpoint/input>
 - Naming/conventions ✅ `file:line`  |  ...
 - Corrected ACs ..... <AC<N> → correction comment verified>  |  N/A no corrections
+- Invariants/conv. .. ✅ <invariant/convention touched → still true at `doc:line`>  |  N/A none touched
 - Test coverage .... ✅ `file:line`  |  ...
 - PR-body claims ... ✅ <each AC-table row / tier claim traced to a changed file>  |  ❌ see Critical
 - Documentation .... ✅ `file:line`  |  N/A
@@ -147,6 +158,7 @@ If no issues: explicitly state "Satisfied — ready to merge." and why — but t
 - Missing run command in test-suite `CLAUDE.md` counts as minor
 - Wrong `server_default` pattern counts as critical (causes ORM autogenerate drift)
 - Field name mismatch between schema and tests counts as critical (causes test failures)
+- **A documented invariant or convention the diff makes FALSE is a defect, not a doc nit** — review against the ACs, the out-of-scope section, AND the invariants/conventions the diff touches. A limitation comment that outlives its limitation is its own defect; a documentation entry is verified accurate against the shipped code, never merely verified present.
 - **Project Structure tree drift counts as minor.** New file in a `CLAUDE.md`-documented folder but tree not updated → minor finding. The self-improvement loop rule ("new file → update tree") applies to non-test helpers too, not just test files.
 - **Cross-PR file overlap is a review signal.** If review notices the diff touches a file that other open PRs also touch, report it as a `Cross-PR overlap:` field (the file + the other PR/ticket) so the postmortem can record the Jira-link recommendation.
 - **Review report prose stays in normal English.** The report is a permanent record consumed by the merge-train, postmortem skill, and reviewers reading it later in Jira. Write the report as you would for a code-review comment on GitHub.
