@@ -105,6 +105,15 @@ what an agent hands *back to its orchestrator*.
 Carried by: every file under `*/agents/`, plus the receipt sections of the two
 orchestrator SKILL.mds.
 
+**Base-branch proof.** "Pre-existing", "unrelated", "environment", "tooling drift" are
+**claims**, never conclusions drawn from reading a tool's output. Run the SAME command on
+the base branch, compare exit codes, and state that comparison in the receipt. Filenames
+in the output being untouched by the diff is **not** evidence — a diff routinely causes a
+failure reported against files it never edited. Absent the comparison the claim is
+unsupported and the orchestrator re-dispatches.
+Carried by: every file under `*/agents/` (a Receipt-contract bullet), plus the
+flake-vs-regression sections of `agile-11-merge-train` and `implement-monitor`.
+
 **RULE — when you change one of these, update every carrier in the same change**, then
 `grep` to prove no stale copy remains. Adding an agent means adding both blocks to it.
 
