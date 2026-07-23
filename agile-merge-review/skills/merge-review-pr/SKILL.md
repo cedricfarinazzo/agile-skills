@@ -50,6 +50,7 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - File/function/variable naming per project `CLAUDE.md`
 
 **Test coverage**
+- **A negative / guard test must be proven to REACH the guard it names.** Mutation-grade (would this test fail if the behaviour regressed?) is necessary but **not sufficient**: the chosen input must not be rejected by an EARLIER layer — field length/precision, type coercion, nullability, referential integrity, a framework-level validator, an upstream schema check. Real case from one sprint's merges: a test asserting a storage-layer constraint rejects an invalid value picked an input that violated the column's width, so the storage engine rejected it before the named constraint ever evaluated. It failed — but even had it passed it would have proven nothing, because it exercised the wrong guard. Require each negative assertion to state **which named guard it provably trips** and **why no earlier layer can reject the input first**. A test that fails for the wrong reason and a test that passes for the wrong reason are the same defect — the second one just ships.
 - Every AC has a corresponding test
 - Connection details in test docstrings match the testing stack (DB port, broker port, etc.)
 - Test data teardown — no leaks between test runs
