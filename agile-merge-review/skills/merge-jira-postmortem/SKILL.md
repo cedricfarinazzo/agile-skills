@@ -38,6 +38,7 @@ This skill reads two values from the consumer repo's `CLAUDE.md` / `AGENTS.md` o
    - Every fix applied and why
    - What was already correct in the PR
    - AC-by-AC verification: which ACs are satisfied, which are not, why
+   - **Conscious accepts** — every deliberate deviation from the ticket's DoD wording, most commonly a standing repo convention that conflicts with what the DoD literally asks. Record what the DoD asks, what was done instead, why the convention wins, where the equivalent-strength coverage actually lives, and that it was a deliberate decision rather than an oversight. Unlabelled, it reads later as a missed DoD item; labelled, the merge/QA reader signs off on it knowingly.
    - **Cross-PR conflicts — from the caller's `conflict_map` entry, not from recollection.** Each collision means the two tickets should have been **linked in Jira** (`relates to` / `blocks` / `is blocked by`) so the dependency was visible at sprint planning. Write one bullet per collision naming the file, the other PR, and the other ticket key, and recommend the missing link. When invoked standalone with no entry supplied, derive the collisions yourself and say so.
 
 2. Post comment to Jira via `mcp__atlassian__addCommentToJiraIssue` with the configured `cloudId`, `contentFormat: markdown`. **Capture the returned comment id** — it is the proof the comment was posted.
@@ -85,6 +86,10 @@ This skill reads two values from the consumer repo's `CLAUDE.md` / `AGENTS.md` o
 - <bullet: thing that was done right>
 - <bullet: another correct pattern>
 
+### Conscious accepts (if any)
+
+- **DoD asks:** <the DoD wording> — **done instead:** <what shipped> — **why:** <the standing convention that wins, and where it is documented> — **equivalent coverage:** `<file:line>`. Deliberate decision, not an oversight.
+
 ### Cross-PR conflicts (if any)
 
 - Conflicted with **#<other PR>** (<TICKET-KEY>) on `<file>`. The two tickets should be linked in Jira (`<link type>`) — missing link meant the overlap was only discovered at merge time.
@@ -125,6 +130,7 @@ When invoked with mode `blocked`, head the comment with a clear block notice and
 - **Always run, even on 0-issue PRs.** Open with "0 issues found during PR review." then go straight to "What was correct" + cross-PR conflicts (if any). The transition to Done is mandatory regardless of issue count.
 - **Return the postmortem receipt** (comment id + read-back status category). This is the proof the orchestrator gates on — it is why a skipped postmortem no longer goes unnoticed: `agile-11-merge-train` Phase 5 refuses to report a merged PR as Done without it and re-dispatches this skill.
 - **Echo the collisions you recorded.** `collisions recorded` is a receipt field, not narrative — it is how the caller proves the Phase 1 conflict map actually reached the ticket instead of evaporating in the hand-off. Empty entry → `none`.
+- **A DoD deviation is recorded as a labelled conscious accept, never left implicit.** When a standing convention conflicts with the ticket's DoD wording, the comment says what the DoD asks, what was done instead, why the convention wins, where the equivalent-strength coverage lives, and that it was deliberate. A deviation with no such entry reads to the QA/retro reader as a missed DoD item.
 - **Cross-PR conflict ≠ Jira link creation.** This skill records the recommendation in the comment; `agile-11-merge-train` Phase 4 actually creates the link via `createIssueLink`. Do not call `createIssueLink` from this skill — keeps responsibility clean.
 - **Comment prose stays in normal English.** The Jira comment is a permanent ticket artifact read by humans during retro + future incident investigations; write full sentences.
 - **Phase 4 confirms the Jira link inline.** When `agile-11-merge-train` Phase 4 successfully creates a `Relates` (or stronger) link between two tickets that collided on shared files, it appends a one-line confirmation comment to the most recent postmortem on each side: `Jira link created: relates to <KEY> (Phase 4, merge-train run <date>).` This closes the loop so reviewers reading the postmortem later can see the link was actually applied, not just recommended. If Phase 4 was unable to create the link (API error, ticket gone, etc.), append the failure reason instead — never leave the recommendation untracked.
