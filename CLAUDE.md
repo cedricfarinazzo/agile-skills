@@ -70,7 +70,7 @@ Key frontmatter fields: `name`, `description`, `when_to_use`, `allowed-tools`, `
 **No subagent-spawns-subagent — dispatch nesting depth is 1.** A subagent cannot spawn a subagent. Two consequences, both hard rules:
 
 1. A dispatch point whose own sub-skill needs further fan-out (e.g. `implement-review`'s six-lens read) is fanned out **directly by the top-level orchestrator**, not by an intermediate agent that then spawns its own children. `agile-10-implement` runs `implement-review` inline and dispatches `agile-execution:review-lens` subagents itself, rather than wrapping the whole review step in its own agent first.
-2. **Never wrap an orchestrator in an agent.** An orchestrator's entire job is to dispatch, so an agent whose body is "run orchestrator X" is structurally impossible — it can only complete X's non-dispatching preamble, then stalls. `agile-sprint-drain` therefore invokes `agile-10-implement` / `agile-11-merge-train` inline via the Skill tool and ships **no** `agents/` dir. Orchestrator layers are inline by design; leanness comes from the leaf phase/step agents' capped receipts, not from isolating the orchestrator.
+2. **Never wrap an orchestrator in an agent.** An orchestrator's entire job is to dispatch, so an agent whose body is "run orchestrator X" is **pointless** — it can only run X in X's fully-inline mode (`concurrency=0`), forfeiting the isolation the wrapper was for, and X stalls the moment it tries to dispatch. `agile-sprint-drain` therefore invokes `agile-10-implement` / `agile-11-merge-train` inline via the Skill tool and ships **no** `agents/` dir. Orchestrator layers are inline by design; leanness comes from the leaf phase/step agents' capped receipts, not from isolating the orchestrator.
 
 ## Shared runtime conventions (embedded, like the Confluence tree)
 
@@ -111,8 +111,9 @@ the base branch, compare exit codes, and state that comparison in the receipt. F
 in the output being untouched by the diff is **not** evidence — a diff routinely causes a
 failure reported against files it never edited. Absent the comparison the claim is
 unsupported and the orchestrator re-dispatches.
-Carried by: every file under `*/agents/` (a Receipt-contract bullet), plus the
-flake-vs-regression sections of `agile-11-merge-train` and `implement-monitor`.
+Carried by: every agent that runs a build/lint/test/CI command (a Receipt-contract
+bullet), plus the flake-vs-regression sections of `agile-11-merge-train` and
+`implement-monitor`.
 
 **RULE — when you change one of these, update every carrier in the same change**, then
 `grep` to prove no stale copy remains. Adding an agent means adding both blocks to it.

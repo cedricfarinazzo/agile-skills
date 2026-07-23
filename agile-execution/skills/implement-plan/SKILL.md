@@ -30,10 +30,7 @@ Post the plan as `🤖 agile:phase=plan`. Return the plan to the orchestrator.
 
 Specs drift from code. An AC written weeks ago names a file that has since moved, a test that pins a *different* component's state, a symbol that was renamed, a path that never existed. Planning is where this surfaces, because planning is the first phase that reads the code the AC points at.
 
-**Three wrong answers, all common:**
-- Reject the ticket. It is not under-specified — the intent is clear, only a reference is stale. `rejected` sends a well-understood ticket back to refinement for a typo.
-- Follow the literal text. Editing the file the AC names *because* it names it produces a change nobody wanted, in the wrong component, that still reports "AC satisfied".
-- Fix it silently. The correction then exists only in your context: the reviewer later verifies against the original wording, finds a mismatch, and either blocks a correct PR or waves through an unexamined deviation.
+**Not** a rejection — the intent is clear, only a reference is stale. **Not** a literal edit of the file the AC names — that ships a change nobody wanted while reporting "AC satisfied". **Not** a silent fix — the correction then lives only in your context, and the reviewer reads it as an unexplained deviation.
 
 **The right answer — correct it in the open, then satisfy the AC by intent:**
 

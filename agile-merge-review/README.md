@@ -19,7 +19,7 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 | 11 | `agile-11-merge-train` | **Orchestrator** (user-invoked) — processes every open PR sequentially |
 | — | `merge-update-pr` | rebase on main, resolve conflicts, lint-after-rebase, push only if a merge commit was created |
 | — | `merge-review-pr` | deep **independent** PR review — read every changed file, check vs ACs, verifiable receipt (files-read = diff, cite per lens + AC) |
-| — | `merge-fix-until-satisfied` | fix every finding (Critical + Minor), re-verify, until satisfied (named CI run id) |
+| — | `merge-fix-until-satisfied` | fix every finding (Critical + Minor), re-verify, until satisfied (pre-push run id + pushed sha; the caller gates the fresh run) |
 | — | `merge-jira-postmortem` | post structured post-merge comment + transition the Story to Done; return receipt (comment id + done-category) |
 
 The `merge-*` blocks are **unnumbered sub-skills** the train composes — each **dispatched to its named `agile-merge-review:*` agent** that invokes the sub-skill via the Skill tool and returns a receipt the train verifies; you don't call them directly. Invoke `/agile-merge-review:agile-11-merge-train` ("merge train", "process all open PRs").

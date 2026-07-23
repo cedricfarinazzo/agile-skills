@@ -36,9 +36,7 @@ a subagent.
 That is not a fallback, it is the only workable shape: **subagent dispatch does not
 nest.** An orchestrator is itself a dispatcher — it fans each of its phases/steps out to
 a subagent. Wrapping it in a subagent would require that subagent to spawn further
-subagents, which the dispatch model does not allow. The observed failure mode of the
-wrapper design was exactly that: the wrapping agent performed only the queue selection,
-returned no ledger, and asked the caller a question instead of running the pipeline.
+subagents, which the dispatch model does not allow.
 
 So the drain layer has **no concurrency-dependent dispatch mode**. `concurrency` is a
 pure passthrough (below), never a switch on how this skill runs the orchestrators.
