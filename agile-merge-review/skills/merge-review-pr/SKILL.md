@@ -20,7 +20,7 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 1. `gh pr view <N> --json title,body,headRefName,baseRefName,headRefOid,additions,deletions,changedFiles` — **record `headRefOid` as the reviewed sha.** A review is a statement about one tree; the caller gates the merge on this sha (`agile-11-merge-train` 3f) and re-dispatches you on the delta if the branch moved after you read it.
 2. Extract Jira key from `title` (e.g. `[ABC-123]`) or `headRefName` (e.g. `feature/ABC-123`). Project ticket-prefix regex is configurable per consumer repo — defaults to `[A-Z]+-\d+`. Record for step 4. If no key found, do not abort yet — continue, and apply the "no spec" rule in step 4.
 3. `gh pr diff <N>` — read full diff
-4. For every file in the diff: read the **full file** (not just the changed hunks). Diffs hide context.
+4. For every file in the diff: read the **full file at the reviewed sha** — `git show <headRefOid>:<path>` — not just the changed hunks (diffs hide context), and **never from the working tree**. The checkout may be on another branch, and concurrent work uses worktrees: in one run two reviewers were misled by reading a tree checked out elsewhere (one caught itself mid-review, the other had to be re-pointed). Reading by sha is the only read that is a statement about the tree you are reviewing. **State the sha you read at in the receipt.**
 5. Cross-reference against:
    - Project `CLAUDE.md` / `AGENTS.md` and relevant sub-directory equivalents
    - **Jira ticket ACs (authoritative source)** — fetch via `mcp__atlassian__getJiraIssue` using the key from step 2 + the consumer repo's configured `cloudId`. The ticket is the spec; the PR body's restatement may be stale.
@@ -137,7 +137,7 @@ Reviewed sha: <headRefOid>   (delta-review only: reviewed `<old-sha>..<new-sha>`
 ```
 
 **The receipt is verified by the caller (`agile-11-merge-train` 3b) — it is not just a self-attestation.** Four mandatory fields make a shallow review impossible to hide:
-- **Reviewed sha** — the branch tip you actually read. The caller gates the merge on it: a tip that moved after your review is unreviewed code and comes back to you.
+- **Reviewed sha** — the branch tip you actually read, **and the sha every file read was taken at** (`git show <sha>:<path>`). The caller gates the merge on it: a tip that moved after your review is unreviewed code and comes back to you. A review sourced from the working tree is a statement about whatever that checkout happened to be, not about this PR.
 - **Files read in full** — every file in the PR diff with its line count. The caller computes `gh pr diff <N> --name-only` and **rejects the review if this list ≠ the diff set**. A partial read (`Read offset=155 limit=12`) does NOT count — only a full-file read. If a file is not listed, the review is incomplete; read it before reporting.
 - **Lens verdicts** — a line per lens, each with a `file:line` cite or an explicit "N/A because …". A bare ✅ with no citation is rejected: you can't pass a lens without pointing at what you checked.
 - **AC verification** — every AC → the specific `file:line` that satisfies it, in **both** the clean and the has-findings path. "If you can't point to a line, the AC is not satisfied." An AC with no line cite is rejected.
@@ -150,7 +150,7 @@ If no issues: explicitly state "Satisfied — ready to merge." and why — but t
 
 ## Rules
 
-- Read every changed file in full before reporting
+- Read every changed file in full before reporting — **at the reviewed sha (`git show <sha>:<path>`), never from the working tree**, which may be checked out to another branch (especially when concurrent work uses worktrees). The receipt states the sha the files were read at.
 - **Review the PR description too — it is part of the artifact.** Every AC-table row, test-tier claim, and ticked checklist box is verified against the diff. A cited test that does not exist (or does not exercise what the row claims) is Critical, not a doc nit.
 - Never report an issue without a specific fix
 - Stale ACs count as minor, not critical
