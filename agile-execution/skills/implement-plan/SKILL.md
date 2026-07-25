@@ -26,6 +26,29 @@ A concrete, file-level plan:
 
 Post the plan as `🤖 agile:phase=plan`. Return the plan to the orchestrator.
 
+## When the ticket text itself is wrong
+
+Specs drift from code. An AC written weeks ago names a file that has since moved, a test that pins a *different* component's state, a symbol that was renamed, a path that never existed. Planning is where this surfaces, because planning is the first phase that reads the code the AC points at.
+
+**Not** a rejection — the intent is clear, only a reference is stale. **Not** a literal edit of the file the AC names — that ships a change nobody wanted while reporting "AC satisfied". **Not** a silent fix — the correction then lives only in your context, and the reviewer reads it as an unexplained deviation.
+
+**The right answer — correct it in the open, then satisfy the AC by intent:**
+
+1. **Establish ground truth.** Confirm the reference is actually wrong (the file/test/symbol does not exist, or exists but does not do what the AC says) and find what the AC *meant* — the real file, the real test, the real symbol.
+2. **Post the correction to the ticket** before planning around it, as its own comment:
+   ```
+   🤖 <!-- agile:spec-correction --> **spec correction — agile-10-implement — <YYYY-MM-DD>**
+   AC<N> says: "<quoted ticket text>"
+   Ground truth: <what the reference actually is / that it does not exist> — evidence: <path:line, command + output, or a grep result>
+   Reading instead: <the real file/test/symbol> — because <why this is what the AC means>
+   Intent satisfied by: <what the plan will do>
+   ```
+   Evidence is mandatory: a correction asserted without a `path:line` or a command result is just a second opinion about the spec. Never edit the ticket's AC text — append the comment; the trail must show both what was written and what was built.
+3. **Plan against the intent**, referencing the correction. The AC is satisfied when its *purpose* is met, not when its literal wording is pattern-matched.
+4. **Carry it forward.** List the correction in the plan's flagged decisions and repeat it in the PR body, so the reviewer meets it before the diff.
+
+**Escalate instead when the intent itself is unclear.** If the reference is wrong *and* it is not recoverable which behaviour the AC wanted — the two candidate readings imply different features, not different paths — that is a genuine blocking unknown: surface it (validation-gate `rejected` on re-entry, or a critical escalation when the wrong guess is expensive). "The reference is broken" is a correction; "the requirement is unknowable" is a rejection.
+
 ## Marker — mandatory, exact format
 
 Posting the phase marker is **not optional** — it is how `agile-10-implement` records progress and resumes. Post it to the ticket via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML-comment marker** so resume detection (which greps `🤖 <!-- agile:phase=... -->`) finds it:

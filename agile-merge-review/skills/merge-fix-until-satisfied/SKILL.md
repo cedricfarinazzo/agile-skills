@@ -60,11 +60,15 @@ After all fixes:
 
 **Satisfaction is a multi-gate check, not a vibe.** Only emit `"Satisfied. No remaining issues."` when **every** gate below is provably green. If any gate fails, fix it (loop back to Phase 1) before declaring satisfaction.
 
+**DO NOT poll or wait for CI.** Capture the latest run id **before** pushing (`gh run list --branch <branch> -L1 --json databaseId`), push, then emit the receipt immediately — naming the pre-push run id and the pushed sha. Waiting for the post-push run to complete is the **caller's** gate (`agile-11-merge-train` 3e), not this step's. Sitting in a poll loop here burns the whole step's budget and returns nothing.
+
 Mandatory gates (all must pass):
 
-1. **CI green.** Latest run on the branch HEAD reports `SUCCESS` on every check + `mergeStateStatus: CLEAN`. Verify via `gh pr view <N> --json statusCheckRollup,mergeStateStatus`. `UNSTABLE` or any non-SUCCESS = not satisfied; investigate the failing check and fix it.
+1. **CI accounted for.** Read the checks on the branch HEAD **once** (`gh pr view <N> --json statusCheckRollup,mergeStateStatus`). A known-failing check must be diagnosed and fixed here — `UNSTABLE` or any non-SUCCESS conclusion on a **pre-existing** run = not satisfied. But an in-progress or not-yet-started run on the tip **you just pushed** is not a gate failure here: record the pre-push run id + pushed sha in the receipt and hand off. One read, no loop.
 2. **Lint clean.** Project linter (`ruff check`, `eslint`, `golangci-lint run`, etc.) exits 0 across all touched paths.
 3. **All ACs satisfied.** Every AC from the Jira ticket has a corresponding code site + test reference. Walk the AC list one by one; if you cannot point to a specific line that satisfies an AC, it is not satisfied.
+
+   **DoD-vs-convention conflict → a labelled CONSCIOUS ACCEPT, never a silent choice.** When a standing repo convention conflicts with the ticket's DoD wording, do not silently follow either one. Follow the convention, and record a `Conscious accept:` entry in the receipt stating all five: what the DoD asks · what was done instead · why the convention wins · **where the equivalent-strength coverage actually lives** · that this is a deliberate decision, not an oversight. It carries into the postmortem so the merge/QA reader signs off on it knowingly.
 4. **PR up to date with main + no conflicts.** `gh pr view <N> --json mergeable,mergeStateStatus` returns `mergeable: MERGEABLE` + `mergeStateStatus: CLEAN`. If `BEHIND` / `DIRTY` / `CONFLICTING`, invoke `merge-update-pr` to rebase before declaring satisfaction.
 5. **Implementation quality acceptable.** Re-read the changed files (mandatory — diff context is not enough). Code is clean, DRY, no dead branches, no copy-paste duplication ≥3 lines worth extracting, no misleading names, no contradicted comments, no unused imports, no magic numbers that should be named constants. If any of those surface, apply opportunistic cleanup (Phase 1) before declaring satisfaction.
 
@@ -72,9 +76,10 @@ Report format when satisfied:
 
 ```
 Satisfied. No remaining issues.
-- CI: <run-id> SUCCESS, mergeStateStatus CLEAN
+- CI: pre-push run <run-id>, pushed sha <sha> — caller gates the fresh run
 - Lint: clean
 - ACs: <N>/<N> verified against specific lines
+- Conscious accept: <DoD asks X> → <did Y per convention Z>; equivalent coverage at <file:line>; deliberate   |   none
 - Rebase: branch up to date with main, no conflicts
 - Implementation: <one-line quality assessment>
 ```
@@ -84,9 +89,12 @@ If not satisfied: list which gate(s) failed and what blocks them. Loop back to P
 ## Rules
 
 - Never mark satisfied if any Phase 4 gate is not green (CI / lint / ACs / rebase / quality). All five are mandatory.
+- **Never poll or wait for CI.** Capture the pre-push run id, push, emit the receipt. The fresh-run gate belongs to the caller.
+- **Never end the turn without the verdict receipt, and never ask the caller a question.** Blocked → emit the receipt with a `blocked` field naming the blocker. The receipt is structured fields only — no narrative.
 - Always grep for analogous issues after fixing one (e.g. wrong port in one file → check all test docstrings)
 - Linter must be clean before committing any source file
 - **"Fix all" means fix all — including every Minor.** Minor severity does not mean "optional" or "punt to follow-up". If `merge-review-pr` reported it, fix it before declaring satisfaction. The only acceptable reason to skip a Minor is if applying the fix is genuinely out-of-scope (would expand the PR diff into files it did not already touch) — in which case file a follow-up ticket inline and note it in the postmortem. Never declare Satisfied with un-addressed Minor findings on the report.
+- **A standing convention that conflicts with the DoD wording becomes a labelled conscious accept — never a silent deviation in either direction.** Follow the convention, record what the DoD asked, what was done instead, why the convention wins, where the equivalent-strength coverage lives, and that it is deliberate. `none` is a real value of that field, not an omission.
 - If a fix reveals a deeper problem, escalate and explain before proceeding
 - **Verification mode is valid usage, not a smell.** When the caller (e.g. `agile-11-merge-train` 3c) passes "0 issues" the skill must still emit the Satisfied verdict; do not refuse with "nothing to do".
 - **Opportunistic cleanup allowed in verification mode** — see Input section. Low-risk, in-scope, files the PR already touches. Out-of-scope: file a follow-up ticket, do not expand the diff.

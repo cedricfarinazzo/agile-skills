@@ -13,18 +13,21 @@ Thorough PR review. Reads every changed file in full — not just the diff. Repo
 
 PR number from args. If not given, run `gh pr list --state open` and ask.
 
+**Delta mode.** The caller may pass a previously-reviewed sha (`reviewed=<sha>`) — the post-fix re-review at `agile-11-merge-train` 3f. Then scope the read to `git diff <sha>..HEAD`: read **in full** every file that delta touches (not only its hunks), re-verify every AC the delta claims to affect, and report the new `headRefOid` as the reviewed sha. The already-reviewed remainder of the diff is not re-read. Everything else in this skill is unchanged — same lenses, same receipt, same severity rules.
+
 ## Steps
 
-1. `gh pr view <N> --json title,body,headRefName,baseRefName,additions,deletions,changedFiles`
+1. `gh pr view <N> --json title,body,headRefName,baseRefName,headRefOid,additions,deletions,changedFiles` — **record `headRefOid` as the reviewed sha.** A review is a statement about one tree; the caller gates the merge on this sha (`agile-11-merge-train` 3f) and re-dispatches you on the delta if the branch moved after you read it.
 2. Extract Jira key from `title` (e.g. `[ABC-123]`) or `headRefName` (e.g. `feature/ABC-123`). Project ticket-prefix regex is configurable per consumer repo — defaults to `[A-Z]+-\d+`. Record for step 4. If no key found, do not abort yet — continue, and apply the "no spec" rule in step 4.
 3. `gh pr diff <N>` — read full diff
-4. For every file in the diff: read the **full file** (not just the changed hunks). Diffs hide context.
+4. For every file in the diff: read the **full file at the reviewed sha** — `git show <headRefOid>:<path>` — not just the changed hunks (diffs hide context), and **never from the working tree**. The checkout may be on another branch, and concurrent work uses worktrees: in one run two reviewers were misled by reading a tree checked out elsewhere (one caught itself mid-review, the other had to be re-pointed). Reading by sha is the only read that is a statement about the tree you are reviewing. **State the sha you read at in the receipt.**
 5. Cross-reference against:
    - Project `CLAUDE.md` / `AGENTS.md` and relevant sub-directory equivalents
    - **Jira ticket ACs (authoritative source)** — fetch via `mcp__atlassian__getJiraIssue` using the key from step 2 + the consumer repo's configured `cloudId`. The ticket is the spec; the PR body's restatement may be stale.
    - PR body ACs as a secondary check — if PR body ACs diverge from Jira, flag the divergence as a minor finding; trust Jira.
    - If step 2 yielded no Jira key AND PR body has no ACs: flag as critical — PR lacks a spec, cannot be reviewed against intent. Block.
    - Existing test files that may reference changed code (field names, API contracts, ports)
+   - **Any `🤖 <!-- agile:spec-correction -->` comment on the ticket** — read these with the ACs, before the diff (see the lens below)
 
 ## Review lenses (check all)
 
@@ -33,6 +36,7 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - Logic errors, wrong types, missing null handling
 - Model ↔ migration ↔ test consistency
 - **`sys.modules` cleanup helpers using substring `in` match.** `if "X" in mod` against `sys.modules` keys matches any module dotted-path containing `"X"` — including unrelated neighbours. This is a **critical** bug: silently tears down modules other tests depend on, producing order-dependent failures invisible in single-file local runs. Fix: replace substring `in` with `startswith()` against a tuple of full dotted prefixes, or with exact equality.
+- **A change labelled cosmetic / stylistic / "idiom alignment" that touches CONTROL FLOW still needs per-branch equivalence proof.** "Cosmetic" is a claim to check, not a reason to skip checking. e.g. replacing an early-`continue` guard with a conditional assignment — `continue` leaves the field at its existing default, the assignment sets it. Verify every branch agrees, including **falsy / zero / absent edge values** and any implicit default the old form relied on.
 - **Hardcoded forward datetime fixtures in tests.** Tests pinning specific calendar dates are brittle — calendar libraries may add bridge days, the date may fall outside the library's calendar window in a future runner image, etc. Minor finding. Prefer helpers computed relative to a stable anchor.
 
 **Security**
@@ -47,12 +51,39 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - File/function/variable naming per project `CLAUDE.md`
 
 **Test coverage**
+- **A negative / guard test must be proven to REACH the guard it names.** Mutation-grade (would this test fail if the behaviour regressed?) is necessary but **not sufficient**: the chosen input must not be rejected by an EARLIER layer — field length/precision, type coercion, nullability, referential integrity, a framework-level validator, an upstream schema check. Example: a test asserting a storage constraint rejects a bad value picked an input violating the column width — the engine rejected it before the constraint ever evaluated. Require each negative assertion to state **which named guard it provably trips** and **why no earlier layer can reject the input first**. A test that fails for the wrong reason and a test that passes for the wrong reason are the same defect — the second one just ships.
 - Every AC has a corresponding test
 - Connection details in test docstrings match the testing stack (DB port, broker port, etc.)
 - Test data teardown — no leaks between test runs
 - Stale field name references after a rename
 - **Env-gated tests must still be import-clean.** Tests behind feature flags skip at runtime but their imports + name references still execute at collection time. Missing imports, undefined names, etc. are critical bugs masked by the gate.
 - **Router/auth-guard introduction cascade.** If the PR adds routing guards or any redirect-on-mount logic, grep existing E2E tests for navigation patterns that may now redirect unexpectedly. Each is a critical finding — DOM assertions become stale.
+
+**PR description claims — the PR body is part of the artifact under review**
+- The PR body is a **claim about the diff**, not evidence. Verify each claim against the changed files; a claim contradicted by the diff is a finding, and a **fabricated** one is Critical.
+- **AC-coverage table:** for every row, open the test file it cites and confirm the test that covers that AC actually exists and exercises it. A row citing a test file that does not exist, a test name not in that file, or a test that contains none of the calls the row claims → **Critical**.
+- **Test-tiers / checklist claims:** "integration test added", "e2e updated", "migration tested" must each be traceable to a changed file. A ticked box with nothing in the diff behind it → **Critical**.
+- **Files/scope claims:** a body describing changes the diff does not contain (or omitting a file the diff does change) → Minor, or Critical if it hides a risky change.
+- This lens caught the strongest finding in a real review pass: an AC-coverage table crediting a test file that contained none of the calls it claimed.
+
+**Corrected ACs — review against the correction, not the stale wording**
+
+An AC can be wrong: it names a file, test, or symbol that does not exist, or one that pins a different component's state than the AC describes. The implementer is required to post a `🤖 <!-- agile:spec-correction -->` comment (evidence + the real reference + the intent) and satisfy the AC **by intent**. So:
+
+- **Fetch the ticket's spec-correction comments together with its ACs.** Verify each affected AC against the *corrected* reading. A diff that matches the intent but not the stale literal wording is **correct** — flagging it as a missing AC is a false Critical, and the reviewer holding the stale text is exactly how a correct PR gets blocked.
+- **A deviation with no posted correction is a finding.** If the diff satisfies an AC differently from what the ticket says and nothing on the ticket explains it, the correction was never made public — **Critical**: the deviation exists only in the author's head, so nobody can check it. The fix is to post the correction with evidence, not to rewrite the code.
+- **Check the correction itself.** It carries evidence (`path:line`, a command result, a grep hit) — verify that evidence, and that the corrected target is really what the AC meant. A correction is a claim about the spec and gets the same scrutiny as a claim about the diff. Wrong or unevidenced → Critical.
+- **Report it either way.** Every corrected AC's binding names the correction comment alongside its `file:line`, so the postmortem records that the ticket text and the delivered behaviour diverged — that is the signal refinement needs.
+
+**Documented invariants & conventions — a review axis, not a doc nit**
+
+Review the diff against the story's ACs, its out-of-scope section, **and the documented invariants/conventions it touches** (root + subfolder `CLAUDE.md` / `AGENTS.md`, architecture docs). **A change that makes a documented invariant or convention FALSE is a defect even when the code itself is correct.** Three shapes seen in a single run:
+
+- **A silently-widened invariant.** A change widened the effective key of a documented core invariant without updating the document, so the stated invariant became false. The diff is correct; the doc now lies. Finding.
+- **A limitation comment that outlived its limitation.** A PR left a "KNOWN LIMITATION" comment naming a follow-up ticket; when that follow-up fixed the limitation the stale comment survived, documenting a defect that no longer exists. **The ticket that removes a limitation must remove or rewrite the comment** — check every such comment the diff resolves or touches.
+- **A new domain concept with no conventions entry**, though every sibling story's concept has one. Absent entry → finding.
+
+And **verify a documentation entry accurate against the shipped code, not merely present** — a confidently-worded wrong entry is worse than none.
 
 **Documentation**
 - Test-suite `CLAUDE.md` updated: project structure tree, coverage table, run command section
@@ -71,11 +102,12 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 
 ## Output format
 
+**No preamble, no Overview/Summary section, no "Good"/praise section.** They prove nothing, the caller verifies nothing with them, and the orchestrator pays for them in context. Open on the fields. Prose belongs *inside* a finding and inside a per-AC binding — that is where it is the value: a finding compressed to a label cannot be acted on, so give each one the sentence or two it needs (what is wrong, why it matters, the fix).
+
 ```
 ## PR #<N> Review — [title]
 
-### Overview
-<2-3 sentences: what it does>
+Reviewed sha: <headRefOid>   (delta-review only: reviewed `<old-sha>..<new-sha>`)
 
 ### Files read in full
 - `path/a.py` (123 lines)
@@ -86,7 +118,10 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 - Correctness ...... ✅ `file:line` <what confirmed>  |  ❌ see Critical
 - Security ......... ✅ `file:line`  |  N/A because <no new endpoint/input>
 - Naming/conventions ✅ `file:line`  |  ...
+- Corrected ACs ..... <AC<N> → correction comment verified>  |  N/A no corrections
+- Invariants/conv. .. ✅ <invariant/convention touched → still true at `doc:line`>  |  N/A none touched
 - Test coverage .... ✅ `file:line`  |  ...
+- PR-body claims ... ✅ <each AC-table row / tier claim traced to a changed file>  |  ❌ see Critical
 - Documentation .... ✅ `file:line`  |  N/A
 - Migration ........ N/A  |  ✅ `file:line`
 
@@ -100,12 +135,10 @@ PR number from args. If not given, run `gh pr list --state open` and ask.
 
 ### Minor
 - **<short title>**: <problem> → <fix>
-
-### Good
-- <what was done correctly>
 ```
 
-**The receipt is verified by the caller (`agile-11-merge-train` 3b) — it is not just a self-attestation.** Three mandatory sections make a shallow review impossible to hide:
+**The receipt is verified by the caller (`agile-11-merge-train` 3b) — it is not just a self-attestation.** Four mandatory fields make a shallow review impossible to hide:
+- **Reviewed sha** — the branch tip you actually read, **and the sha every file read was taken at** (`git show <sha>:<path>`). The caller gates the merge on it: a tip that moved after your review is unreviewed code and comes back to you. A review sourced from the working tree is a statement about whatever that checkout happened to be, not about this PR.
 - **Files read in full** — every file in the PR diff with its line count. The caller computes `gh pr diff <N> --name-only` and **rejects the review if this list ≠ the diff set**. A partial read (`Read offset=155 limit=12`) does NOT count — only a full-file read. If a file is not listed, the review is incomplete; read it before reporting.
 - **Lens verdicts** — a line per lens, each with a `file:line` cite or an explicit "N/A because …". A bare ✅ with no citation is rejected: you can't pass a lens without pointing at what you checked.
 - **AC verification** — every AC → the specific `file:line` that satisfies it, in **both** the clean and the has-findings path. "If you can't point to a line, the AC is not satisfied." An AC with no line cite is rejected.
@@ -118,13 +151,16 @@ If no issues: explicitly state "Satisfied — ready to merge." and why — but t
 
 ## Rules
 
-- Read every changed file in full before reporting
+- Read every changed file in full before reporting — **at the reviewed sha (`git show <sha>:<path>`), never from the working tree**, which may be checked out to another branch (especially when concurrent work uses worktrees). The receipt states the sha the files were read at.
+- **Review the PR description too — it is part of the artifact.** Every AC-table row, test-tier claim, and ticked checklist box is verified against the diff. A cited test that does not exist (or does not exercise what the row claims) is Critical, not a doc nit.
 - Never report an issue without a specific fix
 - Stale ACs count as minor, not critical
+- **A wrong AC is verified against its posted correction, never against its stale wording** — and a deviation with *no* posted correction is Critical. See the "Corrected ACs" lens.
 - Missing run command in test-suite `CLAUDE.md` counts as minor
 - Wrong `server_default` pattern counts as critical (causes ORM autogenerate drift)
 - Field name mismatch between schema and tests counts as critical (causes test failures)
+- **A documented invariant or convention the diff makes FALSE is a defect, not a doc nit** — review against the ACs, the out-of-scope section, AND the invariants/conventions the diff touches. A limitation comment that outlives its limitation is its own defect; a documentation entry is verified accurate against the shipped code, never merely verified present.
 - **Project Structure tree drift counts as minor.** New file in a `CLAUDE.md`-documented folder but tree not updated → minor finding. The self-improvement loop rule ("new file → update tree") applies to non-test helpers too, not just test files.
-- **Cross-PR file overlap is a review signal.** If review notices the diff touches a file that other open PRs also touch, flag in the "Good" / "Notes" section so the postmortem can record the Jira-link recommendation.
+- **Cross-PR file overlap is a review signal.** If review notices the diff touches a file that other open PRs also touch, report it as a `Cross-PR overlap:` field (the file + the other PR/ticket) so the postmortem can record the Jira-link recommendation.
 - **Review report prose stays in normal English.** The report is a permanent record consumed by the merge-train, postmortem skill, and reviewers reading it later in Jira. Write the report as you would for a code-review comment on GitHub.
 - **A PR introducing a new lint rule must re-sweep the rebased tree, not just the pre-rebase one.** See the "Lint-rule introduction cascade" lens above. Any old-syntax hit on a file that the rebase pulled in is a Critical finding.

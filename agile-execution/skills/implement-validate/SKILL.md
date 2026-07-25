@@ -37,6 +37,12 @@ Transition ids are **per-project and unstable** — never assume `21`/`31`/etc. 
 3. **Before concluding a status does not exist, read this list** — do not assume a board "has no In-Progress / In-Review column" from memory. Only if no transition's target name matches after reading the list do you fall back (leave in place + note it).
 - **Score < 6, or no AC / no DoD, or a genuine blocking unknown remains → `rejected`.** Post `🤖 agile:phase=validate` (rejected mode) listing exactly what is missing and what skill 8 (Refinement) must add. Transition to `needs-info-status-name` (or leave in `To Do` + label `needs-info`). Return `rejected`.
 
+## A stale reference is not a rejection
+
+An AC that names a file, test, or symbol which does not exist (or which exists but pins something else) is **not** a readiness failure — the ticket is specified, one of its references has drifted from the code. Score criterion 2 on whether the AC is **falsifiable**, not on whether every path in it still resolves. Do not deduct for the stale reference, do not `reject`, and do not treat the literal text as authoritative.
+
+Instead: note it in the validation marker (`Spec drift: AC<N> references <X> — verify at plan time`) and let it `pass`. `implement-plan` owns the correction — it establishes ground truth, posts a `🤖 <!-- agile:spec-correction -->` comment with evidence, and satisfies the AC **by intent**. Reject only when the *intent* is unrecoverable, not when a pointer is broken (criterion 7's "blocking unknown").
+
 ## Critical-decision pre-check
 
 If validating already surfaces a **critical** decision (irreversible / high-blast-radius AND not derivable from ADR/PRD/Specs — destructive migration, auth/security change, breaking a shared contract, new paid/infra dependency, data-loss risk), return **`critical-park`** with the decision stated. The orchestrator escalates one consolidated question to the user and parks the ticket. Do not guess a critical decision into the spec.
@@ -62,6 +68,7 @@ Readiness: <total>/10
 6. Dependencies ......... <pts> — <blockers accounted for>
 7. No blocking unknown .. <pts> — <none / the unknown>
 Inferences: <each "assumed X because ADR §N" / none>
+Spec drift: <AC<N> references <X> — verify at plan time / none>
 Transitioned: <from> → <to>        # pass only; omit on rejected/out-of-scope
 <verdict + any further notes>
 ```
