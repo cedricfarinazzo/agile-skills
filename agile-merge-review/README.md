@@ -28,10 +28,10 @@ The `merge-*` blocks are **unnumbered sub-skills** the train composes — each *
 
 | Agent | Runs | Model / effort |
 |-------|------|-----------------|
-| `agile-merge-review:pr-updater` | `merge-update-pr` (3a) | sonnet / low |
+| `agile-merge-review:pr-updater` | `merge-update-pr` (3a) | sonnet / medium — resolving a conflict is judgement; a wrong one lands broken code |
 | `agile-merge-review:pr-reviewer` | `merge-review-pr` (3b) | **opus / high** — last read before the base branch; nothing downstream re-reads the code |
 | `agile-merge-review:fix-until-satisfied` | `merge-fix-until-satisfied` (3c) | sonnet / high |
-| `agile-merge-review:jira-postmortem` | `merge-jira-postmortem` (3g) | sonnet / low |
+| `agile-merge-review:jira-postmortem` | `merge-jira-postmortem` (3g) | sonnet / low — a templated comment + one transition |
 
 ## Dispatch-and-verify — no shortcuts
 

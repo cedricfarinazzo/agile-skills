@@ -1,206 +1,120 @@
 ---
 name: agile-12-tech-debt-sweep
-description: "End-of-sprint housekeeping before closeout: audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/SKILL.md cruft, misplaced artifacts. Report before apply. Triggers: tech debt sweep, cleanup sweep, housekeeping, /tech-debt-sweep. Before agile-13-sprint-closeout."
+description: "End-of-sprint housekeeping before closeout: audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/SKILL.md cruft, misplaced artifacts, dead code. Report before apply. Triggers: tech debt sweep, cleanup sweep, housekeeping, /tech-debt-sweep. Before agile-13-sprint-closeout."
 ---
 
 # agile_12_tech_debt_sweep
 
-Audit the consumer repo for low-value drift that accumulated during the sprint. Report findings grouped by category, get explicit approval, apply behavior-preserving fixes, file cross-repo follow-ups. Runs **before** `agile-13-sprint-closeout` so the smoke gate runs on a clean repo.
+Audit the consumer repo for low-value drift accumulated during the sprint: report findings by category, get explicit approval, apply behaviour-preserving fixes, file cross-repo follow-ups.
 
-## Goal & non-goals
+**Runs before `agile-13-sprint-closeout`** — closeout's smoke replays the user flow described in `CLAUDE.md`, so it needs a clean repo and an accurate `CLAUDE.md`. Sweeping *after* closeout would invalidate the closeout's signal.
 
-**Goal:** every finding either (a) gets fixed in-place without behavior change, (b) gets moved to its correct home repo, or (c) gets filed as a tracked follow-up. The sprint enters closeout with no obvious cruft, no useless CI workflows burning minutes, no personal/agent tags leaked into project sources, no Dockerfiles rebuilding stable content every CI run.
+**Goal:** every finding is either fixed in place with no behaviour change, moved to its correct home repo, or filed as a tracked follow-up — so the sprint enters closeout with no obvious cruft, no CI workflows burning minutes for nothing, no personal tags leaked into project sources, and no Dockerfiles rebuilding stable content every run.
 
-**Non-goals:** rewriting business logic; introducing new features; refactoring code for taste; changing test or CI behavior. Behavior preservation is the hard rule — every approved change must be a no-op for the runtime + test suite.
+**Non-goals:** rewriting business logic, adding features, refactoring for taste, changing test or CI semantics. **Behaviour preservation is the hard rule** — every approved change must be a no-op for the runtime and the test suite.
 
-## Input
-
-No args required. Optional: focus area (`leakage` / `claude-md` / `ci` / `docker` / `misplacement` / `dead-code`) to scope the audit to one bucket instead of all six.
+**Input:** none required. Optionally scope to one bucket: `leakage` / `claude-md` / `ci` / `docker` / `misplacement` / `dead-code`.
 
 ## Phase 0 — Inventory
 
-Read the repo's structure end-to-end (project root + all sub-folder `CLAUDE.md` / `AGENTS.md`, `.github/workflows/`, `docker/**`, `docker-compose*.yml`, all `SKILL.md` files under `.claude/skills/`). Build a one-line manifest per category so the report is grounded in actual files, not assumptions.
+Read the repo end-to-end — root and sub-folder `CLAUDE.md` / `AGENTS.md`, `.github/workflows/`, `docker/**`, `docker-compose*.yml`, every `SKILL.md` under `.claude/skills/` — and build a one-line manifest per category so the report is grounded in actual files rather than assumptions.
 
-## Phase 1 — Audit (6 categories, all run by default)
+## Phase 1 — Audit (six categories, all run by default)
 
-### Category A — Cross-repo / personal leakage
+### A — Cross-repo / personal leakage
 
-Project source files (anything tracked in git) must not reference:
+Tracked project files must not carry: **personal workflow tags** in TODOs (`TODO(<owner-handle>)`, `TODO(<persona-tag>)`); **personal style or compression modes** in `CLAUDE.md` ("always reply in `<style-name>` mode") — those are agent-side preferences, not project conventions; **personal skill names** (`agile-13-sprint-closeout`, custom slash-commands) that live in plugin repos and are not installed for every contributor; or **owner-specific URLs, cloudIds, tokens, and project keys** outside their natural homes.
 
-- **Personal workflow tags** in TODO comments (e.g. `TODO(<owner-handle>)`, `TODO(<persona-tag>)`) — agent or owner private tags that confuse contributors. Build the project-specific tag list from the owner's known agent / persona vocabulary before grepping.
-- **Personal style / compression modes** in `CLAUDE.md` (e.g. "use `<terse-mode>` style", "always reply in `<style-name>` mode", refs to agent-side compression dialects) — these are agent-side personal preferences, not project conventions.
-- **Personal skill names** in project `CLAUDE.md` (e.g. `agile-13-sprint-closeout`, `agile-15-retro`, custom slash-commands) — these live in plugin repos and are not installed for every contributor. Either rewrite as workflow-neutral guidance ("run end-of-sprint closeout gate before retro") or delete.
-- **Owner-specific URLs / cloudIds / tokens / project keys** sprinkled outside their natural homes (e.g. hardcoded Jira `cloudId` in random workflows; project-specific issue prefixes baked into shared scripts).
-
-**Grep recipe (substitute the alternation list with the consumer's actual personal vocabulary — owner tags, persona names, compression / style modes, custom CLI wrappers, personal skill names, hardcoded owner cloudId / handle / email):**
+Build the tag list from the owner's actual agent/persona vocabulary before grepping:
 
 ```bash
 grep -rni --include='*.md' --include='*.py' --include='*.ts' --include='*.tsx' \
-  --include='*.yml' --include='*.yaml' --include='*.toml' --include='*.json' \
-  --include='*.sh' \
+  --include='*.yml' --include='*.yaml' --include='*.toml' --include='*.json' --include='*.sh' \
   -E '<tag1>|<tag2>|<cli-wrapper>|<owner-cloudId>' . \
   | grep -v '.venv' | grep -v node_modules | grep -v '\.git/' | grep -v '\.claude/'
 ```
 
-**Fix patterns:**
+Fixes: `TODO(<owner-tag>): …` → `TODO: …`; a named style mode → the neutral behaviour it describes ("concise; drop articles, filler, hedging"); "run `<personal-skill>` before X" → the action it performs ("run the end-of-sprint closeout gate before retro").
 
-- `TODO(<owner-tag>): ...` → `TODO: ...`
-- "<terse-style-name> style" → "concise; drop articles, filler, hedging"
-- "run `<personal-skill-name>` before X" → "run X (the action it does) before Y" — neutral
+### B — `CLAUDE.md` / `SKILL.md` cruft
 
-### Category B — `CLAUDE.md` / `SKILL.md` cruft
+Read every one in full and flag: **stale tree comments** contradicting current code (an annotation says "stub" where the file is now the full implementation); **duplicate stack tables** where a sub-folder re-lists rows already in the root (collapse to sub-only deps plus a pointer); **per-test bash blocks enumerating the same env block** with one filename swapped (replace with one canonical block plus "swap the path for a single file" — every former command is still producible); **trivial subsections restating root invariants**; **verbose multi-line `description:` frontmatter** where siblings use one line (compress, keeping all triggers verbatim); and **dead refs** to deleted files, moved scripts, or retired tickets.
 
-Read every `CLAUDE.md` / `AGENTS.md` / `SKILL.md` in full. Flag:
+**Rule:** a removed line must be duplicated elsewhere, stale, or trivially derivable from a line that remains. **Never remove a battle-fought gotcha, an architecture invariant, or a test convention.**
 
-- **Stale tree comments** — file annotations that contradict current code (e.g. tree says "stub" but file is the full implementation; file annotations referencing stories that have shipped + reshaped the file).
-- **Duplicate stack tables** — sub-folder `CLAUDE.md` re-listing rows already in root `CLAUDE.md` Stack table. Collapse sub to the sub-only deps + one-liner pointer to root.
-- **Per-test bash blocks enumerating the same env block** with one filename swap (a common pattern in test-suite `CLAUDE.md`). Replace with **one canonical env block** + a one-liner "swap path for single file". Behavior-preserving — every former command is still producible.
-- **Trivial subsections** that restate root invariants (e.g. backend `CLAUDE.md` Environment section saying "secrets via `.env`" when root invariant #N already locks it).
-- **Pre-existing skill output cruft** — verbose multi-line `description:` frontmatter on a skill when sibling skills use single-line descriptions. Compress to one line, keep all triggers verbatim.
-- **Dead refs** to deleted files / moved scripts / retired tickets.
+### C — Useless CI workflows
 
-**Rule:** any line removed must be either (a) duplicated elsewhere, (b) stale (contradicts current code), or (c) trivially derivable from a remaining line. Never remove a battle-fought gotcha, never remove an architecture invariant, never remove a test convention.
+Workflows that cure consequences rather than causes, whose policy is already stated in `CLAUDE.md`. Symptoms: it only posts a comment or adds a label nothing downstream consumes; its rule is already in `CLAUDE.md` where the author, reviewer, and agent all read it at PR-creation time; it runs on every `synchronize` event burning runner minutes with no merge-blocking effect. *(Case study: a "doc-only PR touches generated artifact" warning workflow — the same rule is one bullet in root `CLAUDE.md`.)*
 
-### Category C — Useless CI workflows
+**Fix:** delete the workflow, strengthen the matching `CLAUDE.md` bullet with specifics (the file globs it covers, the 2–3 action options), and confirm no orphan labels or comments dangle (`gh label delete` where the workflow created one).
 
-Identify workflows that **cure consequences, not causes** and whose policy is already stated in `CLAUDE.md`. Symptoms:
+### D — Heavy Docker rebuilds → prebuild candidates
 
-- Workflow only posts a comment / adds a label that no downstream automation consumes.
-- Workflow's enforcement is a rule already in `CLAUDE.md` that the author + reviewer + agent would have read at PR creation time.
-- Workflow runs on every PR `synchronize` event, burning self-hosted runner minutes / GitHub Actions minutes on a check that has no merge-blocking effect.
+Read every `Dockerfile` and every compose `build:` block, looking for layers that compile or download stable third-party tools (a C library, a CLI binary, browser bundles, native bindings) on every CI run, take >20s, and are invalidated by source changes that have nothing to do with them.
 
-**Case study:** a "doc-only PR touches generated artifact" warning workflow — same rule could be a single bullet in root `CLAUDE.md`, no CI needed.
+Each is a candidate for extraction into the org's shared docker-images repo: a new `<image-name>/` folder at that repo's root with a `Dockerfile` parameterised by axes and multi-arch via `TARGETARCH`, `versions.json`, `package.json`, `.releaserc.json`, `README.md`, and `.github/workflows/build-<image-name>.yml` — then registered in the root `package.json` workspaces, the README images table, and the `CLAUDE.md` layout. **Copy a working sibling image verbatim as the template and SHA-pin every `uses:`** rather than inventing a pattern.
 
-**Fix:** delete the workflow file, strengthen the matching `CLAUDE.md` bullet (be specific: list the file globs the rule covers + the 2-3 action options). Confirm no orphan labels / comments left dangling (manual `gh label delete` if needed).
+**Skip rule** — extraction is only worth it when the layer is genuinely stable (changes ≤ monthly), saves ≥20s per CI run, **and** is reusable by at least one other project. Otherwise it is complexity displacement.
 
-### Category D — Heavy Docker rebuilds → prebuild candidates
+**The downstream swap is deferred.** Replacing the consumer's `build:` block with `image: ghcr.io/<owner>/<image-name>:<tag>` must wait until the image is actually published, or compose pull fails. File it as a one-line follow-up ticket.
 
-Read every `Dockerfile` in `docker/` plus all `build:` blocks in `docker-compose*.yml`. For each, identify layers that:
+### E — Misplaced artifacts
 
-- Compile / download stable third-party tools (TA-Lib C lib, Apollo Rover binary, Playwright browsers, native bindings) every CI run.
-- Take >20s to build and are invalidated by source-only changes that have nothing to do with them.
+Things living in the consumer repo that belong elsewhere: **plugin skills bundled into an app repo** (move to the plugin repo, add to the marketplace, delete or leave thin wrappers); **generalizable scripts hardcoded to one project** (a sprint audit script with `project = PROJ` baked into its JQL — generalise via args/env, move beside the skill that calls it); **workflow docs and playbooks** that are execution conventions rather than project-specific.
 
-Each such layer is a candidate for extraction into the org's **shared docker-images repo** (a dedicated multi-arch base-image repo whose registry the consumer's compose then pulls from). Recipe per image:
+After each move, grep the consumer repo for residual references (the filename *and* the documented invocation) and either rewrite them to the new home or delete them as stale.
 
-1. New folder at repo root: `<image-name>/`
-2. `Dockerfile` parameterized by axes (versions, distros), multi-arch via `TARGETARCH`
-3. `versions.json` with axes + defaults
-4. `package.json`, `.releaserc.json`, `README.md` (copy a sibling image as template)
-5. `.github/workflows/build-<image-name>.yml` (copy a sibling, retarget axes, SHA-pin every `uses:`)
-6. Register workspace in root `package.json`; add row to root `README.md` images table + bullet in `CLAUDE.md` Layout
+### F — Dead / slop source code
 
-**Downstream swap:** in the consumer repo, replace the `build:` block in `docker-compose.yml` with `image: ghcr.io/<owner>/<image-name>:<tag>` and delete the local `Dockerfile`. **Defer this swap** until the image is actually published on ghcr — otherwise compose pull fails. File the swap as a one-line follow-up ticket.
+Scan tracked **source** (docs are category B). Every finding needs **evidence of deadness, not a hunch**: **unreferenced exports, functions, or files** proven by unused-export tooling or a repo-wide grep returning only the definition — a new file a story added but never wired is the common case; **commented-out blocks**; **dead branches and flags** (a flag now always one value, an `if` on a constant, a branch an earlier change made unreachable); **superseded or duplicated helpers**; **unused dependencies**.
 
-**Skip rule:** an image candidate is only worth extracting if (a) the layer is genuinely stable (changes ≤monthly), (b) build time saved per CI run is meaningful (≥20s), and (c) the image is reusable across at least one other project — otherwise it's just complexity displacement.
-
-### Category E — Misplaced artifacts
-
-Files / scripts / skills that live in the consumer repo but logically belong elsewhere:
-
-- **Plugin skills bundled with the consumer repo** (e.g. `.claude/skills/dev-*` shipped inside an app repo) → move to the dedicated plugin repo, add to plugin marketplace, delete locals (or leave as thin wrappers).
-- **Generalizable scripts** scoped to one project (e.g. a sprint-shared-file-audit script with hardcoded `project = PROJ` JQL) → generalize via args / env, move alongside the skill that calls it in the plugin repo, delete from consumer.
-- **Workflow docs / playbooks** that are project-execution conventions, not project-specific → move to the plugin repo where the skill lives, delete from consumer.
-
-For each: verify nothing in the consumer repo references the moved artifact post-move (grep for the filename + the documented invocation). If references exist, decide: rewrite to the new home (plugin path), or delete the now-stale reference.
-
-### Category F — Dead / slop source code
-
-Scan the consumer's **tracked source** (not docs — that's B) for genuinely dead or duplicated code that accumulated during the sprint. Each finding needs **evidence of deadness**, not a hunch:
-
-- **Unreferenced exports / functions / files** — a symbol or module nothing imports or calls. Prove it: the language's unused-export tooling, or a repo-wide grep of the identifier returning only its own definition. A new file a story added but never wired is the common case.
-- **Commented-out code blocks** left behind after a change.
-- **Dead branches / flags** — a feature flag that is now always one value; an `if` whose condition is a constant; a branch made unreachable by an earlier change.
-- **Superseded / duplicated helpers** — a function replaced by a shared util but left in place; two copies of the same logic where one should call the other.
-- **Unused dependencies** — a manifest entry nothing imports (the depcheck-style scan).
-
-**Fix = delete** (behavior-preserving: removing code nothing reaches is a no-op — confirm with the whole test + lint suite after). **Never delete on a weak signal:** a public API / plugin entrypoint / migration / test fixture may be reached only by reflection, config, dynamic import, or a CI runner — a repo-wide grep that finds "no callers" is necessary but not sufficient for those. When a symbol is reachable non-statically, leave it and note why. Behavior change of any kind (not just a deletion that flips a runtime path) is out of scope — file it as a refactor ticket, don't fold it into the sweep.
+**Fix = delete** — removing code nothing reaches is a no-op, confirmed by the full test and lint suite afterwards. **Never delete on a weak signal:** a public API, plugin entrypoint, migration, or test fixture may be reached only by reflection, config, dynamic import, or a CI runner, so "no callers" from a grep is necessary but not sufficient. When a symbol is reachable non-statically, leave it and note why. Anything that changes behaviour at all is out of scope — file it as a refactor ticket.
 
 ## Phase 2 — Report before apply (MANDATORY)
 
-Produce a single Markdown report covering all six categories. Per finding row: file path, line range, what's wrong, proposed fix, behavior preservation note. Total line count saved + cross-repo moves summarised.
+One Markdown report across all six categories, each finding row carrying file path, line range, what is wrong, the proposed fix, and a behaviour-preservation note; plus total lines saved and cross-repo moves.
 
-**Do not apply anything before the user approves.** This is the hard gate — apply == destructive (deletes files, moves artifacts to other repos, drops workflow files). Wrong call here = lost work. The report is read by a human + sometimes batched: "apply A and C only, skip B" is a valid response.
-
-Report template:
+**Nothing is applied before the user approves — this is the hard gate.** Applying is destructive (deleting files, dropping workflows, moving artifacts between repos), so a wrong call loses work. "Apply A and C only, skip B" is a valid response, so structure the report to be approved per category.
 
 ```markdown
 # Tech debt sweep — report
 
-## A — Cross-repo / personal leakage
-| File:line | Issue | Fix |
-|---|---|---|
-| `path:N` | `TODO(personal-tag)` | strip tag |
-| `CLAUDE.md:N` | `<terse-style-name>` style ref | rewrite neutral |
-
-## B — CLAUDE.md / SKILL.md cruft
-| File:line | Issue | Lines saved | Fix |
-|---|---|---|---|
-
-## C — Useless CI workflows
-| Workflow | Why useless | Replacement |
-|---|---|---|
-
-## D — Prebuild image candidates
-| Layer | Rebuild cost per CI run | Target image | Notes |
-|---|---|---|---|
-
-## E — Misplaced artifacts
-| Source | Target repo | Notes |
-|---|---|---|
-
-## F — Dead / slop source code
-| File:line | Kind | Evidence (why dead) | Fix |
-|---|---|---|---|
+## A — Cross-repo / personal leakage      | File:line | Issue | Fix |
+## B — CLAUDE.md / SKILL.md cruft         | File:line | Issue | Lines saved | Fix |
+## C — Useless CI workflows               | Workflow | Why useless | Replacement |
+## D — Prebuild image candidates          | Layer | Rebuild cost per CI run | Target image | Notes |
+## E — Misplaced artifacts                | Source | Target repo | Notes |
+## F — Dead / slop source code            | File:line | Kind | Evidence (why dead) | Fix |
 
 ## Summary
-- N findings across 6 categories
-- Lines saved (CLAUDE.md / SKILL.md): ~X
-- CI minutes saved per run: ~Y (after C + D applied)
-- Cross-repo moves: list
+- N findings across 6 categories · lines saved ~X · CI minutes saved per run ~Y · cross-repo moves: [list]
 
 Approve which categories to apply.
 ```
 
+**Skip categories the repo does not have** — a single-language repo with no Docker makes D N/A; no bundled plugin skills makes E N/A. **Report the skip explicitly** so the user knows you checked.
+
 ## Phase 3 — Apply approved changes
 
-Only for the categories the user approved. Per category:
+Only the approved categories, **one commit per category per repo** so a reviewer can revert one bucket without unwinding the sweep.
 
-- **A / B / C:** in-repo edits + deletes. Run lint (`ruff` / `biome` / project linter) on touched files. Verify tests still parse (`pytest --collect-only` for Python, `tsc --noEmit` for TS).
-- **D:** scaffold the new image in the shared docker-images repo (Dockerfile + versions.json + package.json + .releaserc.json + README.md + build-<image>.yml workflow + register in root `package.json` workspaces + README + CLAUDE.md Layout). **Do not modify the consumer's `docker-compose.yml`** — image must be published first; file a one-line follow-up ticket for the post-publish swap.
-- **E:** move-to-target-repo edits. After move, grep consumer repo for residual references to the moved artifact and either rewrite (to new home) or delete (if dead).
-- **F:** delete the dead code + its now-orphaned imports. Run the **full** lint + unit + integration suite (not just the touched file) — a false "dead" call that was actually reachable turns red here. If anything breaks, it was not dead: revert and re-classify.
-
-Run the full lint suite + `git status` after each category. Commit per category (one commit per approved bucket, scoped per repo touched).
+- **A / B / C** — in-repo edits and deletes. Lint the touched files and verify tests still parse (`pytest --collect-only`, `tsc --noEmit`).
+- **D** — scaffold the image in the shared docker-images repo only. **Do not touch the consumer's `docker-compose.yml`**; file the post-publish swap ticket instead.
+- **E** — move to the target repo, then grep the consumer for residual references and rewrite or delete them. **Cross-repo moves are two commits, not one:** the target repo gets the artifact and its plumbing first, and the consumer-side deletion lands separately so the move is independently reviewable.
+- **F** — delete the dead code and its orphaned imports, then run the **full** lint + unit + integration suite, not just the touched files. A false "dead" call turns red here: if anything breaks, it was not dead — revert and re-classify.
 
 ## Phase 4 — Hand-off
 
-Final summary message:
-
-- Per-repo commit list (consumer + each cross-repo destination)
-- Cross-repo PR list (which repos need separate PRs, in what order — e.g. "docker-images PR first → wait for `<image>-v1.0.0` to ship → then consumer swap PR")
-- Follow-up tickets filed (e.g. "PROJ-XX: swap `<service>` to the prebuilt image once `<image>-vX.Y.Z` publishes")
-- Note that `agile-13-sprint-closeout` may now proceed
-
-## Rules
-
-- **Behavior preservation is non-negotiable.** Every approved change must be a no-op for runtime + tests + CI semantics. Removing duplicated lines that produce the same content elsewhere = OK. Removing a battle-fought gotcha = NOT OK.
-- **Report before apply, always.** This skill never auto-applies — destructive operations (file delete, workflow delete, cross-repo move) require explicit per-category approval.
-- **Cross-repo moves are atomic across two commits, not one.** Target repo gets the new artifact + its plumbing first; consumer-repo deletion + reference rewrites land in a separate commit so the move is reviewable independently.
-- **Deferred swaps for D.** When extracting a Dockerfile to a prebuilt image, the consumer's `docker-compose.yml` swap is a **follow-up ticket**, not part of this sweep. The image must exist on the registry before the swap can land — file the ticket and let the normal sprint flow handle it.
-- **Use sibling-image templates verbatim for D.** Copy an existing `build-<sibling>.yml` workflow + Dockerfile + versions.json + package.json + .releaserc.json + README from a working image in the docker-images repo. SHA-pin every `uses:` (Renovate keeps them current). Do not invent a new pattern.
-- **One commit per approved category per repo.** Reviewers can revert a single bucket without unwinding the whole sweep.
-- **Run before `agile-13-sprint-closeout`.** Closeout's dev-stack smoke depends on a clean repo + accurate `CLAUDE.md` (smoke-test selects the user flow described there). Running this sweep after closeout would invalidate the closeout's signal.
-- **Skip categories the consumer repo doesn't have.** Single-language repo with no Docker → D is N/A. Project with no plugin-side skills bundled locally → E is N/A. Report the skip explicitly so the user knows you checked.
-- **Audit report prose stays in normal English regardless of session-level compression modes.** The report is read by humans + drives destructive actions; full sentences avoid ambiguity.
+Per-repo commit list; the cross-repo PR order ("docker-images PR first → wait for `<image>-v1.0.0` → then the consumer swap PR"); follow-up tickets filed; and a note that `agile-13-sprint-closeout` may now proceed.
 
 ## Stop conditions
 
-- A finding requires deleting a battle-fought gotcha or architecture invariant to "simplify" — surface to user, never auto-delete.
-- A cross-repo move would orphan a reference the consumer repo can't easily rewrite — stop, ask, do not proceed half-way.
-- A prebuild image extraction would require also changing the runtime behavior (not just build location) — stop, this is no longer a behavior-preserving sweep, file as a separate ticket.
+- A finding would require deleting a battle-fought gotcha or an architecture invariant to "simplify" — surface it, never auto-delete.
+- A cross-repo move would orphan a reference the consumer cannot easily rewrite — stop and ask rather than going half-way.
+- A prebuild extraction would change runtime behaviour, not just build location — it is no longer a behaviour-preserving sweep; file it separately.
 
 ## When NOT to use
 
-- Mid-sprint check-in. This is end-of-sprint pre-closeout — run **after** the last story merged + **before** `agile-13-sprint-closeout`.
-- A quick CLAUDE.md tweak. Use direct edits for one-line changes; this skill is for the full 5-category sweep.
-- A new-repo scaffold. This skill assumes an established repo with accumulated drift; for greenfield repos the categories don't apply.
+A mid-sprint check-in (this runs after the last story merged and before closeout); a one-line `CLAUDE.md` tweak (just edit it); or a greenfield repo, where the categories do not yet apply.
+
+**The report is read by humans and drives destructive actions, so its prose stays in normal English full sentences regardless of any session-level compression mode.**

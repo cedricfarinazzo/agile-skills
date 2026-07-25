@@ -5,74 +5,56 @@ description: "Fix every PR review issue, commit, push, re-check until satisfied.
 
 # merge-fix-until-satisfied
 
-Fix every issue from a PR review. Commit. Re-examine. Repeat until satisfied.
+Fix every issue from a PR review, commit, re-examine, repeat until satisfied. The `"Satisfied. No remaining issues."` verdict is the contract callers (`agile-11-merge-train` 3c) gate on.
 
-## Input
+**Input:** the issues from the current session (`merge-review-pr` output or an inline review). No review yet → run `merge-review-pr` first.
 
-Issues from current session (from `merge-review-pr` output or inline review). If no review has been done, run `merge-review-pr` first.
+**Verification mode (0 issues) is valid usage, not a smell.** When the caller passes "0 issues", still run and still emit the verdict — never refuse with "nothing to do". Phase 1 becomes *opportunistic cleanup*: while re-reading the changed files, fix anything genuinely ugly you find.
 
-**Verification mode (0 issues):** Also call this skill when the prior review reported 0 issues. Phase 1 (Fix) shifts to *opportunistic cleanup*: if while re-reading the changed files you spot something genuinely ugly — dead code, copy-paste duplication, awkward conditional that begs for a helper, misleading name, unused import, comment that contradicts the code — fix it. Phase 2 commits the cleanup under a clear `refactor(scope): ticket cleanup …` or `style(scope): ticket …` message. Phase 3/4 still run as the explicit satisfaction gate that authorises downstream actions (e.g. merge). Returning "Satisfied. No remaining issues." is the contract callers (like `agile-11-merge-train`) rely on.
+**Cleanup threshold — obvious and low-risk only.** In scope: an unused import, a dead branch, a misleading name, copy-paste worth extracting (≥3 lines), a comment the code contradicts, a magic number that wants a named constant, an f-string SQL that wants bound params. Out of scope (file a follow-up ticket instead): a restructured class hierarchy, a new abstraction layer, splitting a module, renaming a public API, or touching any file the PR did not already modify. Unsure whether it is an improvement → leave it. The cleanup belongs in the PR being merged, not sprawled into adjacent code.
 
-**Threshold for opportunistic cleanup:** the change must be obvious and low-risk. If you're unsure whether it's an improvement (subjective style, broader refactor, touching code outside the PR's scope), leave it. The cleanup belongs in the PR being merged, not a sprawl into adjacent code.
+## Phase 1 — Fix
 
-In-scope examples (fix here): unused import, dead branch, misleading variable name, copy-paste 3+ lines worth extracting, contradicted comment, magic number → named constant, f-string SQL → parameterized query with bound params.
+No review issues and nothing ugly spotted → skip to Phase 3. Otherwise, per issue (critical first, then minor):
 
-Out-of-scope examples (file follow-up ticket): restructured class hierarchy, new abstraction layer, splitting a module, renaming a public API, touching files the PR did not already modify.
+1. **Read the full file before editing** — never edit from diff context alone.
+2. Apply the fix.
+3. **Grep for analogous sites.** Fixing a field name means grepping every test file for the old name; a wrong port in one docstring means checking its siblings. One fix, then the sweep.
+4. Run the project's linter on the file (`ruff check`, `eslint`, `golangci-lint`, …). Markdown / YAML / TOML / JSON have no linter — just verify the file still parses.
 
-## Steps
+**"Fix all" means fix all, including every Minor.** Minor is a severity, not permission to punt. The only acceptable skip is a fix that would expand the diff into files the PR did not already touch — file a follow-up inline and note it in the postmortem. Never declare Satisfied with unaddressed Minor findings on the report.
 
-### Phase 1 — Fix (and opportunistic cleanup)
+If a fix reveals a deeper problem, escalate and explain before proceeding.
 
-If no issues from review AND no ugly code spotted during re-read, skip to Phase 3.
+## Phase 2 — Commit & push
 
-For each issue (critical first, then minor):
-1. Read the full file before editing — never edit from diff context alone
-2. Apply the fix
-3. Verify the fix doesn't break adjacent code (e.g. fixing a field name → grep all test files for the old name)
-4. Run the project's linter on the file (e.g. `ruff check`, `eslint`, `golangci-lint`) — markdown / YAML / TOML / JSON: no linter, just verify the file still parses where applicable (e.g. `python -c "import yaml; yaml.safe_load(open('x.yml'))"`).
+No-op Phase 1 → skip to Phase 3. Otherwise group related fixes into one commit and separate unrelated ones. **Keep opportunistic cleanup separate from review-issue fixes**: `refactor(scope):` / `style(scope):` for cleanup, `fix(scope):` for review corrections.
 
-**Opportunistic cleanup (verification mode):** when re-reading the changed files (Phase 3) surfaces a low-risk, in-scope improvement, fix it here in Phase 1 alongside (or instead of) the review issues. The scope threshold and the in/out-of-scope example lists are in the Input section — apply them, don't restate them.
-
-### Phase 2 — Commit & push
-
-If Phase 1 was a no-op, skip to Phase 3.
-
-Group related fixes into one commit if they're part of the same issue. Separate unrelated fixes. **Separate opportunistic cleanup from review-issue fixes** — use `refactor(scope): <ticket> <what>` or `style(scope): <ticket> <what>` for cleanup; reserve `fix(scope): <ticket> <what>` for review-issue corrections.
-
-Commit message format:
 ```
 fix(<scope>): <ticket> <imperative summary>
 
-<body only if why is non-obvious>
+<body only if the why is non-obvious>
 ```
 
-Then `git push origin <branch>` — `<branch>` is the currently checked-out branch (verify with `git rev-parse --abbrev-ref HEAD`), which may be a PR feature branch or `main` itself when the caller is fixing a post-merge follow-up. Push wherever HEAD is.
+Then `git push origin <branch>` where `<branch>` is whatever HEAD is on (`git rev-parse --abbrev-ref HEAD`) — a PR feature branch, or `main` itself when the caller is fixing a post-merge follow-up.
 
-### Phase 3 — Re-examine
+## Phase 3 — Re-examine
 
-After all fixes:
-1. Re-read every file that was changed (both in the original PR and in the fixes)
-2. Check: did the fix introduce anything new? (e.g. fixing a field name → did all references update?)
-3. Check: are there analogous issues in untouched files? (e.g. if one test file had wrong port, check sibling test files)
-4. Check: does the test-suite `CLAUDE.md` need updating for the fix?
+Re-read **every** file changed, in the original PR and in the fixes. Did a fix introduce something new (did every reference update)? Are there analogous issues in untouched files? Does the test-suite `CLAUDE.md` need updating?
 
-### Phase 4 — Verdict
+## Phase 4 — Verdict
 
-**Satisfaction is a multi-gate check, not a vibe.** Only emit `"Satisfied. No remaining issues."` when **every** gate below is provably green. If any gate fails, fix it (loop back to Phase 1) before declaring satisfaction.
+**Satisfaction is a multi-gate check, not a vibe.** Emit `"Satisfied. No remaining issues."` only when every gate below is provably green; any failure loops back to Phase 1.
 
-**DO NOT poll or wait for CI.** Capture the latest run id **before** pushing (`gh run list --branch <branch> -L1 --json databaseId`), push, then emit the receipt immediately — naming the pre-push run id and the pushed sha. Waiting for the post-push run to complete is the **caller's** gate (`agile-11-merge-train` 3e), not this step's. Sitting in a poll loop here burns the whole step's budget and returns nothing.
+**Do not poll or wait for CI.** Capture the latest run id **before** pushing (`gh run list --branch <branch> -L1 --json databaseId`), push, then emit the receipt immediately naming that pre-push run id and the pushed sha. Waiting for the post-push run is the **caller's** gate (`agile-11-merge-train` 3e); a poll loop here burns the whole step's budget and returns nothing.
 
-Mandatory gates (all must pass):
+1. **CI accounted for** — read the checks on branch HEAD **once** (`gh pr view <N> --json statusCheckRollup,mergeStateStatus`). A non-SUCCESS conclusion on a **pre-existing** run must be diagnosed and fixed here. An in-progress or not-yet-started run on the tip *you just pushed* is not a gate failure — record the pre-push id + pushed sha and hand off. One read, no loop.
+2. **Lint clean** — the project linter exits 0 across all touched paths.
+3. **All ACs satisfied** — walk the Jira ticket's AC list one by one; if you cannot point at a specific line, it is not satisfied.
+4. **PR up to date with main** — `gh pr view <N> --json mergeable,mergeStateStatus` returns `mergeable: MERGEABLE` + `mergeStateStatus: CLEAN`. `BEHIND` / `DIRTY` / `CONFLICTING` → invoke `merge-update-pr` before declaring satisfaction.
+5. **Implementation quality** — re-read the changed files (diff context is not enough): clean, DRY, no dead branches, no duplication worth extracting, no misleading names, no contradicted comments, no unused imports, no unnamed magic numbers. Anything surfacing here goes back through Phase 1.
 
-1. **CI accounted for.** Read the checks on the branch HEAD **once** (`gh pr view <N> --json statusCheckRollup,mergeStateStatus`). A known-failing check must be diagnosed and fixed here — `UNSTABLE` or any non-SUCCESS conclusion on a **pre-existing** run = not satisfied. But an in-progress or not-yet-started run on the tip **you just pushed** is not a gate failure here: record the pre-push run id + pushed sha in the receipt and hand off. One read, no loop.
-2. **Lint clean.** Project linter (`ruff check`, `eslint`, `golangci-lint run`, etc.) exits 0 across all touched paths.
-3. **All ACs satisfied.** Every AC from the Jira ticket has a corresponding code site + test reference. Walk the AC list one by one; if you cannot point to a specific line that satisfies an AC, it is not satisfied.
-
-   **DoD-vs-convention conflict → a labelled CONSCIOUS ACCEPT, never a silent choice.** When a standing repo convention conflicts with the ticket's DoD wording, do not silently follow either one. Follow the convention, and record a `Conscious accept:` entry in the receipt stating all five: what the DoD asks · what was done instead · why the convention wins · **where the equivalent-strength coverage actually lives** · that this is a deliberate decision, not an oversight. It carries into the postmortem so the merge/QA reader signs off on it knowingly.
-4. **PR up to date with main + no conflicts.** `gh pr view <N> --json mergeable,mergeStateStatus` returns `mergeable: MERGEABLE` + `mergeStateStatus: CLEAN`. If `BEHIND` / `DIRTY` / `CONFLICTING`, invoke `merge-update-pr` to rebase before declaring satisfaction.
-5. **Implementation quality acceptable.** Re-read the changed files (mandatory — diff context is not enough). Code is clean, DRY, no dead branches, no copy-paste duplication ≥3 lines worth extracting, no misleading names, no contradicted comments, no unused imports, no magic numbers that should be named constants. If any of those surface, apply opportunistic cleanup (Phase 1) before declaring satisfaction.
-
-Report format when satisfied:
+**A DoD-vs-convention conflict is a labelled conscious accept, never a silent choice in either direction.** When a standing repo convention contradicts the ticket's DoD wording, follow the convention and record a `Conscious accept:` entry stating all five: what the DoD asks · what was done instead · why the convention wins · **where the equivalent-strength coverage actually lives** · that this was deliberate. It carries into the postmortem so the merge/QA reader signs off knowingly; unlabelled it reads later as a missed DoD item. `none` is a real value of that field, not an omission.
 
 ```
 Satisfied. No remaining issues.
@@ -84,18 +66,6 @@ Satisfied. No remaining issues.
 - Implementation: <one-line quality assessment>
 ```
 
-If not satisfied: list which gate(s) failed and what blocks them. Loop back to Phase 1.
+Not satisfied → name which gate(s) failed and what blocks them, then loop back to Phase 1.
 
-## Rules
-
-- Never mark satisfied if any Phase 4 gate is not green (CI / lint / ACs / rebase / quality). All five are mandatory.
-- **Never poll or wait for CI.** Capture the pre-push run id, push, emit the receipt. The fresh-run gate belongs to the caller.
-- **Never end the turn without the verdict receipt, and never ask the caller a question.** Blocked → emit the receipt with a `blocked` field naming the blocker. The receipt is structured fields only — no narrative.
-- Always grep for analogous issues after fixing one (e.g. wrong port in one file → check all test docstrings)
-- Linter must be clean before committing any source file
-- **"Fix all" means fix all — including every Minor.** Minor severity does not mean "optional" or "punt to follow-up". If `merge-review-pr` reported it, fix it before declaring satisfaction. The only acceptable reason to skip a Minor is if applying the fix is genuinely out-of-scope (would expand the PR diff into files it did not already touch) — in which case file a follow-up ticket inline and note it in the postmortem. Never declare Satisfied with un-addressed Minor findings on the report.
-- **A standing convention that conflicts with the DoD wording becomes a labelled conscious accept — never a silent deviation in either direction.** Follow the convention, record what the DoD asked, what was done instead, why the convention wins, where the equivalent-strength coverage lives, and that it is deliberate. `none` is a real value of that field, not an omission.
-- If a fix reveals a deeper problem, escalate and explain before proceeding
-- **Verification mode is valid usage, not a smell.** When the caller (e.g. `agile-11-merge-train` 3c) passes "0 issues" the skill must still emit the Satisfied verdict; do not refuse with "nothing to do".
-- **Opportunistic cleanup allowed in verification mode** — see Input section. Low-risk, in-scope, files the PR already touches. Out-of-scope: file a follow-up ticket, do not expand the diff.
-- **Skill output prose stays in normal English.** The Satisfied verdict + gate breakdown is consumed by the merge-train as the green light for merge — write in full sentences so the trace is unambiguous when read later.
+**Never end the turn without the verdict receipt, and never ask the caller a question** — blocked means emitting the receipt with a `blocked` field naming the blocker. The receipt is structured fields, written in normal English full sentences: the merge train reads it as the green light for merge, and it must stay unambiguous when read later.

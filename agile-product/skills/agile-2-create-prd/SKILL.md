@@ -5,19 +5,11 @@ description: "PRD in Confluence from Vision Doc. Triggers: write PRD, draft requ
 
 # agile_2_create_prd
 
-You are acting as a senior Product Manager translating a validated vision into a structured, actionable PRD.
-
-Your job is to:
-1. **Scan** Confluence and Jira for the existing Vision Doc and any PRD already in progress
-2. **Interview** the user to fill any gaps the Vision Doc does not cover
-3. **Write** the PRD as a child page of the project root folder
-4. **Advise** on what to do next
-
----
+Senior Product Manager translating a validated vision into a structured, actionable PRD: scan → extract from the Vision Doc → interview for the gaps → write the PRD → advise.
 
 ## Confluence structure (canonical — identical across all agile-skills)
 
-All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself.
+Every page is a child of the root folder created by `agile-1`. Read this tree before creating any page; never duplicate one that exists.
 
 ```
 📁 [Project Name]                   (root — agile-1)
@@ -26,261 +18,120 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 ├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
 ├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
 ├── 📄 ADR — [Project]              (agile-4)
-├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX: guiding principle + iterations index table + progress rollup + parking lot)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX only: guiding principle · iterations table · progress rollup · parking lot)
 │   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
 ```
 
-Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
-
----
+All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, retro write-ups — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
 
 ## Step 1 — Scan existing state
 
-Before writing anything, read what already exists.
+Find the project root folder, read the **Vision Doc in full**, check for an existing PRD child page, and search Jira for Epics already linked to the project (they may anticipate PRD decisions).
 
-Use Atlassian tools to:
-- Find the project root folder in Confluence (created by skill 1)
-- Read the Vision Doc in full
-- Check if a PRD page already exists as a child of the root folder
-- Search Jira for any Epics already linked to this project (they may anticipate PRD decisions)
-
-**If a PRD already exists:**
-- Read it section by section
-- Identify what is complete, what is a placeholder, and what is missing
-- Tell the user: "I found an existing PRD for [project]. Here's the status of each section: [summary]. I'll resume from what's incomplete."
-- Do not overwrite any existing content — only fill gaps and append updates
-
-**If no PRD exists:** proceed to Step 2.
-
-**If no Vision Doc is found:**
-- Stop and tell the user: "I can't find the Vision Doc for this project in Confluence. Please run skill 1 first, or point me to the right page."
-- Do not proceed until the Vision Doc is located
-
----
+- **A PRD exists** → read it section by section, report the status of each ("complete / placeholder / missing"), and resume from what is incomplete. Fill gaps and append; never overwrite.
+- **No Vision Doc** → stop: "I can't find the Vision Doc for this project in Confluence. Please run skill 1 first, or point me to the right page."
 
 ## Step 2 — Extract what the Vision Doc already answers
 
-Read the Vision Doc carefully. Map each section to the PRD fields below.
+Map it across before asking anything: problem statement → User Problem; target users → Personas; business objectives → Business Goals; success metrics → KPIs; constraints → Constraints; out of scope → Out of Scope. **Do not re-ask what the Vision Doc already states clearly.** Then identify what the PRD needs that it does not cover.
 
-Many answers will already be there — do not re-ask what is already clearly stated in the Vision Doc. Extract:
-- Problem statement → User Problem
-- Target users → User Personas
-- Business objectives → Business Goals
-- Success metrics → KPIs
-- Constraints → Constraints
-- Out of scope → Out of Scope
+## Step 3 — Interview for the PRD-specific gaps
 
-Then identify what the PRD needs that the Vision Doc does not cover.
+1. **User journeys** — the key flows as steps, not UI ("user lands → authenticates → sees dashboard → exports report").
+2. **Functional requirements** — capabilities, not implementation ("users can filter by date range", "system sends email on completion").
+3. **Non-functional requirements** — performance, availability, security, accessibility, compliance.
+4. **Dependencies** — other teams, systems, APIs, third parties.
+5. **Risks** — what could block or derail this.
+6. **Open questions** — what is still undecided and could move scope or design.
 
----
+**Ask** when a functional requirement is undefined enough that you cannot write even one bullet, when a "journey" is really just a label ("users manage their account"), when a dependency is hinted but unnamed ("we'll need the auth system" → "which one, and does it already exist?"), or when an obvious risk has gone unacknowledged. **Infer and flag** what the Vision Doc strongly implies (a B2C product implies mobile support) or where an industry default applies ("assuming a 99.9% uptime target — correct me if your SLA differs").
 
-## Step 3 — Interview the user for PRD-specific information
-
-The PRD goes deeper than the Vision Doc. After reading it, identify what is missing for each of these areas:
-
-### What to collect (PRD-specific)
-
-1. **User journeys** — What are the key flows a user goes through? (not UI details — just the steps: "user lands → authenticates → sees dashboard → exports report")
-2. **Functional requirements** — What must the system do? List capabilities, not implementation. (e.g., "users can filter by date range", "system sends email on completion")
-3. **Non-functional requirements** — Performance, availability, security, accessibility, compliance expectations
-4. **Dependencies** — Other teams, systems, APIs, or third-party services this depends on
-5. **Risks** — What could block or derail this? Technical debt, team capacity, external dependencies?
-6. **Open questions** — What is still undecided that could affect scope or design?
-
-### When to ask vs. when to infer
-
-**Ask** when:
-- A functional requirement is completely undefined (you cannot write even one bullet point)
-- A user journey is ambiguous — "users manage their account" is not a journey, it's a label
-- A dependency is hinted at but unnamed ("we'll need the auth system" — ask: "Which auth system? Is it already built or does it need to be?")
-- A risk is obvious but the user hasn't acknowledged it — flag it and ask if they've considered it
-
-**Infer and flag** when:
-- A requirement is strongly implied by the Vision Doc (e.g., a B2C product implies mobile support)
-- A non-functional requirement has an industry default (e.g., "I'm assuming 99.9% uptime target — correct me if you have a different SLA")
-- An open question from the Vision Doc has an obvious default answer given the context
-
-**Never infer silently.** State every assumption explicitly.
-
-### Format for your questions
+**All questions in one message; every assumption stated in the same message. Never infer silently.** Lead with what you already have so the user only spends effort on the gaps:
 
 ```
-I've read the Vision Doc. Here's what I already have for the PRD:
-✅ User problem: [extracted from Vision Doc]
-✅ Target personas: [extracted from Vision Doc]
-✅ Business goals: [extracted from Vision Doc]
+I've read the Vision Doc. Already have: ✅ user problem · ✅ personas · ✅ business goals
 
-Before I write the PRD, I need a few clarifications:
-
-1. [Question about missing user journey]
-2. [Question about undefined functional requirement]
-3. [Question about dependency or risk]
+Before I write the PRD:
+1. [missing user journey]  2. [undefined functional requirement]  3. [dependency or risk]
 
 I'm already assuming:
-- [Assumption A] — correct me if wrong
-- [Assumption B] — correct me if wrong
+- [Assumption] — correct me if wrong
 ```
 
-Wait for the user's answers before writing the PRD.
+## Step 4 — Write the PRD
 
----
-
-## Step 4 — Write the PRD in Confluence
-
-Create a new child page under the project root folder:
-- **Parent page:** `[Project Name]` (root folder)
-- **Title:** `PRD — [Project Name]`
-
-Use this exact structure:
+Child page of `[Project Name]`, titled `PRD — [Project Name]`:
 
 ```
 # PRD — [Project Name]
 
 ## Status
 [ ] Draft  [ ] In Review  [ ] Approved
-Last updated: [date]
-Author: [PM name or "AI-assisted"]
-Related: [link to Vision Doc]
-
----
+Last updated: [date] | Author: [PM name or "AI-assisted"] | Related: [Vision Doc]
 
 ## 1. User Problem
-One focused paragraph. Who suffers, what the pain is, and why it matters now.
-This is copied/refined from the Vision Doc — not rewritten from scratch.
-
----
+One focused paragraph — who suffers, what the pain is, why it matters now. Refined from the Vision Doc, not rewritten from scratch.
 
 ## 2. User Personas
-For each persona:
-**[Persona name]**
-- Role: ...
-- Goals: ...
-- Pain points: ...
-- Context of use: ...
-
----
+Per persona: role · goals · pain points · context of use.
 
 ## 3. Business Goals
-- Goal 1: [what + measurable target]
-- Goal 2: ...
-
----
+Each with a measurable target.
 
 ## 4. User Journeys
-For each key flow:
-**Journey: [name]**
-1. User [action]
-2. System [response]
-3. User [action]
-...
-
-Keep these at the intent level — no UI or implementation detail.
-
----
+Per flow, numbered user-action / system-response steps. Intent level only — no UI or implementation detail.
 
 ## 5. Functional Requirements
-Group by area (e.g., Authentication, Dashboard, Notifications):
-
-**[Area name]**
-- FR-01: [The system shall / Users can ...]
-- FR-02: ...
-
-Use "shall" for mandatory, "should" for recommended.
-
----
+Grouped by area (Authentication, Dashboard, Notifications…), numbered `FR-01`. "Shall" = mandatory, "should" = recommended.
 
 ## 6. Non-Functional Requirements
-- Performance: [e.g., page load < 2s at p95]
-- Availability: [e.g., 99.9% uptime]
-- Security: [e.g., data encrypted at rest and in transit]
-- Accessibility: [e.g., WCAG 2.1 AA]
-- Compliance: [e.g., GDPR, SOC2]
-
----
+Performance (e.g. page load < 2s at p95) · Availability · Security · Accessibility (e.g. WCAG 2.1 AA) · Compliance.
 
 ## 7. Out of Scope
-- [Feature or concern explicitly excluded]
-- ...
-
----
 
 ## 8. Dependencies
-| Dependency | Type | Team / System | Status |
-|------------|------|---------------|--------|
-| [name] | Internal / External | [owner] | Ready / In progress / Blocked |
-
----
+| Dependency | Type (Internal/External) | Team / System | Status |
 
 ## 9. Risks
 | Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| [risk] | High/Med/Low | High/Med/Low | [action] |
-
----
 
 ## 10. KPIs & Success Metrics
 | Metric | Baseline | Target | Timeline |
-|--------|----------|--------|----------|
-
----
 
 ## 11. Open Questions
 | Question | Owner | Due date | Status |
-|----------|-------|----------|--------|
-
----
 
 ## Next Step
-→ Design brief to be drafted — see child page: Design Brief — [Project Name]
-→ Once PRD is approved, run skill 3: agile_3_design_brief
+→ Once approved, run skill 3: agile_3_design_brief
 ```
-
----
 
 ## Step 5 — Resume logic
 
-If this skill is re-run on a project with an existing PRD:
-- Read the current PRD fully
-- For each section: check if it has real content or is a placeholder
-- Fill only what is missing or marked as TBD
-- Append `Last updated: [date]` to the Status block
-- Never remove or overwrite content that is already complete
-- If a section changed significantly since the last run (e.g., new risk discovered), append the new information rather than replacing it — track changes with a note: `[Updated: date — reason]`
+Read the current PRD fully; per section, judge whether it holds real content or a placeholder, and fill only what is missing or marked TBD. Refresh `Last updated`. Never overwrite complete content — when a section changed materially since the last run (a newly discovered risk), **append** with a `[Updated: date — reason]` note rather than replacing.
 
----
-
-## Step 6 — Advise on next steps
-
-After creating or updating the PRD, always close with:
+## Step 6 — Advise
 
 ```
 ✅ Done:
-- PRD page created/updated under [Project Name] in Confluence
+- PRD created/updated under [Project Name]
 - Sections complete: [list]
 
 ⚠️ Still needed (human action required):
-- Review and approve the PRD (change Status to "Approved")
-- Sections needing your input: [list any TBD sections]
-- Open questions to resolve: [list from section 11]
+- Review and approve (set Status to "Approved")
+- Sections needing your input: [TBD list]
+- Open questions to resolve: [from section 11]
 
-👉 Next step — Skill 3: agile_3_design_brief
-   Once the PRD is approved, run skill 3 to create the design brief for Claude Design.
-   Input needed: approved PRD.
+👉 Next step — Skill 3: agile_3_design_brief (input: approved PRD)
 ```
 
----
+## Principles
 
-## Principles (apply to every run)
-
-- **Ask before writing** — never draft a PRD section you don't have real information for; ask first
-- **Group questions** — ask everything missing in one message after reading the Vision Doc; never drip
-- **Read before write** — always read the Vision Doc and any existing PRD before touching Confluence
-- **Idempotent** — re-running never duplicates or overwrites complete content
-- **Resumable** — re-running resumes from incomplete sections only
-- **Transparent assumptions** — every inference stated explicitly, never silent
-- **No placeholder sections** — every section has real content or "TBD — [specific reason + owner]"
-- **PRD is the source of truth** — all downstream skills (ADR, Epics, Stories) derive from it; accuracy here saves rework everywhere
+- **Ask before writing** — never draft a section you have no real information for.
+- **Read before write** — the Vision Doc and any existing PRD, before touching Confluence.
+- **Idempotent and resumable** — re-running fills incomplete sections and never duplicates or overwrites complete ones.
+- **No placeholder sections** — real content, or `TBD — [reason + owner]`.
+- **The PRD is the source of truth** — the ADR, Epics, and Stories all derive from it, so accuracy here saves rework everywhere downstream.

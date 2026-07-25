@@ -5,19 +5,11 @@ description: "Epics in Jira from Roadmap. Triggers: create epics, set up Jira fo
 
 # agile_6_create_epics
 
-You are acting as a Product Manager and Tech Lead structuring work in Jira so it is ready for Story writing.
-
-Your job is to:
-1. **Scan** Confluence and Jira for the existing Roadmap and any Epics already created
-2. **Interview** the user to clarify anything ambiguous before touching Jira
-3. **Create or update** Epics in Jira, linked to the Confluence Roadmap
-4. **Advise** on what to do next
-
----
+Product Manager + Tech Lead structuring work in Jira so it is ready for Story writing: scan → interview on anything ambiguous → create/update Epics linked to Confluence → advise.
 
 ## Confluence structure (canonical — identical across all agile-skills)
 
-All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself.
+Every page is a child of the root folder created by `agile-1`. Read this tree before creating any page; never duplicate one that exists.
 
 ```
 📁 [Project Name]                   (root — agile-1)
@@ -26,36 +18,24 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 ├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
 ├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
 ├── 📄 ADR — [Project]              (agile-4)
-├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX: guiding principle + iterations index table + progress rollup + parking lot)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX only: guiding principle · iterations table · progress rollup · parking lot)
 │   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
 ```
 
-Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
-
----
+All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, retro write-ups — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
 
 ## Step 1 — Scan existing state
 
-Use Atlassian tools to:
-- Find the project root folder in Confluence
-- Read the Roadmap index to find the current iteration, then open its `MVP — [Project]` / `Iteration N — [Project]` child page and read the **Epics in scope** table there (the Roadmap index itself only links to it)
-- Read the ADR section 11 (Epic Breakdown Proposal) for complexity estimates and dependencies
-- Search Jira for Epics already created for this project (by name, label, or Confluence link)
+Read the **Roadmap index** to find the current iteration, then open its `MVP — [Project]` / `Iteration N — [Project]` child page and read the **Epics in scope** table there — the index itself only links to it. Read **ADR §11** for complexity estimates and dependencies. Search Jira for Epics already created (by name, label, or Confluence link), and for each Epic in scope determine whether it exists and, if so, its current state.
 
-**For each Epic in the Roadmap scope:**
-- Check if it already exists in Jira
-- If it exists: read its current state (summary, description, status, linked Stories)
-- If it does not exist: flag it as to be created
-
-Report to the user before doing anything:
+Report before doing anything, then ask "Shall I proceed with this plan?":
 
 ```
-I found the Roadmap for [Project Name]. Here's the Epic status:
-
+Epic status for [Project Name]:
 | Epic | In Jira? | Jira status | Action needed |
 |------|----------|-------------|---------------|
 | [Epic 1] | ✅ Yes | In Progress | No action — already active |
@@ -63,172 +43,76 @@ I found the Roadmap for [Project Name]. Here's the Epic status:
 | [Epic 3] | ❌ No | — | Will create |
 ```
 
-Ask for confirmation before creating or modifying anything: "Shall I proceed with this plan?"
-
-**If no Roadmap is found or Roadmap scope is not approved:**
-- Stop: "I can't find an approved Roadmap for this project. Please complete skill 5 first."
-
----
+**No approved Roadmap → stop:** "I can't find an approved Roadmap for this project. Please complete skill 5 first."
 
 ## Step 2 — Interview for Epic-level clarity
 
-Before creating Epics in Jira, make sure each one is well-defined enough to be actionable.
+Per Epic to create or update: a short action-oriented **name** devs will recognise ("User Authentication", "Dashboard MVP"); a one-sentence **goal** naming the user problem it solves; the **scope boundary**, in and out, which is what stops scope creep at Story-writing time; **Epic-level acceptance criteria** (high level — Stories carry the detail); **dependencies** on other Epics or external systems; the **owning team**; and **labels** for filtering.
 
-### What to collect per Epic
+**Ask** when a name from the ADR is too vague to be a Jira card ("Auth stuff"), when two Epics have a blurry boundary ("User Profile" vs "Account Settings" — "where does one end and the other begin?"), when ownership is unspecified, or when an Epic has an implicit dependency nobody listed. **Infer and flag** a goal derivable from a detailed ADR description, a dependency obvious from the ADR data model ("Notifications requires the User model from Auth"), or labels implied by the Roadmap section (an MVP Epic → label `mvp`).
 
-For each Epic to be created or updated, you need:
-
-1. **Epic name** — short, action-oriented, understood by devs (e.g., "User Authentication", "Dashboard MVP", "Email Notifications")
-2. **Goal** — one sentence: what user problem does completing this Epic solve?
-3. **Scope boundary** — what is explicitly in vs. out of this Epic? (prevents scope creep at Story writing time)
-4. **Acceptance criteria at Epic level** — how do we know this Epic is done? (high-level — Stories will carry the detail)
-5. **Dependencies** — which other Epics or external systems must be ready before this can start or complete?
-6. **Assignee / owning team** — who is responsible for delivering this Epic?
-7. **Labels** — any labels needed for filtering (e.g., `mvp`, `iteration-1`, `backend`, `frontend`)
-
-### When to ask vs. when to infer
-
-**Ask** when:
-- An Epic name from the ADR is too vague to create a Jira card (e.g., "Auth stuff" — ask: "Can you give me a clearer name and a one-line goal for this Epic?")
-- The scope boundary between two Epics is blurry (e.g., "User Profile" and "Account Settings" overlap — ask: "Where does User Profile end and Account Settings begin?")
-- The owning team is unspecified — ask: "Who owns this Epic? Backend team, frontend team, or full-stack?"
-- An Epic has an implicit dependency that is not listed — flag it and ask for confirmation
-
-**Infer and flag** when:
-- The Epic name is clear and the ADR description is detailed enough to write the goal
-- A dependency is obvious from the ADR data model (e.g., "Notifications Epic requires User model from Auth Epic" — flag and confirm)
-- Labels can be inferred from the Roadmap section (e.g., Epic is in MVP section → label `mvp`)
-
-**Never infer silently.**
-
-### Format for your questions
-
-Only ask about Epics that are genuinely unclear — do not re-ask for Epics that are already well-defined in the ADR.
-
-```
-Before I create the Epics in Jira, I need a few clarifications:
-
-Epic: [Epic name]
-1. [Question about scope boundary or goal]
-
-Epic: [Epic name]
-2. [Question about ownership or dependency]
-
-I'm already assuming for the other Epics:
-- [Epic X]: goal = "[inferred goal]" — correct me if wrong
-- [Epic Y]: owned by [inferred team] — correct me if wrong
-```
-
-Wait for answers before creating anything in Jira.
-
----
+**Only ask about the genuinely unclear Epics** — never re-ask for ones the ADR already defines well. All questions in one message, every assumption stated. **Never infer silently.**
 
 ## Step 3 — Create or update Epics in Jira
 
-For each Epic confirmed by the user:
+**Summary:** `[Epic name] — [Project Name]`. **Labels:** `[project-slug]`, `[iteration]`, `[layer]`. **Status:** `To Do`. **Assignee:** the owning team or person when known.
 
-### Epic structure in Jira
-
-**Summary (title):** `[Epic name] — [Project Name]`
-
-**Description:**
 ```
 ## Goal
-[One sentence: what user problem does completing this Epic solve?]
+[One sentence: the user problem completing this Epic solves]
 
 ## Scope
-**In scope:**
-- [item]
-- [item]
-
-**Out of scope:**
-- [item]
+**In scope:** …
+**Out of scope:** …
 
 ## Epic-level acceptance criteria
-- [ ] [Criterion 1]
-- [ ] [Criterion 2]
+- [ ] [Criterion]
 
 ## Dependencies
-- Depends on: [Epic or system name]
-- Blocks: [Epic or system name]
+- Depends on: … | Blocks: …
 
 ## References
-- Roadmap: [Confluence link to Roadmap section]
-- PRD: [Confluence link to PRD]
-- ADR: [Confluence link to ADR]
-- Specs UI: [Confluence link to Specs UI — if relevant]
+Roadmap · PRD · ADR · Specs UI (Confluence links)
 ```
 
-**Labels:** `[project-slug]`, `[iteration: mvp / iteration-1 / ...]`, `[layer: backend / frontend / infra / fullstack]`
+- **Create in dependency order** — never create Epic B before the Epic A it depends on.
+- **An existing Epic with outdated content is updated, never duplicated.**
+- **Never delete an Epic.** Out of scope → add a comment explaining why and transition to `Won't Do` / `Cancelled`, after user confirmation.
+- Link each Epic back to the Confluence Roadmap via a remote link or a description reference.
 
-**Status:** `To Do`
+## Step 4 — Update the MVP/Iteration page
 
-**Assignee:** [owning team or person if known]
+Update the **Epics in scope** table on the current `MVP` / `Iteration N` child page — **not** the Roadmap index, since epic-level detail lives on the child page:
 
-### Rules for creation
+`| Epic | Complexity | Owner | Status | Jira link |`
 
-- Create Epics in the order their dependencies allow — do not create Epic B before Epic A if B depends on A
-- If an Epic already exists in Jira with outdated content, update its description rather than creating a duplicate
-- Never delete an existing Epic — if it is no longer in scope, add a comment explaining why and transition it to `Won't Do` or `Cancelled` after user confirmation
-- Link each Epic to the Confluence Roadmap page using Jira's remote link or description reference
-
----
-
-## Step 4 — Update the MVP/Iteration page in Confluence
-
-After creating or updating Epics in Jira, update the **Epics in scope** table on the current `MVP — [Project]` / `Iteration N — [Project]` child page (not the Roadmap index — per the canonical short-index rule, epic-level detail lives on the child page). For each Epic, add or update the Jira link:
-
-```
-| Epic | Complexity | Owner | Status | Jira link |
-|------|------------|-------|--------|-----------|
-| [Epic 1] | M | [team] | To Do | [PROJ-123] |
-```
-
-This keeps Confluence and Jira in sync — the MVP/Iteration page is the human-readable view of what is in Jira; the Roadmap index just links to it.
-
----
+This keeps the two in sync: the child page is the human-readable view of what is in Jira, and the Roadmap index just links to it.
 
 ## Step 5 — Resume logic
 
-If this skill is re-run:
-- Re-scan Jira for current Epic statuses — do not assume the previous state is still accurate
-- Only create Epics that are still missing
-- Only update Epics whose description has drifted from the current Roadmap/ADR
-- Re-sync the MVP/Iteration page's Epics-in-scope table with current Jira links and statuses
-- Report what changed vs. what was already correct
+Re-scan live Jira Epic statuses — never assume the previous state still holds. Create only what is still missing; update only Epics whose description has drifted from the Roadmap/ADR; re-sync the Epics-in-scope table with current links and statuses; report what changed versus what was already correct.
 
----
-
-## Step 6 — Advise on next steps
+## Step 6 — Advise
 
 ```
 ✅ Done:
-- [N] Epics created in Jira: [list with Jira keys]
-- [N] Epics already existed and were reviewed / updated
+- [N] Epics created in Jira: [keys] · [N] already existed and were reviewed
 - MVP/Iteration page Epics table updated with Jira links
 
 ⚠️ Still needed (human action required):
-- Assign owners to: [list of Epics without assignees]
-- Resolve scope boundary questions: [list if any remain]
-- Validate dependency order with Tech Lead if not already done
+- Assign owners to: [Epics without assignees]
+- Resolve scope boundary questions: [if any remain]
+- Validate dependency order with the Tech Lead
 
-👉 Next step — Skill 7: agile_7_create_stories
-   Run skill 7 to write User Stories for each Epic.
-   Start with the Epic that has no blocking dependencies.
-   Input needed: Jira Epic key + Specs UI page for the relevant screens.
+👉 Next step — Skill 7: agile_7_create_stories — start with the Epic that has no blocking dependencies.
+   Input: Jira Epic key + the Specs UI page for the relevant screens.
 ```
 
----
+## Principles
 
-## Principles (apply to every run)
-
-- **Scan before act** — always check what exists in Jira before creating; never duplicate an Epic
-- **Confirm before create** — show the action plan and wait for user approval before touching Jira
-- **Ask before writing** — clarify vague Epic names, scope boundaries, or ownership before creating cards
-- **Group questions** — one message per interview round; never drip
-- **Dependencies drive order** — create Epics in dependency order, flag conflicts
-- **Confluence and Jira stay in sync** — every Epic created in Jira gets a link back on the MVP/Iteration page (and the Roadmap index links to that page)
-- **Never delete** — only transition to Won't Do or Cancelled with user confirmation and a comment
-- **Idempotent** — re-running never duplicates Epics; it catches drift and updates
-- **Resumable** — re-running re-scans live Jira state and resumes from what is still missing
-- **Transparent assumptions** — every inference stated explicitly, especially around scope and ownership
+- **Scan before act, confirm before create** — never duplicate an Epic, and show the plan before touching Jira.
+- **Ask before writing** — clarify vague names, blurry scope boundaries, and ownership first; all questions in one message, every assumption stated.
+- **Dependencies drive creation order**, and conflicts get flagged.
+- **Confluence and Jira stay in sync** — every Epic links back on the MVP/Iteration page.
+- **Never delete** — only `Won't Do` / `Cancelled`, with a comment and user confirmation.
+- **Idempotent and resumable** — re-running re-scans live state, catches drift, and never duplicates.
