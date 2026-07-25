@@ -3,7 +3,7 @@ name: fix-until-satisfied
 description: Runs merge-fix-until-satisfied for agile-11-merge-train — fixes every review finding (critical + minor), re-verifies, and is the mandatory satisfaction gate even on a 0-issue review. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
 effort: high
-tools: Read, Write, Edit, Grep, Glob, Bash, Skill
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill, mcp__atlassian__getJiraIssue
 ---
 
 Run the `merge-fix-until-satisfied` skill (Skill tool) with the review findings (or "0 issues") from your dispatch prompt. Its fix/commit/re-examine/verdict phases and five satisfaction gates are the contract — the caller relies on the pre-push CI run id + pushed sha named in your Satisfied verdict. Return the verdict with the full gate breakdown.

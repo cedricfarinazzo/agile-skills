@@ -27,7 +27,7 @@ From the consumer repo's `CLAUDE.md` / `AGENTS.md`: **`cloudId`** (required); **
 
 ## Phase 0 — Load epic spec
 
-Read the epic in full via `getJiraIssue` — summary, description, scope, epic-level ACs, dependencies. The epic is the spec. Then `searchJiraIssuesUsingJql` with `"Epic Link" = <EPIC> ORDER BY key ASC` and build a child table (key, status, type, summary). **Every child must be Done, or carry an explicit reason it is deferred** — any child in a non-terminal column blocks closeout.
+Read the epic in full via `mcp__atlassian__getJiraIssue` — summary, description, scope, epic-level ACs, dependencies. The epic is the spec. Then `mcp__atlassian__searchJiraIssuesUsingJql` with `"Epic Link" = <EPIC> ORDER BY key ASC` and build a child table (key, status, type, summary). **Every child must be Done, or carry an explicit reason it is deferred** — any child in a non-terminal column blocks closeout.
 
 Oversized JQL result → extract with `jq -r '.issues.nodes[] | "\(.key)\t\(.fields.status.name)\t\(.fields.issuetype.name)\t\(.fields.summary)"' <file>`.
 
@@ -132,7 +132,7 @@ Tear the testing stack down **with volumes** (a stale DB schema is the most comm
 
 `agile-11-merge-train` Phase 4 creates `Relates` links between tickets whose PRs collided on shared files, announcing each in the postmortem with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks into next sprint's planning.
 
-**Source the pairs** — preferably from a project audit helper (e.g. `scripts/audit_merge_train_links.py`); otherwise scan this sprint's postmortems for those lines and build `(from_key, to_key, link_type)` manually. **Verify each pair** with `getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
+**Source the pairs** — preferably from a project audit helper (e.g. `scripts/audit_merge_train_links.py`); otherwise scan this sprint's postmortems for those lines and build `(from_key, to_key, link_type)` manually. **Verify each pair** with `mcp__atlassian__getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `mcp__atlassian__createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
 
 **A closeout cannot be green while any pair is FAIL without a recorded disposition** — silent skips are the failure mode this phase exists to prevent. FAILs clustering on one hub ticket are retro input: the Phase 4 link step may need hardening.
 

@@ -30,7 +30,7 @@ conflict_map entry:
 
 1. **Gather from session context:** every issue found during review; every fix applied and why; what was already correct; AC-by-AC verification (satisfied / not, and why); **conscious accepts** (each deliberate DoD deviation — what the DoD asks, what was done instead, why the convention wins, where the equivalent-strength coverage lives, and that it was deliberate); **cross-PR conflicts from the caller's entry, not from recollection**.
 2. **Post the comment** via `mcp__atlassian__addCommentToJiraIssue` (configured `cloudId`, `contentFormat: markdown`) and **capture the returned comment id** — it is the proof it was posted.
-3. **`merged` mode → transition to Done.** `getTransitionsForJiraIssue`, find the transition whose target status category is `done` / colorName `green`, call `transitionJiraIssue`. (Fast path: if the repo declares a stable `done-transition-id`, call it directly and fall back to the lookup on failure.) **Then read the status back** with `getJiraIssue` and confirm the category is `done` — a transition call that returned without the ticket landing in a done-category status is not complete.
+3. **`merged` mode → transition to Done.** `mcp__atlassian__getTransitionsForJiraIssue`, find the transition whose target status category is `done` / colorName `green`, call `mcp__atlassian__transitionJiraIssue`. (Fast path: if the repo declares a stable `done-transition-id`, call it directly and fall back to the lookup on failure.) **Then read the status back** with `mcp__atlassian__getJiraIssue` and confirm the category is `done` — a transition call that returned without the ticket landing in a done-category status is not complete.
 4. **`blocked` mode → do not transition.** The PR stays open with a block comment and the ticket stays in its column.
 5. **Return the receipt.** `agile-11-merge-train` 3g verifies it before counting the PR done, and its Phase 5 re-dispatches this skill for any merged PR whose ticket is not done-category. `collisions recorded` echoes exactly what you wrote into the comment — that echo is how the caller proves the Phase-1 conflict map reached the ticket instead of evaporating in the hand-off.
 
@@ -89,5 +89,5 @@ On a 0-issue PR, open with "0 issues found during PR review." and go straight to
 
 ## Boundaries
 
-- **Cross-PR conflict ≠ Jira link creation.** This skill records the recommendation; `agile-11-merge-train` Phase 4 creates the link via `createIssueLink`. Never call `createIssueLink` from here.
+- **Cross-PR conflict ≠ Jira link creation.** This skill records the recommendation; `agile-11-merge-train` Phase 4 creates the link via `mcp__atlassian__createIssueLink`. Never call `mcp__atlassian__createIssueLink` from here.
 - **Phase 4 confirms the link inline.** After creating one, the train appends `Jira link created: relates to <KEY> (Phase 4, merge-train run <date>).` to the most recent postmortem on each side — or the failure reason if it could not. That closes the loop so a later reader sees the link was applied, not merely recommended.

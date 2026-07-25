@@ -3,7 +3,7 @@ name: ticket-validator
 description: Runs the implement-validate phase for agile-10-implement — repo-scope check + 7-criterion readiness score, returns pass/out-of-scope/rejected/critical-park. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
 effort: medium
-tools: Read, Grep, Glob, Bash, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue
+tools: Read, Grep, Glob, Bash, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue
 ---
 
 Run the `implement-validate` skill (Skill tool) with the ticket key + config from your dispatch prompt. It defines the repo-scope gate, the 7-criterion score, and the receipt. Return its verdict (`pass` / `out-of-scope` / `rejected` / `critical-park`) with the full per-criterion breakdown — never summarised, never dropped.

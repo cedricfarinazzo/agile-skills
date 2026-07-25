@@ -41,7 +41,7 @@ A receipt carries proof fields only — plus findings for `review` / `review-len
 | `implement` | each gate command **+ its real exit code**; AC→test coverage; (concurrent) tier-deferral note | `git show --stat <branch>` confirms the pushed commits |
 | `pr` | PR url + `Test tiers` section in the body + label | `gh pr view --json state,body,labels`; (concurrent) `integration-deferred` present |
 | `review` | lens-keyed findings (each ≥1 `file:line`, or explicit "N/A because…"); Files-read list; per-AC line binding | Files-read **must equal** `gh pr diff <N> --name-only`; reject any AC with no cite and any bare ✅ lens |
-| `status_change` | transition applied + marker posted | `getJiraIssue` == `in-review-status-name`; marker present |
+| `status_change` | transition applied + marker posted | `mcp__atlassian__getJiraIssue` == `in-review-status-name`; marker present |
 | `monitor` | per-check disposition (fixed / diagnosed flake **with base-branch proof** / no action needed) + the `rework` marker, or a recorded clean-monitor result | `gh pr view --json statusCheckRollup` — no `FAILURE`/`UNSTABLE` left undiagnosed; a red check written off with no base-branch comparison = not-run |
 
 Two dispatch gotchas:
@@ -161,7 +161,7 @@ Each sub-skill is idempotent on partial state, so re-entering a half-done phase 
 5. **`implement-review`** → produce all six lenses yourself from one read; for a large PR only, fan the lens groups out as parallel `review-lens` subagents and merge their findings into the single verdict yourself.
    - **changes requested** → re-invoke `implement-code` with the numbered findings (Critical **and** Minor), then re-review. Loop to **approved**. Cap: >3 cycles without converging → leave the PR open, post a 🤖 blocked comment, skip the ticket.
    - **approved** → post `🤖 review`, continue.
-6. **Transition + hand off** (`status_change`): move the Story to `in-review-status-name` and post `🤖 agile:phase=status_change` (2–3 lines, PR link, AC coverage, flagged decisions). Verify via `getJiraIssue` before counting it handed off. **Never `Done`.**
+6. **Transition + hand off** (`status_change`): move the Story to `in-review-status-name` and post `🤖 agile:phase=status_change` (2–3 lines, PR link, AC coverage, flagged decisions). Verify via `mcp__atlassian__getJiraIssue` before counting it handed off. **Never `Done`.**
 7. **`git checkout <base-branch>`** before the next ticket — otherwise the next `implement-code` may branch off this feature branch and stack unrelated work into its diff.
 
 ---

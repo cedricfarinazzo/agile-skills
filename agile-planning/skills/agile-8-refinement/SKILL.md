@@ -89,7 +89,7 @@ Wait for answers before writing to Jira.
 
 ## Step 4 — Update Stories in Jira
 
-**Story points — write the structured field, not just the comment.** Set the Story Points custom field via `editJiraIssue`, in the **same call** as the `refined` label so the two can never drift apart:
+**Story points — write the structured field, not just the comment.** Set the Story Points custom field via `mcp__atlassian__editJiraIssue`, in the **same call** as the `refined` label so the two can never drift apart:
 
 ```python
 mcp__atlassian__editJiraIssue(
@@ -101,7 +101,7 @@ mcp__atlassian__editJiraIssue(
 
 The field id is project-dependent — consumer repos pin it in `CLAUDE.md` (`story-points-field:`); `customfield_10016` is the Jira Software Cloud default. **A comment saying "Points: N" is not sufficient**: velocity charts, burndowns, sprint capacity reports, and the `agile-15-retro` Committed/Delivered/Velocity summary all read the structured field, so skipping the write yields silently broken reporting that only surfaces at retro time.
 
-**Verify per Story — mandatory.** Re-read with `getJiraIssue` (`fields=["customfield_10016","labels"]`) and confirm both round-tripped; retry the write if either is missing. **A `refined` label with a null points value is the exact failure this verification exists to catch.**
+**Verify per Story — mandatory.** Re-read with `mcp__atlassian__getJiraIssue` (`fields=["customfield_10016","labels"]`) and confirm both round-tripped; retry the write if either is missing. **A `refined` label with a null points value is the exact failure this verification exists to catch.**
 
 Also update: any vague **AC** (rewritten, with missing edge cases and failure paths added), **technical notes** with the Tech Lead clarifications, and the **dependency** field with confirmed blockers. Then add a dated refinement comment:
 

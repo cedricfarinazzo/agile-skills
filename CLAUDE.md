@@ -216,13 +216,31 @@ for p in list(pathlib.Path('.').glob('agile-*/skills/*/SKILL.md'))+[pathlib.Path
 print(f'{len(v)} variant(s) across {sum(len(x) for x in v.values())} carriers')
 [print(' ',f) for x in list(v.values())[1:] for f in x]"
 
-# 3. Frontmatter — name matches dir; every agent declares model+effort+tools
-grep -L "^tools:" agile-*/agents/*.md      # must print nothing
+# 3. Frontmatter — every agent declares model+effort+tools, name == filename,
+#    skill name == dir. Prints nothing when clean.
+python3 -c "
+import pathlib,re
+for p in pathlib.Path('.').glob('agile-*/agents/*.md'):
+    fm=p.read_text().split('---')[1]
+    for f in ('name','description','model','effort','tools'):
+        if not re.search(rf'^{f}:',fm,re.M): print(f'{p}: missing {f}')
+    n=re.search(r'^name:\s*(\S+)',fm,re.M)
+    if n and n.group(1)!=p.stem: print(f'{p}: name != filename')
+for p in pathlib.Path('.').glob('agile-*/skills/*/SKILL.md'):
+    n=re.search(r'^name:\s*(\S+)',p.read_text().split('---')[1],re.M)
+    if n and n.group(1)!=p.parent.name: print(f'{p}: name != dir')"
+
+# 4. Tool grants satisfy the sub-skill. An agent whose skill reads or writes Jira/
+#    Confluence needs the matching mcp__atlassian__* tool; a read-only reviewer must
+#    NOT have Write/Edit. Adding an explicit `tools:` list where one was absent silently
+#    revokes everything you forget — check the sub-skill's steps against the grant.
 ```
 
 **Trigger-phrase regression is the one that hides.** Before committing a `description` edit, diff the `Triggers:` list against `git show HEAD:<file>` — a dropped phrase degrades auto-invocation silently and no test will fail.
 
-**Content-loss check when compressing a skill:** the operative tokens are commands, flags, `mcp__*` names, config keys, marker strings, field ids, and thresholds. Extract them from the old version and confirm each still appears somewhere in the new tree. Prose is what you meant to cut; a `--flag` or a `customfield_10016` is not.
+**Content-loss check when compressing a skill:** the operative tokens are commands, flags, `mcp__*` names, config keys, marker strings, field ids, and thresholds. Extract them from the old version and confirm each survives. Prose is what you meant to cut; a `--flag` or a `customfield_10016` is not.
+
+**Compare per file, not tree-wide.** A token that still exists in some *other* skill is not evidence this one kept it — a tree-wide check reports "0 missing" while a skill quietly loses the tool name it needs. That exact masking let `mcp__atlassian__getJiraIssue` degrade to a bare `getJiraIssue` in three skills and go unnoticed. **Always write MCP tools fully qualified**; the bare name is not callable.
 
 ## Cycle order
 

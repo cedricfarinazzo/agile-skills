@@ -70,7 +70,7 @@ Present it as the sprint header (number, dates, goal, and the capacity arithmeti
 
 **If no sprint exists**, create one: name `Sprint [N] — [Project Name]`, the confirmed start date, end = start + duration, and the goal as written.
 
-> **No create-sprint tool? Use the manual fallback — do not stall.** Many Jira integrations (including the standard Atlassian MCP) expose only issue-level operations, with no create/start-sprint tool. Ask the operator to create and start the board's sprint manually with the name/dates/goal above. Then read the sprint id from **any one issue already moved into it** (the Sprint custom field returns `{id, name, state, boardId}`) and assign the remaining Stories by writing that id to each Story's Sprint field via `editJiraIssue` — an integer id, not an array. Starting the sprint stays the operator's click; the agent only populates it.
+> **No create-sprint tool? Use the manual fallback — do not stall.** Many Jira integrations (including the standard Atlassian MCP) expose only issue-level operations, with no create/start-sprint tool. Ask the operator to create and start the board's sprint manually with the name/dates/goal above. Then read the sprint id from **any one issue already moved into it** (the Sprint custom field returns `{id, name, state, boardId}`) and assign the remaining Stories by writing that id to each Story's Sprint field via `mcp__atlassian__editJiraIssue` — an integer id, not an array. Starting the sprint stays the operator's click; the agent only populates it.
 
 **Move Stories in** in the proposed priority order, ranking blocking Stories first. **Do not change Story status** — they stay `To Do` until a dev agent picks them up.
 
@@ -84,7 +84,11 @@ Present it as the sprint header (number, dates, goal, and the capacity arithmeti
 
 Never add an Epic/story breakdown table to the Roadmap index.
 
-**Refresh the roadmap artifact.** The Roadmap page carries a `📊 Live roadmap:` line with the published artifact URL (see skill 5). Read it, regenerate the page from the updated Confluence content, and republish with the Artifact tool passing that `url:` so it updates in place and the existing link keeps working — keeping the stable `🗺️` favicon. No URL on the page, or no Artifact tool available → skip it and note that in the summary; Confluence is the source of truth either way.
+**Refresh the roadmap artifact.** Load the **`artifact-design`** skill first (required before writing the page), and `dataviz` before any chart code. Then read the Roadmap page's `📊 Live roadmap:` line — skill 5 owns the page's format and content rules:
+
+- **URL present** → regenerate from the updated Confluence content and republish with the Artifact tool passing that `url:`, keeping the stable `🗺️` favicon, so it updates in place and the existing link keeps working.
+- **No URL** (a Roadmap that predates the artifact, or an earlier skipped publish) → **publish new and write the returned URL back onto the Roadmap page in this same run.** Do not skip: an index that has been updated while its published view does not exist is exactly the lag this step prevents.
+- **No Artifact tool available** → skip, and say so under `⚠️ Still needed`. Confluence is the source of truth either way.
 
 ## Step 5 — Resume logic
 
@@ -96,7 +100,8 @@ Re-scan live Jira sprint state first. If the sprint already holds Stories, show 
 ✅ Done:
 - Sprint [N] created / populated in Jira
 - [N] Stories / [N] points / goal: "[sprint goal]"
-- MVP/Iteration page updated with the sprint backlog; Roadmap index rollup + artifact refreshed
+- MVP/Iteration page updated with the sprint backlog; Roadmap index rollup updated
+- Roadmap artifact: refreshed at [url] / published at [url] / skipped — [reason]
 
 ⚠️ Still needed (human action required):
 - Start the sprint in Jira when the team is ready

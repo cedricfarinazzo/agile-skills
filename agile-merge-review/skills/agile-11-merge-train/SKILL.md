@@ -25,7 +25,7 @@ A receipt carries proof fields only — plus findings for `:pr-reviewer`, where 
 | `3e CI monitor` | named completed all-green run id on the post-push tip | independent `gh run view` of that id |
 | **`3f` reviewed-sha gate** | the 3b reviewed sha + the sha about to merge | `headRefOid` **==** the reviewed sha. Different ⇒ unreviewed code → re-dispatch `:pr-reviewer` on the delta, re-enter 3e. Not clearable any other way |
 | `3f merge` | `mergedAt` set | `gh pr view --json state,mergedAt` == MERGED — the merge command's **exit code is not the signal** |
-| `3g merge-jira-postmortem` | **posted comment id + resulting status category + `collisions recorded`** | `getJiraIssue` confirms done-category; the echo matches this PR's `conflict_map` entry. A merged PR whose ticket ≠ Done, or whose echo drops a collision, re-dispatches 3g |
+| `3g merge-jira-postmortem` | **posted comment id + resulting status category + `collisions recorded`** | `mcp__atlassian__getJiraIssue` confirms done-category; the echo matches this PR's `conflict_map` entry. A merged PR whose ticket ≠ Done, or whose echo drops a collision, re-dispatches 3g |
 
 **The train is strictly sequential** regardless of how the PRs were built — each merge moves `main` and the next PR must rebase onto it. Build-side `concurrency` never makes the train parallel.
 
@@ -163,7 +163,7 @@ Then `gh pr merge <N> --squash` — **no `--delete-branch`** (that flag also tri
 Dispatch to `agile-merge-review:jira-postmortem` — mandatory even at 0 issues. It posts the structured findings comment **and** handles the Done transition; do not duplicate that inline or skip it because the PR was clean.
 
 - **Pass this PR's `conflict_map` entry verbatim**, including an empty `collisions: []`. Do not re-summarise it into prose or omit it when empty — an absent field is indistinguishable from a forgotten one. The postmortem turns each collision into "this ticket should have been linked to `<other KEY>`".
-- **Verify the receipt:** the posted comment id + a `done`-category status via `getJiraIssue`, and the `collisions recorded:` echo matching what you passed. An entry with collisions whose receipt echoes `none` means the postmortem dropped them → re-dispatch.
+- **Verify the receipt:** the posted comment id + a `done`-category status via `mcp__atlassian__getJiraIssue`, and the `collisions recorded:` echo matching what you passed. An entry with collisions whose receipt echoes `none` means the postmortem dropped them → re-dispatch.
 - A warranted follow-up ticket goes in the report — do not auto-create.
 
 ## Phase 4 — Auto-link colliding tickets in Jira
@@ -174,7 +174,7 @@ For every pair in the Phase 1 `conflict_map` — read the pairs straight off it,
 mcp__atlassian__createIssueLink(cloudId="<configured>", inwardIssue="ABC-1", outwardIssue="ABC-2", type="Relates")
 ```
 
-Then append a one-line confirmation to the most recent postmortem on **each** side, so a later reader sees the link was applied rather than merely recommended (`addCommentToJiraIssue`, `contentFormat="markdown"`: `Jira link created: relates to ABC-2 (Phase 4, merge-train run <YYYY-MM-DD>).`). If the link call failed, append the failure reason in the same format — never leave a recommendation untracked.
+Then append a one-line confirmation to the most recent postmortem on **each** side, so a later reader sees the link was applied rather than merely recommended (`mcp__atlassian__addCommentToJiraIssue`, `contentFormat="markdown"`: `Jira link created: relates to ABC-2 (Phase 4, merge-train run <YYYY-MM-DD>).`). If the link call failed, append the failure reason in the same format — never leave a recommendation untracked.
 
 ## Phase 4b — Branch cleanup (end of train, best-effort)
 

@@ -127,7 +127,11 @@ The Roadmap is a **short index**; per-sprint detail lives on the `MVP` / `Iterat
    - **Progress rollup + Next-Step pointer (EVERY sprint)** — flip the just-closed sprint's rollup row to `✅ Complete` with its final velocity, and advance the current-sprint pointer. **Skipping this is the common miss**: the index then sits stale showing a closed sprint as in progress. One line only; never paste retro detail into it.
    - **Iterations table status (LAST sprint only)** — set the iteration's row to `✅ Complete` **only when its final sprint closes**, and ensure the next iteration has a row (`| Iteration [N+1] | Not started | TBD | [headline] | [Iteration [N+1] — [Project]] |`; the page itself comes later from skill 5). If the iteration was extended with another sprint, leave it `In Progress` and update its sprint span instead.
 
-**Refresh the roadmap artifact.** The Roadmap page carries a `📊 Live roadmap:` line holding the published artifact URL (see skill 5, which owns the format). Read it, regenerate the page from the updated Confluence content — the sprint that just closed now has real delivered-vs-committed numbers, which is the point of the chart — and republish with the Artifact tool passing that `url:`, keeping the stable `🗺️` favicon so it updates in place. No URL recorded, or no Artifact tool available → skip and note it; Confluence is the source of truth either way.
+**Refresh the roadmap artifact.** Load the **`artifact-design`** skill first (required before writing the page), and `dataviz` before any chart code. Then read the Roadmap page's `📊 Live roadmap:` line — skill 5 owns the page's format and content rules. Regenerating matters most here: the sprint that just closed now has real delivered-vs-committed numbers, which is the point of the chart.
+
+- **URL present** → republish with the Artifact tool passing that `url:`, keeping the stable `🗺️` favicon, so it updates in place.
+- **No URL** (a Roadmap that predates the artifact, or an earlier skipped publish) → **publish new and write the returned URL back onto the Roadmap page in this same run.**
+- **No Artifact tool available** → skip, and say so under `⚠️ Still needed`. Confluence is the source of truth either way.
 
 ## Step 6 — Close the sprint in Jira
 
@@ -143,7 +147,8 @@ Re-run on a sprint that already has a retro page: read it, check which sections 
 ✅ Done:
 - Retrospectives folder: [created / already existed]
 - Retro [N] documented: [link]
-- Roadmap updated: sprint rollup + iteration status; artifact refreshed at [url]
+- Roadmap updated: sprint rollup + iteration status
+- Roadmap artifact: refreshed at [url] / published at [url] / skipped — [reason]
 - Sprint [N] closed in Jira; [N] Stories carried over to backlog
 
 Key inputs for next iteration: capacity [N] pts · priority shifts [list] · debt to schedule [list] · action items in effect [list]
