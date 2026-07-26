@@ -124,9 +124,9 @@ Fold each orchestrator's return into the LEDGER as structured per-item outcomes 
     ══ drain pass 1 ══  build:5  merge:0  (concurrency 3)
     ▶ agile-10-implement (build queue)
     ✓ PROJ-101 → In Review  ✓ PROJ-102 → In Review  … (build drains 5)
-    ══ drain pass 1 (merge) ══  open PRs:5
+    ══ drain pass 1 (merge) ══  open PRs:3  (2 still building — the train starts anyway)
     ▶ agile-11-merge-train (merge queue)
-    ✓ PROJ-101 PR #88 merged → Done  … (merge drains 5)
+    ✓ PROJ-101 PR #88 merged → Done  … (merge drains 5, the last 2 as they open)
     ══ drain pass 2 ══  build:3  merge:0   (3 newly unblocked by pass-1 merges)
     ══ DRAINED ══  12 tickets Done, 0 remaining
 

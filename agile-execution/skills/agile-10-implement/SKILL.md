@@ -179,7 +179,7 @@ Each sub-skill is idempotent on partial state, so re-entering a half-done phase 
    - **changes requested** → re-invoke `implement-code` with the numbered findings (Critical **and** Minor), then re-review. Loop to **approved**. Cap: >3 cycles without converging → leave the PR open, post a 🤖 blocked comment, skip the ticket.
    - **approved** → post `🤖 review`, continue.
 6. **Transition + hand off** (`status_change`): move the Story to `in-review-status-name` and post `🤖 agile:phase=status_change` (2–3 lines, PR link, AC coverage, flagged decisions). Verify via `mcp__atlassian__getJiraIssue` before counting it handed off. **Never `Done`.**
-7. **`git checkout <base-branch>`** before the next ticket — otherwise the next `implement-code` may branch off this feature branch and stack unrelated work into its diff.
+7. **`git checkout <base-branch>`** before the next ticket — otherwise the next `implement-code` may branch off this feature branch and stack unrelated work into its diff. **`concurrency≤1` only:** at `N>1` each ticket branches inside its own worktree, so this buys nothing and switching the shared checkout's branch mid-flight is exactly the tree-wide mutation forbidden above — skip it.
 
 ---
 

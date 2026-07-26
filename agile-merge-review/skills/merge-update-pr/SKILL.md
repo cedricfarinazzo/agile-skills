@@ -11,10 +11,10 @@ Bring a PR branch up to date with main and push. Resolve conflicts by understand
 
 ## Steps
 
-1. `git checkout main && git pull --ff-only`
+1. `git fetch origin main` — **refresh the base without checking it out** (step 3 merges `origin/main`). A `git checkout main` here mutates the shared checkout under whatever sibling work is in flight, and fails outright when a worktree already holds the base.
 2. Get on the branch: with a PR number prefer `gh pr checkout <N>` (handles fetch + tracking); with a branch name, `git fetch origin && git checkout <branch> && git pull origin <branch>`.
    - **A worktree may already hold this branch.** `agile-10-implement` leaves one per unmerged ticket, so in a drain the branch you are about to check out is often checked out elsewhere and the command fails with `fatal: '<branch>' is already used by worktree at <path>`. Do not work around that with `--force` or a detached HEAD: `git worktree list` names the path, so **work there instead, by absolute path** (`cd <path>`, `git -C <path>`; `EnterWorktree` commonly fails for a dispatched agent — expected, not a blocker) and run the remaining steps in it. Rebasing the branch where it actually lives also means a later rework by the build agent sees your merge commit instead of diverging from it.
-3. `git merge --no-ff main -m "chore: merge main into <branch>"` — the `-m` is consumed only if a merge commit is actually created. **Detect the outcome from stdout, not the exit code** (an auto-resolved merge also exits 0): `Already up to date.` vs `Merge made by the 'ort' strategy.` vs conflict markers.
+3. `git merge --no-ff origin/main -m "chore: merge main into <branch>"` — the `-m` is consumed only if a merge commit is actually created. **Detect the outcome from stdout, not the exit code** (an auto-resolved merge also exits 0): `Already up to date.` vs `Merge made by the 'ort' strategy.` vs conflict markers.
 4. **On conflicts:** `git diff --name-only --diff-filter=U`, then for each file read it, understand both sides, and write the semantically correct merge. **Never `git checkout --ours` / `--theirs` without reading both sides** — taking one side wholesale to make the conflict go away silently drops the other side's change.
    - Documentation tables (coverage tables, run-command sections) and append-only structures (dict/list literals, include lists, beat schedules, route tables): **keep every entry from both sides**, chronological order — earlier ticket first, matching merge order on `main`.
    - Genuinely ambiguous conflict → explain both sides and ask before resolving.
@@ -29,7 +29,7 @@ Bring a PR branch up to date with main and push. Resolve conflicts by understand
 When step 3 prints `Already up to date.`:
 
 - **Do not push** — there is nothing new, and a push may falsely trigger CI re-runs.
-- **Do not force an empty merge commit to "trigger CI".** The branch tree already matches what will land, so the existing run on branch HEAD is the canonical result. If the caller needs fresh CI on the exact tree, check `git merge-base --is-ancestor main <existing-CI-run-sha>`: exit 0 → branch HEAD contains all of main, the existing run covers the landable tree, proceed; exit 1 → contradicts the no-op signal and indicates a state-tracking bug, so investigate before proceeding.
+- **Do not force an empty merge commit to "trigger CI".** The branch tree already matches what will land, so the existing run on branch HEAD is the canonical result. If the caller needs fresh CI on the exact tree, check `git merge-base --is-ancestor origin/main <existing-CI-run-sha>`: exit 0 → branch HEAD contains all of main, the existing run covers the landable tree, proceed; exit 1 → contradicts the no-op signal and indicates a state-tracking bug, so investigate before proceeding.
 - **Report the existing run's conclusion** (`gh pr view <N> --json statusCheckRollup,mergeStateStatus`) so the caller acts without another `gh run view`. A no-op rebase does **not** imply CI is green — the existing run may be `FAILURE`/`UNSTABLE`, and routing that into the fix loop instead of merging is the caller's job (`agile-11-merge-train` 3a).
 
 ## Report exactly one outcome

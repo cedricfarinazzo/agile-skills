@@ -31,6 +31,8 @@ A receipt carries proof fields only — plus findings for `:pr-reviewer`, where 
 
 **The train is strictly sequential** regardless of how the PRs were built — each merge moves `main` and the next PR must rebase onto it. Build-side `concurrency` never makes the train parallel.
 
+**Only the mutating steps are ordered.** Phase 0–1 gathering and 3b reviews are read-only — every file is read at a sha, never from the working tree — so dispatch several PRs' reviews at once, ahead of their turn. A later 3a rebase does not void one: it lands on 3f's delta re-review, which is the prescribed path anyway.
+
 ## Configuration
 
 From the consumer repo's `CLAUDE.md` / `AGENTS.md`: **`cloudId`** (required, for `mcp__atlassian__*`); **`ticket-prefix-regex`** (default `[A-Z]+-\d+`); **lint commands** per touched path family (see `merge-update-pr`).
@@ -140,7 +142,7 @@ gh run view $RUN --json status,conclusion,jobs
 
 Run it with Bash `run_in_background: true` — never chain foreground `sleep`s. Assert `conclusion == "success"` on that named id. **If you cannot state the run id at 3f, you may not merge.**
 
-**No-op path (3a returned No-op):** no new run will start. Read the existing run on branch HEAD once and verify it still covers the landable tree with `git merge-base --is-ancestor main <run-sha>` — exit 0 → valid, proceed to 3f; exit 1 → contradicts the no-op signal, investigate rather than forcing an empty commit.
+**No-op path (3a returned No-op):** no new run will start. Read the existing run on branch HEAD once and verify it still covers the landable tree with `git merge-base --is-ancestor origin/main <run-sha>` — exit 0 → valid, proceed to 3f; exit 1 → contradicts the no-op signal, investigate rather than forcing an empty commit.
 
 **Diagnosing a red run:**
 
