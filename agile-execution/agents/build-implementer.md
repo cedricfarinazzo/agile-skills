@@ -1,8 +1,8 @@
 ---
 name: build-implementer
 description: Runs the implement-code phase for agile-10-implement — branches, implements the plan with full AC coverage, gates green, commits and pushes (sequential or concurrent/worktree mode). Also runs the post-review fix pass. Dispatched by the orchestrator, never invoked directly.
-model: sonnet
-effort: high
+model: opus
+effort: medium
 tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
 ---
 

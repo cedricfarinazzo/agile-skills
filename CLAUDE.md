@@ -84,14 +84,13 @@ An agent's body stays short and **points** at its sub-skill rather than restatin
 
 | Agent | Model / effort | Why |
 |---|---|---|
-| `ticket-planner` | opus / high | the spec end — nothing downstream re-derives the plan |
-| `pr-reviewer` | opus / high | last read before the base branch; nothing re-reads the code |
-| `build-implementer`, `fix-until-satisfied` | sonnet / high | the bulk implementation and fix work |
-| `review-lens` | sonnet / high | only fanned out on large PRs, where the read *is* the job |
-| `ticket-validator`, `pr-updater`, `build-monitor` | sonnet / medium | a real judgement call each — readiness, conflict resolution, flake-vs-regression |
-| `pr-publisher`, `jira-postmortem` | sonnet / low | genuinely mechanical: assemble a body / post a templated comment + one transition |
+| `ticket-planner`, `pr-reviewer` | opus / high | single points of no recovery — nothing downstream re-derives the plan, nothing re-reads the code before `main` |
+| `build-implementer` | opus / medium | writes the code everything else is measured against; opus for quality, medium because the plan already framed the work and `pr-reviewer` re-reads the result |
+| `fix-until-satisfied`, `review-lens` | sonnet / high | heavy cognitive work with a downstream check; `review-lens` only fires on large PRs, where the read *is* the job |
+| `ticket-validator`, `build-monitor` | sonnet / medium | look mechanical, own a **silent** failure mode — readiness scoring, and the flake-vs-regression call plus the stack-side fix |
+| `pr-publisher`, `jira-postmortem`, `pr-updater` | sonnet / low | mechanical, or fully re-read downstream: a body assembled from a diff, a templated comment + one transition, and a rebase whose result `pr-reviewer` reads file-by-file at 3b |
 
-`build-monitor` looks mechanical but owns the flake-vs-regression call; `pr-updater` looks mechanical but a wrong conflict resolution lands broken code silently. Neither belongs at the bottom tier.
+**Ask what re-reads the output before dropping a tier.** `build-monitor` stays at medium because nothing downstream re-does its flake-vs-regression call — Phase 3 checks that a base-branch comparison *exists*, not that it was right — and it also fixes code on the shared stack. `pr-updater` can sit at low precisely because something does: 3b `pr-reviewer` (opus/high) reads every changed file in full at the reviewed sha straight after the rebase, and 3f refuses any sha that review has not read.
 
 **RULE — add, rename, or remove a dispatch point in an orchestrator, and add/rename/remove the matching `agents/` file in the same change**, updating the prose that names it. An orchestrator naming a missing agent, or an orphaned agent nothing dispatches, is a bug.
 

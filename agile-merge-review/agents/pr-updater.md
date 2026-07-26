@@ -2,7 +2,7 @@
 name: pr-updater
 description: Runs merge-update-pr for agile-11-merge-train — rebases the PR branch on main, resolves conflicts, lint-after-rebase gate, pushes only if a merge commit was created. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
-effort: medium
+effort: low
 tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill
 ---
 
