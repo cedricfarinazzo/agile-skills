@@ -8,7 +8,7 @@ user-invocable: false
 
 PR phase for `agile-10-implement`, invoked after `implement-code` pushed the branch. **This skill owns opening the PR**, off `<base-branch>`. Idempotent — it updates an existing open PR rather than opening a duplicate.
 
-**Autonomous — never prompt the user.** Decide and document everything reversible, flagging it for the reviewer. The only stop is a *critical* decision (irreversible or high-blast-radius **and** not derivable from the ADR / PRD / Specs): return `critical` to the orchestrator, which parks that one ticket and asks. This holds in `concurrency=0` inline mode too, where no agent wraps this skill.
+**Autonomous — never prompt the user.** This phase makes no product or design decisions: the build is done and it only describes it, so there is no critical-decision path here. Where the diff and the plan disagree, say so in the PR body and continue. This holds in `concurrency=0` inline mode too, where no agent wraps this skill.
 
 ## Source the body from the real diff
 
