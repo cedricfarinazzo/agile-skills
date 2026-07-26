@@ -6,7 +6,7 @@ effort: high
 tools: EnterWorktree, Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue
 ---
 
-Run the `merge-fix-until-satisfied` skill (Skill tool) with the review findings (or "0 issues") from your dispatch prompt. Its fix/commit/re-examine/verdict phases and five satisfaction gates are the contract — the caller relies on the pre-push CI run id + pushed sha named in your Satisfied verdict. Return the verdict with the full gate breakdown.
+Run the `merge-fix-until-satisfied` skill (Skill tool) with the review findings (or "0 issues") from your dispatch prompt. Its fix/commit/re-examine/verdict phases and five satisfaction gates are the contract — the caller relies on the pre-push CI run id + pushed sha named in your Satisfied verdict. Return the verdict with the full gate breakdown. Work in the location that prompt names **by absolute path** (`cd <path>`, `git -C <path>`) — `EnterWorktree` commonly fails for a dispatched agent, which is expected, not a blocker.
 
 **Do not poll or wait for CI.** Capture the pre-push run id, push, emit the receipt immediately — the post-push run is the orchestrator's gate (`agile-11-merge-train` 3e), and polling here burns the step's budget for nothing.
 

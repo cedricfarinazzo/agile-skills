@@ -22,7 +22,7 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 
 ## The loop
 
-Each iteration is one **pass**. Compute queue state from the live board before each pass — never from memory of a previous one.
+Each iteration is one **pass**. Compute queue state from the live board before each pass — never from memory of a previous one. **A pass never blocks on one item's external wait** (a running CI job, a queued build): re-derive the whole board every time and act on whatever is actionable NOW — a green check on another PR, a finished review, a ticket the last merge unblocked. It must not **under-observe** either: every item with a running external check carries its own armed watch, so the pass reacts to whichever completes FIRST rather than in the order they happened to be started.
 
     PASS:  (pass_count += 1)
       1. BUILD QUEUE — status = <todo-status-name>
@@ -54,6 +54,9 @@ Each iteration is one **pass**. Compute queue state from the live board before e
       5. merge_torun = open PRs not retired HUMAN-BLOCKED
          if non-empty:
            call agile-11-merge-train inline; fold its per-PR outcomes into the LEDGER
+           # a green, reviewed PR enters the train while other tickets are still
+           # building — merges stay strictly sequential among themselves, but they
+           # never wait for the build queue to drain.
 
       # The counts still include human-blocked items, so DRAINED never fires over
       # them; only the RUN sets exclude them, so a parked ticket isn't re-ground
@@ -121,9 +124,9 @@ Fold each orchestrator's return into the LEDGER as structured per-item outcomes 
     ══ drain pass 1 ══  build:5  merge:0  (concurrency 3)
     ▶ agile-10-implement (build queue)
     ✓ PROJ-101 → In Review  ✓ PROJ-102 → In Review  … (build drains 5)
-    ══ drain pass 1 (merge) ══  open PRs:5
+    ══ drain pass 1 (merge) ══  open PRs:3  (2 still building — the train starts anyway)
     ▶ agile-11-merge-train (merge queue)
-    ✓ PROJ-101 PR #88 merged → Done  … (merge drains 5)
+    ✓ PROJ-101 PR #88 merged → Done  … (merge drains 5, the last 2 as they open)
     ══ drain pass 2 ══  build:3  merge:0   (3 newly unblocked by pass-1 merges)
     ══ DRAINED ══  12 tickets Done, 0 remaining
 

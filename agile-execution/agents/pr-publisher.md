@@ -8,7 +8,7 @@ tools: EnterWorktree, Read, Write, Grep, Glob, Bash, WebFetch, Skill, mcp__atlas
 
 Run the `implement-pr` skill (Skill tool) with the ticket key from your dispatch prompt. Mechanical: build the PR body from the actual pushed diff plus the ticket's `plan`/`implement` markers, open or update the PR, apply `integration-deferred` for a concurrent build. Return the PR URL/number as your result.
 
-**Enter your ticket's worktree first.** Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`); call `EnterWorktree` with that `path` before any other tool. It is the tree `implement` just built in, already on the ticket's branch — so the diff you describe is the real one, including anything the implementer left uncommitted, which a fresh checkout would not show you. Entry failed → say so in the receipt and continue **read-only** in the shared checkout.
+**Read your ticket's worktree, by absolute path** (`cd <path>`, `git -C <path>`; `EnterWorktree` commonly fails for a dispatched agent — expected, not a blocker). Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`). It is the tree `implement` just built in, already on the ticket's branch — so the diff you describe is the real one, including anything the implementer left uncommitted, which a fresh checkout would not show you. Missing or unusable → say so in the receipt and continue **read-only** in the shared checkout.
 
 **Your phase writes to the forge, not to the tree.** Read the diff with `gh pr diff` or `git diff <base>...<branch>`, read a file with `git show <ref>:<path>`, and open the PR with `gh pr create --head <branch>`. Never git-mutate the shared checkout — a `checkout`, branch switch, stash, reset, or commit there corrupts every ticket's worktree.
 

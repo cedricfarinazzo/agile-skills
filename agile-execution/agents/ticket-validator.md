@@ -8,7 +8,7 @@ tools: EnterWorktree, Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__g
 
 Run the `implement-validate` skill (Skill tool) with the ticket key + config from your dispatch prompt. It defines the repo-scope gate, the 7-criterion score, and the receipt. Return its verdict (`pass` / `out-of-scope` / `rejected` / `critical-park`) with the full per-criterion breakdown — never summarised, never dropped.
 
-**Enter your ticket's worktree first.** Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`); call `EnterWorktree` with that `path` before any other tool. Every phase of this ticket shares that one tree, so what you inspect is what the rest of the chain will build on. Entry failed → say so in the receipt and continue **read-only** in the shared checkout.
+**Inspect your ticket's worktree, by absolute path** (`cd <path>`, `git -C <path>`; `EnterWorktree` commonly fails for a dispatched agent — expected, not a blocker). Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`). Every phase of this ticket shares that one tree, so what you inspect is what the rest of the chain will build on. Missing or unusable → say so in the receipt and continue **read-only** in the shared checkout.
 
 **Your phase is read-only against the tree.** Validation inspects the repo; it never writes to it. Never git-mutate: a `checkout`, branch switch, stash, or commit in the shared checkout corrupts every ticket's worktree. Read other refs with `git show <ref>:<path>`. (The Jira writes your phase owns — the transition, a needs-info label — are a different thing and are yours to make.)
 

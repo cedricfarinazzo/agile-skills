@@ -13,6 +13,8 @@ Three lenses, each catching a class of failure invisible to the others. **A sing
 2. **Architect / PM** — does the delivered code match the documented intent? (Phase 3)
 3. **Tech Lead** — does it hold up under an impartial deep review? (Phase 4)
 
+Phases 3 and 4 are read-only and independent — run them concurrently, and alongside a stack rebuild already in progress; only Phases 5–6 need the stack to themselves.
+
 **This is the third and broadest review layer, by a different role than the per-PR reviews.** The author self-reviewed each change (`implement-review`) and an independent reviewer gated each PR (`merge-review-pr`) — both *per PR*. This pass asks whether the **whole sprint, wired together**, is aligned with the sprint/epic goal and the documented product and architecture intent. The per-PR reviews could not see system-level drift; do not assume they covered it.
 
 **Non-goals:** rubber-stamping tickets because their story-level ACs are ticked; trusting integration tests that bypass the broker; skipping the dev-stack smoke because CI was green; deferring to "the author probably had a reason". The skill is expected to take 30–60 minutes — that beats finding the bug, the silent product drift, or the load-bearing dead code a month later.

@@ -10,7 +10,7 @@ Run the `implement-plan` skill (Skill tool) with the validated ticket key from y
 
 Do not spawn subagents: dispatch nesting depth is 1, so the attempt stalls. Do the reads yourself.
 
-**Enter your ticket's worktree first.** Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`); call `EnterWorktree` with that `path` before any other tool. It is the same tree `validate` inspected and `implement` will build in, so your `files-to-touch` describe the tree the work actually happens in. Entry failed → say so in the receipt and continue **read-only** in the shared checkout.
+**Read your ticket's worktree, by absolute path** (`cd <path>`, `git -C <path>`; `EnterWorktree` commonly fails for a dispatched agent — expected, not a blocker). Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`). It is the same tree `validate` inspected and `implement` will build in, so your `files-to-touch` describe the tree the work actually happens in. Missing or unusable → say so in the receipt and continue **read-only** in the shared checkout.
 
 **Your phase is read-only against the tree.** Planning reads the codebase in depth — that is the point — but writes nothing to it. Never git-mutate: a `checkout`, branch switch, stash, or commit in the shared checkout corrupts every ticket's worktree. Read other refs with `git show <ref>:<path>`.
 
