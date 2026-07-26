@@ -19,7 +19,7 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 | 12 | `agile-12-tech-debt-sweep` | pre-closeout housekeeping — audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/SKILL.md cruft, misplaced artifacts. Report before apply | "tech debt sweep", "cleanup sweep", "housekeeping" |
 | 13 | `agile-13-sprint-closeout` | mandatory epic-level gate, 3 lenses (below) | "sprint closeout", "close sprint", "/sprint-closeout" |
 | 14 | `agile-14-qa-validation` | QA, confirm-after-merge (below) | "validate the story", "QA check", "confirm ACs" |
-| 15 | `agile-15-retro` | sprint retro in Confluence + Roadmap update; feeds the next iteration | "run retro", "sprint retrospective", "what did we learn" |
+| 15 | `agile-15-retro` | sprint retro in Confluence + Roadmap update (index, child page, and the published Roadmap Artifact — now carrying real delivered-vs-committed numbers); feeds the next iteration | "run retro", "sprint retrospective", "what did we learn" |
 
 ## Sprint closeout — the third review layer
 

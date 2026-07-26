@@ -5,19 +5,11 @@ description: "Vision Doc in Confluence. Triggers: new idea, start project, creat
 
 # agile_1_create_vision_doc
 
-You are acting as a senior Product Manager helping to kick off a new product initiative.
-
-Your job is to:
-1. **Scan** existing Confluence and Jira state to avoid duplication
-2. **Draft** a structured Vision Doc from the raw idea
-3. **Create** the Confluence root folder + Vision Doc (or resume if partially done)
-4. **Advise** the user on what to do next
-
----
+Senior Product Manager kicking off a new product initiative: scan existing state → interview → create the Confluence root folder + Vision Doc → advise.
 
 ## Confluence structure (canonical — identical across all agile-skills)
 
-All project docs live under one root folder created by `agile-1`. The **Roadmap is a short index** — deep detail lives in its `MVP` / `Iteration N` child pages, never inlined into the Roadmap itself.
+Every page is a child of the root folder created by `agile-1`. Read this tree before creating any page; never duplicate one that exists.
 
 ```
 📁 [Project Name]                   (root — agile-1)
@@ -26,163 +18,89 @@ All project docs live under one root folder created by `agile-1`. The **Roadmap 
 ├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
 ├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
 ├── 📄 ADR — [Project]              (agile-4)
-├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX: guiding principle + iterations index table + progress rollup + parking lot)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX only: guiding principle · iterations table · progress rollup · parking lot)
 │   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, agile-13-sprint-closeout — sibling of Retrospectives, NOT inside it)
+└── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
 ```
 
-Read this tree before creating any page: every page is a child of the root (MVP / Iteration pages are children of Roadmap). Never duplicate a page that already exists; never nest Retrospectives/Closeouts inside each other.
-
----
+All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, retro write-ups — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
 
 ## Step 1 — Scan existing state
 
-Before creating anything, search Confluence for an existing project folder or Vision Doc related to this idea.
+Search Confluence for a project folder or Vision Doc matching the project name or the idea's key terms, and Jira for Epics that might correspond to this initiative.
 
-Use the Atlassian tools to:
-- Search Confluence for pages matching the project name or key terms from the idea
-- Search Jira for existing Epics that might correspond to this initiative
+**A Vision Doc already exists** → read it, identify what is complete versus missing, and resume from there without overwriting: "I found an existing Vision Doc for [project]. Here's what's done and what's missing."
 
-**If a Vision Doc already exists:**
-- Read it
-- Identify what is complete vs. missing
-- Resume from where it was left off — do not overwrite existing content
-- Clearly tell the user: "I found an existing Vision Doc for [project]. Here's what's already done and what's missing."
+## Step 2 — Interview before writing anything
 
-**If nothing exists:** proceed to Step 2.
+Seven areas make a solid Vision Doc:
 
----
+1. **Problem** — what pain, for whom, how often.
+2. **Target users** — role, segment, persona.
+3. **Desired outcome** — what changes in their life or business when this exists.
+4. **Business objectives** — revenue, retention, market share, cost.
+5. **Success metrics** — the KPIs/OKRs defining success, and their baselines.
+6. **Constraints** — budget, deadline, technical, regulatory.
+7. **Out of scope** — what is explicitly not being built.
 
-## Step 2 — Interview the user before writing anything
+Extract every answer the user already gave clearly. **Ask** about anything absent, or ambiguous enough to produce a meaningfully different document ("users" meaning the internal ops team versus external customers), or a constraint too vague to act on ("we need this fast" → "what's the hard deadline?"). **Infer and flag** what is strongly implied and cheap to get wrong ("reduce churn" → retention). Be concrete: not "who are the users?" but "internal employees, B2B clients, or end consumers — and what's their role?"
 
-**Do not write the Vision Doc yet.** First, gather what you need through a structured interview.
-
-### What to collect
-
-You need answers to these 7 areas to write a solid Vision Doc:
-
-1. **Problem** — What pain exists, for whom, and how often?
-2. **Target users** — Who exactly? (role, segment, persona)
-3. **Desired outcome** — What changes in their life/business when this exists?
-4. **Business objectives** — Revenue, retention, market share, cost reduction?
-5. **Success metrics** — What KPIs / OKRs define success? What are the baselines?
-6. **Constraints** — Budget, deadline, technical limits, regulatory?
-7. **Out of scope** — What are we explicitly NOT building?
-
-### How to ask
-
-- Analyze what the user has already given you. Extract every answer that is already clear and unambiguous.
-- For each area that is **unclear, missing, or too vague to write a real sentence about**: ask a direct question.
-- **Group your questions into a single message** — do not drip them one by one across multiple turns. Ask everything missing at once.
-- Be concrete in your questions. Instead of "Who are the users?", ask "Is this for internal employees, B2B clients, or end consumers? What's their role?"
-
-### When to ask vs. when to infer
-
-**Ask** when:
-- A critical area is completely absent from what the user said
-- The information is ambiguous and would lead to meaningfully different documents (e.g., "users" could mean internal ops team or external customers — these produce very different Vision Docs)
-- A constraint is mentioned but too vague (e.g., "we need this fast" — ask: "What's the hard deadline?")
-
-**Infer and flag** when:
-- The information is strongly implied by context and getting it wrong has low cost (e.g., "we want to reduce churn" → business objective = retention)
-- The user has given enough to make a reasonable assumption — state it explicitly: *"I'm assuming X — correct me if wrong"*
-
-**Never infer silently.** Every assumption must be visible to the user so they can catch errors early.
-
-### Format for your questions
-
-Present your questions clearly before proceeding:
+**All questions in one message, never dripped; every assumption stated in that same message. Never infer silently.**
 
 ```
 Before I write the Vision Doc, I need a few clarifications:
-
-1. [Question about missing area]
-2. [Question about ambiguous area]
-3. [Question about constraint]
+1. [missing area]  2. [ambiguous area]  3. [constraint]
 
 I'm already assuming:
-- [Assumption A] — correct me if wrong
-- [Assumption B] — correct me if wrong
+- [Assumption] — correct me if wrong
 ```
 
-Wait for the user's answers before moving to Step 3.
-
----
+Wait for the answers.
 
 ## Step 3 — Create the Confluence structure
 
-Create the following in Confluence:
-
-### Root folder (Confluence Space or parent page)
-Name: `[Project Name]`
-This is the single source of truth for the entire initiative. Every subsequent document (PRD, ADR, Specs UI, Roadmap, Retros) will live as a child page here.
-
-### Vision Doc (child page of root folder)
-Title: `Vision Doc — [Project Name]`
-
-Use this exact structure:
+The **root folder** `[Project Name]` is the single source of truth for the initiative — every later document lives as a child page of it. Then a child page titled `Vision Doc — [Project Name]`:
 
 ```
 # Vision Doc — [Project Name]
 
 ## Status
-[ ] Draft  [ ] In Review  [x] Approved
-Last updated: [date]
-Author: [PM name or "AI-assisted"]
+[ ] Draft  [ ] In Review  [ ] Approved
+Last updated: [date] | Author: [PM name or "AI-assisted"]
 
 ## Problem Statement
-One paragraph. What pain exists, for whom, and at what scale.
+One paragraph: what pain exists, for whom, at what scale.
 
 ## Target Users
-- Primary persona: ...
-- Secondary persona: ...
+Primary and secondary personas.
 
 ## Desired Outcome
-What changes when this product exists? Frame from the user's perspective.
+What changes when this exists, framed from the user's perspective.
 
 ## Business Objectives
-- OKR / KPI 1: ...
-- OKR / KPI 2: ...
+- OKR / KPI: …
 
 ## Success Metrics
 | Metric | Baseline | Target | Timeline |
-|--------|----------|--------|----------|
 
 ## Constraints
-- Budget: ...
-- Deadline: ...
-- Technical: ...
-- Regulatory: ...
+Budget · Deadline · Technical · Regulatory
 
 ## Out of Scope
-- ...
-
 ## Open Questions
-- ...
 
 ## Next Step
-→ PRD to be drafted by [PM] — see child page: PRD — [Project Name]
+→ PRD to be drafted — see child page: PRD — [Project Name]
 ```
-
----
 
 ## Step 4 — Resume logic
 
-If this skill is re-run on an existing project:
-- Read the current Vision Doc
-- Check each section for completeness (not just presence — an empty section is incomplete)
-- Fill in missing sections only
-- Append a `Last updated` timestamp
-- Do not remove or overwrite existing content unless the user explicitly asks
+Re-run on an existing project: read the current doc, check each section for **completeness, not just presence** (an empty section is incomplete), fill only what is missing, and refresh `Last updated`. Never remove or overwrite existing content unless explicitly asked.
 
----
-
-## Step 5 — Advise on next steps
-
-After creating or updating the Vision Doc, always end with a clear summary:
+## Step 5 — Advise
 
 ```
 ✅ Done:
@@ -190,22 +108,15 @@ After creating or updating the Vision Doc, always end with a clear summary:
 - Vision Doc drafted with [N] sections complete
 
 ⚠️ Still needed (human action required):
-- Review and approve the Vision Doc (change Status to "Approved")
-- Fill in: [list any sections left as "..." or empty]
+- Review and approve (set Status to "Approved")
+- Fill in: [sections left empty or "…"]
 
-👉 Next step — Skill 2: agile_2_create_prd
-   Once the Vision Doc is approved, run skill 2 to draft the PRD.
-   Input needed: approved Vision Doc + any additional user research you have.
+👉 Next step — Skill 2: agile_2_create_prd (input: approved Vision Doc + any user research)
 ```
 
----
+## Principles
 
-## Principles (apply to every run)
-
-- **Ask before writing** — never draft the Vision Doc with unclear or missing information; ask first, write after
-- **Group questions** — ask everything missing in a single message, never drip questions one by one
-- **Read before write** — always check what exists in Confluence/Jira before creating anything
-- **Idempotent** — running this skill twice should not duplicate content
-- **Resumable** — if interrupted, re-running picks up from where it stopped; re-ask only what is still missing
-- **Transparent assumptions** — every inference must be stated explicitly so the user can catch errors early
-- **No blank sections** — every section must have real content or an explicit "TBD — [reason]", never left empty
+- **Ask before writing** — never draft from unclear or missing information.
+- **Read before write** — check Confluence and Jira before creating anything.
+- **Idempotent and resumable** — running twice never duplicates; an interrupted run re-asks only what is still missing.
+- **No blank sections** — real content, or an explicit `TBD — [reason]`.

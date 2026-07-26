@@ -9,7 +9,7 @@ Raw idea → sprint retro, wired into **Confluence** and **Jira**. Six focused p
 | Plugin | Phase | Skills | Needs |
 |--------|-------|--------|-------|
 | [**agile-product**](agile-product/README.md) | Discovery — *what & why* | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
-| [**agile-planning**](agile-planning/README.md) | Planning | Roadmap, Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
+| [**agile-planning**](agile-planning/README.md) | Planning | Roadmap (+ published Artifact view), Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
 | [**agile-execution**](agile-execution/README.md) | Build (autonomous) | Implement (+ 6 sub-skills) | Atlassian MCP + `gh` |
 | [**agile-merge-review**](agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
 | [**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
@@ -32,6 +32,9 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
                     PLANNING                     (agile-planning)
                     ────────
   5. Roadmap     →  6. Epics  →  7. Stories
+     └─ short index in Confluence + a published Claude Code
+        Artifact view (refreshed by 9 and 15; Confluence stays
+        the source of truth, the artifact is regenerated from it)
                               →  8. Refinement
                                   └─ bundled tool: sprint-shared-file-audit.sh
                                      (run via ${CLAUDE_PLUGIN_ROOT})
@@ -60,7 +63,8 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
          ──────────────────────────────────────────────────
    agile-sprint-drain  alternates 10 ⇄ 11 to a fixed point:
      each pass: implement eligible To-Do → merge open PRs
-     (each orchestrator dispatched to its own agent → ledger) ;
+     (both orchestrators invoked INLINE — dispatch doesn't nest,
+      so the drain ships no agents; only outcomes → ledger) ;
      actionable-work guard keeps retrying while any item can
      advance, STUCK only when all remaining are human-blocked ;
      DRAINED (all Done + merged) hands off to agile-sprint-close
@@ -92,6 +96,7 @@ Each skill reads from what the previous skill wrote (Confluence pages, Jira issu
 /plugin install agile-execution@agile-skills
 /plugin install agile-merge-review@agile-skills
 /plugin install agile-sprint-close@agile-skills
+/plugin install agile-sprint-drain@agile-skills   # needs execution + merge-review
 /reload-plugins
 ```
 

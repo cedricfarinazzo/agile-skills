@@ -30,12 +30,12 @@ The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` 
 
 | Agent | Runs | Model / effort |
 |-------|------|-----------------|
-| `agile-execution:ticket-validator` | `implement-validate` | sonnet / low |
-| `agile-execution:ticket-planner` | `implement-plan` | opus / medium |
-| `agile-execution:build-implementer` | `implement-code` | sonnet / high |
-| `agile-execution:pr-publisher` | `implement-pr` | sonnet / low |
-| `agile-execution:review-lens` | `implement-review` lens fan-out (opt-in, large PR only) | sonnet / medium |
-| `agile-execution:build-monitor` | `implement-monitor` | sonnet / medium |
+| `agile-execution:ticket-validator` | `implement-validate` | sonnet / medium — a gate whose miss wastes a whole ticket build |
+| `agile-execution:ticket-planner` | `implement-plan` | **opus / high** — the spec end; nothing downstream re-derives the plan |
+| `agile-execution:build-implementer` | `implement-code` | **opus / medium** — writes the code everything else is measured against; `pr-reviewer` re-reads the result |
+| `agile-execution:pr-publisher` | `implement-pr` | sonnet / low — mechanical: assemble a body from the diff + markers |
+| `agile-execution:review-lens` | `implement-review` lens fan-out (opt-in, large PR only) | sonnet / high — only fanned out on large PRs, where the read *is* the job |
+| `agile-execution:build-monitor` | `implement-monitor` | sonnet / medium — owns the flake-vs-regression call, and fixes on the shared stack |
 
 ## The loop (per ticket, in Jira dependency order)
 

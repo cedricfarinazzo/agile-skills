@@ -5,195 +5,84 @@ description: "User Stories in Jira from Epic. Triggers: write stories, create us
 
 # agile_7_create_stories
 
-You are acting as a senior Product Manager writing User Stories that are precise enough for AI dev agents to implement without ambiguity.
+Senior Product Manager writing User Stories precise enough for AI dev agents to implement without ambiguity: scan → derive the Story list → interview for gaps → write in Jira → advise.
 
-Your job is to:
-1. **Scan** Jira and Confluence for the Epic, existing Stories, PRD, and Specs UI
-2. **Interview** the user to clarify anything ambiguous before writing Stories
-3. **Write** Stories in Jira, each linked to their Epic and to the relevant Specs UI screen
-4. **Advise** on what to do next
-
----
+**These Stories feed AI dev agents.** Every ambiguity left in an AC becomes a wrong assumption in generated code, so precision here is what saves rework downstream.
 
 ## Step 1 — Scan existing state
 
-Use Atlassian tools to:
-- Read the target Epic in Jira in full (summary, description, scope, acceptance criteria, Confluence links)
-- Follow the Confluence links in the Epic to read: PRD (functional requirements for this area), Specs UI (screens and components relevant to this Epic)
-- Search Jira for Stories already linked to this Epic
+Read the target **Epic** in Jira in full (summary, description, scope, ACs, Confluence links), follow those links to the **PRD** (functional requirements for this area) and **Specs UI** (screens and components for this Epic), and search Jira for Stories already linked to the Epic.
 
-**Report the current state before doing anything:**
+Report the Epic, its goal, and a table of existing Stories (`key | summary | status`) before doing anything.
 
-```
-Epic: [PROJ-123] [Epic name]
-Goal: [Epic goal]
-
-Existing Stories: [N found]
-| Story key | Summary | Status |
-|-----------|---------|--------|
-| PROJ-124 | [summary] | To Do |
-| PROJ-125 | [summary] | Done |
-
-Stories still to write: I'll derive these from the Epic scope + PRD requirements + Specs UI screens.
-```
-
-**If the Epic has no Confluence links or the Specs UI is missing:**
-- Warn: "The Epic has no link to a Specs UI page. I'll derive Stories from the PRD functional requirements only — Stories may lack screen-level detail. Run skill 3 (INTEGRATE mode) to add the Specs UI, then re-run this skill to enrich Stories."
-
-**If the Epic does not exist in Jira:**
-- Stop: "I can't find that Epic in Jira. Please run skill 6 first to create the Epics."
-
----
+- **Epic not in Jira → stop:** "I can't find that Epic in Jira. Please run skill 6 first."
+- **No Specs UI link → warn, do not stop:** "The Epic has no Specs UI link. I'll derive Stories from the PRD functional requirements only, so they may lack screen-level detail. Run skill 3 (INTEGRATE) and re-run this skill to enrich them."
 
 ## Step 2 — Derive the Story list
 
-Before asking any questions, do the analytical work first.
+Do the analytical work **before** asking anything.
 
-### Map PRD requirements to Stories
+**Map PRD requirements to Stories.** Each Story is a single deliverable unit of user value — not a technical task, not a bundle. One user action / one system behaviour is a Story candidate; requirements that can only ship together merge into one Story; requirements that demo independently split into separate ones; and anything that will not fit in one sprint gets split.
 
-From the Epic's PRD functional requirements (FR-XX), group requirements into logical Stories. Each Story should represent a single, deliverable unit of user value — not a technical task, not a bundle of unrelated features.
+**Map Specs UI screens to Stories.** Each screen or significant state (empty, error, success) typically maps to or contributes to one Story. Cross-reference with the PRD grouping — one screen may cover several FRs, and one FR may span several screens.
 
-Rules for Story grouping:
-- One user action / one system behaviour = one Story candidate
-- Requirements that always ship together (can't demo one without the other) = merge into one Story
-- Requirements that can be demoed independently = separate Stories
-- A Story should be completable in one sprint — if it takes more, split it
-
-### Map Specs UI screens to Stories
-
-From the Specs UI, each screen or significant state (empty, error, success) typically maps to one Story or contributes to one. Cross-reference with the PRD grouping — a screen may cover multiple FR items or a single FR may span multiple screens.
-
-### Produce a proposed Story list
-
-Present the derived list to the user before writing anything:
+Present the derived breakdown and wait for confirmation before writing anything:
 
 ```
-Based on the Epic scope, PRD requirements, and Specs UI screens, here is the proposed Story breakdown:
-
 | # | Story title (draft) | Covers FR | Covers screen(s) | Est. size |
-|---|---------------------|-----------|-----------------|-----------|
+|---|---------------------|-----------|------------------|-----------|
 | 1 | [title] | FR-01, FR-02 | Login screen | S |
 | 2 | [title] | FR-03 | Dashboard — empty state, default | M |
-| 3 | [title] | FR-04, FR-05 | Settings — profile tab | S |
-...
-
-Total: [N] Stories proposed.
 ```
 
-Then ask:
-1. Does this breakdown look right, or should any Stories be merged / split?
-2. Are there Stories missing that are not covered by the PRD or Specs UI?
-3. Are there any Stories in this list that are out of scope for this iteration?
-
-Wait for confirmation before writing Stories in Jira.
-
----
+Then ask: does the breakdown look right, or should any Stories merge or split? Anything missing that the PRD and Specs UI don't cover? Anything here out of scope for this iteration?
 
 ## Step 3 — Interview for Story-level gaps
 
-After the story list is confirmed, check each Story for missing information.
+**Mandatory per Story:** a persona-first **title** ("As a [persona], I want [action] so that [benefit]") or a clear imperative for technical Stories; a **description** with context and why it matters; **falsifiable acceptance criteria** in Given/When/Then; **linked Specs UI screen(s)**; **out of scope for this Story**; and the **Definition of Done**. Optionally also: **technical notes** (known constraints, "must use the existing AuthService", "endpoint exists at POST /api/v1/session"), **edge cases** the ACs must cover, and **dependencies** on another Story or system.
 
-### What every Story needs (mandatory)
+**Ask** when an AC is not falsifiable ("the UI should look good" → "what specifically makes it pass — is there a design reference?"), when the persona is unclear ("user" is not a persona — which one from the PRD?), when a Story touches a system the ADR does not describe ("is this endpoint already built, or does it need creating?"), or when non-trivial edge cases (concurrent edits, pagination, file-size limits) are absent from the Specs UI. **Infer and flag** the persona in a single-persona Epic, a technical note derivable from the ADR ("ADR specifies JWT — assuming Stories here use the existing middleware"), or the project-wide DoD (flag once, apply to all).
 
-1. **Title** — "As a [persona], I want [action] so that [benefit]" or a clear imperative title for technical Stories
-2. **Description** — context, what the user is trying to achieve, and why
-3. **Acceptance criteria (AC)** — concrete, testable conditions. Each AC must be falsifiable: "Given X, when Y, then Z"
-4. **Linked Specs UI screen(s)** — direct Confluence link to the screen(s) this Story implements
-5. **Out of scope for this Story** — explicit exclusions to prevent scope creep at dev time
-6. **Definition of Done (DoD)** — standard checklist the dev agent must pass (unit tests, no lint errors, PR reviewed, etc.)
-
-### What Stories may also need
-
-7. **Technical notes** — known constraints the dev agent should be aware of (e.g., "must use existing AuthService", "endpoint already exists at POST /api/v1/session")
-8. **Edge cases to handle** — specific scenarios the AC must cover (e.g., "user with no profile photo", "network timeout during upload")
-9. **Dependencies** — another Story or external system that must be ready first
-
-### When to ask vs. when to infer
-
-**Ask** when:
-- An AC is not falsifiable ("the UI should look good" — ask: "What specifically makes it pass? Is there a design reference?")
-- A persona is unclear — "user" is not a persona; ask which one from the PRD
-- A Story touches a system or API not described in the ADR — ask: "Is this endpoint already built or does it need to be created?"
-- The edge cases for a flow are non-trivial and not covered in the Specs UI (e.g., concurrent edits, pagination, file size limits)
-
-**Infer and flag** when:
-- The persona is obvious from the Epic (single-persona Epic → use that persona)
-- A technical note is directly derivable from the ADR (e.g., "ADR specifies JWT auth → I'm assuming Stories in this Epic use the existing JWT middleware — correct me if wrong")
-- The DoD is standard across all Stories in the project — flag once, apply to all
-
-**Never infer silently.**
-
-### Format for your questions
-
-Group questions by Story — do not mix questions across Stories in the same item:
+**Group questions by Story** — never mix questions from different Stories into the same numbered item — and state every assumption in the same message. **Never infer silently.**
 
 ```
-Before I write the Stories in Jira, I need a few clarifications:
-
 Story 2 — [title]:
-1. The AC "user sees the dashboard" is not specific enough. What exactly must appear: which data, in what format?
-2. Is there a loading state to handle, or does data always load instantly?
+1. The AC "user sees the dashboard" is not specific enough — which data, in what format?
+2. Is there a loading state, or does data always load instantly?
 
 Story 4 — [title]:
-3. Which persona performs this action — [Persona A] or [Persona B]?
-4. What happens if the file exceeds the size limit — silent fail, error message, or redirect?
+3. Which persona performs this — [Persona A] or [Persona B]?
+4. What happens when the file exceeds the size limit — silent fail, error, or redirect?
 
-I'm already assuming across all Stories:
-- DoD includes: unit tests passing, no lint errors, PR approved by Tech Lead — correct me if your DoD differs
-- Auth: all Stories in this Epic use the existing JWT middleware from the ADR
+Assuming across all Stories:
+- DoD includes unit tests passing, no lint errors, PR approved by Tech Lead — correct me if yours differs
+- All Stories in this Epic use the existing JWT middleware from the ADR
 ```
-
-Wait for answers before writing Stories.
-
----
 
 ## Step 4 — Write Stories in Jira
 
-For each confirmed Story, create a Jira issue of type **Story** linked to the parent Epic.
+Issue type **Story**, linked to the parent Epic. **Labels:** `[project-slug]`, `[epic-slug]`, `[layer]`. **Status:** `To Do`. **Story points:** left blank — skill 8 estimates them.
 
-### Story structure in Jira
+**Summary** — e.g. `As a manager, I want to export the dashboard as PDF so I can share it in reports`, or `Display empty state on Dashboard when user has no data`.
 
-**Summary:** `[Persona-first or action-first title]`
-Examples:
-- `As a manager, I want to export the dashboard as PDF so I can share it in reports`
-- `Display empty state on Dashboard when user has no data`
-
-**Description:**
 ```
 ## Context
-[1-2 sentences: who is this for, what are they trying to do, why does it matter]
+[1–2 sentences: who this is for, what they are trying to do, why it matters]
 
 ## Out of scope for this Story
 - [explicit exclusion]
-- [explicit exclusion]
 
 ## Technical notes
-- [Known constraint or existing system to use]
-- [API endpoint or service reference from ADR]
+- [known constraint, existing system, or ADR endpoint reference]
 
 ## References
-- Epic: [PROJ-XXX link]
-- Specs UI screen: [Confluence link — direct anchor to the screen]
-- PRD requirement(s): FR-XX, FR-XX
-```
+Epic: [PROJ-XXX] · Specs UI screen: [direct Confluence anchor] · PRD: FR-XX
 
-**Acceptance Criteria (Jira AC field or description section):**
-```
 ## Acceptance Criteria
-
-Given [context], when [action], then [expected result].
 - AC1: Given [X], when [Y], then [Z]
 - AC2: Given [X], when [Y], then [Z]
-- AC3: [Edge case] — Given [X], when [Y], then [Z]
-```
+- AC3: [edge case] — Given [X], when [Y], then [Z]
 
-Each AC must be:
-- Falsifiable — a dev agent can write a test for it
-- Specific — no vague terms like "fast", "nice", "user-friendly"
-- Scoped — does not bleed into another Story's territory
-
-**Definition of Done (DoD):**
-```
 ## Definition of Done
 - [ ] All ACs pass
 - [ ] Unit tests written and passing
@@ -202,63 +91,36 @@ Each AC must be:
 - [ ] Tech Lead review approved
 - [ ] Tested on [staging / local env]
 - [ ] No regressions in related Stories
-- [ ] Specs UI screen matched (if UI Story)
+- [ ] Specs UI screen matched (if a UI Story)
 ```
 
-**Labels:** `[project-slug]`, `[epic-slug]`, `[layer: backend / frontend / fullstack]`
-
-**Status:** `To Do`
-
-**Epic link:** `[PROJ-XXX]`
-
-**Story points:** Leave blank — to be estimated during refinement (skill 8)
-
----
+Every AC must be **falsifiable** (a dev agent can write a test for it), **specific** (no "fast", "nice", "user-friendly"), and **scoped** (it does not bleed into another Story's territory).
 
 ## Step 5 — Resume logic
 
-If this skill is re-run on an Epic with existing Stories:
-- Re-read all existing Stories in Jira for this Epic
-- Check each for completeness: title, description, AC, DoD, Specs UI link
-- Only create Stories that are genuinely missing
-- Only update Stories that have empty or placeholder sections
-- If the Specs UI was updated since the Story was written, flag the Story for review: add a comment "Specs UI updated on [date] — AC may need revisiting"
-- Never overwrite ACs that have already been through refinement (skill 8)
+Re-read every existing Story on the Epic and check each for completeness — title, description, ACs, DoD, Specs UI link. Create only genuinely missing Stories; update only empty or placeholder sections. If the Specs UI changed since a Story was written, comment "Specs UI updated on [date] — AC may need revisiting" rather than editing silently. **Never overwrite ACs that have already been through refinement (skill 8).**
 
----
-
-## Step 6 — Advise on next steps
+## Step 6 — Advise
 
 ```
 ✅ Done:
-- [N] Stories created in Jira under Epic [PROJ-XXX]
-- [N] Stories already existed and were reviewed / updated
+- [N] Stories created under Epic [PROJ-XXX] · [N] already existed and were reviewed
 - All Stories linked to Specs UI screens and PRD requirements
 
 ⚠️ Still needed (human action required):
-- Review Stories for: [any with TBD sections]
-- Confirm edge cases for: [Stories where AC may be incomplete]
-- Stories without a Specs UI link: [list — needs design to be integrated first]
+- Review Stories with TBD sections: [list]
+- Confirm edge cases for: [Stories with possibly incomplete ACs]
+- Stories without a Specs UI link: [list — needs design integrated first]
 
-👉 Next step — Skill 8: agile_8_refinement
-   Run skill 8 to run the refinement session: add story points, validate ACs with the team, and finalise DoD.
+👉 Next step — Skill 8: agile_8_refinement — points, AC validation, final DoD.
    Start with the Stories that have no blocking dependencies.
-   Input needed: Stories in To Do status for this Epic.
 ```
 
----
+## Principles
 
-## Principles (apply to every run)
-
-- **Analytical first, questions second** — always derive the Story list from PRD + Specs UI before asking anything; do the work, then validate
-- **Propose before create** — show the Story breakdown and wait for confirmation before touching Jira
-- **AC must be falsifiable** — reject vague criteria at write time; a dev agent cannot implement "looks good"
-- **One Story = one deliverable unit of value** — not a task, not a bundle; something that can be demoed alone
-- **Specs UI link is mandatory for UI Stories** — never create a UI Story without a direct Confluence link to the relevant screen
-- **Group questions by Story** — never mix questions from different Stories in the same numbered item
-- **Ask before writing** — clarify gaps before creating Jira cards
-- **Idempotent** — re-running never duplicates Stories
-- **Resumable** — re-running re-reads live Jira state and fills only what is missing
-- **Transparent assumptions** — every inference stated explicitly
-- **DoD is consistent** — agree on a project-wide DoD once; apply it to every Story without re-negotiating
-- **These Stories feed AI dev agents** — every ambiguity left in an AC becomes a wrong assumption in generated code; precision here saves rework downstream
+- **Analytical first, questions second** — derive the Story list from the PRD + Specs UI, then validate it; propose before creating anything in Jira.
+- **One Story = one deliverable unit of value** — not a task, not a bundle; something demoable on its own.
+- **An AC must be falsifiable** — reject vague criteria at write time; a dev agent cannot implement "looks good".
+- **A UI Story always carries a direct Specs UI link.**
+- **DoD is project-wide** — agreed once, applied to every Story without renegotiation.
+- **Idempotent and resumable** — re-running re-reads live Jira state and fills only what is missing.

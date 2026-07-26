@@ -5,200 +5,112 @@ description: "Mandatory end-of-sprint epic gate, 3 lenses: engineer (smoke + int
 
 # agile_13_sprint_closeout
 
-> **MANDATORY final step of every sprint.** Run after the last story is merged
-> to `main`, after `agile-12-tech-debt-sweep` has run, and before invoking
-> `agile-15-retro`. The class of bug this skill catches is "all unit +
-> integration tests pass + production is broken" — the kind where each
-> story-level AC was met in isolation but the wired-together system has a
-> silent regression nobody exercised.
->
-> **Prerequisite: `agile-12-tech-debt-sweep`** must run first. Closeout's dev-stack
-> smoke replays the user flow described in `CLAUDE.md`; the sweep ensures
-> `CLAUDE.md` accurately reflects what main looks like (no stale tree comments,
-> no useless CI workflows skewing the CI pipeline, no leaked personal tags) +
-> any prebuild-image extractions land in their target repo before closeout
-> exercises the new stack.
+**Mandatory final step of every sprint** — after the last story merges to `main`, after `agile-12-tech-debt-sweep`, before `agile-15-retro`. The bug class it catches is *"all unit + integration tests pass and production is broken"*: every story-level AC met in isolation while the wired-together system carries a silent regression nobody exercised.
 
-End-to-end gate before declaring a sprint or epic done. Runs **three lenses**:
+Three lenses, each catching a class of failure invisible to the others. **A single Critical finding from any lens blocks closeout** — engineer-lens green is not enough.
 
 1. **Engineer** — does the wired-together system actually work on a freshly rebuilt dev stack? (Phases 0–2, 5–6)
-2. **Architect / PM** — does the delivered code match the documented intent (Vision Doc, PRD, ADR, Roadmap, epic ACs)? (Phase 3)
-3. **Tech Lead** — does the implementation hold up under an impartial deep code review? (Phase 4)
+2. **Architect / PM** — does the delivered code match the documented intent? (Phase 3)
+3. **Tech Lead** — does it hold up under an impartial deep review? (Phase 4)
 
-A single Critical finding from any lens blocks closeout.
+**This is the third and broadest review layer, by a different role than the per-PR reviews.** The author self-reviewed each change (`implement-review`) and an independent reviewer gated each PR (`merge-review-pr`) — both *per PR*. This pass asks whether the **whole sprint, wired together**, is aligned with the sprint/epic goal and the documented product and architecture intent. The per-PR reviews could not see system-level drift; do not assume they covered it.
 
-**This is the third and broadest review layer, by a different role than the per-PR reviews.** The author self-reviewed each change (`implement-review`) and an independent reviewer gated each PR (`merge-review-pr`) — both *per PR*. This is the **global, impartial** pass: whether the *whole sprint, wired together*, is aligned with the sprint/epic goal and the documented product + architecture intent. Different scope (the sprint, not one PR), different question (goal alignment + system-level correctness, not diff correctness). Do not assume the per-PR reviews already covered system-level drift — they couldn't see it.
+**Non-goals:** rubber-stamping tickets because their story-level ACs are ticked; trusting integration tests that bypass the broker; skipping the dev-stack smoke because CI was green; deferring to "the author probably had a reason". The skill is expected to take 30–60 minutes — that beats finding the bug, the silent product drift, or the load-bearing dead code a month later.
 
-## Goal & non-goals
-
-**Goal:** every epic-level AC is provably satisfied along three axes — runs on the real stack, matches the documented product/architecture spec, and survives an impartial line-by-line review of the sprint diff.
-
-**Non-goals:** rubber-stamping tickets because their story-level ACs are checked off; trusting integration tests that bypass the broker; skipping the dev-stack smoke because "the CI was green"; deferring to "the author probably had a reason" when reviewing code.
-
-The skill is allowed — and expected — to take 30-60 min. Speed comes from doing this once per sprint instead of finding the bug (or the silent product drift, or the load-bearing dead code) a month later.
+**Prerequisite: `agile-12-tech-debt-sweep` must have run** and its approved fixes applied. Closeout's smoke replays the user flow described in `CLAUDE.md`, so `CLAUDE.md` must accurately reflect main — no stale tree comments, no useless CI workflows skewing the pipeline, no leaked personal tags — and any prebuild-image extractions must have landed before closeout exercises the new stack.
 
 ## Configuration
 
-Reads from the consumer repo's `CLAUDE.md` / `AGENTS.md`:
+From the consumer repo's `CLAUDE.md` / `AGENTS.md`: **`cloudId`** (required); **`confluence-project-root`** — page id or title of the folder holding Vision Doc / PRD / Design Brief / ADR / Roadmap / Retrospectives / Closeouts (required for Phases 3 and 7); **`done-status-name`** — the project-local terminal state ("Done", "Terminé(e)", "Closed"); **lint / unit / integration commands**, called as opaque commands; **dev-stack bring-up commands**, typically `docker compose down && docker compose up -d --build --wait` plus migration.
 
-- **`cloudId`** — Atlassian cloud id for `mcp__atlassian__*` calls. Required.
-- **`confluence-project-root`** — Confluence page id (or title) of the project root folder that contains Vision Doc, PRD, Design Brief, ADR, Roadmap, Retrospectives, Closeouts. Required for Phase 3 + Phase 7 (closeout report publication).
-- **`done-status-name`** — project-local name for the Done state (e.g. "Done", "Terminé(e)", "Closed"). Used to assert every child ticket is in the terminal column.
-- **Lint / unit / integration commands** — project-specific; the skill calls them as opaque commands.
-- **Dev-stack bring-up commands** — typically `docker compose down && docker compose up -d --build --wait` plus migration.
-
-## Input
-
-Epic key from args (e.g. `ABC-3`). If not given, infer from current sprint context or ask.
-
-Optional skip flags (use sparingly; default = all lenses):
-- `--skip product` — skip Phase 3 (no Confluence specs to align against; greenfield repo only).
-- `--skip techlead` — skip Phase 4 (e.g. mid-sprint sanity check; closeout proper should never skip).
+**Input:** epic key from args (else inferred from sprint context, or ask). Optional `--skip product` (Phase 3 — greenfield repo with no Confluence specs) and `--skip techlead` (Phase 4 — a mid-sprint sanity check only; a real closeout never skips it). Use sparingly; the default is all lenses.
 
 ## Phase 0 — Load epic spec
 
-1. `mcp__atlassian__getJiraIssue` for the epic on the configured `cloudId`. Read **summary, description, scope, epic-level ACs, dependencies** in full. The epic is the spec.
-2. `mcp__atlassian__searchJiraIssuesUsingJql` with `"Epic Link" = <EPIC> ORDER BY key ASC`. Build a child ticket table: key, status, type, summary. **Every child must be Done (per the project's configured Done state name) or have an explicit reason it's deferred.** Any child still in a non-terminal column blocks closeout.
+Read the epic in full via `mcp__atlassian__getJiraIssue` — summary, description, scope, epic-level ACs, dependencies. The epic is the spec. Then `mcp__atlassian__searchJiraIssuesUsingJql` with `"Epic Link" = <EPIC> ORDER BY key ASC` and build a child table (key, status, type, summary). **Every child must be Done, or carry an explicit reason it is deferred** — any child in a non-terminal column blocks closeout.
 
-If the JQL result file exceeds context, extract with `jq -r '.issues.nodes[] | "\(.key)\t\(.fields.status.name)\t\(.fields.issuetype.name)\t\(.fields.summary)"' <file>`.
+Oversized JQL result → extract with `jq -r '.issues.nodes[] | "\(.key)\t\(.fields.status.name)\t\(.fields.issuetype.name)\t\(.fields.summary)"' <file>`.
 
 ## Phase 1 — Map epic ACs to code + tests
 
-For each epic-level AC, identify:
+Per epic-level AC, produce a matrix of the **code site(s)** (`file:line`), the **unit test(s)** exercising it at function level, and the **integration test(s)** exercising it against a real stack (DB, broker, gateway). An AC with no integration test — or only eager-execution / direct-call tests that bypass the broker — is a red flag: record it and design a Phase 6 smoke that exercises the missing path.
 
-- **Code site(s)** that implement the AC — specific file:line references.
-- **Unit test(s)** that exercise the AC at the function level.
-- **Integration test(s)** that exercise the AC against a real stack (DB, broker, API gateway).
-
-Produce a matrix. Any AC with no integration test (or only eager-execution / direct-call tests bypassing the broker) is a red flag — record it and design a smoke test in Phase 6 that exercises the missing path.
-
-Particular failure modes to look for:
-
-- **Cross-service dispatch.** Service A calls `send_task("service_b.task")`. If no integration test takes the broker → worker queue → consumer path, the routing config is untested. Worth adding a `<service>.ping` round-trip test before closeout.
-- **API field name drift.** Subgraph / service type fields vs gateway query — verify via real introspection through the gateway, not just unit tests on the subgraph.
-- **Beat / cron schedule wiring.** Task name in schedule config must resolve in worker include path — check via the scheduler's introspection command or by inspecting the live scheduler container's log.
-- **Auth + admin gates.** Auth checks present and reachable from the gateway's forwarded-header path.
+Failure modes worth hunting specifically: **cross-service dispatch** (service A calls `send_task("service_b.task")` with nothing testing broker → queue → consumer, leaving the routing config untested — a `<service>.ping` round-trip is worth adding); **API field-name drift** (verify subgraph fields via real introspection *through the gateway*, not unit tests on the subgraph); **beat/cron wiring** (the scheduled task name must resolve in the worker include path — check via the scheduler's introspection or the live container log); **auth and admin gates** reachable from the gateway's forwarded-header path.
 
 ## Phase 2 — Static cross-checks
 
-1. **Lint:** project linter exits 0 across all source paths.
-2. **Unit suite:** all pass, coverage at or above the project's configured threshold.
-3. **Doc drift:** every new test file listed in the test-suite `CLAUDE.md` tree + coverage table + run command section. Every new service / convention reflected in the relevant `CLAUDE.md`.
-4. **Schedule sanity:** scheduled tasks reference task names that resolve in worker modules. Each scheduled task has both an entry and any required gate (market-hour, business-day, etc., if applicable).
+Lint exits 0 across all source paths. The unit suite passes with coverage at or above the configured threshold. **Doc drift:** every new test file appears in the test-suite `CLAUDE.md` tree, coverage table, and run-command section; every new service or convention is reflected in the relevant `CLAUDE.md`. **Schedule sanity:** scheduled tasks reference names that resolve in worker modules, each with any required gate (market-hour, business-day).
 
 ## Phase 3 — Architecture + Product alignment (Architect / PM lens)
 
-Goal: does the delivered code match the documented intent? You are wearing the architect + PM hat — not the engineer hat. The integration tests can be green while the system silently ships out-of-scope features, drops promised scope, or violates an ADR invariant.
+Wear the architect and PM hat, not the engineer hat: integration tests stay green while the system silently ships out-of-scope features, drops promised scope, or violates an ADR invariant.
 
-### Step 3.1 — Load the spec corpus from Confluence
+**3.1 — Load the spec corpus** from `confluence-project-root`: **Vision Doc** (principles, KPIs, hard constraints), **PRD** (scope, out-of-scope list, business goals), **Design Brief / Specs UI** (UI epics), **ADR** (decisions + invariants), **Roadmap** (the iteration goal for the sprint being closed), and any per-epic design doc linked from the ticket. **Read each in full, not in summary** — a drift catch requires knowing what the spec actually says, not your memory of it. A missing or stale doc is a Minor finding ("PRD has no out-of-scope list — cannot verify scope creep").
 
-Discover via the configured `confluence-project-root` page id (or by walking the project root folder's children):
-
-- **Vision Doc** — product principles, KPIs, hard constraints
-- **PRD** — scope + out-of-scope list + business goals
-- **Design Brief / Specs UI** — visual + UX intent (UI epics only)
-- **ADR** — architecture decisions + invariants (especially "section 11 Epic Breakdown" if used)
-- **Roadmap** — iteration goal for the sprint being closed
-- **Per-epic design docs** — anything linked from the epic ticket
-
-Read each in full. If a doc is missing or stale, flag it as a Minor finding ("PRD has no out-of-scope list — cannot verify scope creep").
-
-### Step 3.2 — Build the alignment table
+**3.2 — Build the alignment table:**
 
 | Source | Statement | Code site (or "not implemented") | Status |
 |---|---|---|---|
-| Vision Doc principle #N | "No automated execution" | `backend/api_signal/...` — explicit user confirmation modal | ✅ Aligned |
-| PRD §X | "Out of scope: per-user OHLCV" | `backend/api_data/...` — system-scoped OHLCV table | ✅ Aligned |
-| ADR ADR-04 | "Services never call each other directly" | `backend/shared/celery_app.py:send_task` only | ✅ Aligned |
+| Vision Doc principle #N | "No automated execution" | `backend/api_signal/…` — explicit confirmation modal | ✅ Aligned |
+| PRD §X | "Out of scope: per-user OHLCV" | `backend/api_data/…` — system-scoped table | ✅ Aligned |
+| ADR-04 | "Services never call each other directly" | `backend/shared/celery_app.py:send_task` only | ✅ Aligned |
 | PRD §Y | "Iteration goal: signal feed live" | not implemented | ❌ Drifted — scope dropped without doc update |
-| Roadmap Iteration N | "Capacity = 28 pts" | delivered 32 pts (Jira) | ⚠️ Minor — over-delivery, retro signal |
+| Roadmap Iteration N | "Capacity = 28 pts" | delivered 32 pts | ⚠️ Minor — over-delivery, retro signal |
 
-### Step 3.3 — Categorise drifts
+**3.3 — Categorise.** **Critical drift** — code violates an ADR invariant, ships an out-of-scope feature without a doc update, or breaks a Vision Doc principle: blocks closeout; file a bug and fix or roll back. **Minor drift** — over/under delivery against the iteration goal, a stale spec doc, an intentional but undocumented design deviation: retro input, does not block.
 
-- **Critical drift** — code violates an ADR invariant, ships an out-of-scope feature without doc update, or breaks a Vision Doc principle. Blocks closeout. File a bug ticket, fix or roll back before declaring sprint done.
-- **Minor drift** — over/under delivery vs iteration goal, stale spec doc that no longer reflects shipped reality, design brief deviation that's intentional but undocumented. Goes in the retro inputs; doesn't block.
-
-### Step 3.4 — Cross-epic consistency
-
-If multiple epics shipped this sprint, walk the surface they share (data model, API contract, auth boundary, UI navigation) and confirm they don't silently contradict each other. Two epics each independently passing their own ACs but together breaking a shared invariant is the failure mode this step catches.
+**3.4 — Cross-epic consistency.** With multiple epics in one sprint, walk the surface they share (data model, API contract, auth boundary, UI navigation). Two epics each passing their own ACs while together breaking a shared invariant is the failure this step exists for.
 
 ## Phase 4 — Tech Lead deep code review (impartial)
 
-Goal: walk every file touched during the sprint and flag every issue you would flag if a stranger wrote the code. No "the author probably had a reason" pass.
+Flag every issue you would flag if a stranger wrote this code.
 
-### Step 4.1 — Scope the diff
+**4.1 — Scope the diff.** Find the sprint-start commit (`git log --merges --first-parent --since="<sprint-start-date>" --format='%H %s' main`), then `git diff --name-only <sprint-start-sha>..HEAD`. **Read every changed file in full** — the diff hides surroundings, and bugs hide in surroundings.
 
-```bash
-# Discover the sprint start commit (typically the first merge of a sprint-N story,
-# or whatever the team's sprint-cut convention is)
-git log --merges --first-parent --since="<sprint-start-date>" --format='%H %s' main
-# Walk every file changed since
-git diff --name-only <sprint-start-sha>..HEAD
-```
+**4.2 — Lenses, all of them:**
+- **Correctness** — logic errors, edge cases, null handling, type contracts, model ↔ migration ↔ test consistency.
+- **Security** — input validation at boundaries, hardcoded secrets, SQL injection via interpolation, auth gate placement, header-trust assumptions.
+- **Architecture invariants** — every invariant from the root and sub `CLAUDE.md` (data scoping, naming, async patterns, federation rules, no cross-service imports, append-only tables).
+- **Naming + conventions** — case style per language, explicit constraint names, file/function naming.
+- **Test coverage depth, not count** — does each test actually exercise its claimed AC? Reasonable mock placement? Negative paths? Order-dependence risk (`sys.modules` substring cleanup, module-level state, env leaks across tests)? Hardcoded forward calendar dates that will rot?
+- **Documentation drift** — file annotations, coverage tables, run-command sections, stale AC text.
+- **DRY + readability** — copy-paste ≥3 lines worth extracting, magic numbers, contradicted comments, unused imports, misleading names, dead branches.
+- **Performance** — N+1 queries, unbounded queries with no `LIMIT`, missing indexes on hot paths, sync calls inside async resolvers, blocking I/O in the event loop.
+- **Operational** — structured logging present? Errors propagated explicitly (no silent `except: pass`)? Restart-safe (idempotent handlers, no lost in-flight state)? Observability for new code paths?
+- **Migrations** — `server_default` uses `text()` not `func.literal()`; drop order reverses create order; FK targets schema-qualified; hypertable created after its base table.
 
-Read every changed file **in full** (not just the diff). The diff hides surroundings; bugs hide in surroundings.
+**4.3 — Severity, one per finding.** **Critical** — a runtime error, data corruption, security issue, autogenerate drift, or architecture-invariant breach; blocks closeout. **Minor** — misleading docs, a wrong port in a docstring, a missing run command, a stale AC description, worthwhile cleanup; files as cleanup tickets. **Nit** — style preference, not load-bearing; listed for the team to decide. **Nits are valid output here** — closeout is the exhaustive pass (merge-train review is deliberately two-tier). Don't promote nits to Minor to feel rigorous, or drop them to feel kind.
 
-### Step 4.2 — Review lenses (apply all)
-
-- **Correctness** — logic errors, edge cases, null handling, type contracts, model ↔ migration ↔ test consistency
-- **Security** — input validation at system boundaries, hardcoded secrets, SQL injection via string interpolation, auth gate placement, header-trust assumptions
-- **Architecture invariants** — every invariant from root + sub `CLAUDE.md` (data scoping, naming, async patterns, federation rules, no cross-service imports, market-hour gates, append-only tables, etc.)
-- **Naming + conventions** — case style per language, explicit constraint names, file/function naming per project standard
-- **Test coverage depth** — not just count. Does each test actually exercise its claimed AC? Mock placement reasonable? Negative paths covered? Order-dependence risk (e.g. `sys.modules` substring cleanup, module-level state, env var leaks across tests)? Hardcoded forward calendar dates that will rot?
-- **Documentation drift** — file annotations, coverage tables, run-command sections, stale AC text
-- **DRY + readability** — copy-paste ≥3 lines worth extracting, magic numbers that should be named constants, contradicted comments, unused imports, misleading names, dead branches
-- **Performance hotspots** — N+1 queries, unbounded queries (no `LIMIT`), missing indexes on hot paths, sync calls inside async resolvers, blocking I/O in event loop
-- **Operational concerns** — structured logging present? Error propagation explicit (not silent `except: pass`)? Restart safety (idempotent task handlers, no lost in-flight state)? Observability (metrics, traces) for new code paths?
-- **Migration-specific** — `server_default` uses `text()` not `func.literal()` for scalar values, drop order is reverse of create order, FK targets schema-qualified, hypertable created after base table
-
-### Step 4.3 — Severity ladder (every finding gets one)
-
-- **Critical** — would cause runtime error, data corruption, security issue, autogenerate drift, architecture invariant breach. Blocks closeout.
-- **Minor** — misleading docs, wrong port in docstring, missing run command, stale AC description, opportunistic cleanup worth doing. Files as cleanup tickets; doesn't block.
-- **Nit** — style preference, not load-bearing. Listed in the report; team decides whether to action. Closeout is the right place for nits (merge-train review is two-tier; this is the exhaustive pass).
-
-### Step 4.4 — Output
-
-Numbered finding list, severity-grouped, each with `file:line` + one-sentence root cause + one-sentence fix recommendation. Critical findings go to the top.
+**4.4 — Output** a numbered, severity-grouped list, Critical first, each with `file:line` + a one-sentence root cause + a one-sentence fix:
 
 ```
 ### Critical
-1. `backend/api_X/resolvers/Y.py:42` — SQL injection via f-string interpolation of user-supplied filter. Fix: switch to `text("... :filter").bindparams(filter=...)`.
-2. ...
+1. `backend/api_X/resolvers/Y.py:42` — SQL injection via f-string interpolation of a user-supplied filter. Fix: `text("… :filter").bindparams(filter=…)`.
 
 ### Minor
-1. `backend/api_X/.../Z.py:88` — copy-paste of error handling block from `W.py:120` (12 lines). Fix: extract `_handle_subgraph_error()` helper.
-2. ...
+1. `backend/api_X/…/Z.py:88` — 12-line copy-paste of the error handling in `W.py:120`. Fix: extract `_handle_subgraph_error()`.
 
 ### Nit
-1. `frontend/src/.../A.tsx:55` — magic number `4000` (toast duration) repeated in 3 components. Fix: name as `TOAST_DURATION_MS` constant.
-2. ...
+1. `frontend/src/…/A.tsx:55` — magic `4000` (toast duration) repeated in 3 components. Fix: `TOAST_DURATION_MS`.
 ```
 
-### Step 4.5 — Impartiality rule
+**4.5 — Impartiality is this lens's whole job.** If you catch yourself thinking "the author probably had a reason", write the finding anyway — harder, not softer. Your job is to flag anything that would confuse a stranger in six months. Dismissing an intentional finding is the team's call, not yours.
 
-If you find yourself thinking "the author probably had a reason" — stop, write the finding anyway. The reviewer's job is to flag everything that would confuse a stranger six months from now. The team will dismiss findings that are intentional; that's their call, not yours.
+## Phase 5 — Integration suite vs a fresh testing stack
 
-## Phase 5 — Integration suite vs fresh testing stack
-
-1. **Tear down testing stack with volumes.** A stale DB schema is the most common silent-failure cause.
-2. **Rebuild the testing stack from scratch** (`docker compose ... up -d --build --wait` or the project's `scripts/testing-stack-up.sh` equivalent). Cached images are not OK here — the closeout's point is to verify a fresh build still works.
-3. Run full integration suite from repo root with the standard env block. If the project's session-start fixture rebuilds the stack, do not skip it — the rebuild is the point.
-4. Every test passes. Record runtime. Any flake gets retried once; if it re-flakes, file a follow-up ticket and continue.
+Tear the testing stack down **with volumes** (a stale DB schema is the most common silent-failure cause), rebuild it from scratch (`docker compose … up -d --build --wait` or the project's equivalent — cached images defeat the purpose), then run the full integration suite from the repo root with the standard env block. If a session-start fixture rebuilds the stack, do not skip it; the rebuild *is* the point. Every test must pass; record the runtime. A flake gets one retry, then a follow-up ticket.
 
 ## Phase 6 — Dev stack smoke test (the part that catches the silent bugs)
 
-1. **Tear down dev stack with volumes** (`docker compose down -v`). Cached state from prior runs is the most common silent-failure cause.
-2. **Rebuild dev stack from scratch** per the project's documented bring-up commands (typically `docker compose up -d --build --wait` then `docker compose run --rm migrate`). Cached images are not OK — the closeout's point is to verify a clean build still works for the next operator. **Rebuild the migration runner too, not just the app images.** A containerized migrate step run against a *stale/cached* runner image applies whatever revisions were baked into that image — so a migration added this sprint silently no-ops, the runner reports success, and the app (freshly built / bind-mounted) then hits a schema that lacks the new objects. Force the runner to carry current code (`--build`, or rebuild its image before running), then **confirm the head actually advanced** (query the migration-version table / list applied revisions) — never trust a green migrate log alone.
-3. **Verify the stack is reachable via its documented DNS hostname**, not just `localhost`. If the consumer repo's `CLAUDE.md` declares a `TRAEFIK_DOMAIN` / hosting DNS, hit the stack through it:
+1. **`docker compose down -v`** — cached state from prior runs is the most common silent-failure cause.
+2. **Rebuild from scratch** per the documented bring-up commands. **Rebuild the migration runner too, not just the app images.** A containerized migrate step run against a stale/cached runner applies whatever revisions were baked into that image — so a migration added this sprint silently no-ops, the runner reports success, and the freshly-built app then hits a schema missing the new objects. Force the runner to carry current code (`--build`), then **confirm the head actually advanced** by querying the migration-version table. Never trust a green migrate log alone.
+3. **Reach the stack via its documented DNS hostname, not `localhost`.** A `localhost:<port>` smoke bypasses Traefik routing, DNS resolution, and healthcheck propagation — exactly the layers most likely to be silently broken for every other operator on the LAN. If the repo's `CLAUDE.md` declares a `TRAEFIK_DOMAIN`, the smoke **must** use it:
    ```bash
-   # Replace <DOMAIN> with the value from the consumer repo's CLAUDE.md (Hosting / DNS section)
    curl -fsS http://<DOMAIN>/health
    curl -fsS http://api.<DOMAIN>/health
    curl -fsS http://traefik.<DOMAIN> >/dev/null && echo "traefik dashboard reachable"
    ```
-   `localhost:<port>` smoke alone is insufficient — Traefik routing, DNS resolution, and healthcheck propagation only get exercised through the real hostname. A stack that works on `localhost:3000` but 404s on `<DOMAIN>` is broken for every other operator on the LAN.
-4. **Forge an admin credential** using the dev secret from `.env` if the project's user flow requires auth. Pattern (adapt to project's auth scheme):
+4. **Forge an admin credential** from the dev secret in `.env` if the flow needs auth (adapt to the project's scheme):
    ```python
    from jose import jwt, datetime
    secret = Path(".env").read_text().split("JWT_SECRET=")[1].split()[0]
@@ -206,148 +118,61 @@ If you find yourself thinking "the author probably had a reason" — stop, write
                "exp": datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=1)},
               secret, algorithm="HS256")
    ```
-5. **Run the actual user flow that the epic delivers**, against the DNS hostname (not `localhost`). Not "API introspection works." The actual flow. Pick the equivalent flow for the epic under review. If Phase 3 surfaced a missing path (AC documented in PRD but no integration test), exercise it here.
-6. **Monitor workers + scheduler for crashes** during the smoke window. Use `Monitor` with a filter that catches *every* terminal failure signature, not just success:
+5. **Run the actual user flow the epic delivers**, against the DNS hostname. Not "API introspection works" — introspection passes whenever the federation is wired and proves nothing about whether the underlying task executes. If Phase 3 surfaced a documented-but-untested path, exercise it here.
+6. **Monitor workers + scheduler for the whole smoke window** with a filter wide enough to catch every terminal signature — silence is only success if the filter would have fired on a crash:
    ```
    docker compose logs -f --since=2m <worker> <scheduler> 2>&1 |
    grep -E --line-buffered "Traceback|Error|ERROR|FAILED|crashed|<domain-specific signatures>"
    ```
-   Silence for the full smoke window = no crashes. Any line = investigate before closing the sprint.
-7. **Confirm side-effects in the DB:**
-   ```
-   docker compose exec -T <db-service> psql -U <user> -d <db> -c "<SELECT verifying the AC>"
-   ```
+7. **Confirm the side-effects in the DB** — `docker compose exec -T <db> psql -U <user> -d <db> -c "<SELECT verifying the AC>"`.
 
-If the smoke test fails — even partially, including the DNS-exposure step — **the epic is not Done.** File a bug Jira ticket linked to the epic and run `agile-11-merge-train` on the fix PR before claiming closeout.
+**Any smoke failure — including the DNS-exposure step — means the epic is not Done.** File a bug linked to the epic and run the fix PR through `agile-11-merge-train`. No hotfix shortcuts, and never silently fix a closeout bug in main.
 
-## Phase 6.5 — Merge-train Phase 4 Jira-link audit
+## Phase 6.5 — Merge-train Jira-link audit
 
-`agile-11-merge-train` Phase 4 creates `Relates` Jira links between tickets whose PRs collided on shared files during the sprint, and the postmortem comment on each affected ticket announces every link with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks silently into the next sprint's planning.
+`agile-11-merge-train` Phase 4 creates `Relates` links between tickets whose PRs collided on shared files, announcing each in the postmortem with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks into next sprint's planning.
 
-Steps:
+**Source the pairs** — preferably from a project audit helper (e.g. `scripts/audit_merge_train_links.py`); otherwise scan this sprint's postmortems for those lines and build `(from_key, to_key, link_type)` manually. **Verify each pair** with `mcp__atlassian__getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `mcp__atlassian__createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
 
-1. **Source the pair list.** Preferred path: if the consumer project ships an audit helper (e.g. `scripts/audit_merge_train_links.py`), invoke it with the sprint identifier and use its output as the canonical list. Fallback: scan this sprint's postmortem comments for `Jira link created: relates to <KEY>` lines and build the list `(from_key, to_key, link_type)` manually.
-
-2. **Verify + reconcile each pair.** For every tuple, query Jira (`getJiraIssue` with `fields=issuelinks`) and confirm a link of the announced type exists in either direction. For any FAIL, decide per pair before continuing: create the link inline using `createIssueLink` (with user confirmation), or file a follow-up ticket if the pairing is disputed. Record the disposition.
-
-3. **Hand off to Phase 7.** Pass the full PASS/FAIL table + dispositions to the closeout report — the `Merge-train link audit` section in Phase 7 publishes it.
-
-A closeout cannot be declared green while any audited pair is FAIL without an explicit recorded disposition. Silent skips are the failure mode this phase exists to prevent. If FAILs cluster around a single hub ticket, flag it as retro input — the merge-train Phase 4 link step may need hardening.
+**A closeout cannot be green while any pair is FAIL without a recorded disposition** — silent skips are the failure mode this phase exists to prevent. FAILs clustering on one hub ticket are retro input: the Phase 4 link step may need hardening.
 
 ## Phase 7 — Final closeout report
 
-Produce a single Markdown report **and publish it to Confluence under a dedicated `Closeouts` folder** (sibling of `Retrospectives`, NOT inside it). The retro skill (`agile-15-retro`) reads it as one of its inputs.
+Produce the report **and publish it to Confluence under a dedicated `Closeouts` folder — a sibling of `Retrospectives`, never inside it.** They are different artifacts by different skills: `agile-15-retro` reads the closeout, not the reverse.
 
-### Step 7.0 — Ensure the Closeouts folder exists
+**7.0 — Ensure the folder exists.** Look for `Closeouts — <Project>` as a direct child of `confluence-project-root`. Missing → create it (parent: project root; body: a short description plus a `Sprint | Period | Verdict | Report` index table, pre-populated with this closeout's row). Present → use it as parent and **append** a row, never replace the table.
 
-Before writing the closeout report:
+**7.1 — Publish** a page titled `Closeout <N> — Sprint <N> — <Project>` under that folder, carrying the full report. Capture its page id + URL and return them so the operator and `agile-15-retro` can link to it. **7.2 — Append the index row** (`<Sprint> | <Period> | <Verdict> | <link>`), matching whatever ordering convention the table already uses.
 
-- Check if a page named `Closeouts` (or `Closeouts — <Project>`) exists as a direct child of the project root folder identified by `confluence-project-root`.
-- **If it does not exist:** create it now.
-  - Title: `Closeouts — <Project>` (mirrors the `Retrospectives — <Project>` naming).
-  - Parent: project root folder.
-  - Body: minimal index — short description + a Markdown table with columns `Sprint | Period | Verdict | Report`. Pre-populate the row for the closeout being produced; later closeouts append to the same table.
-- **If it already exists:** use it as the parent for the new closeout page. Append (do not replace) a row to the index table for the new sprint.
+**Required sections:**
 
-Closeouts and Retrospectives are sibling folders. Never publish closeouts inside `Retrospectives`; they are different artifacts produced by different skills and consumed in different ways (the retro reads the closeout, not the other way around).
+- **Ticket roll-up** — every child of the epic, status, brief.
+- **Epic AC verification** — `# | AC | Status | Evidence`. Every AC needs **three** pieces of evidence: a code site, test coverage, and a smoke-test observation. Missing one means the AC is not satisfied.
+- **Product / Architecture alignment** — the Phase 3 table, Critical and Minor drifts highlighted separately.
+- **Tech Lead findings** — the Phase 4 severity-grouped list with `N Critical / M Minor / K Nit` counts at the top.
+- **Test coverage** — unit N/N with coverage %, integration N/N against the fresh stack with runtime.
+- **Crash monitoring** — "workers + scheduler clean for X min", or the signature, time, and outcome.
+- **Critical bugs found + disposition** — per bug: ticket key, severity, fix status.
+- **Merge-train link audit** — `from | to | type | status | link_id | disposition` for every announced link.
+- **Recommended next steps** — whether to transition the epic to Done; tickets to file; and retro notes, especially **test-coverage gaps**, **spec drift** (Phase 3), and **systemic code-quality patterns** worth a convention update (Phase 4).
 
-### Step 7.1 — Publish the report page
+**The epic-level Done transition is not part of this skill** — closeout produces a recommendation, and the user transitions only after acknowledging the report.
 
-- Title: `Closeout <N> — Sprint <N> — <Project>` (e.g. `Closeout 5 — Sprint 5 — FinPilot`).
-- Parent: the `Closeouts — <Project>` folder from Step 7.0.
-- Body: the full Markdown report below.
-
-Capture the page id + URL — pass them back in the final user-facing response so the operator (and `agile-15-retro`) can link to the artifact.
-
-### Step 7.2 — Update the Closeouts index
-
-Append a row to the index table on the `Closeouts — <Project>` page: `<Sprint> | <Period> | <Verdict> | <Link to report page>`. Keep newest first or chronological — pick one convention and stick with it; mirror what already exists if the table is non-empty.
-
-### Report body — required sections
-
-### Ticket roll-up
-Every child ticket of the epic, status, brief.
-
-### Epic AC verification table
-
-| # | AC | Status | Evidence |
-|---|----|--------|----------|
-| 1 | <AC text> | ✅ / ❌ | <file:line + test ref + smoke-test observation> |
-
-Every AC needs three pieces of evidence: code site, test coverage, smoke-test confirmation. Missing one → AC is not satisfied.
-
-### Product / Architecture alignment (Phase 3)
-
-The alignment table from Step 3.2. Highlight every Critical drift + every Minor drift separately.
-
-### Tech Lead review findings (Phase 4)
-
-The severity-grouped finding list from Step 4.4. Per-finding: `file:line`, root cause, fix recommendation. Counts at the top: `N Critical / M Minor / K Nit`.
-
-### Test coverage
-- Unit: N/N pass, X% coverage
-- Integration: N/N pass against fresh stack, runtime
-
-### Crash monitoring
-"Workers + scheduler clean for X min" or "<crash signature> at <time>, investigated → <outcome>."
-
-### Critical bugs found + disposition
-- For each bug surfaced during closeout (any phase): ticket key, severity, fix status (PR open / PR merged / deferred).
-
-### Merge-train link audit (Phase 6.5)
-
-PASS/FAIL table for every `Relates` link the merge-train announced this sprint, plus the disposition for each FAIL:
-
-| from | to | type | status | link_id | disposition |
-|------|----|------|--------|---------|-------------|
-| PROJ-X | PROJ-Y | Relates | ✅ PASS | 10786 | — |
-| PROJ-X | PROJ-Z | Relates | ❌ FAIL | — | link created inline (id 10787) |
-
-### Recommended next steps
-- Whether to transition the epic to Done.
-- Tickets to file (e.g. follow-up work, frontend not in scope, Minor cleanup batch from Phase 4).
-- Sprint retro notes — especially **test coverage gaps** discovered, **spec drift** observed (Phase 3), **systemic code-quality patterns** worth a convention update (Phase 4).
-
-## Rules
-
-- **All three lenses run, regardless of how clean the engineer-lens checks look.** Phases 3 + 4 are not optional. The skill exists because each lens catches a class of failure invisible to the others.
-- **A single Critical finding from any lens blocks closeout.** Engineer-lens green is not enough.
-- **Dev-stack smoke test is the whole point of the engineer lens.** Don't skip it because story-level integration tests passed.
-- **All children Done before closeout.** If any child ticket is still open, either close it first or document why it's explicitly deferred.
-- **Smoke test the actual user flow, not just `{ __schema }` introspection.** Introspection passes when the federation is wired; it doesn't prove the underlying task executes.
-- **Hit the dev stack via its documented DNS hostname, not `localhost`.** A `localhost:<port>` smoke bypasses Traefik routing, DNS resolution, and the healthcheck propagation chain — exactly the layers most likely to silently break for other operators on the LAN. If the consumer repo has a Hosting / DNS section in `CLAUDE.md`, the smoke MUST use those hostnames.
-- **Rebuild dev + test stacks from scratch every closeout.** `docker compose down -v` then `up -d --build --wait`. Cached images and stale volumes are the most common silent-failure cause; the closeout is the one place that guarantees a fresh build still works.
-- **Monitor with a wide filter.** Silence is not success unless your filter would have emitted on a crash. Default filter: `Traceback|Error|ERROR|FAILED|crashed|<domain-specific signatures>`.
-- **Architect lens reads docs in full, not summaries.** Vision Doc, PRD, ADR, Roadmap — each whole. Drift catches require knowing what the spec actually says, not your memory of what it said.
-- **Tech Lead lens reads every changed file in full.** Diff hides surroundings; bugs hide in surroundings. Same rule as `merge-review-pr`.
-- **Impartiality is the Tech Lead lens's whole job.** If you find yourself softening a finding — write it harder, not softer. The team will dismiss what's intentional.
-- **Nits are valid output of Phase 4.** Closeout is the exhaustive review. Don't promote nits to Minor to feel rigorous, and don't drop them to feel kind.
-- **Bugs found at closeout get new Jira tickets.** Do not silently fix them in main. File a bug ticket, branch `feat/<KEY>-...`, PR via `agile-11-merge-train`.
-- **The new bug fix PR itself goes through `agile-11-merge-train`.** No hotfix shortcuts.
-- **Epic-level Done transition is not part of this skill.** Closeout produces a recommendation; the user transitions the epic only after acknowledging the report.
-- **Add coverage for any gap discovered.** If a smoke-test bug surfaces because no integration test exercised path X, the fix PR must include a new integration test that covers path X. Same for spec drift caught in Phase 3 (add a test that would have failed if the drift recurred) and a Critical correctness finding caught in Phase 4.
-- **Cross-PR conflict awareness still applies.** When the closeout fix PR enters `agile-11-merge-train`, Phase 1 conflict detection + Phase 4 Jira link creation run normally.
+**Every gap discovered gets coverage.** A smoke bug that surfaced because no integration test exercised path X means the fix PR adds one. Same for Phase 3 drift (add the test that would have failed if it recurred) and a Phase 4 Critical correctness finding.
 
 ## Stop conditions
 
-Halt and surface to the user if:
-- A child ticket is in a state other than Done / explicitly-deferred.
-- The smoke test reveals a bug that cannot be fixed in a single PR (would require multiple coordinated changes).
-- The dev stack fails to come up healthy after rebuild + migrate.
-- A worker crashes during the smoke window with a non-trivial error (DB schema mismatch, missing env var, import error).
-- The dev stack works on `localhost:<port>` but the documented DNS hostname (`TRAEFIK_DOMAIN` / equivalent) returns 404 / connection refused / certificate error — surfaces broken Traefik routing or stale DNS that every other operator on the LAN will hit.
-- Two consecutive smoke-test cycles surface unrelated bugs (suggests deeper systemic issue → escalate before continuing).
-- **Architect lens (Phase 3)** discovers a Critical drift the team has not acknowledged — out-of-scope shipped feature, ADR invariant breach, scope silently dropped vs PRD. Surface before fix attempts; the team may choose to update the spec rather than the code.
-- **Tech Lead lens (Phase 4)** surfaces a Critical finding that requires multi-PR coordination to fix (e.g. cross-service refactor, breaking schema change). Don't try to bundle into closeout — file as blocker, hold the Done transition.
-- A Confluence spec doc is missing or so out of date the alignment table cannot be built. Stop; ask whether to skip Phase 3 (with explicit deferral note) or to update the spec first.
-
-## Prerequisite chain
-
-- **Before this skill:** `agile-12-tech-debt-sweep` must have run + approved fixes applied. Closeout assumes `CLAUDE.md` is accurate and the repo is free of obvious cruft.
-- **After this skill:** `agile-15-retro` should verify `agile-13-sprint-closeout` ran cleanly on the epic before proceeding. Do not invoke `agile-15-retro` until this skill has completed and all surfaced gaps are resolved or explicitly deferred with linked tickets.
+- A child ticket is neither Done nor explicitly deferred.
+- The smoke reveals a bug that cannot be fixed in a single PR (needs multiple coordinated changes).
+- The dev stack fails to come up healthy after rebuild + migrate, or a worker crashes during the smoke window with a non-trivial error (schema mismatch, missing env var, import error).
+- The stack works on `localhost:<port>` but the documented DNS hostname returns 404 / connection refused / a certificate error — broken Traefik routing or stale DNS that every other operator will hit.
+- Two consecutive smoke cycles surface unrelated bugs — escalate rather than continue.
+- **Phase 3 finds an unacknowledged Critical drift** — surface it before attempting a fix; the team may choose to update the spec rather than the code.
+- **Phase 4 finds a Critical needing multi-PR coordination** (cross-service refactor, breaking schema change) — file it as a blocker and hold the Done transition rather than bundling it into closeout.
+- A Confluence spec is missing or so stale the alignment table cannot be built — ask whether to skip Phase 3 with an explicit deferral note, or to update the spec first.
 
 ## When NOT to use
 
-- Mid-sprint check-in. This is end-of-sprint or end-of-epic. Use `agile-11-merge-train` for individual PR processing during the sprint.
-- A single-story closeout. Story-level Done is owned by `merge-jira-postmortem` triggered from `agile-11-merge-train` 3g.
-- Quick sanity check that "things still work." This skill is deliberately heavy; reach for a lighter check.
+A mid-sprint check-in (use `agile-11-merge-train` for individual PRs), a single-story closeout (story-level Done belongs to `merge-jira-postmortem` at merge-train 3g), or a quick "does it still work" sanity check — this skill is deliberately heavy.
+
+**After this skill:** `agile-15-retro` verifies closeout ran cleanly before proceeding; do not invoke it until every surfaced gap is resolved or explicitly deferred with a linked ticket.
