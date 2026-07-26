@@ -27,7 +27,7 @@ Check three things and act.
 - Other tells: was the test green on a recent base run? does the PR add a test file collected before the failing one (`<runner> <new-test> <failing-test>` to repro)?
 - Real failure → fix and push. Confirmed flake → `gh run rerun --failed`.
 
-**3. Merge conflicts / staleness.** `mergeStateStatus` `DIRTY`/`BEHIND` → `git checkout <base> && git pull`, then `git merge --no-ff <base>` on the branch, resolve, lint-after-rebase, push. (`git merge --continue` rejects `--no-edit` — use `GIT_EDITOR=true`.)
+**3. Merge conflicts / staleness.** `mergeStateStatus` `DIRTY`/`BEHIND` → refresh the base **without switching to it** (`git fetch origin <base>`), then `git merge --no-ff origin/<base>` on the ticket's branch, resolve, lint-after-rebase, push. (`git merge --continue` rejects `--no-edit` — use `GIT_EDITOR=true`.) Do not `git checkout <base>` first: inside the ticket's worktree that fails outright — the shared checkout already holds the base branch, and git refuses to check one branch out in two worktrees. `git fetch` + `origin/<base>` needs no checkout and is correct in both modes.
 
 **Poll without foreground `sleep`** — one background `until` loop, read the output when it fires:
 

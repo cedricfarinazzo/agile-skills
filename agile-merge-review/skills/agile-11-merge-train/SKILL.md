@@ -88,6 +88,10 @@ After 3g, loop straight to the next PR's 3a. Passing review means proceed to 3e,
 
 ### 3a. Always rebase on latest main
 
+**First resolve ONE working location for this PR and pass it to every step that touches the tree (3a, 3c).** `git worktree list --porcelain` — if a worktree already holds this PR's branch (`agile-10-implement` leaves one per unmerged ticket, so in a drain this is the common case), that path IS the location; otherwise it is the shared checkout. Decide once, here, and state it in the dispatch prompts.
+
+Getting this wrong is silent and bad: if 3a moves into the worktree while 3c starts fresh in the shared checkout, 3c is sitting on `main` and its "push whatever HEAD is on" commits the fix **to main**. One resolved location per PR is what keeps the steps on the same branch.
+
 Dispatch to `agile-merge-review:pr-updater`. It owns main pull + checkout + `git merge --no-ff` + conflict resolution + lint-after-rebase + push as one unit — do not run those commands inline or duplicate the gate. The merge commit triggers a fresh CI run on the exact tree that will land. (`git merge --continue` rejects `--no-edit`; use `GIT_EDITOR=true`.)
 
 Three outcomes:

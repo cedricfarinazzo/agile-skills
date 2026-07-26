@@ -10,7 +10,7 @@ Build phase for `agile-10-implement`. Invoked with a planned ticket — and, on 
 
 **Build mode** — the orchestrator passes `mode=sequential | concurrent` (default `sequential`):
 - **sequential** — the only phase that touches the shared Docker Compose stack, so it runs strictly one ticket at a time and runs the **full** gate locally.
-- **concurrent** — runs inside a git worktree subagent alongside other builds. A worktree isolates the filesystem, but the stack is a **shared external resource**, so this phase must not touch it: run the **stack-free** gate only (lint + unit + typecheck + migration linearity) and **defer integration + e2e + apply-on-fresh-DB to CI**. Their AC tests are still *written*, just not executed here.
+- **concurrent** — runs inside **the ticket's** git worktree (created by the orchestrator, shared with that ticket's other phases) alongside other tickets' builds. A worktree isolates the filesystem, but the stack is a **shared external resource**, so this phase must not touch it: run the **stack-free** gate only (lint + unit + typecheck + migration linearity) and **defer integration + e2e + apply-on-fresh-DB to CI**. Their AC tests are still *written*, just not executed here.
 
 **Autonomous — never prompt the user.** Decide and document everything reversible, flagging it for the reviewer. The only stop is a *critical* decision (irreversible or high-blast-radius **and** not derivable from the ADR / PRD / Specs): return `critical` to the orchestrator, which parks that one ticket and asks. This holds in `concurrency=0` inline mode too, where no agent wraps this skill.
 
@@ -20,7 +20,9 @@ Read the `🤖 agile:phase=plan` comment on the ticket (written by `implement-pl
 
 ## Set up workspace and branch
 
-`git checkout <base-branch> && git pull`, then create or reuse `<branch-prefix><TICKET>` branched **off `<base-branch>`** — never off another feature branch. Idempotent: `gh pr checkout` / `git checkout -B` only when no open PR branch exists for this ticket.
+**Sequential mode** — `git checkout <base-branch> && git pull`, then create or reuse `<branch-prefix><TICKET>` branched **off `<base-branch>`** — never off another feature branch. Idempotent: `gh pr checkout` / `git checkout -B` only when no open PR branch exists for this ticket.
+
+**Concurrent mode — you are already in the ticket's worktree, already on its branch**, both created by the orchestrator before `validate`. Do **not** run `git checkout <base-branch>` here: git refuses to check out a branch another worktree (the shared checkout) already holds, so it fails outright — and were it to succeed it would drag your worktree off the ticket's branch. Verify rather than switch: `git branch --show-current` matches the ticket's branch, and `git status --porcelain` + `git log --oneline @{u}..` tell you whether an earlier attempt already left work here — a re-dispatch after a crash re-enters this same tree, so build on what is there instead of redoing it. Need a fresher base? `git fetch origin <base-branch>` then rebase; never `pull` a branch you are not on.
 
 ## Implement
 
@@ -50,7 +52,7 @@ Fix **every** numbered finding — Critical *and* Minor; Minor is a severity, no
 
 ## Commit and push
 
-**Checkpoint early; the gate governs hand-off, not committing.** This phase can die mid-flight for reasons unrelated to the code — a session/usage limit, an API error, an OOM, a crash. With no commit, everything is stranded in the working tree, and in concurrent mode a re-dispatch spawns a **fresh** worktree off base, so the work is lost and the ticket restarts. So: **once the code compiles and the branch exists, commit a WIP checkpoint and push it** (`wip: <TICKET> …`, or amend as you go), then keep working toward the gate. Pushing early costs nothing — the PR is not opened until `implement-pr`, and the ticket only counts as handed off on the *gated* marker. Squash the WIP into the single intended conventional commit before hand-off, and never post the `🤖 implement` marker on a WIP push.
+**Checkpoint early; the gate governs hand-off, not committing.** This phase can die mid-flight for reasons unrelated to the code — a session/usage limit, an API error, an OOM, a crash. In concurrent mode the ticket's worktree survives that and a re-dispatch re-enters it, so an uncommitted tree is recoverable — but only by a human or an orchestrator that thinks to look. A commit makes the work legible (`git log @{u}..` answers "how far did it get?" in one line), and a push makes it survive the worktree being cleaned up. So: **once the code compiles and the branch exists, commit a WIP checkpoint and push it** (`wip: <TICKET> …`, or amend as you go), then keep working toward the gate. Pushing early costs nothing — the PR is not opened until `implement-pr`, and the ticket only counts as handed off on the *gated* marker. Squash the WIP into the single intended conventional commit before hand-off, and never post the `🤖 implement` marker on a WIP push.
 
 Final commit: conventional, with `Refs: <TICKET>` and the `Co-Authored-By` trailer in the body.
 
