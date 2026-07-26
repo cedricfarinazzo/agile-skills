@@ -44,8 +44,9 @@ A receipt carries proof fields only — plus findings for `review` / `review-len
 | `status_change` | transition applied + marker posted | `mcp__atlassian__getJiraIssue` == `in-review-status-name`; marker present |
 | `monitor` | per-check disposition (fixed / diagnosed flake **with base-branch proof** / no action needed) + the `rework` marker, or a recorded clean-monitor result | `gh pr view --json statusCheckRollup` — no `FAILURE`/`UNSTABLE` left undiagnosed; a red check written off with no base-branch comparison = not-run |
 
-Two dispatch gotchas:
+Three dispatch gotchas:
 
+- **A collapsed pipeline still owes every phase's Jira transition.** The `validate → In Progress` write belongs to `implement-validate`, so it normally lands inside `ticket-validator`. Under `concurrency>1` that phase runs inside the build subagent instead — which must therefore be able to transition, and must be told to. Symptom when it is not: correct `🤖 validate` / `🤖 plan` markers, code being committed, and the ticket still sitting at `todo-status-name`. Verify status per ticket once a batch returns and apply any missing transition yourself; a posted marker is not proof its transition landed.
 - **A build subagent cannot discover the project's gate.** It does not inherit the consumer `CLAUDE.md` / `AGENTS.md` or the CI workflow, so paste the complete gate list verbatim into its prompt (every CI lint command, not just the formatter, plus the test tiers and repo validators) and require a real exit code per gate. A gate left out of the prompt is how a delegated build passes locally and fails CI.
 - **A whole-ticket dispatch stops at push.** Because `implement-code` correctly ends at push, one agent handed a whole ticket returns a valid receipt for under-scoped work — no PR, no transition. Enumerate the `pr` and `status_change` steps in that prompt, or run those phases yourself afterwards.
 
