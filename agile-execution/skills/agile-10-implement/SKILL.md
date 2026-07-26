@@ -103,6 +103,8 @@ Invoking this skill authorises the **full per-ticket pipeline for every eligible
 
 Decide and document everything reversible — naming, structure, test approach, an ADR pattern, an HTTP status. Flag it in the PR; never stop for it.
 
+**Waiting on CI is never a stop.** A check runs for tens of minutes and is usually the critical path: while it runs, advance every other admissible item — plan the next ticket, self-review or open a PR, process rework — and re-sweep the board's actual state each turn rather than watching one job. Attention parked on a monitor is how a green run goes unnoticed.
+
 Escalate **only** on a *critical* decision: **both** hard-to-reverse / high-blast-radius **and** not derivable from the ADR / PRD / Specs / existing code — a destructive data migration, a change to the auth or permission model, a breaking public-API or shared-contract change, a new external dependency or cost commitment, a rewrite of a shared component. Then: post a 🤖 Jira comment with the decision, the options, and your recommendation; ask **one consolidated question** per ticket; park **that ticket only** and keep working the others; resume from its markers when answered. Unanswered by end of run → report as **Blocked (awaiting decision)**, never silently guessed.
 
 ---
@@ -140,7 +142,7 @@ Starting on PROJ-31.
 Keep N tickets in flight. Whenever a slot frees, admit the next eligible ticket in dependency order, re-evaluating these constraints **at that moment** against the tickets ALREADY in flight:
 
 1. **Mutually independent only** — no "is blocked by" edge among the in-flight set. Concurrency never relaxes the blocker gate.
-2. **No planned-file overlap** with a ticket already in flight — compare each ticket's `plan` receipt `files-to-touch` (or a light grep, or reuse `agile-8-refinement`'s `sprint-shared-file-audit`). **Binds from `implement` onward only:** `validate` and `plan` are read-only, so run them for any eligible ticket even while its `implement` waits on a sibling — a pre-planned ticket starts coding the instant a slot frees.
+2. **No planned-file overlap** with a ticket still being **built** — compare each ticket's `plan` receipt `files-to-touch` (or a light grep, or reuse `agile-8-refinement`'s `sprint-shared-file-audit`). **Binds from `implement` onward only:** `validate` and `plan` are read-only, so run them for any eligible ticket even while its `implement` waits on a sibling — a pre-planned ticket starts coding the instant a slot frees. **Overlap with a sibling that already has an open PR (`<in-review-status-name>`) does NOT block:** admit and let it rebase — the merge train rebases every PR onto a moving base anyway, so the marginal cost is a rebase that was always going to happen, while waiting buys no conflict-avoidance and idles a free slot.
 3. **At most one migration-adding ticket in flight.** Two migrations touch *different* files, so the overlap filter misses them, but both landing splits the migration history and neither worktree's linearity gate can see the sibling's.
 
 Announce each admission (`══ admit PROJ-34 — 3/3 in flight ══`), create its worktree, then run Phase 1 for it as its own phase chain — chains advancing in parallel, each ticket's phases still one at a time and all of them entering that ticket's single worktree. A ticket leaves the pipeline when its PR is open and handed off (or it is skipped/parked); admit its replacement **then**, never after waiting for a whole group to clear.
