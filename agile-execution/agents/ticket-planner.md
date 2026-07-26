@@ -10,6 +10,8 @@ Run the `implement-plan` skill (Skill tool) with the validated ticket key from y
 
 Do not spawn subagents: dispatch nesting depth is 1, so the attempt stalls. Do the reads yourself.
 
+**You run in the SHARED checkout — stay read-only in it.** You get no worktree, and under `concurrency>1` sibling agents are building in worktrees that share this repository, so a `git checkout`, branch switch, stash, or commit here corrupts them. Planning needs no mutation: read other refs with `git show <ref>:<path>`.
+
 **Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. Reading the skill and then doing your own version is the failure this rule exists to stop. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
 
 **Receipt contract:**

@@ -56,9 +56,12 @@ The project has a **single shared Docker Compose stack**, so stack access is str
 
 - **`concurrency=0` — fully inline.** Every phase runs in the orchestrator's own context via the Skill tool; no `Agent` call at any layer. Same sequence, same resume logic, same receipts (written out and checked explicitly — "I already did that step" is not a receipt). This is the required mode when this skill is itself invoked from a dispatched context, since dispatch nesting depth is 1.
 - **`concurrency=1` (default) — one ticket at a time**, each phase dispatched to its named agent, no worktree.
-- **`concurrency=N>1` — up to N mutually independent tickets in parallel**, each in its own git worktree subagent. A worktree isolates the filesystem but not the stack, so concurrent build-subagents run the **stack-free gate only** (lint + unit + typecheck + migration linearity) and defer the **stack-bound tiers** (integration, e2e, apply-on-fresh-DB) to CI — see `implement-code`.
+- **`concurrency=N>1` — up to N mutually independent tickets in parallel.** Each ticket runs the SAME per-phase chain as `concurrency=1`, in its own named agent per phase; N chains advance concurrently. A worktree isolates the filesystem but not the stack, so a concurrent `implement` runs the **stack-free gate only** (lint + unit + typecheck + migration linearity) and defers the **stack-bound tiers** (integration, e2e, apply-on-fresh-DB) to CI — see `implement-code`.
+  - **Only `implement` takes a worktree.** `validate` and `plan` are read-only, and `pr` needs the branch that is already on the remote (`gh pr create --head <branch>` works from any checkout) — none of the three needs one. Giving each its own would scatter one ticket's phases across four unrelated trees. So `isolation: worktree` goes on the `implement` dispatch and nowhere else: exactly one worktree per ticket, no filesystem collision, and every phase keeps its own agent's model/effort/tool scoping.
+
+    Do NOT collapse the chain into a single agent to "get" the worktree. That trades away per-phase scoping and silently drops whatever tools the collapsed-away phases needed — the `validate` transition being the usual casualty (see the dispatch gotcha above). The plan reaches the implement agent through its `🤖 plan` marker, exactly as resume already reads it, so no state has to be threaded through the orchestrator.
   - **Precondition:** the consumer repo's CI must run the stack-bound tiers **on pull requests**. If it runs them nightly, on-main-only, or behind a manual label, integration runs nowhere before merge — use `concurrency=1` instead. This is the floor under the whole defer-to-CI story.
-  - **A concurrent agent git-mutates only inside its own worktree.** A tree-wide `checkout`, a branch switch, or a commit in the shared checkout corrupts a sibling. Read other refs with `git show <sha>:<path>`. No worktree available → do not git-mutate; emit the receipt with `blocked`.
+  - **Only the worktree agent git-mutates.** A tree-wide `checkout`, a branch switch, or a commit in the shared checkout corrupts a sibling worktree agent — so the non-worktree phases (`validate`, `plan`, `pr`) must be told explicitly to stay read-only there and to read refs with `git show <ref>:<path>`. Inside its own worktree the `implement` agent mutates freely. No worktree available when one is needed → do not git-mutate; emit the receipt with `blocked`.
 
 Phase 2 monitoring/rework always runs **sequentially** — a red integration check needs the stack to reproduce. Read-only work parallelises freely.
 
@@ -127,7 +130,7 @@ Form the parallel batch from the eligible, dependency-ordered list:
 3. **At most one migration-adding ticket per batch.** Two migrations touch *different* files, so the overlap filter misses them, but both landing splits the migration history and neither worktree's linearity gate can see the sibling's.
 4. **Cap at N** (dependency order).
 
-Announce it (`══ batch: PROJ-31, PROJ-34, PROJ-37 (concurrency 3) ══`), run Phase 1 per member in a parallel worktree subagent, then monitor the batch **sequentially** in Phase 2 before forming the next batch.
+Announce it (`══ batch: PROJ-31, PROJ-34, PROJ-37 (concurrency 3) ══`), run Phase 1 per member as its own per-phase chain — the members' chains advancing in parallel, each ticket's phases still one at a time, `isolation: worktree` on its `implement` link only — then monitor the batch **sequentially** in Phase 2 before forming the next batch.
 
 **Fallback ladder — step down one rung and say which rung you landed on.** Worktrees unavailable → `concurrency=1`. Agent dispatch itself unavailable (already inside a dispatched context, or no agent tooling) → **`concurrency=0`, fully inline** — that is the sanctioned answer here, not a violation.
 
@@ -153,7 +156,7 @@ Each sub-skill is idempotent on partial state, so re-entering a half-done phase 
 > <phase content>
 > ```
 
-**Dispatch each phase to its named agent** (table above), passing the ticket key, the resolved config, and the receipt it must return; verify that receipt before advancing. Under `concurrency>1` the whole per-ticket pipeline runs inside **one** worktree build-subagent per ticket (pass `mode=concurrent` to `implement-code`) and the orchestrator verifies the returned receipt bundle; the blocker gate, resume logic, and review gate are unchanged.
+**Dispatch each phase to its named agent** (table above), passing the ticket key, the resolved config, and the receipt it must return; verify that receipt before advancing. This holds at **every** concurrency: `N>1` parallelises across TICKETS, never by merging phases into one agent — each ticket's chain still runs phase by phase through its own named agent, and only the `implement` link takes a worktree (pass `mode=concurrent` to `implement-code`). The blocker gate, resume logic, and review gate are unchanged.
 
 1. **`implement-validate`** (`agile-execution:ticket-validator`) → `out-of-scope` (wrong repo) or `rejected` (under-spec'd → Needs Info) → skip the ticket, continue; `critical-park` → escalate one consolidated question, park, continue; `pass` → proceed.
 2. **`implement-plan`** (`agile-execution:ticket-planner`) → plan + AC→test map (`🤖 plan`).
