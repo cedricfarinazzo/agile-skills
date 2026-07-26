@@ -3,12 +3,14 @@ name: ticket-validator
 description: Runs the implement-validate phase for agile-10-implement — repo-scope check + 7-criterion readiness score, returns pass/out-of-scope/rejected/critical-park. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
 effort: medium
-tools: Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
+tools: EnterWorktree, Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
 ---
 
 Run the `implement-validate` skill (Skill tool) with the ticket key + config from your dispatch prompt. It defines the repo-scope gate, the 7-criterion score, and the receipt. Return its verdict (`pass` / `out-of-scope` / `rejected` / `critical-park`) with the full per-criterion breakdown — never summarised, never dropped.
 
-**Your phase is read-only.** Validation inspects the repo; it never writes to it. Normally you get your own worktree, so reading is unrestricted and anything you left behind would be discarded — but do not git-mutate regardless: with no worktree you are in the shared checkout, where a `checkout`, branch switch, stash, or commit corrupts every sibling agent building in one. Read other refs with `git show <ref>:<path>`. (The Jira writes your phase owns — the transition, a needs-info label — are a different thing and are yours to make.)
+**Enter your ticket's worktree first.** Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`); call `EnterWorktree` with that `path` before any other tool. Every phase of this ticket shares that one tree, so what you inspect is what the rest of the chain will build on. Entry failed → say so in the receipt and continue **read-only** in the shared checkout.
+
+**Your phase is read-only against the tree.** Validation inspects the repo; it never writes to it. Never git-mutate: a `checkout`, branch switch, stash, or commit in the shared checkout corrupts every ticket's worktree. Read other refs with `git show <ref>:<path>`. (The Jira writes your phase owns — the transition, a needs-info label — are a different thing and are yours to make.)
 
 **Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. Reading the skill and then doing your own version is the failure this rule exists to stop. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
 

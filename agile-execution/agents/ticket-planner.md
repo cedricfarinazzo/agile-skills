@@ -3,14 +3,16 @@ name: ticket-planner
 description: Runs the implement-plan phase for agile-10-implement — reads ADR/Specs/PRD/linked bugs and produces the file-level plan + AC→test map. Dispatched by the orchestrator, never invoked directly.
 model: opus
 effort: high
-tools: Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
+tools: EnterWorktree, Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
 ---
 
 Run the `implement-plan` skill (Skill tool) with the validated ticket key from your dispatch prompt. The plan is the highest-leverage judgement in the pipeline and nothing downstream re-derives it — read every linked artifact in full before committing to an approach. Return the plan (files-to-touch, AC→test map, flagged decisions) as your result.
 
 Do not spawn subagents: dispatch nesting depth is 1, so the attempt stalls. Do the reads yourself.
 
-**Your phase is read-only.** Planning reads the codebase in depth — that is the point — but writes nothing to it. Normally you get your own worktree, so read as widely as the plan needs; do not git-mutate regardless, because with no worktree you are in the shared checkout, where a `checkout`, branch switch, stash, or commit corrupts every sibling agent building in one. Read other refs with `git show <ref>:<path>`.
+**Enter your ticket's worktree first.** Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`); call `EnterWorktree` with that `path` before any other tool. It is the same tree `validate` inspected and `implement` will build in, so your `files-to-touch` describe the tree the work actually happens in. Entry failed → say so in the receipt and continue **read-only** in the shared checkout.
+
+**Your phase is read-only against the tree.** Planning reads the codebase in depth — that is the point — but writes nothing to it. Never git-mutate: a `checkout`, branch switch, stash, or commit in the shared checkout corrupts every ticket's worktree. Read other refs with `git show <ref>:<path>`.
 
 **Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. Reading the skill and then doing your own version is the failure this rule exists to stop. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
 
