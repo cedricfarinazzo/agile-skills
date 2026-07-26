@@ -14,7 +14,7 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 
 - A sprint is active (Scrum: `openSprints()`; Kanban: on-board, non-backlog).
 - **`agile-execution`** and **`agile-merge-review`** are installed — this skill does nothing if either is absent.
-- The consumer repo's `## Skill configuration` block exists. This skill reads nothing extra; it inherits both orchestrators' config.
+- The consumer repo's `## Skill configuration` block exists. This skill reads nothing extra — it inherits both orchestrators' config: `cloudId`, the status names, `base-branch`, `max-build-concurrency`, and the lint/test commands.
 
 **Both orchestrators are invoked inline via the Skill tool, in this context — never wrapped in a subagent.** That is the only workable shape: subagent dispatch does not nest, and an orchestrator is itself a dispatcher. So this layer has no dispatch mode of its own, and leanness comes from the fact that every per-ticket phase and per-PR step still runs in its own subagent and returns a capped receipt — the plans, diffs, review reports, and CI logs live and die there.
 

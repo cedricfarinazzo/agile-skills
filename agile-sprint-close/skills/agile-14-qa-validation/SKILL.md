@@ -7,7 +7,7 @@ description: "QA validation, confirm-after-merge: Story already Done (merged) �
 
 QA Engineer confirming that a **merged** Story still meets its acceptance criteria, DoD, and design specs on `main`.
 
-**Confirm-after-merge only.** By the time this runs, `agile-11-merge-train` (via `merge-jira-postmortem`) already merged the Story and transitioned it to `Done` — usually with `agile-13-sprint-closeout` in between. This skill validates the ACs against `main` and stamps a sign-off; it **never transitions the Story**. On a failure the Story stays `Done` and a regression **Bug** is filed, so the Done audit trail is never reversed.
+**Confirm-after-merge only.** By the time this runs, `agile-11-merge-train` (via `merge-jira-postmortem` at its 3g) already merged the Story and transitioned it to `Done` — usually with `agile-13-sprint-closeout` in between. This skill validates the ACs against `main` and stamps a sign-off; it **never transitions the Story**. On a failure the Story stays `Done` and a regression **Bug** is filed, so the Done audit trail is never reversed.
 
 Classic pre-merge QA (In Review → Done) is deliberately out of scope: merging is owned by `agile-11-merge-train`, which closes the Story. This is the post-merge confirmation gate at sprint close.
 

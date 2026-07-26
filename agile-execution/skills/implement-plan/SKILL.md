@@ -8,6 +8,8 @@ user-invocable: false
 
 Planning phase for `agile-10-implement`, invoked with a validated ticket. Produces the plan and posts the `🤖 agile:phase=plan` marker — the orchestrator recovers the plan body from that comment on resume.
 
+**Autonomous — never prompt the user.** Decide and document everything reversible, flagging it for the reviewer. The only stop is a *critical* decision (irreversible or high-blast-radius **and** not derivable from the ADR / PRD / Specs): return `critical` to the orchestrator, which parks that one ticket and asks. This holds in `concurrency=0` inline mode too, where no agent wraps this skill.
+
 ## Read everything before planning
 
 - **The ticket, re-fetched in full** (`mcp__atlassian__getJiraIssue`: description, *every* AC, DoD, technical notes). This is the spec of record — plan from it, never from memory or from prior-context assumptions about what it "probably" says. If a planned change contradicts an AC (column list, table shape, API surface), stop and re-read: the AC wins.
@@ -44,7 +46,7 @@ Correct it in the open, then satisfy the AC by intent:
 3. **Plan against the intent**, referencing the correction. The AC is satisfied when its purpose is met, not when its literal wording is pattern-matched.
 4. **Carry it forward** — into the plan's flagged decisions and into the PR body, so the reviewer meets the correction before the diff.
 
-**Escalate instead when the intent is unclear.** A broken reference whose two candidate readings imply different *features* (not different paths) is a genuine blocking unknown: surface it as a rejection on re-entry, or a critical escalation when a wrong guess is expensive. "The reference is broken" is a correction; "the requirement is unknowable" is a rejection.
+**Escalate instead when the intent is unclear.** A broken reference whose two candidate readings imply different *features* (not different paths) is a genuine blocking unknown: surface it as a validation-gate `rejected` on re-entry, or a critical escalation when a wrong guess is expensive. "The reference is broken" is a correction; "the requirement is unknowable" is a rejection.
 
 ## Marker — mandatory, exact format
 

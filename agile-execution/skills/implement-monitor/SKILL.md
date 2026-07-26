@@ -10,6 +10,8 @@ PR monitoring + rework for `agile-10-implement`, applied to the **pre-merge** PR
 
 **Always sequential, in both modes.** Rework touches the shared Docker stack, so under `concurrency>1` this phase is the serial tail: the Phase-1 build fans out across worktrees (stack-free only), then its PRs are monitored one at a time holding the stack. This is where the deferred stack-bound tiers actually run — a red integration/e2e check from CI is **reproduced and fixed here**, never re-pushed in the hope CI flips.
 
+**Autonomous — never prompt the user.** Decide and document everything reversible, flagging it for the reviewer. The only stop is a *critical* decision (irreversible or high-blast-radius **and** not derivable from the ADR / PRD / Specs): return `critical` to the orchestrator, which parks that one ticket and asks. This holds in `concurrency=0` inline mode too, where no agent wraps this skill.
+
 Check three things and act.
 
 **1. New review comments.** `gh pr view <N> --json reviews,comments` plus `gh api` for review threads, **filtered to comments newer than the last `🤖 agile:phase=rework` marker** — that filter is the idempotency. For each new actionable comment: fix, commit, push, reply to the thread.

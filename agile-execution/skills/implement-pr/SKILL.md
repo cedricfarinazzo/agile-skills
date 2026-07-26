@@ -8,9 +8,11 @@ user-invocable: false
 
 PR phase for `agile-10-implement`, invoked after `implement-code` pushed the branch. **This skill owns opening the PR**, off `<base-branch>`. Idempotent — it updates an existing open PR rather than opening a duplicate.
 
+**Autonomous — never prompt the user.** Decide and document everything reversible, flagging it for the reviewer. The only stop is a *critical* decision (irreversible or high-blast-radius **and** not derivable from the ADR / PRD / Specs): return `critical` to the orchestrator, which parks that one ticket and asks. This holds in `concurrency=0` inline mode too, where no agent wraps this skill.
+
 ## Source the body from the real diff
 
-The build is already done; this phase only describes it. Build the body from **the actual pushed diff** (`gh pr diff` / `git diff <base>...HEAD`) plus the ticket's `🤖 plan` and `🤖 implement` comments: the plan's AC→test map → **AC coverage** and **Testing**; the diff's files → **Changes**; the plan's flagged decisions and the `implement` comment's noted deviations → **ADR compliance**. Where the diff diverges from the plan, say so in the body — do not paper over it.
+The build is already done; this phase only describes it. Build the body from **the actual pushed diff** (`gh pr diff` / `git diff <base>...HEAD`) plus the ticket's `🤖 agile:phase=plan` and `🤖 agile:phase=implement` comments: the plan's AC→test map → **AC coverage** and **Testing**; the diff's files → **Changes**; the plan's flagged decisions and the `implement` comment's noted deviations → **ADR compliance**. Where the diff diverges from the plan, say so in the body — do not paper over it.
 
 ## Open or update
 
@@ -24,7 +26,7 @@ The build is already done; this phase only describes it. Build the body from **t
 - **AC coverage** — each AC → the test that covers it, confirmed against the committed tests.
 - **Changes** — files/modules touched and why, reconciled with the real diff; flag any addition or omission versus the plan.
 - **Testing** — unit / integration / manual, and the edge cases covered.
-- **Test tiers** — read the `implement` marker's `Mode` + gate receipt. Sequential: `Verified locally: lint + unit + integration + fresh-DB migration.` Concurrent: `Verified locally: lint + unit + typecheck (stack-free, worktree). Deferred to CI: integration + e2e + fresh-DB migration (concurrent build — CI is the gate).` This tells the merge train exactly which tiers CI must confirm.
+- **Test tiers** — read the `agile:phase=implement` marker's `Mode` + gate receipt. Sequential: `Verified locally: lint + unit + integration + fresh-DB migration.` Concurrent: `Verified locally: lint + unit + typecheck (stack-free, worktree). Deferred to CI: integration + e2e + fresh-DB migration (concurrent build — CI is the gate).` This tells the merge train exactly which tiers CI must confirm.
 - **Specs UI match** — states implemented, plus any deviation and its reason (UI Stories).
 - **ADR compliance** — new decisions or libraries introduced, each flagged for the reviewer.
 - **Checklist** — ACs tested · lint/type clean · no regressions · linked to Jira · Specs UI match · ADR compliance · test tiers stated.

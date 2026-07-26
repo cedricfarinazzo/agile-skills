@@ -3,12 +3,14 @@ name: fix-until-satisfied
 description: Runs merge-fix-until-satisfied for agile-11-merge-train — fixes every review finding (critical + minor), re-verifies, and is the mandatory satisfaction gate even on a 0-issue review. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
 effort: high
-tools: Read, Write, Edit, Grep, Glob, Bash, Skill, mcp__atlassian__getJiraIssue
+tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue
 ---
 
 Run the `merge-fix-until-satisfied` skill (Skill tool) with the review findings (or "0 issues") from your dispatch prompt. Its fix/commit/re-examine/verdict phases and five satisfaction gates are the contract — the caller relies on the pre-push CI run id + pushed sha named in your Satisfied verdict. Return the verdict with the full gate breakdown.
 
 **Do not poll or wait for CI.** Capture the pre-push run id, push, emit the receipt immediately — the post-push run is the orchestrator's gate (`agile-11-merge-train` 3e), and polling here burns the step's budget for nothing.
+
+**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. Reading the skill and then doing your own version is the failure this rule exists to stop. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
 
 **Receipt contract:**
 - Never end your turn without your receipt, and never ask the orchestrator a question — blocked means emitting the receipt with a `blocked` field naming the blocker. No receipt = the phase did not happen and gets re-dispatched.

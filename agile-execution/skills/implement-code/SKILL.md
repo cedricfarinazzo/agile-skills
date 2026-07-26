@@ -12,9 +12,11 @@ Build phase for `agile-10-implement`. Invoked with a planned ticket — and, on 
 - **sequential** — the only phase that touches the shared Docker Compose stack, so it runs strictly one ticket at a time and runs the **full** gate locally.
 - **concurrent** — runs inside a git worktree subagent alongside other builds. A worktree isolates the filesystem, but the stack is a **shared external resource**, so this phase must not touch it: run the **stack-free** gate only (lint + unit + typecheck + migration linearity) and **defer integration + e2e + apply-on-fresh-DB to CI**. Their AC tests are still *written*, just not executed here.
 
+**Autonomous — never prompt the user.** Decide and document everything reversible, flagging it for the reviewer. The only stop is a *critical* decision (irreversible or high-blast-radius **and** not derivable from the ADR / PRD / Specs): return `critical` to the orchestrator, which parks that one ticket and asks. This holds in `concurrency=0` inline mode too, where no agent wraps this skill.
+
 ## Load the plan — implement *from* it
 
-Read the `🤖 agile:phase=plan` comment on the ticket. That plan is what you implement: its files-to-touch, its order (data → service → API → frontend → tests), its AC→test map. Do not re-derive the approach. On a resumed run the orchestrator passes only the ticket key, so always read the plan from Jira and re-read the ADR / Specs UI for the detail it references. A forced deviation gets noted (and follows the reversible/critical rule below).
+Read the `🤖 agile:phase=plan` comment on the ticket (written by `implement-plan`). That plan is what you implement: its files-to-touch, its order (data → service → API → frontend → tests), its AC→test map. Do not re-derive the approach. On a resumed run the orchestrator passes only the ticket key, so always read the plan from Jira and re-read the ADR / Specs UI for the detail it references. A forced deviation gets noted (and follows the reversible/critical rule below).
 
 ## Set up workspace and branch
 

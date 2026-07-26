@@ -68,7 +68,7 @@ From the consumer repo's `CLAUDE.md` / `AGENTS.md` (`## Skill configuration`); t
 - **`cloudId`** — Atlassian cloud id for `mcp__atlassian__*`. Required.
 - **`ticket-prefix-regex`** — default `[A-Z]+-\d+`.
 - **`repo` / `repo-component-map`** — this repo's slug, and the Jira label/component → repo map for multi-repo projects (used by `implement-validate`'s scope gate). Falls back to the git `origin` remote.
-- **`todo-` / `in-progress-` / `in-review-` / `done-status-name`** — matched by case-insensitive substring so localised names work ("À faire", "En cours", "Revue en cours", "Terminé(e)"). Defaults `To Do` / `In Progress` / `In Review` / `Done`.
+- **`todo-status-name`** / **`in-progress-status-name`** / **`in-review-status-name`** / **`done-status-name`** — matched by case-insensitive substring so localised names work ("À faire", "En cours", "Revue en cours", "Terminé(e)"). Defaults `To Do` / `In Progress` / `In Review` / `Done`.
 - **`needs-info-status-name`** — default: leave in `To Do` and label `needs-info`.
 - **`backlog-status-name`** (default `Backlog`), **`board-id`** / **`board-type`** (pin when auto-detection is ambiguous).
 - **`story-points-field`** (default `customfield_10016`), **`base-branch`** (repo default), **`branch-prefix`** (default `feature/`).
@@ -91,7 +91,7 @@ Escalate **only** on a *critical* decision: **both** hard-to-reverse / high-blas
 
 ## Phase 0 — Select and order the work
 
-1. **Detect the board type, then build the matching JQL.** A project runs a **Scrum** board (sprints) or a **Kanban** board (backlog column). Find it via `/rest/agile/1.0/board?projectKeyOrId=<KEY>` and read its `type`. Both types share one hard invariant: **a ticket in the backlog or a future sprint is never eligible.** If a project has both boards, ask which (the one allowed pre-run question) or default to Scrum when a sprint is active.
+1. **Detect the board type, then build the matching JQL.** A project runs a **Scrum** board (sprints) or a **Kanban** board (backlog column). Find it via `/rest/agile/1.0/board?projectKeyOrId=<KEY>` and read its `type`. Both types share one hard invariant: **a ticket in the backlog or a future sprint is never eligible.** **If a project has both boards, default rather than ask** — the Scrum board when a sprint is active, else the Kanban board — and state which you picked. Only when neither resolves (no active sprint *and* no non-empty Kanban board) is there nothing to run, which is the Phase 0 step 5 clean stop, not a question. This skill runs unattended under `agile-sprint-drain`, so a pre-run prompt would stall the whole loop.
    - **Scrum** — `project = <KEY>` AND status matches `todo-status-name` AND `sprint in openSprints()`. Exclude `futureSprints()` and no-sprint tickets (= backlog). Multiple open sprints → scope to the named/most recent.
    - **Kanban** — `project = <KEY>` AND status matches `todo-status-name` AND on the board, not the backlog: subtract `/rest/agile/1.0/board/<id>/backlog` keys, or exclude `backlog-status-name` in JQL.
 

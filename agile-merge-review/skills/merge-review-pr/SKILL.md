@@ -109,7 +109,7 @@ Two-tier severity is deliberate — no "Moderate"/"Suggestion"/"Nit". Promote a 
 
 No issues found → state "Satisfied — ready to merge." and why. The Files-read, Lens-verdicts, and AC-verification sections are still mandatory: **a clean verdict with no evidence is a rubber-stamp and is re-dispatched.**
 
-**Review-only — this skill does not merge, monitor CI, or close the loop.** Return after the report; the caller continues to 3c → 3e → 3f → 3g. Never append "should I merge now?".
+**Review-only — this skill does not merge, monitor CI, or close the loop.** Return after the report; the caller continues to 3c (`merge-fix-until-satisfied`) → 3e (CI) → 3f (merge) → 3g (`merge-jira-postmortem`). Never append "should I merge now?".
 
 ## Severity calls
 

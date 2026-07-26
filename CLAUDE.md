@@ -83,7 +83,18 @@ Run the `<sub-skill>` skill (Skill tool) with <what the dispatch prompt carries>
 
 `agile-execution` and `agile-merge-review` each ship an `agents/` dir (plugin root, auto-discovered — no `plugin.json` field needed, same as `skills/`). Every phase/step an orchestrator dispatches to a subagent uses a **named agent from that dir** scoped to that phase's actual workload — never the generic catch-all agent.
 
-**Every agent declares `model`, `effort`, and an explicit `tools` list.** An omitted `tools` grants everything, which is a bug, not a default: grant exactly what the sub-skill needs (a read-only reviewer gets no `Write`/`Edit`; anything that resolves conflicts or fixes code needs them; anything that invokes a sub-skill needs `Skill`).
+**Every agent declares `model`, `effort`, and an explicit `tools` list.** An omitted `tools` grants everything, which is a bug, not a default.
+
+**Grant reads generously, writes and posting rights tightly.** An under-granted read blocks the agent mid-run — it emits `blocked` and the orchestrator re-dispatches into the same wall. Derive the requirement from the sub-skill's actual steps (and from any sub-skill *it* invokes), not from what the phase sounds like: `implement-code` re-reads the ADR in Confluence, so `build-implementer` needs a Confluence tool; `implement-review` reads the Story via `mcp__atlassian__getJiraIssue`, so `review-lens` needs it too.
+
+**These omissions are deliberate — do not "fix" them.** They are enforcement, not oversight:
+
+| Agent | Withheld | Why |
+|---|---|---|
+| `review-lens` | `Skill`, `Write`/`Edit`, any posting tool | Invoking `implement-review` would run its Step 3, which posts a verdict to the PR and Jira — one duplicate review per lens slice. It reads the SKILL.md as a file. |
+| `pr-reviewer` | `Write`/`Edit`, posting tools | It reviews; it never fixes and never posts to Jira. The postmortem owns that. |
+| `jira-postmortem` | `mcp__atlassian__createIssueLink` | The skill explicitly forbids link creation — Phase 4 of the train owns it. The grant now enforces what prose only asked for. |
+| `ticket-validator`, `ticket-planner`, `pr-publisher` | `Edit` | None of them modifies source. |
 
 | Agent | Model / effort | Why |
 |---|---|---|
