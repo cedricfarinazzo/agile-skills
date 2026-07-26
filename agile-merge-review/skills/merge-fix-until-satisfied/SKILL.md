@@ -38,6 +38,8 @@ fix(<scope>): <ticket> <imperative summary>
 
 Then `git push origin <branch>` where `<branch>` is whatever HEAD is on (`git rev-parse --abbrev-ref HEAD`) — a PR feature branch, or `main` itself when the caller is fixing a post-merge follow-up.
 
+**Confirm you are on the right branch BEFORE committing.** Your caller resolves one working location per PR and names it in your prompt — often a worktree that already holds the branch, because `agile-10-implement` leaves one per unmerged ticket. Go there first (`cd <path>`, or `EnterWorktree` with that path) and check `git rev-parse --abbrev-ref HEAD` matches the PR's branch. If it does not — most dangerously if it says `main` while you were asked to fix a PR — **stop and emit the receipt with `blocked`**; do not commit. "Whatever HEAD is on" is the push rule, not a licence to commit a PR's fixes wherever the shell happens to be pointing.
+
 ## Phase 3 — Re-examine
 
 Re-read **every** file changed, in the original PR and in the fixes. Did a fix introduce something new (did every reference update)? Are there analogous issues in untouched files? Does the test-suite `CLAUDE.md` need updating?

@@ -30,6 +30,10 @@ Per ticket, in order. Each is one 🤖 resume-marker phase, runs in its named ag
 
 The orchestrator owns selection, ordering, the per-ticket sequence, and the report. It writes no code, scores no ticket, and opens no PR itself. Its loop is **dispatch → read the receipt → verify it against ground truth (git / `gh` / Jira) → gate advancement**. A receipt that is missing, incomplete, or contradicted means the phase did not happen — re-dispatch it, never wave it through. A returned turn with no receipt is a not-run phase, never a question to answer.
 
+**Verify by calling, not by reading.** The Verify column below is a set of commands to RUN — `mcp__atlassian__getJiraIssue`, `gh pr view`, `git show --stat` — whose result you state before advancing. A receipt is the agent's claim about what it did; the check is what makes it true. "The receipt said `pass`" is not verification, and an agent that reports its own gap honestly still leaves the gap.
+
+**A receipt with a non-empty `unapplied_mutations` is INCOMPLETE, whatever its verdict.** An agent that could not write a side effect — a transition, a label, a comment, a push — must list it (see each agent's receipt contract), and listing it does not discharge it. Apply every entry yourself, verify it against ground truth, and record that you did, before dispatching the next phase. A `pass` verdict beside an unapplied transition is the single easiest way to leave the board describing work in a state it is not in.
+
 **The one phase the orchestrator runs in its own context is `review`** (see the table above: `implement-review` is inline by default, fanning out `review-lens` only for a large PR). That is deliberate — splitting six lenses across subagents makes each re-read the whole diff — but it means the review receipt is one the orchestrator writes **for itself**, so hold it to the same gate: write it out explicitly and check it against the diff file set before advancing. "I already reviewed it" is not a receipt.
 
 A receipt carries proof fields only — plus findings for `review` / `review-lens`, where prose inside a finding or a per-AC binding is the value. Never a preamble, an overview/summary, or a praise section.
@@ -44,8 +48,9 @@ A receipt carries proof fields only — plus findings for `review` / `review-len
 | `status_change` | transition applied + marker posted | `mcp__atlassian__getJiraIssue` == `in-review-status-name`; marker present |
 | `monitor` | per-check disposition (fixed / diagnosed flake **with base-branch proof** / no action needed) + the `rework` marker, or a recorded clean-monitor result | `gh pr view --json statusCheckRollup` — no `FAILURE`/`UNSTABLE` left undiagnosed; a red check written off with no base-branch comparison = not-run |
 
-Two dispatch gotchas:
+Three dispatch gotchas:
 
+- **A collapsed pipeline still owes every phase's Jira transition.** The `validate → In Progress` write belongs to `implement-validate`, so it normally lands inside `ticket-validator`. Under `concurrency>1` that phase runs inside the build subagent instead — which must therefore be able to transition, and must be told to. Symptom when it is not: correct `🤖 validate` / `🤖 plan` markers, code being committed, and the ticket still sitting at `todo-status-name`. Verify status per ticket once a batch returns and apply any missing transition yourself; a posted marker is not proof its transition landed.
 - **A build subagent cannot discover the project's gate.** It does not inherit the consumer `CLAUDE.md` / `AGENTS.md` or the CI workflow, so paste the complete gate list verbatim into its prompt (every CI lint command, not just the formatter, plus the test tiers and repo validators) and require a real exit code per gate. A gate left out of the prompt is how a delegated build passes locally and fails CI.
 - **A whole-ticket dispatch stops at push.** Because `implement-code` correctly ends at push, one agent handed a whole ticket returns a valid receipt for under-scoped work — no PR, no transition. Enumerate the `pr` and `status_change` steps in that prompt, or run those phases yourself afterwards.
 
@@ -55,9 +60,22 @@ The project has a **single shared Docker Compose stack**, so stack access is str
 
 - **`concurrency=0` — fully inline.** Every phase runs in the orchestrator's own context via the Skill tool; no `Agent` call at any layer. Same sequence, same resume logic, same receipts (written out and checked explicitly — "I already did that step" is not a receipt). This is the required mode when this skill is itself invoked from a dispatched context, since dispatch nesting depth is 1.
 - **`concurrency=1` (default) — one ticket at a time**, each phase dispatched to its named agent, no worktree.
-- **`concurrency=N>1` — up to N mutually independent tickets in parallel**, each in its own git worktree subagent. A worktree isolates the filesystem but not the stack, so concurrent build-subagents run the **stack-free gate only** (lint + unit + typecheck + migration linearity) and defer the **stack-bound tiers** (integration, e2e, apply-on-fresh-DB) to CI — see `implement-code`.
+- **`concurrency=N>1` — up to N mutually independent tickets in parallel.** Each ticket runs the SAME per-phase chain as `concurrency=1`, in its own named agent per phase; N chains advance concurrently. A worktree isolates the filesystem but not the stack, so a concurrent `implement` runs the **stack-free gate only** (lint + unit + typecheck + migration linearity) and defers the **stack-bound tiers** (integration, e2e, apply-on-fresh-DB) to CI — see `implement-code`.
+  - **ONE worktree per TICKET, shared by that ticket's whole phase chain.** Every phase needs the code — `validate` and `plan` read it, `implement` writes it, `pr` reads the resulting diff — and they should all read the SAME tree. So the isolation boundary is the ticket, not the phase:
+
+    1. **The orchestrator creates it**, before dispatching `validate`, at a deterministic path under `.claude/worktrees/` named for the ticket, on the ticket's feature branch:
+       `git worktree add .claude/worktrees/<ticket-key> -b <branch-prefix><ticket-key>-<slug> <base-branch>`
+       (Already there from an earlier, interrupted run? Reuse it — that is the point. See salvage below.)
+    2. **Each phase agent enters it** as its first action — `EnterWorktree` with `path: .claude/worktrees/<ticket-key>`, passed in its dispatch prompt. From a subagent (whose working directory is pinned at launch) this switch affects only that agent, never the parent session, and the target must be a worktree of this repository under `.claude/worktrees/` — which is exactly what step 1 created. Do **not** pass `isolation: worktree` on these dispatches: that would mint a fresh, empty worktree per agent and defeat the sharing.
+    3. **The orchestrator removes it** in Phase 2b, once the branch has merged.
+
+    Why the ticket and not the phase: a per-phase worktree gives each agent a tree with none of its predecessor's work in it. `pr` would see only what `implement` managed to push, never its actual working tree; a re-dispatched phase would start from a clean base and silently discard whatever the previous attempt built. Sharing one tree per ticket makes the chain continuous, and makes an interrupted run resumable **by name** rather than by archaeology.
+
+    The cost is that isolation is now an instruction (enter your worktree) rather than a harness guarantee, so the shared checkout is off limits to every agent — see below.
+
+    Do NOT collapse the chain into a single agent to "get" the worktree. That trades away per-phase scoping and silently drops whatever tools the collapsed-away phases needed — the `validate` transition being the usual casualty (see the dispatch gotcha above). The plan reaches the implement agent through its `🤖 plan` marker, exactly as resume already reads it, so no state has to be threaded through the orchestrator.
   - **Precondition:** the consumer repo's CI must run the stack-bound tiers **on pull requests**. If it runs them nightly, on-main-only, or behind a manual label, integration runs nowhere before merge — use `concurrency=1` instead. This is the floor under the whole defer-to-CI story.
-  - **A concurrent agent git-mutates only inside its own worktree.** A tree-wide `checkout`, a branch switch, or a commit in the shared checkout corrupts a sibling. Read other refs with `git show <sha>:<path>`. No worktree available → do not git-mutate; emit the receipt with `blocked`.
+  - **Inside its ticket's worktree an agent mutates freely; the SHARED checkout is off limits to every one of them.** A tree-wide `checkout`, branch switch, stash, or commit there corrupts every sibling ticket's worktree. An agent that could not enter its worktree falls back to the shared checkout **read-only** — reading refs with `git show <ref>:<path>` — and a phase that needs to WRITE and has no worktree does not git-mutate at all: emit the receipt with `blocked` naming the failed entry. Within one ticket the phases run strictly one at a time, so sharing a tree never races; two tickets never share one.
 
 Phase 2 monitoring/rework always runs **sequentially** — a red integration check needs the stack to reproduce. Read-only work parallelises freely.
 
@@ -126,11 +144,11 @@ Form the parallel batch from the eligible, dependency-ordered list:
 3. **At most one migration-adding ticket per batch.** Two migrations touch *different* files, so the overlap filter misses them, but both landing splits the migration history and neither worktree's linearity gate can see the sibling's.
 4. **Cap at N** (dependency order).
 
-Announce it (`══ batch: PROJ-31, PROJ-34, PROJ-37 (concurrency 3) ══`), run Phase 1 per member in a parallel worktree subagent, then monitor the batch **sequentially** in Phase 2 before forming the next batch.
+Announce it (`══ batch: PROJ-31, PROJ-34, PROJ-37 (concurrency 3) ══`), create each member's worktree, then run Phase 1 per member as its own phase chain — the members' chains advancing in parallel, each ticket's phases still one at a time and all of them entering that ticket's single worktree — then monitor the batch **sequentially** in Phase 2 before forming the next batch.
 
 **Fallback ladder — step down one rung and say which rung you landed on.** Worktrees unavailable → `concurrency=1`. Agent dispatch itself unavailable (already inside a dispatched context, or no agent tooling) → **`concurrency=0`, fully inline** — that is the sanctioned answer here, not a violation.
 
-**Salvage a died build-subagent's worktree before re-dispatching.** A subagent can die from a session/usage limit, an API error, an OOM, or a crash — often *after* writing and committing code but before pushing. A fresh dispatch gets a fresh worktree off base and **discards that work**. So on a failure: read its final report (it usually names the branch), then inspect the worktree (`git -C <wt> status --porcelain`, `git -C <wt> log --oneline @{u}..`). Substantial work → salvage it (push/commit under the ticket branch, then finish the remaining phases from there). Re-dispatch from scratch only when the worktree is empty or the work is unusable. Its complement lives in `implement-code`, which checkpoint-commits and pushes early so there is something to recover.
+**A died subagent's work is still in the ticket's worktree — inspect before re-dispatching.** A subagent can die from a session/usage limit, an API error, an OOM, or a crash — often *after* writing and committing code but before pushing. Because the worktree belongs to the TICKET and not to the agent, the work is exactly where you left it, at `.claude/worktrees/<ticket-key>`, and a re-dispatch re-enters it rather than starting clean — that is most of the recovery. Still look before you re-dispatch: `git -C <wt> status --porcelain` and `git -C <wt> log --oneline @{u}..` tell you which phase actually got done, so you resume at the right one instead of redoing it. Delete the worktree and start over only when its state is unusable. Its complement lives in `implement-code`, which checkpoint-commits and pushes early so a recovery has commits, not just a dirty tree.
 
 ---
 
@@ -152,7 +170,7 @@ Each sub-skill is idempotent on partial state, so re-entering a half-done phase 
 > <phase content>
 > ```
 
-**Dispatch each phase to its named agent** (table above), passing the ticket key, the resolved config, and the receipt it must return; verify that receipt before advancing. Under `concurrency>1` the whole per-ticket pipeline runs inside **one** worktree build-subagent per ticket (pass `mode=concurrent` to `implement-code`) and the orchestrator verifies the returned receipt bundle; the blocker gate, resume logic, and review gate are unchanged.
+**Dispatch each phase to its named agent** (table above), passing the ticket key, the resolved config, and the receipt it must return; verify that receipt before advancing. This holds at **every** concurrency: `N>1` parallelises across TICKETS, never by merging phases into one agent — each ticket's chain still runs phase by phase through its own named agent, and only the `implement` link takes a worktree (pass `mode=concurrent` to `implement-code`). The blocker gate, resume logic, and review gate are unchanged.
 
 1. **`implement-validate`** (`agile-execution:ticket-validator`) → `out-of-scope` (wrong repo) or `rejected` (under-spec'd → Needs Info) → skip the ticket, continue; `critical-park` → escalate one consolidated question, park, continue; `pass` → proceed.
 2. **`implement-plan`** (`agile-execution:ticket-planner`) → plan + AC→test map (`🤖 plan`).
@@ -176,7 +194,7 @@ No ticket may be reported `In Review` until its PR was monitored this run — ev
 
 ## Phase 2b — Worktree cleanup (only after a `concurrency>1` run, best-effort)
 
-Worktrees accumulate across runs, and a lingering one still holds its branch — which makes a later branch delete fail *after* the merge already happened. Clean up at the source, in one pass after Phase 2:
+The per-ticket worktrees this run created (`.claude/worktrees/<ticket-key>`) are the orchestrator's to remove — nothing auto-cleans them, because they are shared across a phase chain rather than owned by one agent. A lingering one still holds its branch, which makes a later branch delete fail *after* the merge already happened. Clean up at the source, in one pass after Phase 2:
 
 ```bash
 git worktree list --porcelain          # what exists, and which branch each holds

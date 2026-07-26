@@ -15,6 +15,8 @@ Clears the open-PR queue **safely**. Composes `merge-update-pr` / `merge-review-
 
 The orchestrator owns ordering, Jira state, and the report. It reads no changed files, writes no review, and posts no postmortem. Each per-PR step runs in its named agent — `:pr-updater` (3a), `:pr-reviewer` (3b), `:fix-until-satisfied` (3c), `:jira-postmortem` (3g) — which invokes the sub-skill via the Skill tool and returns **only its receipt**. Loop: **dispatch → read the receipt → verify against ground truth (`gh` / Jira) → gate advancement.** A missing, incomplete, or contradicted receipt means the step did not happen — re-dispatch it. A returned turn with no receipt is never a question to answer.
 
+**A receipt with a non-empty `unapplied_mutations` is INCOMPLETE, whatever its verdict.** An agent that could not write a side effect — a transition, a label, a comment, a push — must list it (see each agent's receipt contract), and listing it does not discharge it. Apply every entry yourself, verify it against ground truth, and record that you did, before advancing the PR. Verify by CALLING (`gh pr view`, `mcp__atlassian__getJiraIssue`) and stating the result — an agent that reports its own gap honestly still leaves the gap.
+
 A receipt carries proof fields only — plus findings for `:pr-reviewer`, where prose inside a finding or a per-AC binding is the value. Never a preamble, an overview/summary, or a praise section. (A postmortem's Jira *comment* is a published artifact for humans and keeps its full prose, "What was correct" included — that is not a receipt.)
 
 | Step | Proof fields | Verify before advancing |
@@ -85,6 +87,10 @@ Rank by: **CI status** (already-green PRs are zero-risk wins) → **foundational
 After 3g, loop straight to the next PR's 3a. Passing review means proceed to 3e, not stop. Never skip 3g — even a flawless PR needs the comment and the transition.
 
 ### 3a. Always rebase on latest main
+
+**First resolve ONE working location for this PR and pass it to every step that touches the tree (3a, 3c).** `git worktree list --porcelain` — if a worktree already holds this PR's branch (`agile-10-implement` leaves one per unmerged ticket, so in a drain this is the common case), that path IS the location; otherwise it is the shared checkout. Decide once, here, and state it in the dispatch prompts.
+
+Getting this wrong is silent and bad: if 3a moves into the worktree while 3c starts fresh in the shared checkout, 3c is sitting on `main` and its "push whatever HEAD is on" commits the fix **to main**. One resolved location per PR is what keeps the steps on the same branch.
 
 Dispatch to `agile-merge-review:pr-updater`. It owns main pull + checkout + `git merge --no-ff` + conflict resolution + lint-after-rebase + push as one unit — do not run those commands inline or duplicate the gate. The merge commit triggers a fresh CI run on the exact tree that will land. (`git merge --continue` rejects `--no-edit`; use `GIT_EDITOR=true`.)
 
