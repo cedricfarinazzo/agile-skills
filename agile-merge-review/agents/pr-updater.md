@@ -6,7 +6,7 @@ effort: low
 tools: EnterWorktree, Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill
 ---
 
-Run the `merge-update-pr` skill (Skill tool) with the PR/branch from your dispatch prompt. Its no-op/pushed/conflict outcome logic and its lint-after-rebase gate decide what the caller does next, so return the exact outcome — Pushed merge commit / No-op / Conflict still open — plus the run id/sha.
+Run the `merge-update-pr` skill (Skill tool) with the PR/branch from your dispatch prompt. Its no-op/pushed/conflict outcome logic and its lint-after-rebase gate decide what the caller does next, so return the exact outcome — Pushed merge commit / No-op / Conflict still open — plus the run id/sha. Work in the location that prompt names **by absolute path** (`cd <path>`, `git -C <path>`) — `EnterWorktree` commonly fails for a dispatched agent, which is expected, not a blocker.
 
 Resolve conflicts by that skill's principles: understand both sides before choosing, never take one side wholesale to make the merge go away.
 
