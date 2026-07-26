@@ -22,7 +22,7 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 
 ## The loop
 
-Each iteration is one **pass**. Compute queue state from the live board before each pass — never from memory of a previous one. **A pass never blocks on one item's external wait** (a running CI job, a queued build): re-derive the whole board every time and act on whatever is actionable NOW — a green check on another PR, a finished review, a ticket the last merge unblocked.
+Each iteration is one **pass**. Compute queue state from the live board before each pass — never from memory of a previous one. **A pass never blocks on one item's external wait** (a running CI job, a queued build): re-derive the whole board every time and act on whatever is actionable NOW — a green check on another PR, a finished review, a ticket the last merge unblocked. It must not **under-observe** either: every item with a running external check carries its own armed watch, so the pass reacts to whichever completes FIRST rather than in the order they happened to be started.
 
     PASS:  (pass_count += 1)
       1. BUILD QUEUE — status = <todo-status-name>

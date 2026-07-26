@@ -140,7 +140,7 @@ until [ "$(gh run view $RUN --json status --jq .status)" = "completed" ]; do sle
 gh run view $RUN --json status,conclusion,jobs
 ```
 
-Run it with Bash `run_in_background: true` — never chain foreground `sleep`s, and never idle the train while it completes: keep advancing other PRs' non-merging phases (rebase, review, fix) meanwhile — only the merge itself is serialized. Assert `conclusion == "success"` on that named id. **If you cannot state the run id at 3f, you may not merge.**
+Run it with Bash `run_in_background: true` — never chain foreground `sleep`s, and never idle the train while it completes: keep advancing other PRs' non-merging phases (rebase, review, fix) meanwhile — only the merge itself is serialized. **Arm one watcher per run, for every PR whose run you are waiting on** — not just the one in focus: a run that completes unobserved is indistinguishable from one still queued, and that delay is pure loss because a green run is immediately actionable while the merge is the serialized step. Assert `conclusion == "success"` on that named id. **If you cannot state the run id at 3f, you may not merge.**
 
 **No-op path (3a returned No-op):** no new run will start. Read the existing run on branch HEAD once and verify it still covers the landable tree with `git merge-base --is-ancestor origin/main <run-sha>` — exit 0 → valid, proceed to 3f; exit 1 → contradicts the no-op signal, investigate rather than forcing an empty commit.
 
