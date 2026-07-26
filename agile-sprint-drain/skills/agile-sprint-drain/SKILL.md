@@ -54,6 +54,9 @@ Each iteration is one **pass**. Compute queue state from the live board before e
       5. merge_torun = open PRs not retired HUMAN-BLOCKED
          if non-empty:
            call agile-11-merge-train inline; fold its per-PR outcomes into the LEDGER
+           # a green, reviewed PR enters the train while other tickets are still
+           # building — merges stay strictly sequential among themselves, but they
+           # never wait for the build queue to drain.
 
       # The counts still include human-blocked items, so DRAINED never fires over
       # them; only the RUN sets exclude them, so a parked ticket isn't re-ground

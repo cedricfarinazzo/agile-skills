@@ -50,7 +50,7 @@ A receipt carries proof fields only — plus findings for `review` / `review-len
 
 Three dispatch gotchas:
 
-- **A collapsed pipeline still owes every phase's Jira transition.** The `validate → In Progress` write belongs to `implement-validate`, so it normally lands inside `ticket-validator`. Under `concurrency>1` that phase runs inside the build subagent instead — which must therefore be able to transition, and must be told to. Symptom when it is not: correct `🤖 validate` / `🤖 plan` markers, code being committed, and the ticket still sitting at `todo-status-name`. Verify status per ticket once a batch returns and apply any missing transition yourself; a posted marker is not proof its transition landed.
+- **A collapsed pipeline still owes every phase's Jira transition.** The `validate → In Progress` write belongs to `implement-validate`, so it normally lands inside `ticket-validator`. Under `concurrency>1` that phase runs inside the build subagent instead — which must therefore be able to transition, and must be told to. Symptom when it is not: correct `🤖 validate` / `🤖 plan` markers, code being committed, and the ticket still sitting at `todo-status-name`. Verify status per ticket once its chain returns and apply any missing transition yourself; a posted marker is not proof its transition landed.
 - **A build subagent cannot discover the project's gate.** It does not inherit the consumer `CLAUDE.md` / `AGENTS.md` or the CI workflow, so paste the complete gate list verbatim into its prompt (every CI lint command, not just the formatter, plus the test tiers and repo validators) and require a real exit code per gate. A gate left out of the prompt is how a delegated build passes locally and fails CI.
 - **A whole-ticket dispatch stops at push.** Because `implement-code` correctly ends at push, one agent handed a whole ticket returns a valid receipt for under-scoped work — no PR, no transition. Enumerate the `pr` and `status_change` steps in that prompt, or run those phases yourself afterwards.
 
@@ -60,7 +60,7 @@ The project has a **single shared Docker Compose stack**, so stack access is str
 
 - **`concurrency=0` — fully inline.** Every phase runs in the orchestrator's own context via the Skill tool; no `Agent` call at any layer. Same sequence, same resume logic, same receipts (written out and checked explicitly — "I already did that step" is not a receipt). This is the required mode when this skill is itself invoked from a dispatched context, since dispatch nesting depth is 1.
 - **`concurrency=1` (default) — one ticket at a time**, each phase dispatched to its named agent, no worktree.
-- **`concurrency=N>1` — up to N mutually independent tickets in parallel.** Each ticket runs the SAME per-phase chain as `concurrency=1`, in its own named agent per phase; N chains advance concurrently. A worktree isolates the filesystem but not the stack, so a concurrent `implement` runs the **stack-free gate only** (lint + unit + typecheck + migration linearity) and defers the **stack-bound tiers** (integration, e2e, apply-on-fresh-DB) to CI — see `implement-code`.
+- **`concurrency=N>1` — N caps the tickets IN FLIGHT; it is not a batch size.** Each ticket runs the SAME per-phase chain as `concurrency=1`, in its own named agent per phase, and advances that chain independently — siblings sitting at *different* phases at once (one planning, one implementing, one in a fix cycle) is the intended steady state, not a defect. A ticket leaving the pipeline frees its slot immediately. A worktree isolates the filesystem but not the stack, so a concurrent `implement` runs the **stack-free gate only** (lint + unit + typecheck + migration linearity) and defers the **stack-bound tiers** (integration, e2e, apply-on-fresh-DB) to CI — see `implement-code`.
   - **ONE worktree per TICKET, shared by that ticket's whole phase chain.** Every phase needs the code — `validate` and `plan` read it, `implement` writes it, `pr` reads the resulting diff — and they should all read the SAME tree. So the isolation boundary is the ticket, not the phase:
 
     1. **The orchestrator creates it**, before dispatching `validate`, at a deterministic path under `.claude/worktrees/` named for the ticket, on the ticket's feature branch:
@@ -77,7 +77,7 @@ The project has a **single shared Docker Compose stack**, so stack access is str
   - **Precondition:** the consumer repo's CI must run the stack-bound tiers **on pull requests**. If it runs them nightly, on-main-only, or behind a manual label, integration runs nowhere before merge — use `concurrency=1` instead. This is the floor under the whole defer-to-CI story.
   - **Inside its ticket's worktree an agent mutates freely; the SHARED checkout is off limits to every one of them.** A tree-wide `checkout`, branch switch, stash, or commit there corrupts every sibling ticket's worktree. A failed `EnterWorktree` is NOT that case — keep going by absolute path. Reserve `blocked` for a worktree that is genuinely **missing or unusable**: then read the shared checkout **read-only** (`git show <ref>:<path>`), never git-mutate it, and emit the receipt with `blocked` naming the path and the failure. Within one ticket the phases run strictly one at a time, so sharing a tree never races; two tickets never share one.
 
-Phase 2 monitoring/rework always runs **sequentially** — a red integration check needs the stack to reproduce. Read-only work parallelises freely.
+Phase 2 monitoring/rework always runs **sequentially** — a red integration check needs the stack to reproduce — but it never gates admitting new tickets. Read-only work parallelises freely.
 
 ## Configuration
 
@@ -135,16 +135,15 @@ Starting on PROJ-31.
 
 ---
 
-## Phase 0.5 — Batch selection (only when `concurrency > 1`)
+## Phase 0.5 — Admission control (only when `concurrency > 1`)
 
-Form the parallel batch from the eligible, dependency-ordered list:
+Keep N tickets in flight. Whenever a slot frees, admit the next eligible ticket in dependency order, re-evaluating these constraints **at that moment** against the tickets ALREADY in flight:
 
-1. **Mutually independent only** — no "is blocked by" edge among them. Concurrency never relaxes the blocker gate.
-2. **No planned-file overlap** — compare each ticket's `plan` receipt `files-to-touch` (or a light grep, or reuse `agile-8-refinement`'s `sprint-shared-file-audit`); overlapping tickets go in a later batch.
-3. **At most one migration-adding ticket per batch.** Two migrations touch *different* files, so the overlap filter misses them, but both landing splits the migration history and neither worktree's linearity gate can see the sibling's.
-4. **Cap at N** (dependency order).
+1. **Mutually independent only** — no "is blocked by" edge among the in-flight set. Concurrency never relaxes the blocker gate.
+2. **No planned-file overlap** with a ticket already in flight — compare each ticket's `plan` receipt `files-to-touch` (or a light grep, or reuse `agile-8-refinement`'s `sprint-shared-file-audit`). **Binds from `implement` onward only:** `validate` and `plan` are read-only, so run them for any eligible ticket even while its `implement` waits on a sibling — a pre-planned ticket starts coding the instant a slot frees.
+3. **At most one migration-adding ticket in flight.** Two migrations touch *different* files, so the overlap filter misses them, but both landing splits the migration history and neither worktree's linearity gate can see the sibling's.
 
-Announce it (`══ batch: PROJ-31, PROJ-34, PROJ-37 (concurrency 3) ══`), create each member's worktree, then run Phase 1 per member as its own phase chain — the members' chains advancing in parallel, each ticket's phases still one at a time and all of them entering that ticket's single worktree — then monitor the batch **sequentially** in Phase 2 before forming the next batch.
+Announce each admission (`══ admit PROJ-34 — 3/3 in flight ══`), create its worktree, then run Phase 1 for it as its own phase chain — chains advancing in parallel, each ticket's phases still one at a time and all of them entering that ticket's single worktree. A ticket leaves the pipeline when its PR is open and handed off (or it is skipped/parked); admit its replacement **then**, never after waiting for a whole group to clear.
 
 **Fallback ladder — step down one rung and say which rung you landed on.** Worktrees unavailable → `concurrency=1`. Agent dispatch itself unavailable (already inside a dispatched context, or no agent tooling) → **`concurrency=0`, fully inline** — that is the sanctioned answer here, not a violation.
 
@@ -188,7 +187,7 @@ Each sub-skill is idempotent on partial state, so re-entering a half-done phase 
 
 **Mandatory — the run is not complete without it.** Every ticket in the rework queue **and** every ticket this run moved to `In Review` goes through `implement-monitor` on its PR. Jumping from the last build straight to the report is the most common orchestrator failure: a green self-review says nothing about whether CI is green.
 
-**Dispatch each PR to `agile-execution:build-monitor`** (inline via the Skill tool under `concurrency=0`) and verify its receipt per the gate table. It handles new review comments, failing checks, and conflicts, filtered by the last `🤖 agile:phase=rework` marker. It is best-effort on *human* review latency, but **not** on CI — a `FAILURE`/`UNSTABLE` check caused by this run's code is diagnosed and fixed now. It touches the shared stack, so it runs **sequentially**, including after a concurrent Phase-1 batch: a red deferred integration check is reproduced and fixed here, never pushed-and-deferred back to CI unfixed.
+**Dispatch each PR to `agile-execution:build-monitor`** (inline via the Skill tool under `concurrency=0`) and verify its receipt per the gate table. It handles new review comments, failing checks, and conflicts, filtered by the last `🤖 agile:phase=rework` marker. It is best-effort on *human* review latency, but **not** on CI — a `FAILURE`/`UNSTABLE` check caused by this run's code is diagnosed and fixed now. It touches the shared stack, so PRs are monitored **one at a time** — start a PR's monitoring when THAT PR's CI completes, and never hold admission of new tickets for it: a red deferred integration check is reproduced and fixed here, never pushed-and-deferred back to CI unfixed.
 
 No ticket may be reported `In Review` until its PR was monitored this run — evidenced by a `🤖 rework` marker or a recorded clean-monitor result.
 
