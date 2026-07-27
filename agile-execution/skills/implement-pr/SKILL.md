@@ -18,6 +18,8 @@ The build is already done; this phase only describes it. Build the body from **t
 
 `gh pr list --state open --head <branch> --json number,url` → found: `gh pr edit` (refresh title/body); none: `gh pr create --base <base-branch>`.
 
+**Staging the body through a file? Name it for the ticket** (`pr-<TICKET>.md`, never `pr.md`) — concurrent phase agents share one temp dir, so a generic name lets a sibling's overwrite publish its ticket's body under yours. **Then verify what actually landed:** `gh pr view <N> --json body` and confirm the ticket key is yours. `gh` reports success on the bytes it was handed, not on the ones you meant to write — a body naming another ticket is the one defect the author is structurally unable to notice.
+
 **Title:** `[TICKET] <Story summary>`
 
 **Body sections:**
