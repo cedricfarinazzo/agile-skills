@@ -43,9 +43,13 @@ Each iteration is one **pass**. Compute queue state from the live board before e
       3. EXIT: build_count == 0 AND merge_count == 0 AND inflight_count == 0
                                                      -> DRAINED
 
-      4. build_torun = eligible To-Do + non-parked in-flight tickets,
+      4. BUILD BACKPRESSURE — while merge_count > 2 x N (N = build concurrency),
+         SKIP this step: no new ticket enters the build queue this pass.
+         Step 5 still runs, so the pass does review/fix/merge work only.
+
+         build_torun = eligible To-Do + non-parked in-flight tickets,
                        MINUS anything retired HUMAN-BLOCKED in the LEDGER
-         if non-empty:
+         if non-empty AND not backpressured:
            call agile-10-implement inline [concurrency=N] [keys=<in-flight keys>]
            # pass in-flight keys explicitly — agile-10 selects To-Do by default and
            # would otherwise skip an In-Progress ticket; it resumes each via markers.
@@ -72,6 +76,8 @@ Each iteration is one **pass**. Compute queue state from the live board before e
            if actionable is empty AND items remain -> STUCK (report each reason)
            if pass_count >= MAX_PASSES            -> STUCK (oscillation ceiling)
            else                                   -> goto PASS
+
+**Why build backpressure at `2 x N`**: the train merges strictly sequentially and every merge moves the base, so each still-open PR may need a rebase and a **fresh** verification run — with P open PRs a naive drain costs O(P²) runs, and more where CI validates serially. Past that line an extra PR ships nothing sooner; it just lengthens a queue the next merge re-invalidates. Backpressure caps P instead. Two exceptions: a **fix** dispatch on an already-open PR is always allowed (it repairs a queue entry rather than adding one), and a finished plan keeps — resume that ticket's build from its marker once the count drops. Skip a rebase you can prove unnecessary (merged file set disjoint from the PR's, or the exercised subtree byte-identical between the verified base and the new tip) rather than re-running on principle.
 
 **Why an actionable-work guard rather than "zero progress this pass"**: a pass that nets zero board movement is not proof the work is unresolvable — it may hold a flaky check that reruns green, a rework not yet attempted, a review one cycle from converging. Stopping on the first such pass abandons exactly the work the loop exists to grind through. The anti-spin guarantee is the **per-item fingerprint**, which retires only the item that is actually stuck while everything else keeps advancing.
 
