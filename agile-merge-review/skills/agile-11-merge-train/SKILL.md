@@ -137,6 +137,8 @@ PREV=$(gh run list --branch <branch> -L1 --json databaseId --jq '.[0].databaseId
 until [ "$(gh run list --branch <branch> -L1 --json databaseId --jq '.[0].databaseId')" != "$PREV" ]; do sleep 20; done
 RUN=$(gh run list --branch <branch> -L1 --json databaseId --jq '.[0].databaseId')
 until [ "$(gh run view $RUN --json status --jq .status)" = "completed" ]; do sleep 20; done
+sleep 10   # the first terminal read can be wrong — confirm it before acting (see below)
+[ "$(gh run view $RUN --json status --jq .status)" = "completed" ] || exit 1
 gh run view $RUN --json status,conclusion,jobs
 ```
 
