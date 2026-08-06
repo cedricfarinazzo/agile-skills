@@ -39,10 +39,10 @@ Read the `🤖 agile:phase=plan` comment on the ticket (written by `implement-pl
 
 Not done until all of these hold on the latest pushed commit. If any applicable gate fails, keep working (or return `critical`) — never return success and never hand off to `implement-pr`.
 
-1. **All lint gates pass** — "lint" means *every command the CI lint job runs*, not just the formatter. CI lint jobs bundle extra checks (style/asset validators, i18n or dead-string checks, schema-drift and generated-file guards, bundle-size budgets, custom scripts): read the CI workflow and run each locally. Verify by **real exit code** — a piped or `xargs` exit can mask the tool's own status. A missed gate fails CI and **skips** the downstream jobs. *(both modes)*
+1. **All lint gates pass** — "lint" means *every command the CI lint job runs*, not just the formatter. CI lint jobs bundle extra checks (style/asset validators, i18n or dead-string checks, schema-drift and generated-file guards, bundle-size budgets, custom scripts): read the CI workflow and run each locally. Verify by **real exit code** — a piped or `xargs` exit can mask the tool's own status. A missed gate fails CI and **skips** the downstream jobs. **A gate that reads build output verifies the build's own exit code first** — otherwise it silently reports on the previous build's artifacts. *(both modes)*
 2. **Stack-free tests green** — unit + typecheck, locally, with no skips or xfails hiding a failure. *(both modes)* If this project's "unit" tests actually hit the DB, they are not stack-free: say so and stop rather than running them in a worktree — the run needs `concurrency=1`.
 3. **Stack-bound tests** — integration + e2e. **Sequential:** run locally and green. **Concurrent:** written but **deferred to CI**; record the deferral in the marker. CI's run on the open PR is their gate, enforced at merge by `agile-11-merge-train`'s fresh-CI-green hard gate.
-4. **Every AC satisfied and test-covered** — walk the plan's AC→test map. An AC with no test means the gate is not met. *(both modes)*
+4. **Every AC satisfied and test-covered — and the load-bearing one MUTATION-PROVEN** — walk the plan's AC→test map. An AC with no test fails the gate; so does an AC whose test *cannot* fail. Take the AC whose silent breakage would cost most: break what it guards, watch the test go **RED**, revert. **Confirm the mutation applied** — a formatter that rewrote the target line, or an edit script that died before writing, yields a green run indistinguishable from a passing guard. *(both modes)*
 5. **Migration history-linearity** (static, both modes) — if the change adds a migration, confirm the history resolves to a **single latest version**: no colliding or duplicate version identifiers, no two scripts sharing a parent. A split history makes the migrate step run an older or no-op version and **silently skip the new schema objects** while tests pass against a stale schema.
 6. **Migration apply-on-fresh-DB** — apply on a clean database, confirm the expected objects exist, re-apply once for idempotency. **Sequential:** here. **Concurrent:** deferred to CI (5 is the local half).
 
@@ -64,7 +64,7 @@ Confirm with `git show --stat HEAD` that every expected file is there and `git s
 
 ## Marker — mandatory, exact format
 
-Post via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML comment** or resume detection (which greps `🤖 <!-- agile:phase=... -->`) misses it and the phase re-runs. The gate receipt — each command with its **real exit code**, plus any `DEFERRED TO CI` line — is what the orchestrator verifies against the pushed branch; a marker asserting green with no per-command exit codes fails the gate. Never delete prior markers.
+Post via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). The comment **must begin with the literal HTML comment** or resume detection (which greps `🤖 <!-- agile:phase=... -->`) misses it and the phase re-runs. The gate receipt — each command with its **real exit code**, plus any `DEFERRED TO CI` line — is what the orchestrator verifies against the pushed branch; a marker asserting green with no per-command exit codes fails the gate, and one asserting AC coverage with no `Mutation:` line fails it too. Never delete prior markers.
 
 ```
 🤖 <!-- agile:phase=implement --> **implement — agile-10-implement — <YYYY-MM-DD>**
@@ -75,5 +75,6 @@ Gate receipt:
   integration: <cmd>  → exit 0   |   DEFERRED TO CI (concurrent — worktree cannot hold the stack)
   migration:   history-linear ✓  |  apply-on-fresh-DB → exit 0 | DEFERRED TO CI
 AC coverage: <N>/<N> (stack-bound ACs: written, CI-gated)
+Mutation:    AC<N> — <defect introduced> → <N> RED, reverted
 <what was built/fixed>
 ```

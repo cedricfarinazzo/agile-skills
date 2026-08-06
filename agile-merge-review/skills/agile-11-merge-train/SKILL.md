@@ -142,6 +142,8 @@ gh run view $RUN --json status,conclusion,jobs
 
 Run it with Bash `run_in_background: true` — never chain foreground `sleep`s, and never idle the train while it completes: keep advancing other PRs' non-merging phases (rebase, review, fix) meanwhile — only the merge itself is serialized. **Arm one watcher per run, for every PR whose run you are waiting on** — not just the one in focus: a run that completes unobserved is indistinguishable from one still queued, and that delay is pure loss because a green run is immediately actionable while the merge is the serialized step. Assert `conclusion == "success"` on that named id. **If you cannot state the run id at 3f, you may not merge.**
 
+**Re-read a terminal status once before acting on it.** The API is eventually consistent: a single poll can report `completed` with a conclusion the next call contradicts, and a watcher that exits on the first terminal read carries that wrong answer into 3f. Two agreeing reads, or the run is not finished. A conclusion no second read confirms is not evidence — of green *or* of red.
+
 **No-op path (3a returned No-op):** no new run will start. Read the existing run on branch HEAD once and verify it still covers the landable tree with `git merge-base --is-ancestor origin/main <run-sha>` — exit 0 → valid, proceed to 3f; exit 1 → contradicts the no-op signal, investigate rather than forcing an empty commit.
 
 **Diagnosing a red run:**

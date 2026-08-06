@@ -42,7 +42,7 @@ A receipt carries proof fields only — plus findings for `review` / `review-len
 |-------|--------------|-------------------------|
 | `validate` | score **+ per-criterion breakdown** (all 7, AC/DoD quoted) + `Transitioned: <from> → <to>` | Jira status == `In Progress`; a bare `pass` with no breakdown = not-run |
 | `plan` | AC→test map + files-to-touch | `plan` marker present with a non-empty AC→test map |
-| `implement` | each gate command **+ its real exit code**; AC→test coverage; (concurrent) tier-deferral note | `git show --stat <branch>` confirms the pushed commits |
+| `implement` | each gate command **+ its real exit code**; AC→test coverage; **a `Mutation:` line naming the defect introduced and the RED count**; (concurrent) tier-deferral note | `git show --stat <branch>` confirms the pushed commits; **AC coverage with no `Mutation:` line = not-run** — a test that cannot fail is not coverage |
 | `pr` | PR url + `Test tiers` section in the body + label | `gh pr view --json state,body,labels`; (concurrent) `integration-deferred` present; the **body must cite THIS ticket's key and match this PR's own diff** — parallel publishers do emit a sibling's body (right title, wrong scope claims, e.g. "no schema change" on a PR that changes it) = not-run → re-dispatch |
 | `review` | lens-keyed findings (each ≥1 `file:line`, or explicit "N/A because…"); Files-read list; per-AC line binding | Files-read **must equal** `gh pr diff <N> --name-only`; reject any AC with no cite and any bare ✅ lens |
 | `status_change` | transition applied + marker posted | `mcp__atlassian__getJiraIssue` == `in-review-status-name`; marker present |
@@ -102,6 +102,8 @@ Optional. Explicit ticket keys → run the pipeline on just those; default is th
 Invoking this skill authorises the **full per-ticket pipeline for every eligible ticket in the queue**. Never pause for confirmation between phases or tickets. The only authorised stops are the Stop conditions at the bottom, plus the per-ticket validation gate (which skips one ticket, not the run).
 
 Decide and document everything reversible — naming, structure, test approach, an ADR pattern, an HTTP status. Flag it in the PR; never stop for it.
+
+**Scope accepted mid-flight goes back into the ticket before `implement-pr`.** A requirement added while the build is running leaves the ticket describing work that is not what shipped — so the PR is reviewed against one scope and the ticket closed against another. Append it to the ticket, then implement it; never let the PR body be the only record.
 
 **Waiting on CI is never a stop.** A check runs for tens of minutes and is usually the critical path: while it runs, advance every other admissible item — plan the next ticket, self-review or open a PR, process rework — and re-sweep the board's actual state each turn rather than watching one job. Every in-flight ticket's check run gets its own background watch, and board state is re-derived from those watches — not from memory of which one you last looked at. Attention parked on a monitor is how a green run goes unnoticed.
 

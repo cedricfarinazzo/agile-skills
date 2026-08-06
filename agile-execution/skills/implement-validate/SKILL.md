@@ -45,6 +45,8 @@ An AC naming a file, test, or symbol that does not exist — or that pins someth
 
 Note it in the marker (`Spec drift: AC<N> references <X> — verify at plan time`) and let it `pass`. `implement-plan` owns the correction: it establishes ground truth, posts a `🤖 <!-- agile:spec-correction -->` comment with evidence, and satisfies the AC **by intent**. Reject only when the *intent* is unrecoverable (criterion 7's blocking unknown), never for a broken pointer.
 
+**A false PREMISE is the same class as a broken pointer.** A ticket asserting a behaviour ("nothing covers X", "this path is unreachable") can simply be wrong — written from inspection, or true when filed and not since. Same handling: correct it, never quietly work around it. The correction belongs in the ticket **and** in the PR body — a PR whose stated justification is one the author already knows is false gets reviewed against the wrong question.
+
 ## Critical-decision pre-check
 
 If validating already surfaces a **critical** decision — irreversible or high-blast-radius **and** not derivable from the ADR/PRD/Specs (destructive migration, auth/security change, breaking a shared contract, a new paid or infra dependency, data-loss risk) — return **`critical-park`** with the decision, the options, and your recommendation. The orchestrator escalates one consolidated question and parks the ticket. Never guess a critical decision into the spec.
