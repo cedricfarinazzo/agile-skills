@@ -91,7 +91,9 @@ Epic: [PROJ-XXX] · Specs UI screen: [direct Confluence anchor] · PRD: FR-XX
 - [ ] Tech Lead review approved
 - [ ] Tested on [staging / local env]
 - [ ] No regressions in related Stories
-- [ ] Specs UI screen matched (if a UI Story)
+- [ ] UI Story: Specs-UI match **shown, not asserted** — an evidence artefact (a screenshot of the
+      screen at each supported viewport) plus an automated a11y check that FAILS the build. See the
+      project's QA doc for what counts; "matched" with no artefact is unfalsifiable.
 ```
 
 Every AC must be **falsifiable** (a dev agent can write a test for it), **specific** (no "fast", "nice", "user-friendly"), and **scoped** (it does not bleed into another Story's territory).
