@@ -1,6 +1,6 @@
 ---
 name: test-refactor
-description: "Audit one test suite at a time for dead weight, duplication, parallel-unsafety and runtime cost, then ticket and ship the cleanup as a PR train — with production code frozen and coverage proven, not assumed. Triggers: test refactor, clean the tests, refactor the tests, test suite audit, DRY the tests, parallelize the test suite, speed up the tests."
+description: "Audit one test suite at a time for dead weight, duplication, parallel-unsafety and runtime cost, then ticket and ship the cleanup as a PR train — with production code frozen and good coverage kept, proven per module rather than assumed. Triggers: test refactor, clean the tests, refactor the tests, test suite audit, DRY the tests, parallelize the test suite, speed up the tests."
 user-invocable: true
 ---
 
@@ -8,7 +8,7 @@ user-invocable: true
 
 The sibling of `deep-refactor`, with the contract inverted. There, the test suite is the frozen proof that a refactor preserved behavior. Here the tests **are** the object of change — so the frozen side is **production code** (a test refactor that "needs" a production edit is out of scope; a real defect a test uncovers is reported and ticketed separately, never smuggled into a test PR), and the proof that rigor survived is **measured**: per-module coverage parity plus a demonstration that every touched test can still fail.
 
-**The goal is a suite that is clean, DRY, easy to understand, worth trusting — and cheap to run.** A test that cannot fail, or that fails without naming what broke, is worse than no test: it spends CI time buying false confidence. And the suite's wall-clock and memory footprint are deliverables in their own right: every second and megabyte it costs is paid on every push, by every contributor, forever.
+**The goal is a suite that is clean, DRY, easy to understand, worth trusting, cheap to run — and that keeps good coverage.** A test that cannot fail, or that fails without naming what broke, is worse than no test: it spends CI time buying false confidence. The suite's wall-clock and memory footprint are deliverables in their own right: every second and megabyte it costs is paid on every push, by every contributor, forever. And coverage is a goal, never a casualty: this skill removes tests that cover *nothing* and duplication that covers things *twice* — deletions and merges hold per-module coverage at or above the baseline, and the depth phase pushes it up where the platform is critical. A cleanup that ends with less real coverage than it started with has failed, whatever else it improved.
 
 **One suite at a time.** The user names the scope (e.g. "backend unit tests", "frontend component tests", "integration"). Everything outside it is untouchable this run; cross-suite findings go in the report as follow-ups.
 

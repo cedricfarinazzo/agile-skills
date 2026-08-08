@@ -21,7 +21,7 @@ Two skills sharing one discipline: audit deeply, prove every claim, ship as a se
 - Merge duplicate coverage into parametrized tests; parametrized cases are distinct coverage, not duplication; deepen critical paths.
 - Profile-driven runtime cost: suite wall-clock + peak memory are baselined in the audit and gated per PR (measured before/after; a speedup never bought with coverage).
 - **Single-parallel-run invariant**: the whole suite runs in one parallel invocation in the CI test job — parallelism conflicts are fixed by isolating the test (unique schemas/ports/dirs per worker, no shared state, no sleeps), never by splitting the run, serializing, or retrying.
-- Per-module coverage parity against the audit baseline, gated per PR.
+- Keeping good coverage is a stated goal: per-module parity against the audit baseline gated per PR, depth additions on critical paths push it up — a cleanup that ends with less real coverage has failed.
 
 ## Install
 
