@@ -1,6 +1,6 @@
 {
   "name": "deep-refactor",
-  "description": "Codebase-wide audit-and-ship workflow for Claude Code — parallel constraint-vetted audit, evidence-backed report, sequenced ticket train (bugs first, structural splits last), and a PR drain that preserves the test contract: pins inventoried before proposing, claims measured not inferred, verification by real workload, no merge without a self-verified green run.",
+  "description": "Audit-and-ship workflows for Claude Code: deep-refactor (codebase-wide audit, evidence-backed report, sequenced ticket train, PR drain preserving the test contract) and test-refactor (per-suite test audit with production code frozen \u2014 dead-test deletion with evidence, parametrized merges, single-parallel-run isolation, per-module coverage parity). Pins inventoried before proposing, claims measured not inferred, non-vacuity proofs on every touched guard, no merge without a self-verified green run.",
   "version": "0.1.0",
   "author": {
     "name": "cedricfarinazzo",
