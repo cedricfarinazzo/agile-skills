@@ -4,7 +4,7 @@
 
 [Claude Code](https://claude.ai/code) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
 
-Raw idea → sprint retro, wired into **Confluence** and **Jira**. Six focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
+Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
 
 | Plugin | Phase | Skills | Needs |
 |--------|-------|--------|-------|
@@ -14,6 +14,7 @@ Raw idea → sprint retro, wired into **Confluence** and **Jira**. Six focused p
 | [**agile-merge-review**](agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
 | [**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
 | [**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
+| [**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept) | `gh` + your tracker |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
 
@@ -97,6 +98,7 @@ Each skill reads from what the previous skill wrote (Confluence pages, Jira issu
 /plugin install agile-merge-review@agile-skills
 /plugin install agile-sprint-close@agile-skills
 /plugin install agile-sprint-drain@agile-skills   # needs execution + merge-review
+/plugin install deep-refactor@agile-skills        # out-of-cycle: deep-refactor + test-refactor
 /reload-plugins
 ```
 
