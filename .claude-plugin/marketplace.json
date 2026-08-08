@@ -7,33 +7,66 @@
   "plugins": [
     {
       "name": "agile-product",
-      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-product" },
-      "description": "Product discovery — Vision Doc, PRD, Design Brief / Specs UI, ADR in Confluence."
+      "source": {
+        "source": "git-subdir",
+        "url": "cedricfarinazzo/agile-skills",
+        "path": "agile-product"
+      },
+      "description": "Product discovery \u2014 Vision Doc, PRD, Design Brief / Specs UI, ADR in Confluence."
     },
     {
       "name": "agile-planning",
-      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-planning" },
-      "description": "Planning — Roadmap (short index + MVP/Iteration pages), Epics, Stories, Refinement, Sprint Planning."
+      "source": {
+        "source": "git-subdir",
+        "url": "cedricfarinazzo/agile-skills",
+        "path": "agile-planning"
+      },
+      "description": "Planning \u2014 Roadmap (short index + MVP/Iteration pages), Epics, Stories, Refinement, Sprint Planning."
     },
     {
       "name": "agile-execution",
-      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-execution" },
-      "description": "Autonomous execution — implement the active board's sprint (Scrum/Kanban) ticket by ticket and self-review each PR. Needs gh."
+      "source": {
+        "source": "git-subdir",
+        "url": "cedricfarinazzo/agile-skills",
+        "path": "agile-execution"
+      },
+      "description": "Autonomous execution \u2014 implement the active board's sprint (Scrum/Kanban) ticket by ticket and self-review each PR. Needs gh."
     },
     {
       "name": "agile-merge-review",
-      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-merge-review" },
-      "description": "Merge-review — deep PR review, fix-until-satisfied, rebase, Jira postmortem, multi-PR merge train. Needs gh. (Formerly dev-skills.)"
+      "source": {
+        "source": "git-subdir",
+        "url": "cedricfarinazzo/agile-skills",
+        "path": "agile-merge-review"
+      },
+      "description": "Merge-review \u2014 deep PR review, fix-until-satisfied, rebase, Jira postmortem, multi-PR merge train. Needs gh. (Formerly dev-skills.)"
     },
     {
       "name": "agile-sprint-close",
-      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-sprint-close" },
-      "description": "Sprint-close — tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), retrospective."
+      "source": {
+        "source": "git-subdir",
+        "url": "cedricfarinazzo/agile-skills",
+        "path": "agile-sprint-close"
+      },
+      "description": "Sprint-close \u2014 tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), retrospective."
     },
     {
       "name": "agile-sprint-drain",
-      "source": { "source": "git-subdir", "url": "cedricfarinazzo/agile-skills", "path": "agile-sprint-drain" },
-      "description": "Sprint-drain — auto-alternate agile-10-implement and agile-11-merge-train to a fixed point, with an actionable-work guard. Requires agile-execution + agile-merge-review. Needs gh + Atlassian MCP."
+      "source": {
+        "source": "git-subdir",
+        "url": "cedricfarinazzo/agile-skills",
+        "path": "agile-sprint-drain"
+      },
+      "description": "Sprint-drain \u2014 auto-alternate agile-10-implement and agile-11-merge-train to a fixed point, with an actionable-work guard. Requires agile-execution + agile-merge-review. Needs gh + Atlassian MCP."
+    },
+    {
+      "name": "deep-refactor",
+      "source": {
+        "source": "git-subdir",
+        "url": "cedricfarinazzo/agile-skills",
+        "path": "deep-refactor"
+      },
+      "description": "Codebase-wide audit \u2192 report \u2192 ticket train \u2192 PR drain, preserving the test contract (pin inventories, measured claims, real-workload verification)."
     }
   ]
 }
