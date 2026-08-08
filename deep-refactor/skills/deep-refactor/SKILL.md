@@ -6,7 +6,7 @@ user-invocable: true
 
 # deep-refactor
 
-**The goal is code that is clean, DRY and easy to understand — delivered without touching the tests, which must pass unchanged.** The existing suite is the behavior contract; the refactor's whole claim to safety is that the contract never moved. (Exactly one ticket, the structural one, may amend the contract — and it enumerates every edit in advance.)
+**The goal is code that is clean, DRY and easy to understand.** The existing test suite is the proof that behavior didn't move — which means **editing a test to make a refactor pass is cheating**: it silently rewrites the contract you're claiming to preserve. Treat every test edit as a red flag to design around (aliases, facades, injection), not a convenience. The rare edit that is genuinely warranted — a fixture that encodes a bug, a guard whose shape must follow a file split — is done in the open: enumerated in advance, justified per file, concentrated in one ticket.
 
 Four phases: **audit → report → ticket → drain**. The discipline that makes it safe at scale: nothing is proposed until it has been vetted against the codebase's *change constraints*, and nothing is claimed until it has been measured or executed.
 
@@ -35,7 +35,7 @@ Slice into a sequenced train, one ticket = one PR:
 1. **Bug batch** — each fix gets a locking test for its (invariably untested) failing path.
 2. **Correctness fixes whose test fixtures encode the bug** — fixture edits in scope, each enumerated.
 3. **Infra/dependency diet** — with guard tests, because an image-only break is invisible to a unit suite.
-4. **Behavior-preserving refactor tickets** — the default and the bulk of the train. Hard constraint stated in each ticket: *zero test edits, suite green unchanged*. Readability is a deliverable, not a side effect: decompose monster functions in place (phase helpers, names bound in the same module), fix comments that lie about the code, and prefer the change a newcomer can follow. Pins preserved via aliases at the old path, re-export facades, and parameter injection (pass the patched object in; never import it into the new home).
+4. **Behavior-preserving refactor tickets** — the default and the bulk of the train. The suite passes unchanged; reaching for a test edit here means the refactor is wrong, not the test. Readability is a deliverable, not a side effect: decompose monster functions in place (phase helpers, names bound in the same module), fix comments that lie about the code, and prefer the change a newcomer can follow. Pins preserved via aliases at the old path, re-export facades, and parameter injection (pass the patched object in; never import it into the new home).
 5. **The structural ticket, last** — file/package splits and test moves. It alone may edit tests, and its ticket enumerates *every* sanctioned edit in advance. Any guard it must rewrite gets a **non-vacuity proof**: inject a violation, show the guard still fails, revert.
 
 Every ticket links the report and lists its own out-of-scope items so nothing gets sneaked in.
