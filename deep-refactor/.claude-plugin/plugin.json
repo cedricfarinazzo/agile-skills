@@ -1,0 +1,12 @@
+{
+  "name": "deep-refactor",
+  "description": "Audit-and-ship workflows for Claude Code: deep-refactor (codebase-wide audit, evidence-backed report, sequenced ticket train, PR drain preserving the test contract) and test-refactor (per-suite test audit with production code frozen \u2014 dead-test deletion with evidence, parametrized merges, single-parallel-run isolation, per-module coverage parity). Pins inventoried before proposing, claims measured not inferred, non-vacuity proofs on every touched guard, no merge without a self-verified green run.",
+  "version": "0.1.0",
+  "author": {
+    "name": "cedricfarinazzo",
+    "email": "cedric.farinazzo@gmail.com"
+  },
+  "homepage": "https://github.com/cedricfarinazzo/agile-skills",
+  "repository": "https://github.com/cedricfarinazzo/agile-skills",
+  "license": "MIT"
+}
