@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this repo is
 
-A Claude Code marketplace shipping **six focused plugins**, split by cycle phase so users load only what they run:
+A Claude Code marketplace shipping **seven focused plugins** — six split by cycle phase so users load only what they run, plus one out-of-cycle cleanup plugin:
 
 - **`agile-product`** — discovery: Vision Doc, PRD, Design Brief / Specs UI, ADR (Confluence).
 - **`agile-planning`** — Roadmap (+ its published Artifact), Epics, Stories, Refinement, Sprint Planning (Confluence + Jira).
@@ -12,6 +12,7 @@ A Claude Code marketplace shipping **six focused plugins**, split by cycle phase
 - **`agile-merge-review`** — PR workflow: `agile-11-merge-train` + four `merge-*` sub-skills + four agents. Needs `gh`.
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
 - **`agile-sprint-drain`** — outer loop alternating `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Invokes both **inline via the Skill tool** and ships no agents (see dispatch nesting, below). Requires both plugins installed.
+- **`deep-refactor`** — out-of-cycle cleanup, three skills sharing one audit → report → ticket → drain loop, each freezing a different side of the repo: `deep-refactor` (code changes, tests frozen), `test-refactor` (tests change, production frozen), `doc-refactor` (markdown changes, source frozen). Ships no agents. Tracker-agnostic; needs `gh`.
 
 `agile-10-implement` clears the **build** queue (`To Do` → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`). User-facing skills keep global cycle numbering (`agile-1` … `agile-15`); composed sub-skills (`implement-*`, `merge-*`) are **unnumbered** because users don't call them. Namespace = plugin name: `/agile-planning:agile-5-roadmap`.
 

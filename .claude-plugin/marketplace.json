@@ -66,7 +66,7 @@
         "url": "cedricfarinazzo/agile-skills",
         "path": "deep-refactor"
       },
-      "description": "Two skills: deep-refactor (codebase audit \u2192 report \u2192 ticket train \u2192 PR drain, test contract frozen) and test-refactor (per-suite test cleanup, production code frozen, coverage parity + single-parallel-run invariant)."
+      "description": "Three skills: deep-refactor (codebase audit \u2192 report \u2192 ticket train \u2192 PR drain, test contract frozen), test-refactor (per-suite test cleanup, production code frozen, coverage parity + single-parallel-run invariant), and doc-refactor (every .md audited \u2014 lies, drift, duplication, bloat \u2014 source frozen, every surviving claim verified rather than read)."
     }
   ]
 }
