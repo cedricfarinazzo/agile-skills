@@ -64,6 +64,20 @@ Every ticket lists its own out-of-scope items. Source diff in every PR is **empt
 - **An instruction-file PR states its behavioral delta** — what an agent will now do differently, and which triggers or rules were reworded versus removed. A diff summary that describes bytes and not behavior has not reviewed the change.
 - Merge only on a green CI run you verified yourself; sequential merges; rebase the next branch when file sets intersect. Two identical CI failures are a diagnosis, not a rerun. **Most repos have no doc CI at all** — where nothing checks links or commands, the PR carries the check output itself; "no gate failed" is not evidence when there is no gate.
 
+## Work discovered mid-phase — do it, or ticket it properly
+
+Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
+
+**1. Do it now, or file it?**
+- **Trivial and inside the current scope** → do it here. A one-line correction or a stale comment beside code you are already editing does not need its own ticket; filing one costs more than the fix.
+- **Anything else** → a follow-up ticket: non-trivial, carrying risk, needing its own review, or reaching into files this work does not own. Never silently widen the diff to absorb it, and never let it survive only as prose in a PR body.
+
+**2. Which backlog does it enter?**
+- **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
+- **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
+
+**Point it at creation.** A ticket minted mid-phase never passes back through the refinement skill, so if it is not sized here it is never sized at all, and the sprint's velocity figure silently stops describing the work delivered. Use the project's normal estimation scale; if it truly cannot be sized yet, label it `unsized` with a one-line reason rather than leaving the field empty by default.
+
 ## Definition of done
 
 Every surviving claim verified by execution or resolution rather than by reading; zero broken links or anchors; the duplication map applied — one fact, one home — and every replicated invariant byte-identical with a check that proves it; auto-loaded instruction files smaller with no operative token or trigger phrase lost; zero source changes in the train; the report updated or superseded; every new lesson (a pin class you hadn't met, a renderer that disagreed, a generator you didn't know existed) written down where the next audit will find it.
