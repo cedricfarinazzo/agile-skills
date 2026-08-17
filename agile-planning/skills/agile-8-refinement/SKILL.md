@@ -143,7 +143,7 @@ Re-scan live Jira state — never assume the previous refinement still holds. Sk
 
 This skill sizes the Stories that reach it. It is not the only place tickets are born: bugs, tasks and follow-ups are minted mid-sprint by the execution, drain, closeout, sweep and refactor skills, and **none of them come back through refinement**. A ticket left unsized at creation is therefore unsized forever, and a board where much of the delivered work carries no points cannot produce a velocity figure — which costs the next sprint's planning its only real input.
 
-**Every ticket created outside this skill is pointed at creation**, on the same Fibonacci scale, by whichever skill creates it. That estimate does not need refinement's three lenses — it needs to exist. If the ticket genuinely cannot be sized yet, label it `unsized` with a one-line reason: unsized is a recorded decision, never a silent default. The skills that create tickets carry the matching rule, including when to fix the thing outright instead of filing at all.
+**Every ticket created outside this skill is pointed at creation**, on the project's normal estimation scale (Fibonacci, as above), by whichever skill creates it. That estimate does not need refinement's three lenses — it needs to exist. If the ticket genuinely cannot be sized yet, label it `unsized` with a one-line reason: unsized is a recorded decision, never a silent default. The skills that create tickets carry the matching rule, including when to fix the thing outright instead of filing at all.
 
 ## Principles
 

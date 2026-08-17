@@ -117,7 +117,7 @@ The LEDGER is the one piece of state **not** re-derivable from Jira/`gh` each pa
 
 The queue counters measure **status**, not evidence: a ticket is `Done` with a merged PR whether or not anything recorded how it was built and reviewed. So the loop can reach zero on a board that cannot answer "who reviewed this, and against what?" for a share of what it just shipped. **This failure is invisible by construction — the code is fine, the tests are green, only the trail is missing** — which is exactly why it needs a gate rather than good intentions.
 
-Before declaring DRAINED, re-read every sprint ticket that reached a done status **this invocation** and confirm each carries:
+Before declaring DRAINED, re-read **every sprint ticket now in a done status — not only the ones this invocation closed** — and confirm each carries:
 
 1. its **phase markers** for the path that built it, and
 2. a **post-merge comment naming the merged PR** — the postmortem the merge train posts.
@@ -127,7 +127,9 @@ A ticket that is `Done` and merged with neither is **not drained**. Per ticket, 
 - **Backfill it** — post the missing marker or postmortem now, explicitly labelled retroactive, naming the PR and stating why it is late (work directed inline outside the pipeline, an interrupted session, a step that failed to write). A retroactive record that says it is retroactive is honest; one that reads as contemporaneous is not.
 - **Record it as a deliberate exception** in the report, with the reason.
 
-Neither option is "leave it". Report the count either way — `audit trail: N/N complete` or the list of exceptions — because a silent pass here is indistinguishable from a board that never checked.
+Neither option is "leave it". Report the count either way — `audit trail: N/N complete` over **every done ticket in the sprint**, or the list of exceptions — because a silent pass here is indistinguishable from a board that never checked.
+
+**Scoping the gate to this invocation would exempt exactly the tickets most likely to be missing a trail.** The counters reset on re-invoke, so a session interrupted mid-drain — one of the routes that leaves the hole in the first place — would close its tickets under one invocation and pass the gate under the next, having never been checked. A ticket already carrying both records costs one read to confirm; that is the whole price of not having a blind spot shaped like an interruption.
 
 **Work directed inline is a route, not an exemption.** When a human asks for a change directly mid-drain, it still gets a ticket and it still gets a trail; skipping the pipeline is a reasonable way to move fast, and it does not change what the board owes afterwards.
 

@@ -114,7 +114,17 @@ Distinct from a **published artifact** — a Jira postmortem or PR body is writt
 **Base-branch proof.** "Pre-existing" / "unrelated" / "environment" / "tooling drift" are **claims**, never conclusions from reading output. Run the SAME command on the base branch, compare exit codes, state that comparison. Filenames in the output being untouched by the diff is **not** evidence — a diff routinely causes a failure reported against files it never edited. No comparison ⇒ unsupported ⇒ re-dispatch.
 *Carried by:* every agent that runs a build/lint/test/CI command, plus the flake-vs-regression sections of `agile-11-merge-train` and `implement-monitor`.
 
+**Work discovered mid-phase.** Two decisions, in order, and neither is "leave it in a comment": **do it now or file it** (trivial + in scope → here; non-trivial, risky, needs its own review, or reaches into unowned files → a follow-up ticket, never a silently widened diff), then **which backlog** (current sprint only if it blocks the sprint goal, is a must-have, or a human asked; product backlog otherwise, and that is the default). **Point it at creation** — a ticket minted mid-phase never returns through refinement, so unpointed here is unpointed forever; `unsized` + a one-line reason is a recorded decision, an empty field is not.
+*Carried by:* `agile-12-tech-debt-sweep`, `agile-13-sprint-closeout`, `agile-sprint-drain`, `deep-refactor`, `test-refactor`, `doc-refactor` under a `## Work discovered mid-phase` heading, byte-identical. Two skills carry a **narrower** rule on purpose — do not "fix" them into the block: `implement-code` points its follow-up but keeps its own stricter fix-vs-file threshold, and `agile-11-merge-train` reports a warranted follow-up rather than auto-creating one.
+
 **RULE — change one of these and update every carrier in the same change**, then `grep` to prove no stale copy remains. Adding an agent means adding these blocks to it.
+
+```bash
+# the mid-phase block is byte-identical across its carriers (must print one hash, 6 files)
+grep -rl 'Work discovered mid-phase' --include='SKILL.md' agile-* deep-refactor | tee /dev/stderr | while read f; do
+  sed -n '/## Work discovered mid-phase/,/^## /p' "$f" | head -n -1 | md5sum | cut -c1-8
+done | sort -u
+```
 
 ## Skill authoring rules
 
