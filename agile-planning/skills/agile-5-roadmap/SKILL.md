@@ -263,7 +263,9 @@ Run per planned sprint, in plan order. Applies to INIT-mode MVP sprints the same
 3. **Lock and record.** Append answers to a `## Decisions locked` section on the Iteration page — numbered continuously across sprints so decisions are citable (①…㊿) — update the sprint's row to reflect them, and edit the artifact's open-questions callout into a decisions callout (visibly different, e.g. accent border). When the operator picks **against** the recommendation, record the consequence and any follow-up it creates (a parked alternative, a display obligation), not just the choice. Maintain one running *"left for refinement"* line.
 4. **Splits.** If the interview reveals a sprint carrying two themes, split it and renumber the tail — then re-sync the Iterations table, the progress rollup, and the roadmap artifact **in the same pass**, never later.
 
-Loop exit: every planned sprint links an explainer and has its ADR questions either locked or explicitly listed as remaining.
+**If the Artifact tool is unavailable**, skip step 1, note it under `⚠️ Still needed`, and run the rest of the loop — the interview and the decision log are the load-bearing half, and they need no artifact. The explainer is a view; Confluence is the record.
+
+Loop exit: every planned sprint has its ADR questions either locked or explicitly listed as remaining, and links an explainer — or the run recorded that artifacts were unavailable.
 
 ### Step IT8 — Propagate to ADR + PRD (closing the loop)
 
