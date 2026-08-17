@@ -1,6 +1,6 @@
 ---
 name: agile-5-roadmap
-description: "Roadmap index + MVP/Iteration scope in Confluence, plus a published Claude Code Artifact view. Roadmap stays a short index; detail lives in MVP/Iteration child pages. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 15), before skill 6."
+description: "Roadmap index + MVP/Iteration scope in Confluence, plus a published Claude Code Artifact view. Roadmap stays a short index; detail lives in MVP/Iteration child pages. Optional sprint deep-dive: per-sprint explainer artifact + ADR-decision interview, closed by an ADR/PRD sync. Triggers: create roadmap, define MVP, plan iteration. After skill 4 or retro (skill 15), before skill 6."
 ---
 
 # agile_5_roadmap
@@ -252,6 +252,29 @@ Refresh the artifact (below), then:
 👉 Next step — Skill 6: agile_6_create_epics (input: approved Iteration [N] scope page)
 ```
 
+If the operator wants per-sprint depth before approving ("explain sprint N", "what are the open questions?"), continue with IT7.
+
+### Step IT7 — Sprint deep-dive loop (on request)
+
+Run per planned sprint, in plan order. Applies to INIT-mode MVP sprints the same way.
+
+1. **Explainer artifact — one per sprint.** Load `artifact-design` first (plus `artifact-diagramming` / `dataviz` before drawing). All sprint explainers share one design language — same tokens, typography, figure style — so they read as a series; each gets its own **stable** favicon. Content shape: the problem in the product's own terms → each mechanism with a figure that *shows* it (data-flow diagram, before/after comparison, mock UI panel, or an illustrative chart) → where it lives in the architecture + its dependency seams → a closing callout listing the sprint's **open ADR questions**. Mock data is always labeled illustrative — never render invented numbers as real. Link the artifact from the sprint's row on the Iteration page and from a `Sprint explainers:` line under Status.
+2. **Decision interview.** Put the sprint's open questions to the operator as options (2–4 per question, one marked `(Recommended)` with the reason in its description; use the ask-user-question tool if available, else one grouped message). ADR-level only — choices that change architecture, data contracts, external cost, or scope. Tuning constants (window sizes, thresholds, defaults) are *named* but deferred to refinement.
+3. **Lock and record.** Append answers to a `## Decisions locked` section on the Iteration page — numbered continuously across sprints so decisions are citable (①…㊿) — update the sprint's row to reflect them, and edit the artifact's open-questions callout into a decisions callout (visibly different, e.g. accent border). When the operator picks **against** the recommendation, record the consequence and any follow-up it creates (a parked alternative, a display obligation), not just the choice. Maintain one running *"left for refinement"* line.
+4. **Splits.** If the interview reveals a sprint carrying two themes, split it and renumber the tail — then re-sync the Iterations table, the progress rollup, and the roadmap artifact **in the same pass**, never later.
+
+Loop exit: every planned sprint links an explainer and has its ADR questions either locked or explicitly listed as remaining.
+
+### Step IT8 — Propagate to ADR + PRD (closing the loop)
+
+Before handing off to skill 6, fold every locked decision back into the canonical pages:
+
+- **ADR** (agile-4 page): a new or amended section per architecture-affecting decision — what was decided, why, what it supersedes (mark superseded designs as such, never delete them).
+- **PRD** (agile-2 page): scope or user-visible behaviour changes, and KPI updates if the iteration moved them.
+- **Iteration page**: keeps the decision *log*; ADR/PRD carry the resulting *state*.
+
+**Confluence must be self-sufficient**: a reader with only the Confluence tree — no chat history, no artifacts — must be able to reconstruct every decision and its why. Artifacts are views; the pages are the record. Report the ADR/PRD page versions touched in the closing advise block.
+
 ---
 
 ## Roadmap Artifact (the published view)
@@ -289,3 +312,4 @@ Re-read the Roadmap index and the relevant child page first — never assume pri
 - **Flag risks proactively** — XL Epics, dependency chains, capacity signals — before scope is locked, and state every assumption about timeline and capacity explicitly.
 - **Living document, idempotent** — never replace past iterations (mark them complete, keep their pages); re-running fills gaps and re-syncs rather than duplicating.
 - **The parking lot is permanent** — ideas are promoted, never deleted.
+- **Decisions live in Confluence, not in chat.** Anything locked during planning lands on a page (Iteration log → ADR/PRD state); artifacts and conversation are never the only record.
