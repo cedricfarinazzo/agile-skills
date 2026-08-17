@@ -48,7 +48,7 @@ Not done until all of these hold on the latest pushed commit. If any applicable 
 
 ## Fix pass (re-invoked after `implement-review`)
 
-Fix **every** numbered finding — Critical *and* Minor; Minor is a severity, not a deferral. The only acceptable unfixed finding is one that would expand the diff into unrelated files: file a follow-up ticket inline and note it in the PR. Re-read the changed files afterwards (fixes introduce bugs), then re-run the mode's gate green.
+Fix **every** numbered finding — Critical *and* Minor; Minor is a severity, not a deferral. The only acceptable unfixed finding is one that would expand the diff into unrelated files: file a follow-up ticket inline and note it in the PR. **Point that ticket at creation** on the project's normal estimation scale — it never passes back through refinement, so unpointed here is unpointed forever; if it genuinely cannot be sized yet, label it `unsized` with a one-line reason rather than leaving the field empty. Re-read the changed files afterwards (fixes introduce bugs), then re-run the mode's gate green.
 
 ## Commit and push
 

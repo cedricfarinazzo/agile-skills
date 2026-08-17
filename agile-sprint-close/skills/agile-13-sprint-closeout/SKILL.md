@@ -162,6 +162,20 @@ Produce the report **and publish it to Confluence under a dedicated `Closeouts` 
 
 **Every gap discovered gets coverage.** A smoke bug that surfaced because no integration test exercised path X means the fix PR adds one. Same for Phase 3 drift (add the test that would have failed if it recurred) and a Phase 4 Critical correctness finding.
 
+## Work discovered mid-phase — do it, or ticket it properly
+
+Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
+
+**1. Do it now, or file it?**
+- **Trivial and inside the current scope** → do it here. A one-line correction or a stale comment beside code you are already editing does not need its own ticket; filing one costs more than the fix.
+- **Anything else** → a follow-up ticket: non-trivial, carrying risk, needing its own review, or reaching into files this work does not own. Never silently widen the diff to absorb it, and never let it survive only as prose in a PR body.
+
+**2. Which backlog does it enter?**
+- **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
+- **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
+
+**Point it at creation.** A ticket minted mid-phase never passes back through the refinement skill, so if it is not sized here it is never sized at all, and the sprint's velocity figure silently stops describing the work delivered. Use the project's normal estimation scale; if it truly cannot be sized yet, label it `unsized` with a one-line reason rather than leaving the field empty by default.
+
 ## Stop conditions
 
 - A child ticket is neither Done nor explicitly deferred.

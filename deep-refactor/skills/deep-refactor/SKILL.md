@@ -58,6 +58,20 @@ Every ticket links the report and lists its own out-of-scope items so nothing ge
 - Merge only on a green CI run you verified yourself; sequential merges; rebase the next branch when file sets intersect.
 - **Two identical CI failures are not a flake.** Diagnose from the actual logs and artifacts (a cancelled job means a hang — find what hung); fix on the branch with the diagnosis in the PR; announce any cross-PR interaction (e.g. a guard that must change once a sibling merges) in both PR bodies, then actually apply it.
 
+## Work discovered mid-phase — do it, or ticket it properly
+
+Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
+
+**1. Do it now, or file it?**
+- **Trivial and inside the current scope** → do it here. A one-line correction or a stale comment beside code you are already editing does not need its own ticket; filing one costs more than the fix.
+- **Anything else** → a follow-up ticket: non-trivial, carrying risk, needing its own review, or reaching into files this work does not own. Never silently widen the diff to absorb it, and never let it survive only as prose in a PR body.
+
+**2. Which backlog does it enter?**
+- **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
+- **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
+
+**Point it at creation.** A ticket minted mid-phase never passes back through the refinement skill, so if it is not sized here it is never sized at all, and the sprint's velocity figure silently stops describing the work delivered. Use the project's normal estimation scale; if it truly cannot be sized yet, label it `unsized` with a one-line reason rather than leaving the field empty by default.
+
 ## Definition of done
 
 All tickets merged and closed; suite, coverage, lint and quality gates green on main; the report updated or superseded; every new lesson (a pin class you hadn't met, a probe that lied) written down where the next audit will find it.
