@@ -1,7 +1,7 @@
 {
   "name": "deep-refactor",
   "description": "Audit-and-ship workflows for Claude Code: deep-refactor (codebase-wide audit, evidence-backed report, sequenced ticket train, PR drain preserving the test contract), test-refactor (per-suite test audit with production code frozen \u2014 dead-test deletion with evidence, parametrized merges, single-parallel-run isolation, per-module coverage parity), and doc-refactor (whole markdown surface audited with the source frozen \u2014 false claims first, deliberate replication kept in sync, generated docs never hand-edited, trigger phrases never subtracted, per-file operative-token diffs on every compression). Pins inventoried before proposing, claims measured or executed not inferred, non-vacuity proofs on every touched guard, no merge without a self-verified green run.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"
