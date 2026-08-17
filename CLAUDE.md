@@ -23,7 +23,7 @@ Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a
 
 ```
 README.md                                 # root README — OVERVIEW only (plugin table, cycle diagram, install, links)
-.claude-plugin/marketplace.json           # marketplace — lists all 6 plugins (git-subdir per path)
+.claude-plugin/marketplace.json           # marketplace — lists every plugin (git-subdir per path); it is the authoritative plugin list
 <plugin>/README.md                        # per-plugin README — the detail for that plugin
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
@@ -31,7 +31,7 @@ README.md                                 # root README — OVERVIEW only (plugi
 agile-planning/skills/agile-8-refinement/scripts/   # bundled scripts — invoke via ${CLAUDE_PLUGIN_ROOT}
 ```
 
-There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, and the six plugin dirs.
+There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
 
 **Docs split:** the root `README.md` is an overview that **links** to each plugin README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, orchestrator internals) lives in `<plugin>/README.md`. Change a skill → update its plugin README; keep the root overview-only. The canonical Confluence tree lives in full in `agile-planning/README.md`.
 
@@ -191,7 +191,7 @@ for p in pathlib.Path('.').glob('agile-*/skills/*/SKILL.md'):
 
 ## Cycle order
 
-Canonical schema in `README.md` (all six plugins, the autonomous loop, confirm-after-merge QA, merge-train integration, the drain outer loop, the closeout gate).
+Canonical schema in `README.md` (every plugin, the autonomous loop, confirm-after-merge QA, merge-train integration, the drain outer loop, the closeout gate).
 
 Invariant for all skills: read existing Confluence pages + Jira issues before creating anything.
 
@@ -203,6 +203,6 @@ Cross-plugin references: skills call siblings by name. Most compose within one p
 
 Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill namespace prefix), `version`, author/homepage/repo/license. Skills and agents are auto-discovered from `skills/*/SKILL.md` and `agents/*.md`.
 
-`.claude-plugin/marketplace.json` (root) lists all six via a `git-subdir` source (`cedricfarinazzo/agile-skills` + `path: <plugin>`). It carries **no version key** — versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
+`.claude-plugin/marketplace.json` (root) lists every plugin via a `git-subdir` source (`cedricfarinazzo/agile-skills` + `path: <plugin>`). It carries **no version key** — versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
 
 **Versioning — bump the `version` of every plugin a change touches, in the same commit.** Patch for a typo or doc-only fix; **minor** for a new capability or a substantive skill/agent rework that stays backwards compatible (workflow spine unchanged, no trigger phrase dropped); major only for a breaking change — a removed skill, a renamed trigger, or a changed config-key contract.

@@ -70,7 +70,9 @@ Every PR gets an entry, empty ones included.
 
 ## Phase 2 — Determine merge order
 
-Rank by: **CI status** (already-green PRs are zero-risk wins) → **foundational first** (docs / PR template / `CLAUDE.md` changes ship before feature PRs, so features rebase onto the new conventions) → **independent before conflict-prone** → **smaller diffs first**. State the order and the rationale before processing.
+Rank by: **CI status** (already-green PRs are zero-risk wins) → **foundational first** (docs / PR template / shared-convention-doc changes ship before feature PRs, so features rebase onto the new conventions) → **independent before conflict-prone** → **smaller diffs first**. State the order and the rationale before processing.
+
+**Merge a shared-file collision set as a CONTIGUOUS block.** When three or more PRs all touch the same file (from the Phase 1 `conflict_map`), every merge in that set invalidates the base of the others, so each still-open member needs a rebase and a fresh verification run regardless of order — that cost is unavoidable, not an ordering mistake. What ordering controls is whether you pay it in one focused pass or scattered: interleaving unrelated PRs between two members of the set adds a context switch to each rebase and lets a later foundational merge invalidate the set again. So once a collision set is identified, process its members back-to-back before moving to unrelated work, and merge the smallest / most-foundational member of the set first so the rest rebase onto it.
 
 ## Phase 3 — Process each PR sequentially
 
