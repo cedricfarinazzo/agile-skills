@@ -41,7 +41,7 @@ Each iteration is one **pass**. Compute queue state from the live board before e
           inflight_count = such tickets
 
       3. EXIT: build_count == 0 AND merge_count == 0 AND inflight_count == 0
-                                                     -> DRAINED
+                 -> run the AUDIT-TRAIL GATE (below); DRAINED only if it passes
 
       4. BUILD BACKPRESSURE — while merge_count > 2 x N (N = build concurrency),
          SKIP this step: no new ticket enters the build queue this pass.
@@ -113,6 +113,24 @@ The LEDGER is the one piece of state **not** re-derivable from Jira/`gh` each pa
 
 **These counters are per-invocation.** A fresh re-invoke after an interruption starts at 0, re-grinding retryable work (harmless — DRAINED is re-derivable) and resetting the ceiling. A human re-invoking is itself the decision to retry.
 
+## Audit-trail gate — a ticket is drained only if it can say how it shipped
+
+The queue counters measure **status**, not evidence: a ticket is `Done` with a merged PR whether or not anything recorded how it was built and reviewed. So the loop can reach zero on a board that cannot answer "who reviewed this, and against what?" for a share of what it just shipped. **This failure is invisible by construction — the code is fine, the tests are green, only the trail is missing** — which is exactly why it needs a gate rather than good intentions.
+
+Before declaring DRAINED, re-read every sprint ticket that reached a done status **this invocation** and confirm each carries:
+
+1. its **phase markers** for the path that built it, and
+2. a **post-merge comment naming the merged PR** — the postmortem the merge train posts.
+
+A ticket that is `Done` and merged with neither is **not drained**. Per ticket, do one of:
+
+- **Backfill it** — post the missing marker or postmortem now, explicitly labelled retroactive, naming the PR and stating why it is late (work directed inline outside the pipeline, an interrupted session, a step that failed to write). A retroactive record that says it is retroactive is honest; one that reads as contemporaneous is not.
+- **Record it as a deliberate exception** in the report, with the reason.
+
+Neither option is "leave it". Report the count either way — `audit trail: N/N complete` or the list of exceptions — because a silent pass here is indistinguishable from a board that never checked.
+
+**Work directed inline is a route, not an exemption.** When a human asks for a change directly mid-drain, it still gets a ticket and it still gets a trail; skipping the pipeline is a reasonable way to move fast, and it does not change what the board owes afterwards.
+
 ## Work discovered mid-phase — do it, or ticket it properly
 
 Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
@@ -133,7 +151,7 @@ It does not bypass either orchestrator's pauses: a ticket `agile-10-implement` p
 
 ## Reports
 
-**DRAINED** — the only healthy stop: **nothing remains**. Every sprint ticket `Done` + merged, or legitimately exited (out-of-scope, Needs Info). Any human-blocked item still on the board means items remain, so the outcome is STUCK. List the Done tickets and any exits with their reason, then point at `agile-sprint-close`.
+**DRAINED** — the only healthy stop: **nothing remains**. Every sprint ticket `Done` + merged, or legitimately exited (out-of-scope, Needs Info). Any human-blocked item still on the board means items remain, so the outcome is STUCK. List the Done tickets and any exits with their reason, **state the audit-trail gate's result (`N/N complete`, or the exceptions and why)**, then point at `agile-sprint-close`. A DRAINED report that does not mention the gate has not run it.
 
 **STUCK** — the actionable set emptied (or `MAX_PASSES` was hit) while items remain. For each remaining item, name its class: **parked critical decision**; **Needs Info / under-spec**; **dead blocker chain** (name the blocker); **CI failed identically K passes** (name the check + repeated fingerprint); **unconverged review** (cycles exhausted, or awaiting a human); **persistent conflict**. On a ceiling stop, list separately any items still actionable — the human can just re-invoke for those. This is the human's work list: resolve one upstream blocker and re-invoke.
 
