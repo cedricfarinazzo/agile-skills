@@ -178,18 +178,25 @@ Then `gh pr merge <N> --squash` — **no `--delete-branch`** (that flag also tri
 Dispatch to `agile-merge-review:jira-postmortem` — mandatory even at 0 issues. It posts the structured findings comment **and** handles the Done transition; do not duplicate that inline or skip it because the PR was clean.
 
 - **Pass this PR's `conflict_map` entry verbatim**, including an empty `collisions: []`. Do not re-summarise it into prose or omit it when empty — an absent field is indistinguishable from a forgotten one. The postmortem turns each collision into "this ticket should have been linked to `<other KEY>`".
+- **Create this PR's `Relates` links NOW, in this step** — one per entry in its `collisions` list, before advancing to the next PR:
+
+  ```
+  mcp__atlassian__createIssueLink(cloudId="<configured>", inwardIssue="ABC-1", outwardIssue="ABC-2", type="Relates")
+  ```
+
+  Duplicates return success, so it is safe to call even if a link already exists. Then append a one-line confirmation to the postmortem on **each** side (`Jira link created: relates to ABC-2.`), or the failure reason if the call failed — never leave a recommendation untracked.
+
+  **Linking belongs to the per-PR step, not to an end-of-run pass.** A train that stops early — interrupted, aborted, or simply invoked once per wave — never reaches its final phases, so a link step that lives only there silently does nothing for every PR that run merged. The failure is invisible by construction: no error is raised, the tickets merge fine, and the missing coupling only surfaces when someone audits the link graph much later. Creating the link beside the postmortem that announces it means the two cannot disagree.
 - **Verify the receipt:** the posted comment id + a `done`-category status via `mcp__atlassian__getJiraIssue`, and the `collisions recorded:` echo matching what you passed. An entry with collisions whose receipt echoes `none` means the postmortem dropped them → re-dispatch.
 - A warranted follow-up ticket goes in the report — do not auto-create.
 
-## Phase 4 — Auto-link colliding tickets in Jira
+## Phase 4 — Reconcile the collision links
 
-For every pair in the Phase 1 `conflict_map` — read the pairs straight off it, do not re-derive — create a `Relates` link. Duplicates return success, so it is safe to call.
+The links themselves are created per PR at 3g. This phase **verifies** them, and catches the pairs 3g could not reach — a collision whose other side had not merged yet, or a PR whose 3g link call failed.
 
-```
-mcp__atlassian__createIssueLink(cloudId="<configured>", inwardIssue="ABC-1", outwardIssue="ABC-2", type="Relates")
-```
+Walk the whole `conflict_map` and, for each pair, read the source ticket's `issuelinks` (`mcp__atlassian__getJiraIssue`, `fields=["issuelinks"]`) and confirm a `Relates` link exists **in either direction** — Jira reports one link from both sides with inward/outward flipped, so a link present on the target counts. Create any that is missing, and record the result per pair.
 
-Then append a one-line confirmation to the most recent postmortem on **each** side, so a later reader sees the link was applied rather than merely recommended (`mcp__atlassian__addCommentToJiraIssue`, `contentFormat="markdown"`: `Jira link created: relates to ABC-2 (Phase 4, merge-train run <YYYY-MM-DD>).`). If the link call failed, append the failure reason in the same format — never leave a recommendation untracked.
+**Report the reconciliation even when it is empty** — `links verified: N/N` is the line that distinguishes "every pair was already linked" from "this phase did not run". A phase that silently does nothing looks identical to a phase that was skipped, which is the whole failure this split is guarding against.
 
 ## Phase 4b — Branch cleanup (end of train, best-effort)
 
