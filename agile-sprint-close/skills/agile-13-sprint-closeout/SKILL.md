@@ -39,6 +39,8 @@ Per epic-level AC, produce a matrix of the **code site(s)** (`file:line`), the *
 
 Failure modes worth hunting specifically: **cross-service dispatch** (service A calls `send_task("service_b.task")` with nothing testing broker → queue → consumer, leaving the routing config untested — a `<service>.ping` round-trip is worth adding); **API field-name drift** (verify subgraph fields via real introspection *through the gateway*, not unit tests on the subgraph); **beat/cron wiring** (the scheduled task name must resolve in the worker include path — check via the scheduler's introspection or the live container log); **auth and admin gates** reachable from the gateway's forwarded-header path.
 
+**A data-driven AC needs evidence from data nobody seeded.** A fixture built to demonstrate a feature can differ from production in exactly the dimension that matters, so a green seeded path shows the code runs — not that it runs on real input. Confirm at least one unseeded record satisfies the AC before recording it as evidenced; where none exists yet, that absence *is* the AC's status, and the fixture does not stand in for it.
+
 ## Phase 2 — Static cross-checks
 
 Lint exits 0 across all source paths. The unit suite passes with coverage at or above the configured threshold. **Doc drift:** every new test file appears in the test-suite `CLAUDE.md` tree, coverage table, and run-command section; every new service or convention is reflected in the relevant `CLAUDE.md`. **Schedule sanity:** scheduled tasks reference names that resolve in worker modules, each with any required gate (market-hour, business-day).
