@@ -62,6 +62,8 @@ Estimate in **Fibonacci story points**: 1–2 trivial and well understood · 3 s
 
 **Lens 3 — QA (testability and edge cases).** Are all ACs falsifiable as written? Are edge cases covered — nulls, empty states, concurrent actions, permission boundaries, network errors? Would we know in production if this broke? Are there integration scenarios spanning several Stories? **Flag** subjective AC language ("fast", "clean", "user-friendly") — it must be made specific before estimation — a missing obvious edge case (file upload with no max-size AC), or a Story with only a happy path and no testable failure path.
 
+**Flag a producer→consumer seam that spans two Stories.** A boundary whose halves sit in different Stories is declared by neither: each covers its own side, and the message between them is tested nowhere. Name it in the **consumer** Story's ACs, or give it a Story of its own — "both sides are covered" is not "the boundary is covered".
+
 **Lens 4 — Readiness gate, and it is binary.** Ready for Sprint requires **all** of: a clear persona-specific title · ≥2 falsifiable Given/When/Then ACs · a complete DoD · a Specs UI link for any UI Story · technical notes referencing the relevant ADR decisions · dependencies listed with known status · points estimated and not 13 · no open question that would block a dev agent from starting.
 
 Any gate fails → **Not Ready**: do not estimate, document what is missing, and return it to the PM before the next run.
