@@ -117,3 +117,9 @@ Re-read every existing Story on the Epic and check each for completeness — tit
 👉 Next step — Skill 8: agile_8_refinement — points, AC validation, final DoD.
    Start with the Stories that have no blocking dependencies.
 ```
+
+## Principles
+
+- **One Story = one deliverable unit of value** — not a task, not a bundle; something demoable on its own.
+- **An AC must be falsifiable** — a dev agent cannot implement "looks good".
+- **A UI Story always carries a direct Specs UI link.**

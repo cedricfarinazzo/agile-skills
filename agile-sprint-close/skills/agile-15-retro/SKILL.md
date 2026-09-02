@@ -161,3 +161,10 @@ Key inputs for next iteration: capacity [N] pts · priority shifts [list] · deb
    Input: this Retro page + the current Roadmap + the Jira backlog.
    Then: skill 6 (Epics) → 7 (Stories) → 8 (Refinement) → 9 (Sprint Planning).
 ```
+
+## Principles
+
+- **Every retro lives inside the Retrospectives folder** — never directly under the project root.
+- **Blameless by default** — the language is about processes and systems, never individuals.
+- **An action item without an owner and a due date is not an action item.**
+- **Never invent learnings** — state velocity signals, improvement flags, and carried-over reasons as inferences, not conclusions.

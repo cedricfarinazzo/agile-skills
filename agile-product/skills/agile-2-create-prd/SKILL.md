@@ -64,8 +64,6 @@ I'm already assuming:
 
 ## Step 4 — Write the PRD
 
-The PRD is the source of truth the ADR, Epics, and Stories all derive from, so accuracy here saves rework downstream. No placeholder sections: real content, or `TBD — [reason + owner]`.
-
 Child page of `[Project Name]`, titled `PRD — [Project Name]`:
 
 ```
@@ -129,3 +127,9 @@ Read the current PRD fully; per section, judge whether it holds real content or 
 
 👉 Next step — Skill 3: agile_3_design_brief (input: approved PRD)
 ```
+
+## Principles
+
+- **Ask before writing** — never draft a section you have no real information for.
+- **No placeholder sections** — real content, or `TBD — [reason + owner]`.
+- **The PRD is the source of truth** — the ADR, Epics, and Stories all derive from it, so accuracy here saves rework everywhere downstream.

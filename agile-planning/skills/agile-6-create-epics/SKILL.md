@@ -107,3 +107,9 @@ Re-scan live Jira Epic statuses — never assume the previous state still holds.
 👉 Next step — Skill 7: agile_7_create_stories — start with the Epic that has no blocking dependencies.
    Input: Jira Epic key + the Specs UI page for the relevant screens.
 ```
+
+## Principles
+
+- **Create in dependency order**, and never duplicate an existing Epic — update it.
+- **Never delete an Epic** — `Won't Do` / `Cancelled`, with a comment and user confirmation.
+- **Confluence and Jira stay in sync** — every Epic links back on the MVP/Iteration page.

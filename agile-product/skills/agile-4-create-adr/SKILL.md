@@ -74,8 +74,6 @@ I'm already assuming:
 
 ## Step 4 — Write the ADR
 
-No placeholder sections: real content, or `TBD — [reason + owner]`.
-
 Child page of `[Project Name]`, titled `ADR — [Project Name]`:
 
 ```
@@ -145,3 +143,9 @@ Read the current ADR fully; per section, judge real content versus placeholder a
 
 👉 Next step — Skill 5: agile_5_roadmap (input: approved PRD + approved ADR)
 ```
+
+## Principles
+
+- **Ask before writing** — never assume a stack, architecture style, or infra setup.
+- **Decisions have history** — append with date and reason, never silently overwrite.
+- **No placeholder sections** — real content, or `TBD — [reason + owner]`.

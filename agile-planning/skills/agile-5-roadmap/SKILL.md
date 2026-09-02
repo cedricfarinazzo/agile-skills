@@ -304,3 +304,9 @@ The Roadmap index is also published as a **Claude Code Artifact** — a private,
 ## Resume logic
 
 Re-read the Roadmap index and the relevant child page first — never assume prior state. INIT: index exists but MVP page missing → create only the MVP page; both exist → fill gaps only. ITERATION: the Iteration [N] page exists → fill its incomplete sections, never duplicate it. Re-sync the Iterations table and progress rollup against the child pages, refresh the artifact at its existing URL, and report what changed versus what was already correct.
+
+## Principles
+
+- **Roadmap is a short index** — detail lives on the MVP / Iteration child pages, which are children of the Roadmap page, not of the root.
+- **Scope is a tripartite decision** — prepare the proposal, don't make the call.
+- **Decisions live in Confluence, not in chat** — artifacts and conversation are never the only record.

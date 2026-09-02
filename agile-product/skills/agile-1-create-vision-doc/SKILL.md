@@ -62,8 +62,6 @@ Wait for the answers.
 
 ## Step 3 — Create the Confluence structure
 
-No blank sections: real content, or an explicit `TBD — [reason]`.
-
 The **root folder** `[Project Name]` is the single source of truth for the initiative — every later document lives as a child page of it. Then a child page titled `Vision Doc — [Project Name]`:
 
 ```
@@ -115,3 +113,8 @@ Re-run on an existing project: read the current doc, check each section for **co
 
 👉 Next step — Skill 2: agile_2_create_prd (input: approved Vision Doc + any user research)
 ```
+
+## Principles
+
+- **Ask before writing** — never draft from unclear or missing information.
+- **No blank sections** — real content, or an explicit `TBD — [reason]`.
