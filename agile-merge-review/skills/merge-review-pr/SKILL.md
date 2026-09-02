@@ -92,6 +92,7 @@ Reviewed sha: <headRefOid>   (delta-review only: reviewed `<old-sha>..<new-sha>`
 - PR-body claims ... ✅ <each AC row / tier claim traced to a changed file>  |  ❌ see Critical
 - Documentation .... ✅ `file:line`  |  N/A
 - Migration ........ N/A  |  ✅ `file:line`
+- Lint-rule cascade . N/A no new lint rule  |  ✅ swept <paths> on the rebased tree — 0 hits
 
 ### AC verification (every AC → the line that satisfies it)
 - AC1 → `file:line` <how satisfied>      (an AC with no line = not satisfied = Critical)

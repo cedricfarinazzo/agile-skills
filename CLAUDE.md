@@ -37,7 +37,7 @@ There is **no root plugin** — the root holds only `README.md`, `.claude-plugin
 
 ## SKILL.md format
 
-Frontmatter + markdown instructions. **Exactly three fields are in use across the 26 skills** — `name` (must equal the containing dir), `description`, and `user-invocable` on the 7 that set it. Don't reintroduce `when_to_use` or `allowed-tools`: nothing uses them, and an unused field documented here reads as a convention.
+Frontmatter + markdown instructions. **Exactly three fields are in use across every skill** — `name` (must equal the containing dir), `description`, and `user-invocable` on the user-facing ones (`grep -h '^user-invocable' */skills/*/SKILL.md | wc -l`). Don't reintroduce `when_to_use` or `allowed-tools`: nothing uses them, and an unused field documented here reads as a convention.
 
 **Sub-skills composed by an orchestrator use `user-invocable: false`, NOT `disable-model-invocation: true`.** The latter means *only the user* can invoke it — Claude can't, which breaks an orchestrator calling it via the Skill tool. `user-invocable: false` hides it from the `/` menu while keeping it Claude-invocable. The `merge-*` blocks leave both open (also fine — orchestrator-invocable).
 
