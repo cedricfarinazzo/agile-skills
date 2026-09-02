@@ -21,7 +21,7 @@ Per ticket, in order. Each is one 🤖 resume-marker phase, runs in its named ag
 | plan | `implement-plan` | `agile-execution:ticket-planner` |
 | implement | `implement-code` | `agile-execution:build-implementer` |
 | pr | `implement-pr` | `agile-execution:pr-publisher` |
-| review | `implement-review` | inline via the Skill tool by default; large PR only → fan out `agile-execution:review-lens` **directly from here**, no intermediate review agent |
+| review | `implement-review` | `agile-execution:self-reviewer`; large PR only → fan out `agile-execution:review-lens` **directly from here** instead, no intermediate review agent |
 | monitor | `implement-monitor` | `agile-execution:build-monitor` |
 
 `implement-code` finishes at commit+push and does **not** open the PR — that is `implement-pr`.
@@ -34,7 +34,7 @@ The orchestrator owns selection, ordering, the per-ticket sequence, and the repo
 
 **A receipt with a non-empty `unapplied_mutations` is INCOMPLETE, whatever its verdict.** An agent that could not write a side effect — a transition, a label, a comment, a push — must list it (see each agent's receipt contract), and listing it does not discharge it. Apply every entry yourself, verify it against ground truth, and record that you did, before dispatching the next phase. A `pass` verdict beside an unapplied transition is the single easiest way to leave the board describing work in a state it is not in.
 
-**The one phase the orchestrator runs in its own context is `review`** (see the table above: `implement-review` is inline by default, fanning out `review-lens` only for a large PR). That is deliberate — splitting six lenses across subagents makes each re-read the whole diff — but it means the review receipt is one the orchestrator writes **for itself**, so hold it to the same gate: write it out explicitly and check it against the diff file set before advancing. "I already reviewed it" is not a receipt.
+**`review` dispatches like every other phase — the diff read must not land here.** It is the heaviest read in the pipeline (every changed file, in full), and a phase that reads in the orchestrator's context leaves those bytes resident for the rest of the run, re-sent every turn and pushing the one context that holds the ledger toward compaction. `self-reviewer` reads them in a context that dies with the phase; only the verdict comes back. The large-PR fan-out is the exception and stays here: `review-lens` slices are dispatched **directly by this orchestrator** and merged into one verdict, because a fan-out from inside `self-reviewer` would be depth 2 and stall. Under `concurrency=0` this phase runs inline like all the others, and the receipt is then one you write **for yourself** — hold it to the same gate; "I already reviewed it" is not a receipt.
 
 A receipt carries proof fields only — plus findings for `review` / `review-lens`, where prose inside a finding or a per-AC binding is the value. Never a preamble, an overview/summary, or a praise section.
 
@@ -180,7 +180,7 @@ Each sub-skill is idempotent on partial state, so re-entering a half-done phase 
 2. **`implement-plan`** (`agile-execution:ticket-planner`) → plan + AC→test map (`🤖 plan`).
 3. **`implement-code`** (`agile-execution:build-implementer`) → branch off base, implement, tests, gate green, commit, push (`🤖 implement`).
 4. **`implement-pr`** (`agile-execution:pr-publisher`) → open or update the PR (`🤖 pr`).
-5. **`implement-review`** → produce all six lenses yourself from one read; for a large PR only, fan the lens groups out as parallel `review-lens` subagents and merge their findings into the single verdict yourself.
+5. **`implement-review`** (`agile-execution:self-reviewer`) → all six lenses from one read, verdict posted to PR + Story. For a large PR only, skip that agent and fan the lens groups out as parallel `review-lens` subagents yourself, merging their findings into the single verdict.
    - **changes requested** → re-invoke `implement-code` with the numbered findings (Critical **and** Minor), then re-review. Loop to **approved**. Cap: >3 cycles without converging → leave the PR open, post a 🤖 blocked comment, skip the ticket.
    - **approved** → post `🤖 review`, continue.
 6. **Transition + hand off** (`status_change`): move the Story to `in-review-status-name` and post `🤖 agile:phase=status_change` (2–3 lines, PR link, AC coverage, flagged decisions). Verify via `mcp__atlassian__getJiraIssue` before counting it handed off. **Never `Done`.**

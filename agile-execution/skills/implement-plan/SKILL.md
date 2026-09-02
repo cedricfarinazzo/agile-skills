@@ -1,6 +1,6 @@
 ---
 name: implement-plan
-description: "Sub-skill of agile-10-implement. Read every linked artifact (ADR, Specs UI, PRD, linked Bugs) and produce a concrete implementation plan + AC→test map, posted as the 🤖 plan marker. Not user-invoked."
+description: "Sub-skill of agile-10-implement — the planning phase. Not user-invoked."
 user-invocable: false
 ---
 
