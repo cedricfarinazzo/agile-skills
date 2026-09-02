@@ -144,11 +144,3 @@ Re-read the Story's live state and the status of every linked regression Bug. **
 ❌ Story [PROJ-XXX] — post-merge regression. Story remains Done; [N] Bugs filed: [keys]
 ⚠️ They enter the next sprint via agile-11-merge-train; re-run skill 14 after they merge to re-confirm.
 ```
-
-## Principles
-
-- **Confirm-after-merge only** — never transition, never reopen.
-- **Never assume a pass without evidence** — the absence of a failure is not a pass, and every inferred pass (from CI, test output, or PR status) is stated explicitly.
-- **Every DoD item is re-checked every run** — never carried over unconfirmed.
-- **Post-merge regressions become Bugs, one per failure** — the Story stays Done with a `qa-regression` label.
-- **Idempotent and resumable** — re-running re-reads live Bug statuses and re-checks only failed or unvalidated items.

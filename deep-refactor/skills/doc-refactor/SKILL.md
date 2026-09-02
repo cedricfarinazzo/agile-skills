@@ -18,7 +18,7 @@ Four phases: **audit → report → ticket → drain**.
 
 **Inventory before you judge.** Every `.md` in the repo, each tagged with its audience and its **load path** — human-browsed on the forge, rendered by a docs site, or auto-loaded into an agent's context. That tag decides every later call: a README optimizes for a newcomer's first ten minutes, a `docs/` page for a reader who already arrived and knows what they want, an instruction file for a machine that will follow it literally and bill you per token.
 
-Then fan out **parallel read-only agents over disjoint slices** (root docs, the `docs/` tree, per-package READMEs, `.github/` templates, agent-instruction files), plus one pass over the docs *toolchain* — site config, nav/sidebar, link checker, generator markers. **Don't stop until you are satisfied of the entire surface**: a second pass over "already read" docs routinely finds a stale command the first pass skimmed past because it looked plausible. Stop only when a pass comes back empty (loop-until-dry).
+Then fan out **parallel read-only agents over disjoint slices** (root docs, the `docs/` tree, per-package READMEs, `.github/` templates, agent-instruction files), plus one pass over the docs *toolchain* — site config, nav/sidebar, link checker, generator markers. **Loop until dry**: a second pass over "already read" docs routinely finds a stale command the first pass skimmed past because it looked plausible. The exit condition is a pass that comes back empty.
 
 Classify every file — no doc is skipped because it reads well:
 

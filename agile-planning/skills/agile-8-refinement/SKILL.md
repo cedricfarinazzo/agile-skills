@@ -146,14 +146,3 @@ Re-scan live Jira state — never assume the previous refinement still holds. Sk
 This skill sizes the Stories that reach it. It is not the only place tickets are born: bugs, tasks and follow-ups are minted mid-sprint by the execution, drain, closeout, sweep and refactor skills, and **none of them come back through refinement**. A ticket left unsized at creation is therefore unsized forever, and a board where much of the delivered work carries no points cannot produce a velocity figure — which costs the next sprint's planning its only real input.
 
 **Every ticket created outside this skill is pointed at creation**, on the project's normal estimation scale (Fibonacci, as above), by whichever skill creates it. That estimate does not need refinement's three lenses — it needs to exist. If the ticket genuinely cannot be sized yet, label it `unsized` with a one-line reason: unsized is a recorded decision, never a silent default. The skills that create tickets carry the matching rule, including when to fix the thing outright instead of filing at all.
-
-## Principles
-
-- **Three lenses on every Story**, then a **binary** readiness gate — no partial readiness.
-- **A ticket created outside refinement is still pointed at creation** — otherwise it is never pointed, and the velocity number quietly stops meaning anything.
-- **13 points means split, not estimate** — return it to skill 7.
-- **Never assign points to a Story with vague ACs** — falsifiable first, estimate second.
-- **Ask before updating** — show the analysis and proposed changes, grouped by Story, and wait before writing to Jira.
-- **Not Ready Stories are documented, not deleted** — they stay in the backlog with clear PM instructions.
-- **Idempotent and resumable** — re-running skips refined Stories, re-checks not-ready ones, and preserves refinement history.
-- **Cross-Story file collisions surface at refinement, not at merge.**

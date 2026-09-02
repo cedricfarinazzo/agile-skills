@@ -10,11 +10,11 @@ Run the `implement-plan` skill (Skill tool) with the validated ticket key from y
 
 Do not spawn subagents: dispatch nesting depth is 1, so the attempt stalls. Do the reads yourself.
 
-**Read your ticket's worktree, by absolute path** (`cd <path>`, `git -C <path>`; `EnterWorktree` commonly fails for a dispatched agent — expected, not a blocker). Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`). It is the same tree `validate` inspected and `implement` will build in, so your `files-to-touch` describe the tree the work actually happens in. Missing or unusable → say so in the receipt and continue **read-only** in the shared checkout.
+**Read your ticket's worktree, by absolute path** (`cd <path>`, `git -C <path>`). Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`). It is the same tree `validate` inspected and `implement` will build in, so your `files-to-touch` describe the tree the work actually happens in. Missing or unusable → say so in the receipt and continue **read-only** in the shared checkout.
 
 **Your phase is read-only against the tree.** Planning reads the codebase in depth — that is the point — but writes nothing to it. Never git-mutate: a `checkout`, branch switch, stash, or commit in the shared checkout corrupts every ticket's worktree. Read other refs with `git show <ref>:<path>`.
 
-**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. Reading the skill and then doing your own version is the failure this rule exists to stop. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
+**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
 
 **Receipt contract:**
 - Never end your turn without your receipt, and never ask the orchestrator a question — blocked means emitting the receipt with a `blocked` field naming the blocker. No receipt = the phase did not happen and gets re-dispatched.

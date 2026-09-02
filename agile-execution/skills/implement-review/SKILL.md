@@ -110,8 +110,6 @@ The verdict block **is** the return value; `agile-10-implement` reads approved-v
 
 ## Rules
 
-- **Read the Story before the diff** — otherwise the review measures the diff against itself, not the spec.
-- **Six lenses on every PR**, each with a cite or an explicit N/A. Security is never downgraded to a warning; warnings never block a correct PR.
 - **Idempotent** — re-running on an approved PR reports the approval and advises; it does not re-approve or duplicate comments.
 - **Verdict prose stays in normal English** — humans read it at merge and retro time.
 

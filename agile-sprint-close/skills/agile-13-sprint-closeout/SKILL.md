@@ -98,7 +98,7 @@ Flag every issue you would flag if a stranger wrote this code.
 1. `frontend/src/…/A.tsx:55` — magic `4000` (toast duration) repeated in 3 components. Fix: `TOAST_DURATION_MS`.
 ```
 
-**4.5 — Impartiality is this lens's whole job.** If you catch yourself thinking "the author probably had a reason", write the finding anyway — harder, not softer. Your job is to flag anything that would confuse a stranger in six months. Dismissing an intentional finding is the team's call, not yours.
+**4.5 — Impartiality is this lens's whole job.** Flag anything that would confuse a stranger in six months; dismissing an intentional finding is the team's call, not yours.
 
 ## Phase 5 — Integration suite vs a fresh testing stack
 

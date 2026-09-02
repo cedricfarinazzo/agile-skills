@@ -115,14 +115,3 @@ Next-sprint candidates: [Story — points, …]
    2. Skill 11 (agile_11_merge_train) — reviews + merges those PRs to main, one at a time, each Story to Done
    3. Sprint close: agile-12-tech-debt-sweep → agile-13-sprint-closeout → skill 14 (QA, confirm-after-merge) → skill 15 (retro)
 ```
-
-## Principles
-
-- **No unrefined Story enters a sprint** — the `refined` label is the gate; `not-ready` is never included.
-- **Sprint goal first** — refuse to plan without one.
-- **Capacity is a hard ceiling and the buffer is mandatory** — never plan to 100%.
-- **Dependencies drive rank** — blockers always precede their dependents.
-- **Propose before acting**, and ask before writing: clarify velocity and goal first, never assume capacity, and state every assumption explicitly.
-- **Never remove an In Progress Story** — only the team pulls work mid-sprint.
-- **Short-index respected** — backlog detail on the child page, a one-row rollup on the index.
-- **Idempotent and resumable** — re-running re-reads live state and fills only what is missing.

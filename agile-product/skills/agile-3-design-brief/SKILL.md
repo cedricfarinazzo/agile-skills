@@ -39,6 +39,8 @@ All deep detail — goals, success criteria, epic-in-scope lists, per-sprint bac
 
 ## BRIEF MODE
 
+No placeholder sections: real content, or `TBD — [reason + owner]`.
+
 ### Step B1 — Scan
 
 Find the project root, read the **approved PRD** in full, check for an existing Design Brief. Brief exists → read it, report what is done versus missing, resume from the incomplete parts without overwriting. **PRD missing or unapproved → stop:** "The PRD for this project is missing or not yet approved. Please complete skill 2 first."
@@ -189,10 +191,3 @@ Decisions that differ from or extend the PRD/Brief.
 
 👉 Next step — Skill 4: agile_4_create_adr (input: approved PRD + approved Specs UI)
 ```
-
-## Principles
-
-- **Detect the mode first**, and **read before write** — the PRD in BRIEF mode, the Design Brief in INTEGRATE mode.
-- **Ask before writing** — never draft a section without the information it needs; all questions in one message, every assumption stated.
-- **Idempotent and resumable** — re-running fills incomplete sections only, never duplicating or overwriting complete ones.
-- **No placeholder sections** — real content, or `TBD — [reason + owner]`.

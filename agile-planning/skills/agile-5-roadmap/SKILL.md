@@ -304,14 +304,3 @@ The Roadmap index is also published as a **Claude Code Artifact** — a private,
 ## Resume logic
 
 Re-read the Roadmap index and the relevant child page first — never assume prior state. INIT: index exists but MVP page missing → create only the MVP page; both exist → fill gaps only. ITERATION: the Iteration [N] page exists → fill its incomplete sections, never duplicate it. Re-sync the Iterations table and progress rollup against the child pages, refresh the artifact at its existing URL, and report what changed versus what was already correct.
-
-## Principles
-
-- **Roadmap is a short index; detail lives in child pages, which are children of the Roadmap page — not of the root.**
-- **Detect the mode first**, and **read before write** — PRD, ADR, index, and the relevant child page.
-- **Ask before writing.** Never assign Epics to scope without explicit confirmation; propose and wait, grouping every question into one message.
-- **Scope is a tripartite decision** — prepare the proposal, don't make the call.
-- **Flag risks proactively** — XL Epics, dependency chains, capacity signals — before scope is locked, and state every assumption about timeline and capacity explicitly.
-- **Living document, idempotent** — never replace past iterations (mark them complete, keep their pages); re-running fills gaps and re-syncs rather than duplicating.
-- **The parking lot is permanent** — ideas are promoted, never deleted.
-- **Decisions live in Confluence, not in chat.** Anything locked during planning lands on a page (Iteration log → ADR/PRD state); artifacts and conversation are never the only record.

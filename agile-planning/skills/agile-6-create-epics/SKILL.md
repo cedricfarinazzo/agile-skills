@@ -107,12 +107,3 @@ Re-scan live Jira Epic statuses — never assume the previous state still holds.
 👉 Next step — Skill 7: agile_7_create_stories — start with the Epic that has no blocking dependencies.
    Input: Jira Epic key + the Specs UI page for the relevant screens.
 ```
-
-## Principles
-
-- **Scan before act, confirm before create** — never duplicate an Epic, and show the plan before touching Jira.
-- **Ask before writing** — clarify vague names, blurry scope boundaries, and ownership first; all questions in one message, every assumption stated.
-- **Dependencies drive creation order**, and conflicts get flagged.
-- **Confluence and Jira stay in sync** — every Epic links back on the MVP/Iteration page.
-- **Never delete** — only `Won't Do` / `Cancelled`, with a comment and user confirmation.
-- **Idempotent and resumable** — re-running re-scans live state, catches drift, and never duplicates.
