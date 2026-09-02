@@ -308,5 +308,6 @@ Re-read the Roadmap index and the relevant child page first — never assume pri
 ## Principles
 
 - **Roadmap is a short index** — detail lives on the MVP / Iteration child pages, which are children of the Roadmap page, not of the root.
+- **Ask before writing.** Never assign Epics to scope without explicit confirmation; propose and wait, grouping every question into one message.
 - **Scope is a tripartite decision** — prepare the proposal, don't make the call.
 - **Decisions live in Confluence, not in chat** — artifacts and conversation are never the only record.

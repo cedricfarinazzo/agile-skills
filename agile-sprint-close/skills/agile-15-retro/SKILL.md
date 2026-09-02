@@ -165,6 +165,7 @@ Key inputs for next iteration: capacity [N] pts · priority shifts [list] · deb
 ## Principles
 
 - **Every retro lives inside the Retrospectives folder** — never directly under the project root.
+- **Ask before writing** — collect the team's input first.
 - **Blameless by default** — the language is about processes and systems, never individuals.
 - **An action item without an owner and a due date is not an action item.**
 - **Never invent learnings** — state velocity signals, improvement flags, and carried-over reasons as inferences, not conclusions.

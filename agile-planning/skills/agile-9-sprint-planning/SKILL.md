@@ -118,6 +118,7 @@ Next-sprint candidates: [Story — points, …]
 
 ## Principles
 
+- **Propose before acting**, and ask before writing: clarify velocity and goal first, never assume capacity, and state every assumption explicitly.
 - **No unrefined Story enters a sprint** — the `refined` label is the gate; `not-ready` is never included.
 - **Sprint goal first** — refuse to plan without one.
 - **Capacity is a hard ceiling and the buffer is mandatory** — never plan to 100%.

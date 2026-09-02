@@ -149,6 +149,7 @@ This skill sizes the Stories that reach it. It is not the only place tickets are
 
 ## Principles
 
+- **Ask before updating** — show the analysis and proposed changes, grouped by Story, and wait before writing to Jira.
 - **The readiness gate is binary** — no partial readiness; Not Ready Stories are documented, not deleted.
 - **13 points means split, not estimate** — return it to skill 7.
 - **Never assign points to a Story with vague ACs** — falsifiable first, estimate second.
