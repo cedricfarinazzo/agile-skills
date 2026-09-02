@@ -48,7 +48,7 @@ A bundled script surfaces cross-Story file overlap once per sprint. Each overlap
 
 Fall back in order to the script's path relative to this `SKILL.md` (running via `--plugin-dir`), then to a consumer-repo equivalent under `scripts/`. None resolve → skip the audit and continue; it is optional. Full usage in `docs/sprint-shared-file-audit.md`.
 
-## Step 2 — Refine each Story through four lenses
+## Step 2 — Refine each Story through three lenses, then the readiness gate
 
 **Lens 1 — PM (value and scope).** Is the title clear and persona-specific? Is there a "so that [benefit]" making the value explicit? Is the out-of-scope boundary defined? Could this split into two independently deliverable Stories? **Flag** a title whose technical language hides user value ("Implement JWT refresh endpoint" rather than "Keep users logged in across sessions"), a missing or tautological benefit ("so that it works"), or a Story too large for one sprint — propose the split.
 
@@ -64,7 +64,7 @@ Estimate in **Fibonacci story points**: 1–2 trivial and well understood · 3 s
 
 **Flag a producer→consumer seam that spans two Stories.** A boundary whose halves sit in different Stories is declared by neither: each covers its own side, and the message between them is tested nowhere. Name it in the **consumer** Story's ACs, or give it a Story of its own — "both sides are covered" is not "the boundary is covered".
 
-**Lens 4 — Readiness gate, and it is binary.** Ready for Sprint requires **all** of: a clear persona-specific title · ≥2 falsifiable Given/When/Then ACs · a complete DoD · a Specs UI link for any UI Story · technical notes referencing the relevant ADR decisions · dependencies listed with known status · points estimated and not 13 · no open question that would block a dev agent from starting.
+**Readiness gate — applied after the three lenses, and it is binary.** Ready for Sprint requires **all** of: a clear persona-specific title · ≥2 falsifiable Given/When/Then ACs · a complete DoD · a Specs UI link for any UI Story · technical notes referencing the relevant ADR decisions · dependencies listed with known status · points estimated and not 13 · no open question that would block a dev agent from starting.
 
 Any gate fails → **Not Ready**: do not estimate, document what is missing, and return it to the PM before the next run.
 
