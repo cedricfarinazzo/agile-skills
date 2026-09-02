@@ -46,7 +46,7 @@ PR number from args; if absent, `gh pr list --state open` and ask.
 - **Router/auth-guard introduction cascade.** If the PR adds routing guards or redirect-on-mount logic, grep existing E2E tests for navigation patterns that may now redirect unexpectedly — each stale DOM assertion is Critical.
 
 **PR description claims — the body is part of the artifact under review.** It is a *claim about the diff*, not evidence; a claim contradicted by the diff is a finding and a fabricated one is Critical.
-- **AC-coverage table:** open the test file each row cites and confirm the test exists and exercises what the row claims. A row citing a missing file, a test name not in it, or a test containing none of the claimed calls → **Critical**. (This lens produced the strongest finding in a real review pass.)
+- **AC-coverage table:** open the test file each row cites and confirm the test exists and exercises what the row claims. A row citing a missing file, a test name not in it, or a test containing none of the claimed calls → **Critical**.
 - **Test-tier / checklist claims** — "integration test added", "e2e updated", "migration tested" — must each trace to a changed file. A ticked box with nothing behind it → **Critical**.
 - **Files/scope claims** describing changes the diff lacks, or omitting a file it changes → Minor, or Critical if it hides a risky change.
 
