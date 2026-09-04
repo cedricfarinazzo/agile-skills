@@ -12,7 +12,7 @@ Run the `implement-code` skill (Skill tool) with the ticket key, resolved config
 
 **If your dispatch prompt hands you more than `implement-code`** — it should not: `agile-10-implement` keeps every phase in its own agent at every concurrency — then you own every step those extra sub-skills define, **including their Jira transitions**: `implement-validate` moves the ticket to `in-progress-status-name` on a `pass`, and sends a rejected ticket to `needs-info-status-name` (or labels it). Apply the transition with `mcp__atlassian__getTransitionsForJiraIssue` + `mcp__atlassian__transitionJiraIssue` and report it in the receipt as `Transitioned: <from> → <to>`. A phase marker posted without its transition leaves the board lying about what is being built.
 
-**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
+**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you.
 
 **Receipt contract:**
 - Never end your turn without your receipt, and never ask the orchestrator a question — blocked means emitting the receipt with a `blocked` field naming the blocker. No receipt = the phase did not happen and gets re-dispatched.

@@ -12,7 +12,7 @@ Run the `implement-pr` skill (Skill tool) with the ticket key from your dispatch
 
 **Your phase writes to the forge, not to the tree.** Read the diff with `gh pr diff` or `git diff <base>...<branch>`, read a file with `git show <ref>:<path>`, and open the PR with `gh pr create --head <branch>`. Never git-mutate the shared checkout — a `checkout`, branch switch, stash, reset, or commit there corrupts every ticket's worktree.
 
-**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
+**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you.
 
 **Receipt contract:**
 - Never end your turn without your receipt, and never ask the orchestrator a question — blocked means emitting the receipt with a `blocked` field naming the blocker. No receipt = the phase did not happen and gets re-dispatched.
