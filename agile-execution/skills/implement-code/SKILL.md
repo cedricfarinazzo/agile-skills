@@ -1,6 +1,6 @@
 ---
 name: implement-code
-description: "Sub-skill of agile-10-implement. Branch off base, implement the plan per ADR + Specs UI with full AC test coverage, finish only when the mode's gate is green, then commit and push. Does not open the PR. Also runs the fix pass for review findings. Not user-invoked."
+description: "Sub-skill of agile-10-implement — the build phase, and the post-review fix pass. Not user-invoked."
 user-invocable: false
 ---
 

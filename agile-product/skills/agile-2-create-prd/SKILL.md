@@ -131,7 +131,5 @@ Read the current PRD fully; per section, judge whether it holds real content or 
 ## Principles
 
 - **Ask before writing** — never draft a section you have no real information for.
-- **Read before write** — the Vision Doc and any existing PRD, before touching Confluence.
-- **Idempotent and resumable** — re-running fills incomplete sections and never duplicates or overwrites complete ones.
 - **No placeholder sections** — real content, or `TBD — [reason + owner]`.
 - **The PRD is the source of truth** — the ADR, Epics, and Stories all derive from it, so accuracy here saves rework everywhere downstream.

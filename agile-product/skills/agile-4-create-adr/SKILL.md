@@ -146,8 +146,6 @@ Read the current ADR fully; per section, judge real content versus placeholder a
 
 ## Principles
 
-- **Ask before writing** — never assume a stack, architecture style, or infra setup; all questions in one message, every assumption stated.
-- **Read before write** — the PRD and Specs UI, before touching Confluence.
+- **Ask before writing** — never assume a stack, architecture style, or infra setup.
 - **Decisions have history** — append with date and reason, never silently overwrite.
-- **Idempotent and resumable** — re-running re-reads updated source docs and fills only incomplete sections.
 - **No placeholder sections** — real content, or `TBD — [reason + owner]`.

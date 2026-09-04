@@ -1,6 +1,6 @@
 ---
 name: implement-validate
-description: "Sub-skill of agile-10-implement. The per-ticket gate: confirm the ticket targets the current repo, then score readiness (AC/DoD/Specs/ADR). Returns pass / out-of-scope / rejected(Needs Info) / critical-park. Not user-invoked."
+description: "Sub-skill of agile-10-implement — the per-ticket readiness gate. Not user-invoked."
 user-invocable: false
 ---
 
@@ -17,19 +17,21 @@ Establish which repo you are in (`git remote get-url origin` + the consumer `CLA
 
 ## Readiness score — a per-criterion breakdown, not a bare number
 
-Score 0–10 across the 7 criteria (skill 8's readiness gate). For each, state the points **and quote the ticket text that earns or fails them**, so the judgement is checkable rather than asserted. A bare "score: 7 → pass" is treated as **not-run** and re-dispatched.
+Score **0–7, one point per criterion** — these are **skill 8's readiness gate minus its points criterion**, which is refinement's job and not a precondition for building. Half points for partial evidence. An N/A criterion scores its full point: a non-UI Story is not penalised for having no Specs UI link. For each, state the points **and quote the ticket text that earns or fails them**, so the judgement is checkable rather than asserted. A bare "score: 5 → pass" is treated as **not-run** and re-dispatched.
+
+The criteria are deliberately **unweighted**. ACs and DoD are already hard preconditions below, so scoring them above the rest would bank points a passing ticket has by definition and let one through on nothing else.
 
 1. **Persona summary** — a clear "As a … I want … so that …".
 2. **≥2 falsifiable Given/When/Then ACs** — quoted; falsifiable means a test could fail it.
 3. **DoD present** — quoted or referenced.
-4. **Specs UI link** — present for UI Stories, N/A otherwise.
+4. **Specs UI link** — present for UI Stories, full marks N/A otherwise.
 5. **Technical notes reference the ADR** — quoted.
 6. **Dependencies resolvable** — every "is blocked by" link accounted for.
 7. **No open question forcing a mid-implementation architecture decision.**
 
-**In this repo AND score ≥ 6 AND AC + DoD present → `pass`.** Resolve remaining minor ambiguities by inference from the ADR / Specs UI / PRD standard patterns, recording *every* inference in the marker — never infer silently. Transition `To Do → In Progress` and record it with a literal `Transitioned: <from> → <to>` line: that line is the resume signal, and a `validate` marker without it means the transition never landed and must be re-applied before `plan` starts.
+**In this repo AND score ≥ 4.5 AND AC + DoD present → `pass`.** Resolve remaining minor ambiguities by inference from the ADR / Specs UI / PRD standard patterns, recording *every* inference in the marker — never infer silently. Transition `To Do → In Progress` and record it with a literal `Transitioned: <from> → <to>` line: that line is the resume signal, and a `validate` marker without it means the transition never landed and must be re-applied before `plan` starts.
 
-**Score < 6, or no AC, or no DoD, or a genuine blocking unknown → `rejected`.** List exactly what is missing and what skill 8 (Refinement) must add, naming the specific failing criteria rather than "score too low". Transition to `needs-info-status-name`, or leave in `To Do` and label `needs-info`.
+**Score < 4.5, or no AC, or no DoD, or a genuine blocking unknown → `rejected`.** List exactly what is missing and what skill 8 (Refinement) must add, naming the specific failing criteria rather than "score too low". Transition to `needs-info-status-name`, or leave in `To Do` and label `needs-info`.
 
 ### Transitioning by discovery — never hardcode a transition id
 
@@ -57,14 +59,14 @@ Post via `mcp__atlassian__addCommentToJiraIssue` (`contentFormat="markdown"`). T
 
 ```
 🤖 <!-- agile:phase=validate --> **validate — agile-10-implement — <YYYY-MM-DD>**
-Readiness: <total>/10
-1. Persona ............... <pts> — "<quoted evidence / what's missing>"
-2. ACs (≥2 falsifiable) .. <pts> — "<quoted AC>"
-3. DoD .................. <pts> — "<quoted / ref>"
-4. Specs UI link ........ <pts> — <link / N/A non-UI>
-5. ADR reference ........ <pts> — "<quoted>"
-6. Dependencies ......... <pts> — <blockers accounted for>
-7. No blocking unknown .. <pts> — <none / the unknown>
+Readiness: <total>/7
+1. Persona ............... <0 | 0.5 | 1> — "<quoted evidence / what's missing>"
+2. ACs (≥2 falsifiable) .. <0 | 0.5 | 1> — "<quoted AC>"
+3. DoD .................. <0 | 0.5 | 1> — "<quoted / ref>"
+4. Specs UI link ........ <0 | 0.5 | 1> — <link / N/A non-UI, full point>
+5. ADR reference ........ <0 | 0.5 | 1> — "<quoted>"
+6. Dependencies ......... <0 | 0.5 | 1> — <blockers accounted for>
+7. No blocking unknown .. <0 | 0.5 | 1> — <none / the unknown>
 Inferences: <each "assumed X because ADR §N" / none>
 Spec drift: <AC<N> references <X> — verify at plan time / none>
 Transitioned: <from> → <to>        # pass only; omit on rejected/out-of-scope

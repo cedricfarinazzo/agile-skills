@@ -164,12 +164,8 @@ Key inputs for next iteration: capacity [N] pts · priority shifts [list] · deb
 
 ## Principles
 
-- **Every retro lives inside the Retrospectives folder** — never directly under the project root — and the folder is created once, then reused forever.
+- **Every retro lives inside the Retrospectives folder** — never directly under the project root.
+- **Ask before writing** — collect the team's input first.
 - **Blameless by default** — the language is about processes and systems, never individuals.
 - **An action item without an owner and a due date is not an action item.**
-- **User feedback drives the Roadmap** — feedback that changes priorities is captured and linked into the Roadmap update.
-- **Technical debt is logged, never dismissed**, and **every carried-over Story gets a documented reason and disposition**.
-- **The velocity signal informs next sprint's capacity** — never let an exceptional sprint set a false baseline.
-- **Ask before writing** — collect the team's input first; never invent learnings — and state velocity signals, improvement flags, and carried-over reasons as inferences, not conclusions.
-- **Idempotent and resumable** — re-running fills only missing sections and re-reads live sprint state.
-- **This skill closes the loop** — its capacity, feedback, debt, and action items are the direct inputs to skill 5 ITERATION mode.
+- **Never invent learnings** — state velocity signals, improvement flags, and carried-over reasons as inferences, not conclusions.

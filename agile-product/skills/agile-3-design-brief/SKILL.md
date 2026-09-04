@@ -192,7 +192,5 @@ Decisions that differ from or extend the PRD/Brief.
 
 ## Principles
 
-- **Detect the mode first**, and **read before write** — the PRD in BRIEF mode, the Design Brief in INTEGRATE mode.
-- **Ask before writing** — never draft a section without the information it needs; all questions in one message, every assumption stated.
-- **Idempotent and resumable** — re-running fills incomplete sections only, never duplicating or overwriting complete ones.
+- **Ask before writing** — never draft a section without the information it needs.
 - **No placeholder sections** — real content, or `TBD — [reason + owner]`.

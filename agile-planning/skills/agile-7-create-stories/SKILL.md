@@ -122,7 +122,5 @@ Re-read every existing Story on the Epic and check each for completeness — tit
 
 - **Analytical first, questions second** — derive the Story list from the PRD + Specs UI, then validate it; propose before creating anything in Jira.
 - **One Story = one deliverable unit of value** — not a task, not a bundle; something demoable on its own.
-- **An AC must be falsifiable** — reject vague criteria at write time; a dev agent cannot implement "looks good".
+- **An AC must be falsifiable** — a dev agent cannot implement "looks good".
 - **A UI Story always carries a direct Specs UI link.**
-- **DoD is project-wide** — agreed once, applied to every Story without renegotiation.
-- **Idempotent and resumable** — re-running re-reads live Jira state and fills only what is missing.

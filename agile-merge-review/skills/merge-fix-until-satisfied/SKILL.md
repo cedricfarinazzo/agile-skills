@@ -38,7 +38,7 @@ fix(<scope>): <ticket> <imperative summary>
 
 Then `git push origin <branch>` where `<branch>` is whatever HEAD is on (`git rev-parse --abbrev-ref HEAD`) — a PR feature branch, or `main` itself when the caller is fixing a post-merge follow-up.
 
-**Confirm you are on the right branch BEFORE committing.** Your caller resolves one working location per PR and names it in your prompt — often a worktree that already holds the branch, because `agile-10-implement` leaves one per unmerged ticket. Work there by absolute path (`cd <path>`, `git -C <path>`; `EnterWorktree` commonly fails for a dispatched agent — expected, not a blocker) and check `git -C <path> rev-parse --abbrev-ref HEAD` matches the PR's branch. If it does not — most dangerously if it says `main` while you were asked to fix a PR — **stop and emit the receipt with `blocked`**; do not commit. "Whatever HEAD is on" is the push rule, not a licence to commit a PR's fixes wherever the shell happens to be pointing.
+**Confirm you are on the right branch BEFORE committing.** Your caller resolves one working location per PR and names it in your prompt — often a worktree that already holds the branch, because `agile-10-implement` leaves one per unmerged ticket. Work there by absolute path (`cd <path>`, `git -C <path>`) and check `git -C <path> rev-parse --abbrev-ref HEAD` matches the PR's branch. If it does not — most dangerously if it says `main` while you were asked to fix a PR — **stop and emit the receipt with `blocked`**; do not commit. "Whatever HEAD is on" is the push rule, not a licence to commit a PR's fixes wherever the shell happens to be pointing.
 
 ## Phase 3 — Re-examine
 

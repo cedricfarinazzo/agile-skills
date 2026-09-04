@@ -98,7 +98,7 @@ Flag every issue you would flag if a stranger wrote this code.
 1. `frontend/src/…/A.tsx:55` — magic `4000` (toast duration) repeated in 3 components. Fix: `TOAST_DURATION_MS`.
 ```
 
-**4.5 — Impartiality is this lens's whole job.** If you catch yourself thinking "the author probably had a reason", write the finding anyway — harder, not softer. Your job is to flag anything that would confuse a stranger in six months. Dismissing an intentional finding is the team's call, not yours.
+**4.5 — Impartiality is this lens's whole job.** Flag anything that would confuse a stranger in six months; dismissing an intentional finding is the team's call, not yours.
 
 ## Phase 5 — Integration suite vs a fresh testing stack
 
@@ -134,7 +134,7 @@ Tear the testing stack down **with volumes** (a stale DB schema is the most comm
 
 ## Phase 6.5 — Merge-train Jira-link audit
 
-`agile-11-merge-train` Phase 4 creates `Relates` links between tickets whose PRs collided on shared files, announcing each in the postmortem with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks into next sprint's planning.
+`agile-11-merge-train` creates `Relates` links between tickets whose PRs collided on shared files — per PR at its 3g, with its Phase 4 reconciling any pair 3g could not reach — announcing each in the postmortem with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks into next sprint's planning.
 
 **Source the pairs** — preferably from a project audit helper (e.g. `scripts/audit_merge_train_links.py`); otherwise scan this sprint's postmortems for those lines and build `(from_key, to_key, link_type)` manually. **Verify each pair** with `mcp__atlassian__getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `mcp__atlassian__createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
 

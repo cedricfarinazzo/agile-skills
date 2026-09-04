@@ -8,7 +8,7 @@ A Claude Code marketplace shipping **seven focused plugins** — six split by cy
 
 - **`agile-product`** — discovery: Vision Doc, PRD, Design Brief / Specs UI, ADR (Confluence).
 - **`agile-planning`** — Roadmap (+ its published Artifact), Epics, Stories, Refinement, Sprint Planning (Confluence + Jira).
-- **`agile-execution`** — autonomous build loop: `agile-10-implement` + six `implement-*` sub-skills + six scoped agents. Needs `gh`.
+- **`agile-execution`** — autonomous build loop: `agile-10-implement` + six `implement-*` sub-skills + seven scoped agents. Needs `gh`.
 - **`agile-merge-review`** — PR workflow: `agile-11-merge-train` + four `merge-*` sub-skills + four agents. Needs `gh`.
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
 - **`agile-sprint-drain`** — outer loop alternating `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Invokes both **inline via the Skill tool** and ships no agents (see dispatch nesting, below). Requires both plugins installed.
@@ -37,7 +37,7 @@ There is **no root plugin** — the root holds only `README.md`, `.claude-plugin
 
 ## SKILL.md format
 
-Frontmatter + markdown instructions. **Exactly three fields are in use across the 26 skills** — `name` (must equal the containing dir), `description`, and `user-invocable` on the 7 that set it. Don't reintroduce `when_to_use` or `allowed-tools`: nothing uses them, and an unused field documented here reads as a convention.
+Frontmatter + markdown instructions. **Exactly three fields are in use across every skill** — `name` (must equal the containing dir), `description`, and `user-invocable` on the user-facing ones (`grep -h '^user-invocable' */skills/*/SKILL.md | wc -l`). Don't reintroduce `when_to_use` or `allowed-tools`: nothing uses them, and an unused field documented here reads as a convention.
 
 **Sub-skills composed by an orchestrator use `user-invocable: false`, NOT `disable-model-invocation: true`.** The latter means *only the user* can invoke it — Claude can't, which breaks an orchestrator calling it via the Skill tool. `user-invocable: false` hides it from the `/` menu while keeping it Claude-invocable. The `merge-*` blocks leave both open (also fine — orchestrator-invocable).
 
@@ -87,7 +87,7 @@ An agent's body stays short and **points** at its sub-skill rather than restatin
 |---|---|---|
 | `ticket-planner`, `pr-reviewer` | opus / high | single points of no recovery — nothing downstream re-derives the plan, nothing re-reads the code before `main` |
 | `build-implementer` | opus / medium | writes the code everything else is measured against; opus for quality, medium because the plan already framed the work and `pr-reviewer` re-reads the result |
-| `fix-until-satisfied`, `review-lens` | sonnet / high | heavy cognitive work with a downstream check; `review-lens` only fires on large PRs, where the read *is* the job |
+| `fix-until-satisfied`, `review-lens`, `self-reviewer` | sonnet / high | heavy cognitive work with a downstream check — the independent `pr-reviewer` gate re-reads the same code before merge; for the two review agents the read *is* the job |
 | `ticket-validator`, `build-monitor` | sonnet / medium | look mechanical, own a **silent** failure mode — readiness scoring, and the flake-vs-regression call plus the stack-side fix |
 | `pr-publisher`, `jira-postmortem`, `pr-updater` | sonnet / low | mechanical, or fully re-read downstream: a body assembled from a diff, a templated comment + one transition, and a rebase whose result `pr-reviewer` reads file-by-file at 3b |
 
@@ -97,7 +97,7 @@ An agent's body stays short and **points** at its sub-skill rather than restatin
 
 ### Dispatch nesting depth is 1 — no subagent spawns a subagent
 
-1. A dispatch point whose sub-skill needs further fan-out (e.g. `implement-review`'s six-lens read) is fanned out **directly by the top-level orchestrator**, never by an intermediate agent spawning children.
+1. A dispatch point whose sub-skill needs further fan-out (e.g. `implement-review`'s six-lens read) is fanned out **directly by the top-level orchestrator**, never by an intermediate agent spawning children — so the large-PR lens split replaces the `self-reviewer` dispatch rather than happening inside it.
 2. **Never wrap an orchestrator in an agent.** Its whole job is to dispatch, so "run orchestrator X" in an agent is pointless — it can only run X fully inline (`concurrency=0`), forfeiting the isolation the wrapper was for, and X stalls the moment it dispatches. `agile-sprint-drain` therefore runs both orchestrators inline and ships no `agents/` dir. Leanness comes from the leaf agents' capped receipts, not from isolating the orchestrator.
 
 ## Shared runtime conventions (embedded, like the Confluence tree)

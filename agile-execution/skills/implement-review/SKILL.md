@@ -1,6 +1,6 @@
 ---
 name: implement-review
-description: "Sub-skill of agile-10-implement: the author's self-review gate. Review a PR vs its Jira Story + ADR across six lenses, post the verdict to PR + Jira, return numbered blockers. Never prompts the user. Not user-invoked."
+description: "Sub-skill of agile-10-implement — the author's self-review gate. Not user-invoked."
 user-invocable: false
 ---
 
@@ -38,7 +38,7 @@ Unresolvable PR link → return verdict `cannot-review` ("No PR resolvable for [
 
 **Read every changed file in full** — bugs hide in the surroundings a diff omits. Each lens produces ✅ passes, ⚠️ warnings (non-blocking follow-up), ❌ blockers (must fix).
 
-**Default: one read, all six lenses, in this context — no subagent dispatch.** Splitting the lenses across N `review-lens` subagents makes each one re-read the whole changed-file set: N× the diff-read tokens for work a single pass already covers.
+**Default: one read, all six lenses, in whichever context you are running in — no further subagent dispatch.** Splitting the lenses across N `review-lens` subagents makes each one re-read the whole changed-file set: N× the diff-read tokens for work a single pass already covers. Normally you are inside `agile-execution:self-reviewer`, so the file contents die with that context and only the verdict returns; under `concurrency=0` you are inline in the orchestrator instead.
 
 **Opt-in fan-out, large PR only:** when the file count makes one-pass depth slow or context-heavy (or wall-clock matters inside a `concurrency>1` run), the **orchestrator** dispatches `agile-execution:review-lens` subagents split by lens group (security + architecture / performance + infra / code-quality + AC-DoD), each returning `file:line`-cited findings, and merges them into the single verdict. Read-only and parallel-safe — but none of them may build or run the shared Docker stack. Never wrap this step in its own agent first; the fan-out happens one level up.
 
