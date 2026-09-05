@@ -2,19 +2,19 @@
 
 ### Ship sprints while you sleep. 🌙
 
-[Claude Code](https://claude.ai/code) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
+[Claude Code](https://claude.ai/code) and [Codex](https://openai.com/codex/) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
 
 Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
 
 | Plugin | Phase | Skills | Needs |
 |--------|-------|--------|-------|
-| [**agile-product**](agile-product/README.md) | Discovery — *what & why* | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
-| [**agile-planning**](agile-planning/README.md) | Planning | Roadmap (+ published Artifact view), Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
-| [**agile-execution**](agile-execution/README.md) | Build (autonomous) | Implement (+ 6 sub-skills) | Atlassian MCP + `gh` |
-| [**agile-merge-review**](agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
-| [**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
-| [**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
-| [**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
+| [**agile-product**](plugins/agile-product/README.md) | Discovery — *what & why* | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
+| [**agile-planning**](plugins/agile-planning/README.md) | Planning | Roadmap (+ published Artifact view), Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
+| [**agile-execution**](plugins/agile-execution/README.md) | Build (autonomous) | Implement (+ 6 sub-skills) | Atlassian MCP + `gh` |
+| [**agile-merge-review**](plugins/agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
+| [**agile-sprint-close**](plugins/agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
+| [**agile-sprint-drain**](plugins/agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
+| [**deep-refactor**](plugins/deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
 
@@ -38,7 +38,7 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
         the source of truth, the artifact is regenerated from it)
                               →  8. Refinement
                                   └─ bundled tool: sprint-shared-file-audit.sh
-                                     (run via ${CLAUDE_PLUGIN_ROOT})
+                                     (resolved from the installed skill directory)
                               →  9. Sprint Planning
 
                     EXECUTION  (agile-execution — autonomous, whole sprint)
@@ -79,11 +79,11 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
 
 Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
 
-`agile-10-implement` clears the **build** queue (`To Do` Story → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`); `agile-sprint-close` ends the sprint. The same code is reviewed by **three different roles** — author self-review ([implement-review](agile-execution/README.md)), independent PR review ([merge-review-pr](agile-merge-review/README.md)), and a global sprint review ([sprint-closeout](agile-sprint-close/README.md)) — by design, not redundancy.
+`agile-10-implement` clears the **build** queue (`To Do` Story → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`); `agile-sprint-close` ends the sprint. The same code is reviewed by **three different roles** — author self-review ([implement-review](plugins/agile-execution/README.md)), independent PR review ([merge-review-pr](plugins/agile-merge-review/README.md)), and a global sprint review ([sprint-closeout](plugins/agile-sprint-close/README.md)) — by design, not redundancy.
 
 ## Requirements
 
-- [Claude Code](https://claude.ai/code) v2.1.128+
+- [Claude Code](https://claude.ai/code) v2.1.128+ or [Codex CLI](https://openai.com/codex/)
 - Atlassian MCP configured (Confluence + Jira) — all plugins use Jira/Confluence
 - GitHub CLI (`gh`) — `agile-execution`, `agile-merge-review`, `agile-sprint-close`
 
@@ -108,24 +108,36 @@ Install only the phases you run. Common combos: planning + execution + merge-rev
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
-claude --plugin-dir ./agile-skills/agile-execution   # one plugin dir at a time
+claude --plugin-dir ./agile-skills/plugins/agile-execution   # one plugin dir at a time
 ```
 
-### Codex CLI / GitHub Copilot CLI
+### Codex
 
-Skills follow the [Agent Skills](https://agentskills.io) open standard — copy the skill directories you want:
+Install the same focused plugins from the Codex marketplace:
+
+```bash
+codex plugin marketplace add cedricfarinazzo/agile-skills
+codex plugin add agile-product@agile-skills
+codex plugin add agile-planning@agile-skills
+# install any other phase by the same name
+```
+
+Codex reads consumer-repository `AGENTS.md` files first. Put the `## Skill configuration` block there; `CLAUDE.md` remains a compatibility fallback.
+
+### GitHub Copilot CLI
+
+Skills follow the [Agent Skills](https://agentskills.io) open standard:
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
-cp -r agile-skills/agile-*/skills/* ~/.agents/skills/      # Codex: all, or pick per plugin
-cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/     # Copilot
+cp -r agile-skills/plugins/agile-*/skills/* ~/.copilot/skills/
 ```
 
 ## Confluence structure & per-repo configuration
 
-All Confluence-using skills share one canonical folder layout with a **short-index Roadmap** (detail on `MVP` / `Iteration N` child pages) — see [agile-planning ▸ Confluence structure](agile-planning/README.md#confluence-structure).
+All Confluence-using skills share one canonical folder layout with a **short-index Roadmap** (detail on `MVP` / `Iteration N` child pages) — see [agile-planning ▸ Confluence structure](plugins/agile-planning/README.md#confluence-structure).
 
-The dev-side plugins read project values (`cloudId`, status names, lint commands, board/branch settings) from the consumer repo's `CLAUDE.md` / `AGENTS.md` — see each plugin README ([execution](agile-execution/README.md#configuration), [merge-review](agile-merge-review/README.md#configuration)).
+The dev-side plugins read project values (`cloudId`, status names, lint commands, board/branch settings) from the consumer repo's `AGENTS.md` / `CLAUDE.md` — see each plugin README ([execution](plugins/agile-execution/README.md#configuration), [merge-review](plugins/agile-merge-review/README.md#configuration)).
 
 ## License
 

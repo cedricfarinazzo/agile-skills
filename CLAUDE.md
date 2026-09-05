@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working in this repository.
+Shared maintainer guidance for Claude Code and Codex. Codex loads `AGENTS.md`, which points here for the common workflow and records its host adapters.
 
 ## What this repo is
 
@@ -22,16 +22,18 @@ Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a
 ## Structure
 
 ```
-README.md                                 # root README — OVERVIEW only (plugin table, cycle diagram, install, links)
-.claude-plugin/marketplace.json           # marketplace — lists every plugin (git-subdir per path); it is the authoritative plugin list
-<plugin>/README.md                        # per-plugin README — the detail for that plugin
-<plugin>/.claude-plugin/plugin.json       # one manifest per plugin
-<plugin>/skills/<name>/SKILL.md           # one dir per skill
-<plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review only)
-agile-planning/skills/agile-8-refinement/scripts/   # bundled scripts — invoke via ${CLAUDE_PLUGIN_ROOT}
+README.md                                  # root README — overview, installs, links
+.claude-plugin/marketplace.json            # Claude marketplace
+.agents/plugins/marketplace.json            # Codex marketplace
+plugins/<plugin>/README.md                  # per-plugin README
+plugins/<plugin>/.claude-plugin/plugin.json # Claude manifest
+plugins/<plugin>/.codex-plugin/plugin.json  # Codex manifest
+plugins/<plugin>/skills/<name>/SKILL.md     # one shared source per skill
+plugins/<plugin>/agents/<name>.md           # Claude scoped agents
+plugins/<plugin>/.codex/agents/<name>.toml  # Codex scoped agents
 ```
 
-There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
+There is **no root plugin**. Canonical packages live under `plugins/`; root-level plugin paths are compatibility symlinks, not a second source. The two host marketplaces are authoritative catalogs; do not restate their count in prose.
 
 **Docs split:** the root `README.md` is an overview that **links** to each plugin README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, orchestrator internals) lives in `<plugin>/README.md`. Change a skill → update its plugin README; keep the root overview-only. The canonical Confluence tree lives in full in `agile-planning/README.md`.
 
@@ -153,7 +155,7 @@ All skills share one canonical layout (root → Vision/PRD/Brief/Specs/ADR/Roadm
 
 ## Roadmap Artifact
 
-The Roadmap index is **also published as a Claude Code Artifact** — a private, shareable page for stakeholders without a Confluence seat, rendering the progress rollup as a real velocity chart. **Confluence stays the source of truth; the artifact is regenerated from it**, never edited in its place.
+The Roadmap index is also published as an **optional Artifact view** when the host supports it — a private, shareable page for stakeholders without a Confluence seat, rendering the progress rollup as a real velocity chart. **Confluence stays the source of truth; the artifact is regenerated from it**, never edited in its place.
 
 Identity is a `📊 Live roadmap:` line on the Roadmap page holding the URL. A refresher **reads that URL and republishes with `url:` set to it** so the existing link keeps working; when the line is absent it publishes new **and writes the URL back in the same run**, or the next run mints a duplicate.
 
@@ -205,14 +207,14 @@ Canonical schema in `README.md` (every plugin, the autonomous loop, confirm-afte
 
 Invariant for all skills: read existing Confluence pages + Jira issues before creating anything.
 
-Bundled scripts must be invoked via `${CLAUDE_PLUGIN_ROOT}` — a bare relative path won't resolve when installed as a plugin (cwd is the consumer repo).
+Bundled scripts must resolve from the loaded skill directory. Claude Code uses `${CLAUDE_PLUGIN_ROOT}`; Codex resolves from the `SKILL.md` path. A bare consumer-repo relative path won't resolve when installed as a plugin.
 
 Cross-plugin references: skills call siblings by name. Most compose within one plugin (`agile-10-implement` → its 6 `implement-*`; `agile-11-merge-train` → its 4 `merge-*`). The cross-plugin links that matter: `agile-14` + `agile-15` read `agile-13`'s output; `agile-9` hands off to `agile-10`; `agile-sprint-drain` composes **both** orchestrators and requires both plugins installed.
 
 ## Plugin + marketplace manifests
 
-Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill namespace prefix), `version`, author/homepage/repo/license. Skills and agents are auto-discovered from `skills/*/SKILL.md` and `agents/*.md`.
+Each plugin has paired manifests: `plugins/<plugin>/.claude-plugin/plugin.json` and `plugins/<plugin>/.codex-plugin/plugin.json`. Keep identity, version, description intent, author/homepage/repo/license, and the shared `skills/*/SKILL.md` source aligned. Claude auto-discovers `agents/*.md`; Codex uses `.codex/agents/*.toml`.
 
-`.claude-plugin/marketplace.json` (root) lists every plugin via a `git-subdir` source (`cedricfarinazzo/agile-skills` + `path: <plugin>`). It carries **no version key** — versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
+`.claude-plugin/marketplace.json` lists every plugin via a `git-subdir` source; `.agents/plugins/marketplace.json` lists the same packages for Codex. Versions live only in manifests. Adding a plugin means adding both manifests, both marketplace entries, and any host agent adapter; keep names in sync.
 
 **Versioning — bump the `version` of every plugin a change touches, in the same commit.** Patch for a typo or doc-only fix; **minor** for a new capability or a substantive skill/agent rework that stays backwards compatible (workflow spine unchanged, no trigger phrase dropped); major only for a breaking change — a removed skill, a renamed trigger, or a changed config-key contract.

@@ -10,7 +10,7 @@
       "source": {
         "source": "git-subdir",
         "url": "cedricfarinazzo/agile-skills",
-        "path": "agile-product"
+        "path": "plugins/agile-product"
       },
       "description": "Product discovery \u2014 Vision Doc, PRD, Design Brief / Specs UI, ADR in Confluence."
     },
@@ -19,7 +19,7 @@
       "source": {
         "source": "git-subdir",
         "url": "cedricfarinazzo/agile-skills",
-        "path": "agile-planning"
+        "path": "plugins/agile-planning"
       },
       "description": "Planning \u2014 Roadmap (short index + MVP/Iteration pages), Epics, Stories, Refinement, Sprint Planning."
     },
@@ -28,7 +28,7 @@
       "source": {
         "source": "git-subdir",
         "url": "cedricfarinazzo/agile-skills",
-        "path": "agile-execution"
+        "path": "plugins/agile-execution"
       },
       "description": "Autonomous execution \u2014 implement the active board's sprint (Scrum/Kanban) ticket by ticket and self-review each PR. Needs gh."
     },
@@ -37,7 +37,7 @@
       "source": {
         "source": "git-subdir",
         "url": "cedricfarinazzo/agile-skills",
-        "path": "agile-merge-review"
+        "path": "plugins/agile-merge-review"
       },
       "description": "Merge-review \u2014 deep PR review, fix-until-satisfied, rebase, Jira postmortem, multi-PR merge train. Needs gh. (Formerly dev-skills.)"
     },
@@ -46,7 +46,7 @@
       "source": {
         "source": "git-subdir",
         "url": "cedricfarinazzo/agile-skills",
-        "path": "agile-sprint-close"
+        "path": "plugins/agile-sprint-close"
       },
       "description": "Sprint-close \u2014 tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), retrospective."
     },
@@ -55,7 +55,7 @@
       "source": {
         "source": "git-subdir",
         "url": "cedricfarinazzo/agile-skills",
-        "path": "agile-sprint-drain"
+        "path": "plugins/agile-sprint-drain"
       },
       "description": "Sprint-drain \u2014 auto-alternate agile-10-implement and agile-11-merge-train to a fixed point, with an actionable-work guard. Requires agile-execution + agile-merge-review. Needs gh + Atlassian MCP."
     },
@@ -64,7 +64,7 @@
       "source": {
         "source": "git-subdir",
         "url": "cedricfarinazzo/agile-skills",
-        "path": "deep-refactor"
+        "path": "plugins/deep-refactor"
       },
       "description": "Three skills: deep-refactor (codebase audit \u2192 report \u2192 ticket train \u2192 PR drain, test contract frozen), test-refactor (per-suite test cleanup, production code frozen, coverage parity + single-parallel-run invariant), and doc-refactor (every .md audited \u2014 lies, drift, duplication, bloat \u2014 source frozen, every surviving claim verified rather than read)."
     }
