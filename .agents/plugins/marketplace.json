@@ -1,0 +1,13 @@
+{
+  "name": "agile-skills",
+  "interface": {"displayName": "agile-skills"},
+  "plugins": [
+    {"name":"agile-product","source":{"source":"local","path":"./plugins/agile-product"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Productivity"},
+    {"name":"agile-planning","source":{"source":"local","path":"./plugins/agile-planning"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Productivity"},
+    {"name":"agile-execution","source":{"source":"local","path":"./plugins/agile-execution"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Developer Tools"},
+    {"name":"agile-merge-review","source":{"source":"local","path":"./plugins/agile-merge-review"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Developer Tools"},
+    {"name":"agile-sprint-close","source":{"source":"local","path":"./plugins/agile-sprint-close"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Productivity"},
+    {"name":"agile-sprint-drain","source":{"source":"local","path":"./plugins/agile-sprint-drain"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Developer Tools"},
+    {"name":"deep-refactor","source":{"source":"local","path":"./plugins/deep-refactor"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Developer Tools"}
+  ]
+}

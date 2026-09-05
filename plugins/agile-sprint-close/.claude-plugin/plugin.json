@@ -1,0 +1,12 @@
+{
+  "name": "agile-sprint-close",
+  "description": "Sprint-close skills for Claude Code \u2014 tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), and retrospective. Closes the sprint and feeds the next roadmap iteration. Needs the gh CLI + Atlassian MCP.",
+  "version": "1.5.0",
+  "author": {
+    "name": "cedricfarinazzo",
+    "email": "cedric.farinazzo@gmail.com"
+  },
+  "homepage": "https://github.com/cedricfarinazzo/agile-skills",
+  "repository": "https://github.com/cedricfarinazzo/agile-skills",
+  "license": "MIT"
+}
