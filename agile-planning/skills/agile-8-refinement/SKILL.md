@@ -103,7 +103,7 @@ mcp__atlassian__editJiraIssue(
 )
 ```
 
-The field id is project-dependent — consumer repos pin it in `CLAUDE.md` (`story-points-field:`); `customfield_10016` is the Jira Software Cloud default. **A comment saying "Points: N" is not sufficient**: velocity charts, burndowns, sprint capacity reports, and the `agile-15-retro` Committed/Delivered/Velocity summary all read the structured field, so skipping the write yields silently broken reporting that only surfaces at retro time.
+The field id is project-dependent — consumer repos pin it in `AGENTS.md` (preferred) or `CLAUDE.md` (`story-points-field:`); `customfield_10016` is the Jira Software Cloud default. **A comment saying "Points: N" is not sufficient**: velocity charts, burndowns, sprint capacity reports, and the `agile-15-retro` Committed/Delivered/Velocity summary all read the structured field, so skipping the write yields silently broken reporting that only surfaces at retro time.
 
 **Verify per Story — mandatory.** Re-read with `mcp__atlassian__getJiraIssue` (`fields=["customfield_10016","labels"]`) and confirm both round-tripped; retry the write if either is missing. **A `refined` label with a null points value is the exact failure this verification exists to catch.**
 

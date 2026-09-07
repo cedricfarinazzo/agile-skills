@@ -10,7 +10,7 @@ Per-ticket gate for `agile-10-implement`: decides whether one Story may enter th
 
 ## Repo-scope check first (hard gate)
 
-Establish which repo you are in (`git remote get-url origin` + the consumer `CLAUDE.md`'s `repo` / `repo-component-map` / `service-name`), then determine the ticket's target repo from its labels (`repo:foo`, or `backend`/`frontend` when those map to separate repos), component field, technical notes, or the ADR's service→repo mapping.
+Establish which repo you are in (`git remote get-url origin` + the consumer `AGENTS.md` (preferred) or `CLAUDE.md` `repo` / `repo-component-map` / `service-name`), then determine the ticket's target repo from its labels (`repo:foo`, or `backend`/`frontend` when those map to separate repos), component field, technical notes, or the ADR's service→repo mapping.
 
 - **Not this repo →** `out-of-scope`, naming the actual target. Leave the ticket in `To Do` — no transition, no `needs-info` label; it is correctly specified, just not for here.
 - **Genuinely ambiguous** (nothing resolves it) → treat as a missing-spec rejection. Never assume it belongs here.

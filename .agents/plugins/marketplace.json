@@ -1,0 +1,92 @@
+{
+  "name": "agile-skills",
+  "interface": {
+    "displayName": "agile-skills"
+  },
+  "plugins": [
+    {
+      "name": "agile-product",
+      "source": {
+        "source": "local",
+        "path": "./agile-product"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "agile-planning",
+      "source": {
+        "source": "local",
+        "path": "./agile-planning"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "agile-execution",
+      "source": {
+        "source": "local",
+        "path": "./agile-execution"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "agile-merge-review",
+      "source": {
+        "source": "local",
+        "path": "./agile-merge-review"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "agile-sprint-close",
+      "source": {
+        "source": "local",
+        "path": "./agile-sprint-close"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "agile-sprint-drain",
+      "source": {
+        "source": "local",
+        "path": "./agile-sprint-drain"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "deep-refactor",
+      "source": {
+        "source": "local",
+        "path": "./deep-refactor"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

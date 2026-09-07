@@ -111,14 +111,26 @@ git clone https://github.com/cedricfarinazzo/agile-skills
 claude --plugin-dir ./agile-skills/agile-execution   # one plugin dir at a time
 ```
 
-### Codex CLI / GitHub Copilot CLI
+### Codex CLI
+
+Install the same focused plugins from the Codex marketplace:
+
+```bash
+codex plugin marketplace add cedricfarinazzo/agile-skills
+codex plugin add agile-product@agile-skills
+codex plugin add agile-planning@agile-skills
+# install any other phase by the same name
+```
+
+Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Its execution and merge workflows run inline because installed plugins do not register plugin-local named agents.
+
+### GitHub Copilot CLI
 
 Skills follow the [Agent Skills](https://agentskills.io) open standard — copy the skill directories you want:
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
-cp -r agile-skills/agile-*/skills/* ~/.agents/skills/      # Codex: all, or pick per plugin
-cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/     # Copilot
+cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/
 ```
 
 ## Confluence structure & per-repo configuration
