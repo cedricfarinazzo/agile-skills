@@ -8,11 +8,11 @@ tools: EnterWorktree, Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__g
 
 Run the `implement-validate` skill (Skill tool) with the ticket key + config from your dispatch prompt. It defines the repo-scope gate, the 7-criterion score, and the receipt. Return its verdict (`pass` / `out-of-scope` / `rejected` / `critical-park`) with the full per-criterion breakdown — never summarised, never dropped.
 
-**Inspect your ticket's worktree, by absolute path** (`cd <path>`, `git -C <path>`; `EnterWorktree` commonly fails for a dispatched agent — expected, not a blocker). Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`). Every phase of this ticket shares that one tree, so what you inspect is what the rest of the chain will build on. Missing or unusable → say so in the receipt and continue **read-only** in the shared checkout.
+**Inspect your ticket's worktree, by absolute path** (`cd <path>`, `git -C <path>`). Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`). Every phase of this ticket shares that one tree, so what you inspect is what the rest of the chain will build on. Missing or unusable → say so in the receipt and continue **read-only** in the shared checkout.
 
 **Your phase is read-only against the tree.** Validation inspects the repo; it never writes to it. Never git-mutate: a `checkout`, branch switch, stash, or commit in the shared checkout corrupts every ticket's worktree. Read other refs with `git show <ref>:<path>`. (The Jira writes your phase owns — the transition, a needs-info label — are a different thing and are yours to make.)
 
-**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. Reading the skill and then doing your own version is the failure this rule exists to stop. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
+**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you.
 
 **Receipt contract:**
 - Never end your turn without your receipt, and never ask the orchestrator a question — blocked means emitting the receipt with a `blocked` field naming the blocker. No receipt = the phase did not happen and gets re-dispatched.

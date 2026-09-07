@@ -16,7 +16,7 @@ Four phases: **audit → report → ticket → drain**.
 
 ## Phase 1 — Audit
 
-Fan out parallel read-only agents over disjoint slices of the suite, plus one pass over the harness itself (fixtures, conftest/setup files, CI test job, coverage config). **Don't stop until you are satisfied of the entire suite**: after acting on a pass, run another with fresh eyes; stop only when a pass comes back empty (loop-until-dry).
+Fan out parallel read-only agents over disjoint slices of the suite, plus one pass over the harness itself (fixtures, conftest/setup files, CI test job, coverage config). **Loop until dry**: after acting on a pass, run another with fresh eyes; the exit condition is a pass that comes back empty.
 
 Classify every test — no test is skipped because it looks fine:
 

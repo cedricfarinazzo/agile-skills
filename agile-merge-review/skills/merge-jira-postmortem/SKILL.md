@@ -89,5 +89,5 @@ On a 0-issue PR, open with "0 issues found during PR review." and go straight to
 
 ## Boundaries
 
-- **Cross-PR conflict ≠ Jira link creation.** This skill records the recommendation; `agile-11-merge-train` Phase 4 creates the link via `mcp__atlassian__createIssueLink`. Never call `mcp__atlassian__createIssueLink` from here.
-- **Phase 4 confirms the link inline.** After creating one, the train appends `Jira link created: relates to <KEY> (Phase 4, merge-train run <date>).` to the most recent postmortem on each side — or the failure reason if it could not. That closes the loop so a later reader sees the link was applied, not merely recommended.
+- **Cross-PR conflict ≠ Jira link creation.** This skill records the recommendation; `agile-11-merge-train` **3g** creates the link via `mcp__atlassian__createIssueLink`, in the same step that dispatches this skill. Never call `mcp__atlassian__createIssueLink` from here.
+- **3g confirms the link inline; Phase 4 reconciles.** After creating one, the train appends `Jira link created: relates to <KEY>.` to the most recent postmortem on each side — or the failure reason if it could not. Its Phase 4 then walks the whole conflict map and creates any pair 3g could not reach (a collision whose other side had not merged yet, or a call that failed). That closes the loop so a later reader sees the link was applied, not merely recommended.

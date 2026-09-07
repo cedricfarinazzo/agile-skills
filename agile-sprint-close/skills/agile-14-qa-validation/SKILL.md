@@ -148,7 +148,6 @@ Re-read the Story's live state and the status of every linked regression Bug. **
 ## Principles
 
 - **Confirm-after-merge only** — never transition, never reopen.
-- **Never assume a pass without evidence** — the absence of a failure is not a pass, and every inferred pass (from CI, test output, or PR status) is stated explicitly.
-- **Every DoD item is re-checked every run** — never carried over unconfirmed.
+- **Never assume a pass without evidence** — the absence of a failure is not a pass, and every inferred pass is stated explicitly.
+- **The full DoD checklist re-runs every run** — an AC pass may be carried over when the code has not changed (say so); a DoD item never is.
 - **Post-merge regressions become Bugs, one per failure** — the Story stays Done with a `qa-regression` label.
-- **Idempotent and resumable** — re-running re-reads live Bug statuses and re-checks only failed or unvalidated items.

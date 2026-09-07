@@ -10,7 +10,7 @@ Run the `merge-jira-postmortem` skill (Skill tool) with the ticket key + mode (`
 
 The Jira comment is a published artifact written for humans, so it keeps its full prose including the mandatory "What was correct" section — that section belongs there, not in your receipt. Return the receipt (comment id + resulting status category + `collisions recorded`); the caller checks it against `getJiraIssue` and against the entry it passed.
 
-**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. Reading the skill and then doing your own version is the failure this rule exists to stop. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
+**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you.
 
 **Receipt contract:**
 - Never end your turn without your receipt, and never ask the orchestrator a question — blocked means emitting the receipt with a `blocked` field naming the blocker. No receipt = the phase did not happen and gets re-dispatched.

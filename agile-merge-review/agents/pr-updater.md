@@ -6,11 +6,11 @@ effort: low
 tools: EnterWorktree, Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill
 ---
 
-Run the `merge-update-pr` skill (Skill tool) with the PR/branch from your dispatch prompt. Its no-op/pushed/conflict outcome logic and its lint-after-rebase gate decide what the caller does next, so return the exact outcome — Pushed merge commit / No-op / Conflict still open — plus the run id/sha. Work in the location that prompt names **by absolute path** (`cd <path>`, `git -C <path>`) — `EnterWorktree` commonly fails for a dispatched agent, which is expected, not a blocker.
+Run the `merge-update-pr` skill (Skill tool) with the PR/branch from your dispatch prompt. Its no-op/pushed/conflict outcome logic and its lint-after-rebase gate decide what the caller does next, so return the exact outcome — Pushed merge commit / No-op / Conflict still open — plus the run id/sha. Work in the location that prompt names **by absolute path** (`cd <path>`, `git -C <path>`).
 
 Resolve conflicts by that skill's principles: understand both sides before choosing, never take one side wholesale to make the merge go away.
 
-**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. Reading the skill and then doing your own version is the failure this rule exists to stop. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you; never proceed on an improvised path.
+**Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you.
 
 **Receipt contract:**
 - Never end your turn without your receipt, and never ask the orchestrator a question — blocked means emitting the receipt with a `blocked` field naming the blocker. No receipt = the phase did not happen and gets re-dispatched.

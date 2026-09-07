@@ -16,7 +16,7 @@ Four phases: **audit → report → ticket → drain**. The discipline that make
 
 Then fan out **parallel read-only agents over disjoint areas** (one per subsystem: domain core, workers/jobs, API surface, build/dependency/config hygiene). Run a mechanical scanner (dead code / duplication / complexity) alongside for signal, not verdicts.
 
-**Don't stop until you are satisfied of the entire codebase.** One sweep is never exhaustive: after acting on a pass, run another with fresh eyes on the areas the first pass only skimmed — a second pass over "already audited" code routinely surfaces defects the first missed. Stop only when a pass comes back empty (loop-until-dry), not when the first list looks long enough.
+**Loop until dry.** One sweep is never exhaustive: after acting on a pass, run another with fresh eyes on the areas the first pass only skimmed — a second pass over "already audited" code routinely surfaces defects the first missed. The exit condition is a pass that comes back empty, not a list that looks long enough.
 
 Every agent follows three rules:
 

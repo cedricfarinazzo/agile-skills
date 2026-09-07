@@ -117,6 +117,4 @@ Re-run on an existing project: read the current doc, check each section for **co
 ## Principles
 
 - **Ask before writing** — never draft from unclear or missing information.
-- **Read before write** — check Confluence and Jira before creating anything.
-- **Idempotent and resumable** — running twice never duplicates; an interrupted run re-asks only what is still missing.
 - **No blank sections** — real content, or an explicit `TBD — [reason]`.

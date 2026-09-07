@@ -110,9 +110,7 @@ Re-scan live Jira Epic statuses — never assume the previous state still holds.
 
 ## Principles
 
-- **Scan before act, confirm before create** — never duplicate an Epic, and show the plan before touching Jira.
 - **Ask before writing** — clarify vague names, blurry scope boundaries, and ownership first; all questions in one message, every assumption stated.
-- **Dependencies drive creation order**, and conflicts get flagged.
+- **Create in dependency order**, and never duplicate an existing Epic — update it.
+- **Never delete an Epic** — `Won't Do` / `Cancelled`, with a comment and user confirmation.
 - **Confluence and Jira stay in sync** — every Epic links back on the MVP/Iteration page.
-- **Never delete** — only `Won't Do` / `Cancelled`, with a comment and user confirmation.
-- **Idempotent and resumable** — re-running re-scans live state, catches drift, and never duplicates.

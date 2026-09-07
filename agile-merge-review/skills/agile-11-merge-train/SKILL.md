@@ -7,7 +7,7 @@ description: "Process every open PR sequentially: rebase → deep review → fix
 
 Clears the open-PR queue **safely**. Composes `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem` and adds the multi-PR layer: ordering, cross-PR conflict detection, Jira state, and the final report.
 
-**Goal:** every PR that lands on `main` was deeply read by a reviewer, rebased onto the current tip, re-verified by a **fresh** CI run, and matched against its Jira ACs. This skill exists to slow down enough to catch problems. If you find yourself thinking "this PR looks fine, skip the file reads" — stop and read the files.
+**Goal:** every PR that lands on `main` was deeply read by a reviewer, rebased onto the current tip, re-verified by a **fresh** CI run, and matched against its Jira ACs. The 3b receipt gate — Files-read equal to the diff set — is what enforces that.
 
 **Non-goals:** mass-merging green PRs unread; trusting yesterday's CI; trusting `MERGEABLE` to mean safe.
 
@@ -22,7 +22,7 @@ A receipt carries proof fields only — plus findings for `:pr-reviewer`, where 
 | Step | Proof fields | Verify before advancing |
 |------|--------------|-------------------------|
 | `3a merge-update-pr` | outcome (Pushed / No-op / Conflict) + run id/sha on no-op | `gh pr view` mergeStateStatus matches the claimed outcome |
-| `3b merge-review-pr` | **reviewed sha**; **Files-read list**; a **cite per lens** (incl. the **invariants/conventions** lens); **per-AC line binding**; verdict | `gh pr diff <N> --name-only` — **reject if Files-read ≠ diff set**, reject any AC with no cite, reject a bare pass; **record the reviewed sha, 3f gates on it** |
+| `3b merge-review-pr` | **reviewed sha**; **Files-read list**; a **cite per lens** (incl. the **invariants/conventions** lens); **Lint-rule cascade** disposition; **per-AC line binding**; verdict | `gh pr diff <N> --name-only` — **reject if Files-read ≠ diff set**, reject any AC with no cite, reject a missing `Lint-rule cascade` disposition, reject a bare pass; **record the reviewed sha, 3f gates on it** |
 | `3c merge-fix-until-satisfied` | 5-gate breakdown + **pre-push run id + pushed sha** | the pushed sha is the branch tip (`gh pr view --json headRefOid`) |
 | `3e CI monitor` | named completed all-green run id on the post-push tip | independent `gh run view` of that id |
 | **`3f` reviewed-sha gate** | the 3b reviewed sha + the sha about to merge | `headRefOid` **==** the reviewed sha. Different ⇒ unreviewed code → re-dispatch `:pr-reviewer` on the delta, re-enter 3e. Not clearable any other way |
@@ -81,7 +81,7 @@ Rank by: **CI status** (already-green PRs are zero-risk wins) → **foundational
 ```
 3a  merge-update-pr           (:pr-updater)           rebase; push only if a merge commit was created
 3b  merge-review-pr           (:pr-reviewer)          deep review — verify Files-read = diff set, cite per lens + AC
-3c  merge-fix-until-satisfied (:fix-until-satisfied)  ALWAYS — even on a 0-issue review (satisfaction gate)
+3c  merge-fix-until-satisfied (:fix-until-satisfied)  runs on every PR, 0-issue reviews included (satisfaction gate)
 3d  bad-PR escape hatch       CONDITIONAL — replaces 3e–3g when 3b/3c find an unsalvageable defect
 3e  CI monitor                HARD GATE, its own turn after the push. New run STARTED, then COMPLETED + SUCCESS
 3f  gh pr merge --squash      only after 3e names a green run id; confirm via state, not exit code
@@ -107,11 +107,11 @@ Three outcomes:
 
 Dispatch to `agile-merge-review:pr-reviewer`. The file-by-file review work — every lens, every AC, reading each changed file **in full at the reviewed sha** — belongs to `merge-review-pr`; this layer only orders PRs and **verifies the receipt**. If `merge-review-pr` is missing something the train needs, edit *that* skill.
 
-Verify before advancing: the verdict must carry the **reviewed sha**, a **Files-read list equal to the diff set**, a **`file:line` cite per lens**, and a **`file:line` per AC**. A bare pass, a short Files-read list, or an AC with no cite is a partial review → re-dispatch.
+Verify before advancing: the verdict must carry the **reviewed sha**, a **Files-read list equal to the diff set**, a **`file:line` cite per lens**, a **Lint-rule cascade** disposition (`N/A` or the rebased-tree sweep and result), and a **`file:line` per AC**. A bare pass, a short Files-read list, a missing cascade disposition, or an AC with no cite is a partial review → re-dispatch.
 
 **Record the reviewed sha and carry it forward** — a review is a statement about **one tree**, not about a PR number, and 3f refuses to merge any other sha.
 
-### 3c. Fix until satisfied — ALWAYS invoke, even on a clean review
+### 3c. Fix until satisfied — invoked on every PR, clean reviews included
 
 Dispatch to `agile-merge-review:fix-until-satisfied` even when 3b reported 0 issues: it is the explicit satisfaction gate that re-examines the files, runs the local gate, and returns the "Satisfied. No remaining issues." verdict authorising 3e. A 0-issue review without that verdict is incomplete.
 

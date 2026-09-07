@@ -70,7 +70,7 @@ Scan tracked **source** (docs are category B). Every finding needs **evidence of
 
 **Fix = delete** — removing code nothing reaches is a no-op, confirmed by the full test and lint suite afterwards. **Never delete on a weak signal:** a public API, plugin entrypoint, migration, or test fixture may be reached only by reflection, config, dynamic import, or a CI runner, so "no callers" from a grep is necessary but not sufficient. When a symbol is reachable non-statically, leave it and note why. Anything that changes behaviour at all is out of scope — file it as a refactor ticket.
 
-## Phase 2 — Report before apply (MANDATORY)
+## Phase 2 — Report before apply
 
 One Markdown report across all six categories, each finding row carrying file path, line range, what is wrong, the proposed fix, and a behaviour-preservation note; plus total lines saved and cross-repo moves.
 

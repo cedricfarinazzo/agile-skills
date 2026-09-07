@@ -8,7 +8,7 @@ user-invocable: true
 
 Outer scheduler that removes the human from the implement ↔ merge alternation.
 
-`agile-10-implement` turns every **eligible** `To Do` Story into an open, self-reviewed PR (`In Review`). `agile-11-merge-train` reviews and merges those PRs, writing each ticket to **Done**. Ticket A blocked by ticket B is only eligible once **B is `Done` and B's PR is merged** — so every merge pass can unlock new build work. This skill runs that loop to a fixed point. You watch the same marker stream; you no longer decide implement-vs-merge.
+`agile-10-implement` turns every **eligible** `To Do` Story into an open, self-reviewed PR (`In Review`). `agile-11-merge-train` reviews and merges those PRs, writing each ticket to **Done**. Ticket A blocked by ticket B is only eligible once **B is `Done` and B's PR is merged** — so every merge pass can unlock new build work. This skill runs that loop to a fixed point, reading the same marker stream both orchestrators emit and making the implement-vs-merge call itself.
 
 ## Preconditions
 

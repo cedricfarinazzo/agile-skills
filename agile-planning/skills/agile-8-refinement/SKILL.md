@@ -48,7 +48,7 @@ A bundled script surfaces cross-Story file overlap once per sprint. Each overlap
 
 Fall back in order to the script's path relative to this `SKILL.md` (running via `--plugin-dir`), then to a consumer-repo equivalent under `scripts/`. None resolve → skip the audit and continue; it is optional. Full usage in `docs/sprint-shared-file-audit.md`.
 
-## Step 2 — Refine each Story through four lenses
+## Step 2 — Refine each Story through three lenses, then the readiness gate
 
 **Lens 1 — PM (value and scope).** Is the title clear and persona-specific? Is there a "so that [benefit]" making the value explicit? Is the out-of-scope boundary defined? Could this split into two independently deliverable Stories? **Flag** a title whose technical language hides user value ("Implement JWT refresh endpoint" rather than "Keep users logged in across sessions"), a missing or tautological benefit ("so that it works"), or a Story too large for one sprint — propose the split.
 
@@ -64,7 +64,7 @@ Estimate in **Fibonacci story points**: 1–2 trivial and well understood · 3 s
 
 **Flag a producer→consumer seam that spans two Stories.** A boundary whose halves sit in different Stories is declared by neither: each covers its own side, and the message between them is tested nowhere. Name it in the **consumer** Story's ACs, or give it a Story of its own — "both sides are covered" is not "the boundary is covered".
 
-**Lens 4 — Readiness gate, and it is binary.** Ready for Sprint requires **all** of: a clear persona-specific title · ≥2 falsifiable Given/When/Then ACs · a complete DoD · a Specs UI link for any UI Story · technical notes referencing the relevant ADR decisions · dependencies listed with known status · points estimated and not 13 · no open question that would block a dev agent from starting.
+**Readiness gate — applied after the three lenses, and it is binary.** Ready for Sprint requires **all** of: a clear persona-specific title · ≥2 falsifiable Given/When/Then ACs · a complete DoD · a Specs UI link for any UI Story · technical notes referencing the relevant ADR decisions · dependencies listed with known status · points estimated and not 13 · no open question that would block a dev agent from starting.
 
 Any gate fails → **Not Ready**: do not estimate, document what is missing, and return it to the PM before the next run.
 
@@ -149,11 +149,8 @@ This skill sizes the Stories that reach it. It is not the only place tickets are
 
 ## Principles
 
-- **Three lenses on every Story**, then a **binary** readiness gate — no partial readiness.
-- **A ticket created outside refinement is still pointed at creation** — otherwise it is never pointed, and the velocity number quietly stops meaning anything.
+- **Ask before updating** — show the analysis and proposed changes, grouped by Story, and wait before writing to Jira.
+- **The readiness gate is binary** — no partial readiness; Not Ready Stories are documented, not deleted.
 - **13 points means split, not estimate** — return it to skill 7.
 - **Never assign points to a Story with vague ACs** — falsifiable first, estimate second.
-- **Ask before updating** — show the analysis and proposed changes, grouped by Story, and wait before writing to Jira.
-- **Not Ready Stories are documented, not deleted** — they stay in the backlog with clear PM instructions.
-- **Idempotent and resumable** — re-running skips refined Stories, re-checks not-ready ones, and preserves refinement history.
-- **Cross-Story file collisions surface at refinement, not at merge.**
+- **A ticket created outside refinement is still pointed at creation** — otherwise it is never pointed, and the velocity number quietly stops meaning anything.
