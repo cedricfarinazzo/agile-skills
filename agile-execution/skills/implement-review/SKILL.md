@@ -16,7 +16,7 @@ The same code is reviewed three times by three roles, and this is the first: `me
 
 **Config** (consumer repo `CLAUDE.md` / `AGENTS.md`): `cloudId` (required), `ticket-prefix-regex` (default `[A-Z]+-\d+`), `in-review-status-name` (default `In Review`).
 
-**Input:** a PR (number/URL) and/or a Story key — derive the other from the PR title/branch or the Story's `🤖 agile:phase=pr` comment.
+**Input:** a PR (number/URL) and/or a Story key — derive the other from the PR title/branch or the Story's `🤖 agile:phase=pr` comment. For a large-PR review, the orchestrator may also provide the directly-dispatched `review-lens` receipts; validate and aggregate them before publishing the verdict.
 
 ---
 
@@ -40,7 +40,7 @@ Unresolvable PR link → return verdict `cannot-review` ("No PR resolvable for [
 
 **Default: one read, all six lenses, in whichever context you are running in — no further subagent dispatch.** Splitting the lenses across N `review-lens` subagents makes each one re-read the whole changed-file set: N× the diff-read tokens for work a single pass already covers. Normally you are inside `agile-execution:self-reviewer`, so the file contents die with that context and only the verdict returns; under `concurrency=0` you are inline in the orchestrator instead.
 
-**Opt-in fan-out, large PR only:** when the file count makes one-pass depth slow or context-heavy (or wall-clock matters inside a `concurrency>1` run), the **orchestrator** dispatches `agile-execution:review-lens` subagents split by lens group (security + architecture / performance + infra / code-quality + AC-DoD), each returning `file:line`-cited findings, and merges them into the single verdict. Read-only and parallel-safe — but none of them may build or run the shared Docker stack. Never wrap this step in its own agent first; the fan-out happens one level up.
+**Opt-in fan-out, large PR only:** when the file count makes one-pass depth slow or context-heavy (or wall-clock matters inside a `concurrency>1` run), the **orchestrator** dispatches `agile-execution:review-lens` subagents split by lens group (security + architecture / performance + infra / code-quality + AC-DoD). Each returns `file:line`-cited findings, its files-read list, and AC bindings; the orchestrator then dispatches `self-reviewer` with those receipts. `self-reviewer` verifies their file coverage, lens evidence, and AC bindings before aggregating and publishing the single verdict in Step 3. Read-only lenses may not build or run the shared Docker stack. Never publish the aggregate from the orchestrator or fan out from inside `self-reviewer`; both break ownership or dispatch depth.
 
 **Lens 1 — Architecture (vs ADR).** Layering and separation of concerns; new patterns consistent with the ADR and codebase; dependencies within the approved stack; API naming/verbs/status codes/response shape. Blockers: a silent pattern contradicting the ADR; a DB call in a controller bypassing the service layer; an unapproved external dependency; a significant new architectural decision the dev agent left unflagged.
 

@@ -3,14 +3,14 @@ name: self-reviewer
 description: Runs the implement-review phase for agile-10-implement — the author's six-lens self-review of the PR, posting the verdict to the PR and Jira. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
 effort: high
-tools: Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
+tools: Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage
 ---
 
-Run the `implement-review` skill (Skill tool) with the PR number and Story key from your dispatch prompt. It defines the six lenses, the three-part machine-checkable receipt, and the verdict it posts to both the PR and the Story. Return the verdict block — approved or changes-requested with its numbered findings — as your result.
+Run the `implement-review` skill (Skill tool) with the PR number, Story key, and any large-PR lens receipts from your dispatch prompt. It defines the six lenses, the three-part machine-checkable receipt, and the verdict it posts to both the PR and the Story. Return the verdict block — approved or changes-requested with its numbered findings — as your result.
 
-**Read every changed file in full at the PR head sha** (`git show <sha>:<path>`), never from the working tree: the checkout may be on another branch and concurrent work uses worktrees, so a working-tree read is a statement about the wrong tree. Those file contents are why this phase runs here rather than in the orchestrator — they die with your context, and only the verdict travels back.
+**Read every changed file in full at the PR head sha** (`git show <sha>:<path>`), never from the working tree, unless the dispatch carries large-PR lens receipts: validate their file coverage, lens evidence, and AC bindings instead, then publish their single aggregate verdict. The checkout may be on another branch and concurrent work uses worktrees, so a working-tree read is a statement about the wrong tree.
 
-Do not spawn subagents: dispatch nesting depth is 1, so the attempt stalls. The large-PR lens fan-out is the orchestrator's to make, one level up, instead of dispatching you.
+Do not spawn subagents: dispatch nesting depth is 1, so the attempt stalls. The large-PR lens fan-out is the orchestrator's to make, one level up; it supplies those results for you to validate and publish.
 
 **Never transition the Story.** Your phase posts the verdict and applies the `dev-review-approved` / `dev-review-changes-requested` label; the `In Review` transition belongs to the orchestrator, after it reads your verdict.
 
