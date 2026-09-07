@@ -80,6 +80,11 @@ The project has a **single shared Docker Compose stack**, so stack access is str
 
 Phase 2 monitoring/rework always runs **sequentially** — a red integration check needs the stack to reproduce — but it never gates admitting new tickets. Read-only work parallelises freely.
 
+
+## Codex adapter
+
+Codex does not discover plugin-local named phase agents. When loaded by Codex, run this phase chain inline (`concurrency=0`); do not promise named-agent dispatch. Keep the existing `.claude/worktrees/` convention.
+
 ## Configuration
 
 From the consumer repo's `CLAUDE.md` / `AGENTS.md` (`## Skill configuration`); the sub-skills read the same block. Fall back to lookups when absent.

@@ -33,6 +33,11 @@ A receipt carries proof fields only — plus findings for `:pr-reviewer`, where 
 
 **Only the mutating steps are ordered.** Phase 0–1 gathering and 3b reviews are read-only — every file is read at a sha, never from the working tree — so dispatch several PRs' reviews at once, ahead of their turn. A later 3a rebase does not void one: it lands on 3f's delta re-review, which is the prescribed path anyway.
 
+
+## Codex adapter
+
+Codex does not discover plugin-local named phase agents. When loaded by Codex, run this phase chain inline (`concurrency=0`); do not promise named-agent dispatch. Keep the existing `.claude/worktrees/` convention.
+
 ## Configuration
 
 From the consumer repo's `CLAUDE.md` / `AGENTS.md`: **`cloudId`** (required, for `mcp__atlassian__*`); **`ticket-prefix-regex`** (default `[A-Z]+-\d+`); **lint commands** per touched path family (see `merge-update-pr`).
