@@ -1,6 +1,6 @@
 ---
 name: implement-code
-description: "Sub-skill of agile-10-implement — implement the approved plan, pass the mode gate, commit and push, then fix review findings. Does not open the PR. Not user-invoked."
+description: "Sub-skill of agile-10-implement — the build phase, and the post-review fix pass. Not user-invoked."
 user-invocable: false
 ---
 

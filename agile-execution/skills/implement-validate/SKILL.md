@@ -1,6 +1,6 @@
 ---
 name: implement-validate
-description: "Sub-skill of agile-10-implement — confirm repo scope and score a Story's AC, DoD, Specs, and ADR readiness. Not user-invoked."
+description: "Sub-skill of agile-10-implement — the per-ticket readiness gate. Not user-invoked."
 user-invocable: false
 ---
 

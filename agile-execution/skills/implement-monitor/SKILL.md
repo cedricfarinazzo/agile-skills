@@ -1,6 +1,6 @@
 ---
 name: implement-monitor
-description: "Sub-skill of agile-10-implement — monitor a pre-merge PR, fix review or check failures, and rebase conflicts. Not user-invoked."
+description: "Sub-skill of agile-10-implement — PR monitoring and rework. Not user-invoked."
 user-invocable: false
 ---
 

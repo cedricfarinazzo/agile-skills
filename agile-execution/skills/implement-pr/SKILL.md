@@ -1,6 +1,6 @@
 ---
 name: implement-pr
-description: "Sub-skill of agile-10-implement — open or update the Story PR from its pushed branch and post its marker. Not user-invoked."
+description: "Sub-skill of agile-10-implement — opens or updates the PR. Not user-invoked."
 user-invocable: false
 ---
 
