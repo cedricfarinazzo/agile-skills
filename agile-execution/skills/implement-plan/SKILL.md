@@ -1,6 +1,6 @@
 ---
 name: implement-plan
-description: "Sub-skill of agile-10-implement — the planning phase. Not user-invoked."
+description: "Sub-skill of agile-10-implement — turn the ADR, Specs UI, and PRD into a file-level plan and AC→test map. Not user-invoked."
 user-invocable: false
 ---
 

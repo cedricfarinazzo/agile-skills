@@ -1,6 +1,6 @@
 ---
 name: implement-review
-description: "Sub-skill of agile-10-implement — the author's self-review gate. Not user-invoked."
+description: "Sub-skill of agile-10-implement — self-review a Story PR against its Jira Story and ADR, then publish the verdict. Not user-invoked."
 user-invocable: false
 ---
 
