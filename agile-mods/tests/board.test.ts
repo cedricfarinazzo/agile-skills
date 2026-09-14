@@ -29,6 +29,8 @@ describe('build queue', () => {
     let b = EMPTY
     for (const k of ['AB-1', 'AB-2', 'AB-3']) b = observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment(k, 'pr'), 'ok')
     expect(buildLines(b, 2).map(l => l.split(' ')[0])).toEqual(['AB-2', 'AB-3'])
+    expect(buildLines(b, 0)).toEqual([])
+    expect(mergeLines(b, 0)).toEqual([])
     b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-3', title: '' }, '/pull/9')
     b = observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 9 }, 'merged')
     expect(buildLines(b, 5).map(l => l.split(' ')[0])).toEqual(['AB-1', 'AB-2'])

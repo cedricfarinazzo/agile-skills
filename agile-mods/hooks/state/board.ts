@@ -196,7 +196,9 @@ export function buildLines(board: Board, rows: number): string[] {
     const pr = board.tickets[k]?.pr
     return !(pr && board.prs[pr]?.merged)
   })
-  return keys.slice(-Math.max(0, rows)).map(key => {
+  // slice(-0) is slice(0): zero rows must draw nothing, not the whole queue
+  if (rows <= 0) return []
+  return keys.slice(-rows).map(key => {
     const t = board.tickets[key]!
     return `${key.padEnd(10)} ${(t.phase ?? '—').padEnd(13)}${t.pr ? ` PR #${t.pr}` : ''}`
   })
