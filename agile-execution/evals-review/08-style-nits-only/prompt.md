@@ -10,60 +10,60 @@ Repo context: this checkout is `inventory-service` (`AGENTS.md`: `repo: inventor
 
 ---
 
-## Story APP-240 — Low-stock count for the dashboard header
+## Story APP-240 — Low-stock banner text
 
-As a warehouse planner, I want a count of SKUs below their threshold so that the dashboard header shows how much needs attention.
+As a warehouse planner, I want the dashboard banner to say how many SKUs need attention so that I can see the workload at a glance.
 
-- **AC1** — Given rules whose SKUs are below threshold, when the count is requested, then it returns the number of such SKUs.
-- **AC2** — Given no SKU below its threshold, when the count is requested, then it returns 0.
+- **AC1** — Given a count above zero, when the banner text is built, then it reads `N SKUs below threshold`, with `SKU` singular when the count is 1.
+- **AC2** — Given a count of zero, when the banner text is built, then it reads `All stock above threshold`.
 
-**DoD:** unit tests for both ACs; no new lint errors.
-**Technical notes:** per ADR §6.1 the count is derived in one query; no ADR constraint on naming.
+**DoD:** unit tests for both ACs including the singular boundary; no new lint errors.
+**Technical notes:** per ADR §9.2 banner strings are built by a pure function in `inventory/presentation/` — no I/O, no translation layer yet (English only, tracked as APP-301). The count is produced by the caller and is a non-negative integer. The ADR sets no naming convention for presentation helpers.
 
-## PR #455 — "APP-240: low stock count"
+## PR #455 — "APP-240: low stock banner text"
 
-Base `main`, head `app-240-low-stock-count`. Dev flags: none. Prior review cycles: 0.
+Base `main`, head `app-240-banner-text`. Dev flags: none. Prior review cycles: 0.
 `gh pr diff 455 --name-only` →
 ```
-inventory/services/dashboard.py
-tests/test_low_stock_count.py
+inventory/presentation/banner.py
+tests/test_banner.py
 ```
 
-### `inventory/services/dashboard.py` (21 lines)
+### `inventory/presentation/banner.py` (12 lines)
 
 ```python
-from sqlalchemy import func
-from inventory.db import session_scope
-from inventory.models import ReorderRule, StockLevel
+"""Banner strings for the dashboard header (APP-240)."""
 
 
-def get_c(pid: str) -> int:
-    # returns the count
-    with session_scope() as s:
-        q = (
-            s.query(func.count(ReorderRule.id))
-            .join(StockLevel, StockLevel.sku_id == ReorderRule.sku_id)
-            .filter(ReorderRule.planner_id == pid)
-            .filter(ReorderRule.state == "active")
-            .filter(StockLevel.quantity < ReorderRule.threshold)
-        )
-        x = q.scalar()
-        return x or 0
+def get_t(n: int) -> str:
+    # returns the text
+    if n == 0:
+        return "All stock above threshold"
+    x = "SKU" if n == 1 else "SKUs"
+    return f"{n} {x} below threshold"
 ```
 
-### `tests/test_low_stock_count.py` (23 lines)
+### `tests/test_banner.py` (24 lines)
 
 ```python
-def test_counts_skus_below_their_threshold(planner, rule_factory, stock_factory):
-    rule_factory(planner_id=planner.id, sku_id="sku-1", threshold=20, state="active")
-    stock_factory(sku_id="sku-1", quantity=5)
-    rule_factory(planner_id=planner.id, sku_id="sku-2", threshold=10, state="active")
-    stock_factory(sku_id="sku-2", quantity=3)
-    assert get_c(planner.id) == 2
+import pytest
+
+from inventory.presentation.banner import get_t
 
 
-def test_returns_zero_when_nothing_is_below_threshold(planner, rule_factory, stock_factory):
-    rule_factory(planner_id=planner.id, sku_id="sku-1", threshold=20, state="active")
-    stock_factory(sku_id="sku-1", quantity=99)
-    assert get_c(planner.id) == 0
+def test_zero_reads_all_stock_above_threshold():
+    assert get_t(0) == "All stock above threshold"
+
+
+def test_one_is_singular():
+    assert get_t(1) == "1 SKU below threshold"
+
+
+@pytest.mark.parametrize("n, expected", [(2, "2 SKUs below threshold"), (17, "17 SKUs below threshold")])
+def test_more_than_one_is_plural(n, expected):
+    assert get_t(n) == expected
+
+
+def test_large_counts_are_not_abbreviated():
+    assert get_t(1234) == "1234 SKUs below threshold"
 ```
