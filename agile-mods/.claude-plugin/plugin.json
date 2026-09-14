@@ -1,0 +1,13 @@
+{
+  "name": "agile-mods",
+  "version": "0.1.0",
+  "description": "Claude Mods for the agile-skills loop: /agile-board sprint board above the prompt (build and merge queues, drain pass and outcome, links pane, retro counts); guards that enforce agent tool grants, the reviewed-sha merge gate, base-branch proof and untrusted-output fences; /receipts checks agent receipts against the contract; and, in the agile-skills repo, trigger-phrase, MCP-name, version-bump and invariant checks. Needs function hooks (early access, CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1); installs and does nothing without them.",
+  "author": {
+    "name": "cedricfarinazzo",
+    "email": "cedric.farinazzo@gmail.com"
+  },
+  "homepage": "https://github.com/cedricfarinazzo/agile-skills",
+  "repository": "https://github.com/cedricfarinazzo/agile-skills",
+  "license": "MIT",
+  "keywords": ["agile", "jira", "sprint", "function-hooks"]
+}
