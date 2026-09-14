@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this repo is
 
-A Claude Code marketplace shipping **seven focused plugins** — six split by cycle phase so users load only what they run, plus one out-of-cycle cleanup plugin:
+A Claude Code marketplace of focused plugins — six split by cycle phase so users load only what they run, one out-of-cycle cleanup plugin, and one mod plugin:
 
 - **`agile-product`** — discovery: Vision Doc, PRD, Design Brief / Specs UI, ADR (Confluence).
 - **`agile-planning`** — Roadmap (+ its published Artifact), Epics, Stories, Refinement, Sprint Planning (Confluence + Jira).
@@ -13,6 +13,7 @@ A Claude Code marketplace shipping **seven focused plugins** — six split by cy
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
 - **`agile-sprint-drain`** — outer loop alternating `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Invokes both **inline via the Skill tool** and ships no agents (see dispatch nesting, below). Requires both plugins installed.
 - **`deep-refactor`** — out-of-cycle cleanup, three skills sharing one audit → report → ticket → drain loop, each freezing a different side of the repo: `deep-refactor` (code changes, tests frozen), `test-refactor` (tests change, production frozen), `doc-refactor` (markdown changes, source frozen). Ships no agents. Tracker-agnostic; needs `gh`.
+- **`agile-mods`** — Claude Mods (function hooks, early access): TypeScript in `hooks/`, no skills or agents. `/agile-board` sprint board, guards that enforce rules this file and the skills state in prose (tool grants, reviewed-sha gate, base-branch proof, untrusted output), `/receipts`, retro counts, and authoring checks active only in this repo. **A mod guard mirrors a prose rule: change the rule (a grant, a receipt field, the `Reviewed sha:` line, a `Triggers:` format, the verify block) and update `agile-mods/hooks/state/` in the same change.** Engine limits: one hooks module (`register.tsx` owns every hook and passes a `Host` to the others), one unmatched hook per event, `$` only in that file. Keep logic in `hooks/state/` and run `cd agile-mods && bun test` plus `claude plugin validate ./agile-mods`. Claude-only: no `.codex-plugin`, no `.agents/plugins/marketplace.json` entry.
 
 `agile-10-implement` clears the **build** queue (`To Do` → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`). User-facing skills keep global cycle numbering (`agile-1` … `agile-15`); composed sub-skills (`implement-*`, `merge-*`) are **unnumbered** because users don't call them. Namespace = plugin name: `/agile-planning:agile-5-roadmap`.
 

@@ -1,0 +1,4 @@
+{
+  "description": "The agile loop's mods: the sprint board, links pane and retro counts; guards on tool grants, the reviewed-sha merge gate, base-branch proof and untrusted output; /receipts; and, in the agile-skills repo itself, the authoring checks",
+  "modules": ["./register.tsx"]
+}

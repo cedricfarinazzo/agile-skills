@@ -4,7 +4,7 @@
 
 [Claude Code](https://claude.ai/code) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
 
-Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
+Raw idea → sprint retro, wired into **Confluence** and **Jira**. Focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
 
 | Plugin | Phase | Skills | Needs |
 |--------|-------|--------|-------|
@@ -15,6 +15,7 @@ Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused
 | [**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
 | [**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
 | [**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
+| [**agile-mods**](agile-mods/README.md) | Enforcement + visibility (Claude Mods, early access) | No skills — `/agile-board` sprint board, guards on the loop's rules (tool grants, reviewed-sha merge gate, base-branch proof), `/receipts`, retro counts, authoring checks | `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
 
