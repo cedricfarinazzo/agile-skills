@@ -5,4 +5,4 @@ match: contains
 flags: i
 weight: 0.5
 ---
-Files read in full
+files[ -]read(\s+in\s+full)?\s*[:(—-]
