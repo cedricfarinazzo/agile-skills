@@ -138,6 +138,8 @@ Tear the testing stack down **with volumes** (a stale DB schema is the most comm
 
 **Source the pairs** — preferably from a project audit helper (e.g. `scripts/audit_merge_train_links.py`); otherwise scan this sprint's postmortems for those lines and build `(from_key, to_key, link_type)` manually. **Verify each pair** with `mcp__atlassian__getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `mcp__atlassian__createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
 
+**Zero announcements over a non-empty ticket set is a METHOD failure, not a pass.** An empty expected set and an unparsed one are the same output. When no announcement is found, derive the expected set from the merges instead: `gh pr view <N> --json files` for each PR the sprint merged, intersect the file sets pairwise, and treat every intersecting pair as an expected `Relates` between their tickets. **State which source produced the table** — announcements or file collisions — because their blind spots differ: prose can be absent, and a collision set cannot see a coupling that shares no file.
+
 **A closeout cannot be green while any pair is FAIL without a recorded disposition** — silent skips are the failure mode this phase exists to prevent. FAILs clustering on one hub ticket are retro input: the Phase 4 link step may need hardening.
 
 ## Phase 7 — Final closeout report

@@ -179,6 +179,8 @@ Each sub-skill is idempotent on partial state, so re-entering a half-done phase 
 > <phase content>
 > ```
 
+**Inline (`concurrency=0`) owes every marker a dispatched run owes.** With no agent boundary the marker IS the receipt: post it before advancing, never in a batch at the end, and a crash then costs one phase instead of the whole trail. The merge path closes the trail with `post_merge` (`merge-jira-postmortem`) — a ticket that reaches Done carrying build markers and no `post_merge` was merged outside the train, and the closeout reports it as such.
+
 **Dispatch each phase to its named agent** (table above), passing the ticket key, the resolved config, and the receipt it must return; verify that receipt before advancing. This holds at **every** concurrency: `N>1` parallelises across TICKETS, never by merging phases into one agent — each ticket's chain still runs phase by phase through its own named agent, and only the `implement` link takes a worktree (pass `mode=concurrent` to `implement-code`). The blocker gate, resume logic, and review gate are unchanged.
 
 1. **`implement-validate`** (`agile-execution:ticket-validator`) → `out-of-scope` (wrong repo) or `rejected` (under-spec'd → Needs Info) → skip the ticket, continue; `critical-park` → escalate one consolidated question, park, continue; `pass` → proceed.
