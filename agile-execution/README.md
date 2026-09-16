@@ -44,7 +44,7 @@ The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` 
 validate → plan → code → pr → implement-review → (transition In Review) → monitor
 ```
 
-Each phase posts a `🤖 <!-- agile:phase=x -->` Jira marker; a re-run resumes from the first unfinished phase — **partially-implemented tickets are picked up, never restarted** (plan done but no code → resume at code; code pushed but no PR → resume at PR). Markers are reconciled against the real git/gh artifacts (branch / commits / open PR) so a phase that crashed after doing the work but before posting its marker still resumes correctly, and marker timestamps keep a reworked ticket from routing back to the build phases. The orchestrator transitions the Story to **In Review** after self-review approves and **never** writes `Done` (that's the merge train).
+Each phase posts a `🤖 <!-- agile:phase=x -->` Jira marker; a re-run resumes from the first unfinished phase — **partially-implemented tickets are picked up, never restarted** (plan done but no code → resume at code; code pushed but no PR → resume at PR). Markers are reconciled against the real git/gh artifacts (branch / commits / open PR) so a phase that crashed after doing the work but before posting its marker still resumes correctly, and marker timestamps keep a reworked ticket from routing back to the build phases. The orchestrator transitions the Story to **In Review** after self-review approves and **never** writes `Done` (that's the merge train, which closes the trail with a `post_merge` marker on its postmortem). Inline runs (`concurrency=0`) post the same markers — with no agent boundary the marker is the receipt.
 
 ## Board handling — Scrum & Kanban; never backlog/future
 
