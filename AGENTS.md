@@ -19,9 +19,9 @@ Read and follow [CLAUDE.md](CLAUDE.md) for the shared workflow and invariants. T
 Run the existing Claude invariants, then validate each Codex manifest:
 
 ```bash
-for plugin in agile-* deep-refactor; do
+for plugin in agile-* deep-refactor project-review; do
   python3 /home/sed/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py "$plugin"
 done
 ```
 
-Confirm that all seven marketplace entries name a root package and every manifest name matches its package.
+Confirm that all eight marketplace entries name a root package and every manifest name matches its package.

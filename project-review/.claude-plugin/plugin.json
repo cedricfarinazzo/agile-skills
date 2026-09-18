@@ -1,0 +1,12 @@
+{
+  "name": "project-review",
+  "description": "Read-only, evidence-backed technical project review across applicable architecture, code, security, delivery, operations, and lifecycle domains.",
+  "version": "0.1.0",
+  "author": {
+    "name": "cedricfarinazzo",
+    "email": "cedricfarinazzo@gmail.com"
+  },
+  "homepage": "https://github.com/cedricfarinazzo/agile-skills",
+  "repository": "https://github.com/cedricfarinazzo/agile-skills",
+  "license": "MIT"
+}

@@ -1,0 +1,24 @@
+{
+  "name": "project-review",
+  "version": "0.1.0",
+  "description": "Read-only, evidence-backed technical project review across applicable architecture, code, security, delivery, operations, and lifecycle domains.",
+  "author": {
+    "name": "cedricfarinazzo",
+    "email": "cedricfarinazzo@gmail.com",
+    "url": "https://github.com/cedricfarinazzo"
+  },
+  "homepage": "https://github.com/cedricfarinazzo/agile-skills",
+  "repository": "https://github.com/cedricfarinazzo/agile-skills",
+  "license": "MIT",
+  "keywords": ["review", "audit", "architecture", "security", "code-quality"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Project Review",
+    "shortDescription": "Assess a project deeply without changing its source.",
+    "longDescription": "Produce an evidence-backed technical review of a software or IT project, covering only applicable domains and writing the final report as the sole project-file change.",
+    "developerName": "cedricfarinazzo",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": ["Review this project deeply."]
+  }
+}
