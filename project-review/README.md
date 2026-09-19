@@ -2,6 +2,8 @@
 
 Read-only, out-of-cycle project assessment. It reads and analyzes every review-relevant repository file across every applicable review domain, traces source code and cross-file behavior, and writes an evidence-backed Markdown report with an auditable file-coverage ledger.
 
+The review may stop only after the complete file inventory is read and analyzed, the ledger is reconciled, and the final report is generated.
+
 The review never modifies project source, configuration, tests, existing documentation, infrastructure, or remote systems. Its only permitted project-file write is the final report (`PROJECT_REVIEW.md`, or a non-conflicting timestamped name).
 
 ## Install

@@ -1,7 +1,7 @@
 {
   "name": "project-review",
   "description": "Read-only, evidence-backed technical project review across applicable architecture, code, security, delivery, operations, and lifecycle domains.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedricfarinazzo@gmail.com"

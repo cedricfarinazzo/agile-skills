@@ -35,6 +35,12 @@ The reviewer must inspect the project, infer its technology and operating model,
 determine which review domains are applicable, investigate each applicable domain
 deeply, and produce a prioritized review report with concrete evidence.
 
+**Terminal condition:** The agent may stop only after every review-relevant file has
+been read in full, every file has been analyzed against all applicable review domains,
+the file-coverage ledger has been reconciled with the final inventory, and the complete
+Markdown report has been generated. It must continue working until all four conditions
+are true; report writing is the final action, not a substitute for unfinished analysis.
+
 At the end of every review, the reviewer MUST write the complete final report to a
 Markdown file in the review workspace. The default filename is:
 
@@ -1610,7 +1616,7 @@ After writing the file, return or print its path clearly.
 
 # Stop conditions
 
-Stop only when:
+The agent may stop only when all of the following are true:
 
 1. project discovery is complete enough to understand the system;
 2. all 20 domains have an applicability classification;
