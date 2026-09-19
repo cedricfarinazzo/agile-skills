@@ -1,6 +1,6 @@
 # project-review
 
-Read-only, out-of-cycle project assessment. It performs a deep technical review of a software or IT project, applies only relevant review domains, traces source code when present, and writes an evidence-backed Markdown report.
+Read-only, out-of-cycle project assessment. It reads and analyzes every review-relevant repository file across every applicable review domain, traces source code and cross-file behavior, and writes an evidence-backed Markdown report with an auditable file-coverage ledger.
 
 The review never modifies project source, configuration, tests, existing documentation, infrastructure, or remote systems. Its only permitted project-file write is the final report (`PROJECT_REVIEW.md`, or a non-conflicting timestamped name).
 
