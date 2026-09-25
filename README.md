@@ -6,16 +6,16 @@
 
 Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
 
-| | Plugin | Phase | Skills | Needs |
-|---|--------|-------|--------|-------|
-| <img src="agile-product/.claude-plugin/icon.svg" width="32" alt=""> | [**agile-product**](agile-product/README.md) | Discovery — *what & why* | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
-| <img src="agile-planning/.claude-plugin/icon.svg" width="32" alt=""> | [**agile-planning**](agile-planning/README.md) | Planning | Roadmap (+ published Artifact view), Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
-| <img src="agile-execution/.claude-plugin/icon.svg" width="32" alt=""> | [**agile-execution**](agile-execution/README.md) | Build (autonomous) | Implement (+ 6 sub-skills) | Atlassian MCP + `gh` |
-| <img src="agile-merge-review/.claude-plugin/icon.svg" width="32" alt=""> | [**agile-merge-review**](agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
-| <img src="agile-sprint-close/.claude-plugin/icon.svg" width="32" alt=""> | [**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
-| <img src="agile-sprint-drain/.claude-plugin/icon.svg" width="32" alt=""> | [**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
-| <img src="deep-refactor/.claude-plugin/icon.svg" width="32" alt=""> | [**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
-| <img src="project-review/.claude-plugin/icon.svg" width="32" alt=""> | [**project-review**](project-review/README.md) | Project assessment (out-of-cycle, read-only) | Deep IT Project Review — evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains | None |
+| Plugin | Phase | Skills | Needs |
+|--------|-------|--------|-------|
+| <img src="agile-product/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-product**](agile-product/README.md) | Discovery — *what & why* | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
+| <img src="agile-planning/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-planning**](agile-planning/README.md) | Planning | Roadmap (+ published Artifact view), Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
+| <img src="agile-execution/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-execution**](agile-execution/README.md) | Build (autonomous) | Implement (+ 6 sub-skills) | Atlassian MCP + `gh` |
+| <img src="agile-merge-review/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-merge-review**](agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
+| <img src="agile-sprint-close/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
+| <img src="agile-sprint-drain/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
+| <img src="deep-refactor/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
+| <img src="project-review/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**project-review**](project-review/README.md) | Project assessment (out-of-cycle, read-only) | Deep IT Project Review — evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains | None |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
 
