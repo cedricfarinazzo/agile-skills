@@ -136,7 +136,14 @@ Tear the testing stack down **with volumes** (a stale DB schema is the most comm
 
 `agile-11-merge-train` creates `Relates` links between tickets whose PRs collided on shared files — per PR at its 3g, with its Phase 4 reconciling any pair 3g could not reach — announcing each in the postmortem with a `Jira link created: relates to <KEY>` line. Without an audit, link-creation failures (network blips, permission errors, partial runs) stay invisible and the coupling leaks into next sprint's planning.
 
-**Source the pairs** — preferably from a project audit helper (e.g. `scripts/audit_merge_train_links.py`); otherwise scan this sprint's postmortems for those lines and build `(from_key, to_key, link_type)` manually. **Verify each pair** with `mcp__atlassian__getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `mcp__atlassian__createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
+**Run the bundled audit.** It sources `(from_key, to_key, link_type)` from the postmortems (a named pattern family, so a reworded announcement is still read), checks each pair in either direction, and prints the table plus what it examined. Gate on its exit code, never its output: `0` all PASS · `1` a FAIL, or zero announcements over a non-empty ticket set · `2` usage error.
+
+```bash
+S="${CLAUDE_PLUGIN_ROOT}/skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py"
+python3 "$S" --comments-json dump.json --key-prefix <PROJ>  # {key: [comment bodies]} + dump.links.json {key: issuelinks}
+```
+
+The script is offline and reads no credentials. Build both files from `mcp__atlassian__getJiraIssue` (`fields=comment,issuelinks`) for each ticket in the sprint (`mcp__atlassian__searchJiraIssuesUsingJql` lists them); a dump without its `.links.json` sidecar reports every row `read failed`, never PASS. No script possible → verify each pair by hand with `mcp__atlassian__getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `mcp__atlassian__createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
 
 **Zero announcements over a non-empty ticket set is a METHOD failure, not a pass.** An empty expected set and an unparsed one are the same output. When no announcement is found, derive the expected set from the merges instead: `gh pr view <N> --json files` for each PR the sprint merged, intersect the file sets pairwise, and treat every intersecting pair as an expected `Relates` between their tickets. **State which source produced the table** — announcements or file collisions — because their blind spots differ: prose can be absent, and a collision set cannot see a coupling that shares no file.
 

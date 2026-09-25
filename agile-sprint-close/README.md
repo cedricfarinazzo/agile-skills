@@ -29,6 +29,8 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 2. **Architect / PM** — does delivered code match the documented intent (Vision/PRD/ADR/Roadmap/epic ACs)?
 3. **Tech Lead** — does it hold up under an impartial deep review of all sprint diffs?
 
+Phase 6.5 audits the merge train's Jira links with a bundled stdlib script (`skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py`; tests beside it, `python3 -m pytest` that dir).
+
 A single Critical from any lens blocks closeout. It publishes a report to the `Closeouts` Confluence folder (sibling of `Retrospectives`), which the retro reads. Catches the "every AC green in isolation, but the wired system is broken" class of bug.
 
 ## QA — confirm-after-merge only

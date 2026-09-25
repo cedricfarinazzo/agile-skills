@@ -29,7 +29,7 @@ README.md                                 # root README — OVERVIEW only (plugi
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review only)
-agile-planning/skills/agile-8-refinement/scripts/   # bundled scripts — invoke via ${CLAUDE_PLUGIN_ROOT}
+<plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
 There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
