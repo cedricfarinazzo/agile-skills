@@ -50,7 +50,7 @@ WATCHLIST_PATH=""
 TEXT_DIR=""
 FIXTURE_PATH=""
 VERBOSE=0
-STORY_KEYS=()
+STORY_IDS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -68,7 +68,7 @@ while [[ $# -gt 0 ]]; do
     -*)
       echo "ERROR: unknown option '$1'" >&2; exit 2 ;;
     *)
-      STORY_KEYS+=("$1"); shift ;;
+      STORY_IDS+=("$1"); shift ;;
   esac
 done
 
@@ -78,7 +78,7 @@ if [[ -n "${WATCHLIST_PATH}" && ! -f "${WATCHLIST_PATH}" ]]; then
   exit 2
 fi
 
-if [[ ${#STORY_KEYS[@]} -eq 0 ]]; then
+if [[ ${#STORY_IDS[@]} -eq 0 ]]; then
   echo "ERROR: no story keys provided. Pass story keys as arguments" >&2
   usage >&2
   exit 2
@@ -117,20 +117,20 @@ if [[ -n "${FIXTURE_PATH}" ]]; then
     exit 2
   fi
   declare -A FIXTURE_MAP
-  while IFS=$'\t' read -r story_key rest; do
-    [[ -z "${story_key}" || "${story_key}" == \#* ]] && continue
-    FIXTURE_MAP["${story_key}"]="${rest}"
+  while IFS=$'\t' read -r story_id rest; do
+    [[ -z "${story_id}" || "${story_id}" == \#* ]] && continue
+    FIXTURE_MAP["${story_id}"]="${rest}"
   done < "${FIXTURE_PATH}"
 
-  for key in "${STORY_KEYS[@]}"; do
-    if [[ -n "${FIXTURE_MAP[${key}]:-}" ]]; then
-      files=$(echo "${FIXTURE_MAP[${key}]}" | tr '\t' '\n' | sort -u | tr '\n' ' ')
-      STORY_FILES["${key}"]="${files}"
+  for story in "${STORY_IDS[@]}"; do
+    if [[ -n "${FIXTURE_MAP[${story}]:-}" ]]; then
+      files=$(echo "${FIXTURE_MAP[${story}]}" | tr '\t' '\n' | sort -u | tr '\n' ' ')
+      STORY_FILES["${story}"]="${files}"
     else
-      STORY_FILES["${key}"]=""
+      STORY_FILES["${story}"]=""
     fi
     if [[ ${VERBOSE} -eq 1 ]]; then
-      echo "[VERBOSE] ${key} (fixture): ${STORY_FILES[${key}]}"
+      echo "[VERBOSE] ${story} (fixture): ${STORY_FILES[${story}]}"
     fi
   done
 else
@@ -139,31 +139,31 @@ else
     echo "ERROR: --text-dir <dir> or --fixture <path> required" >&2
     exit 2
   fi
-  for key in "${STORY_KEYS[@]}"; do
+  for story in "${STORY_IDS[@]}"; do
     text=""
-    [[ -f "${TEXT_DIR}/${key}.txt" ]] && text=$(cat "${TEXT_DIR}/${key}.txt")
+    [[ -f "${TEXT_DIR}/${story}.txt" ]] && text=$(cat "${TEXT_DIR}/${story}.txt")
     if [[ ${VERBOSE} -eq 1 ]]; then
-      echo "[VERBOSE] ${key} raw text: ${text}" >&2
+      echo "[VERBOSE] ${story} raw text: ${text}" >&2
     fi
     files=$(extract_paths_from_text "${text}" | tr '\n' ' ')
-    STORY_FILES["${key}"]="${files}"
+    STORY_FILES["${story}"]="${files}"
   done
 fi
 
 # ---------- build file→stories collision map ----------
 declare -A FILE_STORIES
 
-for key in "${STORY_KEYS[@]}"; do
-  files_str="${STORY_FILES[${key}]:-}"
+for story in "${STORY_IDS[@]}"; do
+  files_str="${STORY_FILES[${story}]:-}"
   [[ -z "${files_str}" ]] && continue
   for f in ${files_str}; do
     [[ -z "${f}" ]] && continue
     if [[ -n "${FILE_STORIES[${f}]:-}" ]]; then
-      if [[ " ${FILE_STORIES[${f}]} " != *" ${key} "* ]]; then
-        FILE_STORIES["${f}"]="${FILE_STORIES[${f}]} ${key}"
+      if [[ " ${FILE_STORIES[${f}]} " != *" ${story} "* ]]; then
+        FILE_STORIES["${f}"]="${FILE_STORIES[${f}]} ${story}"
       fi
     else
-      FILE_STORIES["${f}"]="${key}"
+      FILE_STORIES["${f}"]="${story}"
     fi
   done
 done
@@ -234,7 +234,7 @@ print_section() {
 
 echo
 echo "Sprint Shared-File Audit"
-echo "Stories: ${STORY_KEYS[*]}"
+echo "Stories: ${STORY_IDS[*]}"
 echo "Watchlist: ${WATCHLIST_PATH:-<none>}"
 echo "Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo
