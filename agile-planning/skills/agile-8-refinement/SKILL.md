@@ -42,8 +42,10 @@ A bundled script surfaces cross-Story file overlap once per sprint. Each overlap
 
 **Resolve the path from the plugin root, never a bare relative path** — installed as a plugin, the working directory is the consumer repo, so `scripts/…` will not exist:
 
+The script is offline and reads no credentials. Fetch each Story with `mcp__atlassian__getJiraIssue`, write its summary + description to `<scratch>/<KEY>.txt`, then:
+
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh" ABC-28 ABC-30 ABC-39
+"${CLAUDE_PLUGIN_ROOT}/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh" --text-dir <scratch> ABC-28 ABC-30 ABC-39
 ```
 
 Fall back in order to the script's path relative to this `SKILL.md` (running via `--plugin-dir`), then to a consumer-repo equivalent under `scripts/`. None resolve → skip the audit and continue; it is optional. Full usage in `docs/sprint-shared-file-audit.md`.
