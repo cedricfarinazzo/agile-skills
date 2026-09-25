@@ -9,42 +9,98 @@
     {
       "name": "agile-product",
       "source": "./agile-product",
-      "description": "Product discovery — Vision Doc, PRD, Design Brief / Specs UI, ADR in Confluence."
+      "description": "Product discovery — Vision Doc, PRD, Design Brief / Specs UI, ADR in Confluence.",
+      "category": "productivity",
+      "tags": [
+        "agile",
+        "product",
+        "confluence"
+      ]
     },
     {
       "name": "agile-planning",
       "source": "./agile-planning",
-      "description": "Planning — Roadmap (short index + MVP/Iteration pages), Epics, Stories, Refinement, Sprint Planning."
+      "description": "Planning — Roadmap (short index + MVP/Iteration pages), Epics, Stories, Refinement, Sprint Planning.",
+      "category": "productivity",
+      "tags": [
+        "agile",
+        "planning",
+        "jira",
+        "confluence"
+      ]
     },
     {
       "name": "agile-execution",
       "source": "./agile-execution",
-      "description": "Autonomous execution — implement the active board's sprint (Scrum/Kanban) ticket by ticket and self-review each PR. Needs gh."
+      "description": "Autonomous execution — implement the active board's sprint (Scrum/Kanban) ticket by ticket and self-review each PR. Needs gh.",
+      "category": "development",
+      "tags": [
+        "agile",
+        "implementation",
+        "jira",
+        "github"
+      ]
     },
     {
       "name": "agile-merge-review",
       "source": "./agile-merge-review",
-      "description": "Merge-review — deep PR review, fix-until-satisfied, rebase, Jira postmortem, multi-PR merge train. Needs gh. (Formerly dev-skills.)"
+      "description": "Merge-review — deep PR review, fix-until-satisfied, rebase, Jira postmortem, multi-PR merge train. Needs gh. (Formerly dev-skills.)",
+      "category": "development",
+      "tags": [
+        "agile",
+        "review",
+        "github",
+        "jira"
+      ]
     },
     {
       "name": "agile-sprint-close",
       "source": "./agile-sprint-close",
-      "description": "Sprint-close — tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), retrospective."
+      "description": "Sprint-close — tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), retrospective.",
+      "category": "productivity",
+      "tags": [
+        "agile",
+        "qa",
+        "retrospective",
+        "jira"
+      ]
     },
     {
       "name": "agile-sprint-drain",
       "source": "./agile-sprint-drain",
-      "description": "Sprint-drain — auto-alternate agile-10-implement and agile-11-merge-train to a fixed point, with an actionable-work guard. Requires agile-execution + agile-merge-review. Needs gh + Atlassian MCP."
+      "description": "Sprint-drain — auto-alternate agile-10-implement and agile-11-merge-train to a fixed point, with an actionable-work guard. Requires agile-execution + agile-merge-review. Needs gh + Atlassian MCP.",
+      "category": "development",
+      "tags": [
+        "agile",
+        "automation",
+        "jira",
+        "github"
+      ]
     },
     {
       "name": "deep-refactor",
       "source": "./deep-refactor",
-      "description": "Three skills: deep-refactor (codebase audit → report → ticket train → PR drain, test contract frozen), test-refactor (per-suite test cleanup, production code frozen, coverage parity + single-parallel-run invariant), and doc-refactor (every .md audited — lies, drift, duplication, bloat — source frozen, every surviving claim verified rather than read)."
+      "description": "Three skills: deep-refactor (codebase audit → report → ticket train → PR drain, test contract frozen), test-refactor (per-suite test cleanup, production code frozen, coverage parity + single-parallel-run invariant), and doc-refactor (every .md audited — lies, drift, duplication, bloat — source frozen, every surviving claim verified rather than read).",
+      "category": "development",
+      "tags": [
+        "refactor",
+        "code-quality",
+        "tests",
+        "documentation"
+      ]
     },
     {
       "name": "project-review",
       "source": "./project-review",
-      "description": "Out-of-cycle read-only technical project review — evidence-backed assessment across applicable code, architecture, security, delivery, and operations domains."
+      "description": "Out-of-cycle read-only technical project review — evidence-backed assessment across applicable code, architecture, security, delivery, and operations domains.",
+      "category": "development",
+      "tags": [
+        "review",
+        "audit",
+        "architecture",
+        "security",
+        "code-quality"
+      ]
     }
   ]
 }

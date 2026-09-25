@@ -1,12 +1,18 @@
 {
   "name": "agile-product",
-  "description": "Product discovery skills for Claude Code \u2014 Vision Doc, PRD, Design Brief / Specs UI, and ADR, written to Confluence. The 'what & why' half of the agile cycle.",
-  "version": "1.2.1",
+  "displayName": "Agile Product",
+  "description": "Product discovery skills for Claude Code — Vision Doc, PRD, Design Brief / Specs UI, and ADR, written to Confluence. The 'what & why' half of the agile cycle.",
+  "version": "1.2.2",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"
   },
   "homepage": "https://github.com/cedricfarinazzo/agile-skills",
   "repository": "https://github.com/cedricfarinazzo/agile-skills",
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": [
+    "agile",
+    "product",
+    "confluence"
+  ]
 }
