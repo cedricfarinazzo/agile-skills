@@ -2,7 +2,7 @@
   "name": "agile-sprint-close",
   "displayName": "Agile Sprint Close",
   "description": "Sprint-close skills for Claude Code — tech-debt sweep, dev-stack closeout gate, QA validation (confirm-after-merge), and retrospective. Closes the sprint and feeds the next roadmap iteration. Needs the gh CLI + Atlassian MCP.",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"
