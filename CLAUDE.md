@@ -220,7 +220,7 @@ Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill na
 
 The directory also holds two things for review. Avoid both:
 
-- **No credential read from the installer's machine** (`MCP_FORWARDS_CREDENTIAL_ENV`). A skill, script, or agent must not read a token from env vars or files and send it to a host. Reach Jira and Confluence through the Atlassian MCP tools, which own authentication; bundled scripts stay offline and take their input as files. If a plugin truly needs a secret, declare it as a `userConfig` option with `sensitive: true` and reference it as `${user_config.KEY}`. The scanner can flag a false positive (for example the review verdict `pass` read as a password next to the manifest's GitHub URL); explain it in the submission instead of changing the code.
+- **No credential read from the installer's machine** (`MCP_FORWARDS_CREDENTIAL_ENV`). A skill, script, or agent must not read a token from env vars or files and send it to a host. Reach Jira and Confluence through the Atlassian MCP tools, which own authentication; bundled scripts stay offline and take their input as files. If a plugin truly needs a secret, declare it as a `userConfig` option with `sensitive: true` and reference it as `${user_config.KEY}`. The scanner also matches on names: in bundled scripts, don't name variables with `KEY`, `TOKEN`, `SECRET`, or `PASS` unless they hold one. It can still flag a false positive (for example the review verdict `pass` read as a password next to the manifest's GitHub URL); explain it in the submission instead of changing the code.
 - **Every plugin has an icon** (`ICON_MISSING`): a square SVG of at least 128px at `<plugin>/.claude-plugin/icon.svg`.
 
 - Submission guide: https://claude.com/blog/build-plugins-for-claude
