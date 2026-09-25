@@ -1,4 +1,4 @@
-# agile-planning
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-planning
 
 **Planning** plugin — turns the approved product/architecture docs into a Roadmap, Jira Epics + Stories, a refined backlog, and a launched sprint. Integrates with **Confluence + Jira**.
 

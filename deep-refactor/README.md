@@ -1,4 +1,4 @@
-# deep-refactor
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> deep-refactor
 
 Three skills sharing one discipline: audit deeply, prove every claim, ship as a sequenced PR train. Each freezes a different side of the repo as its proof.
 

@@ -1,4 +1,4 @@
-# project-review
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> project-review
 
 Read-only, out-of-cycle project assessment. It reads and analyzes every review-relevant repository file across every applicable review domain, traces source code and cross-file behavior, and writes an evidence-backed Markdown report with an auditable file-coverage ledger.
 

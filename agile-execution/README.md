@@ -1,4 +1,4 @@
-# agile-execution
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-execution
 
 **Autonomous build** plugin — takes a planned sprint and turns every eligible Story into an open, self-reviewed PR, unattended. The agile-side analogue of the merge train, modelled on `nightshift jira run`. Integrates with **Jira** and uses the **`gh`** CLI + git.
 

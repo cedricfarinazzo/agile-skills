@@ -218,8 +218,14 @@ Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill na
 
 **Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning.
 
+The directory also holds two things for review. Avoid both:
+
+- **No credential read from the installer's machine** (`MCP_FORWARDS_CREDENTIAL_ENV`). A skill, script, or agent must not read a token from env vars or files and send it to a host. Reach Jira and Confluence through the Atlassian MCP tools, which own authentication; bundled scripts stay offline and take their input as files. If a plugin truly needs a secret, declare it as a `userConfig` option with `sensitive: true` and reference it as `${user_config.KEY}`. The scanner can flag a false positive (for example the review verdict `pass` read as a password next to the manifest's GitHub URL); explain it in the submission instead of changing the code.
+- **Every plugin has an icon** (`ICON_MISSING`): a square SVG of at least 128px at `<plugin>/.claude-plugin/icon.svg`.
+
 - Submission guide: https://claude.com/blog/build-plugins-for-claude
 - Marketplace file reference: https://code.claude.com/docs/en/plugins/marketplace-reference#marketplace-file
 - Directory policy: https://support.claude.com/en/articles/13145358-anthropic-software-directory-policy
+- Plugin manifest reference (`userConfig`, `${user_config.KEY}`): https://code.claude.com/docs/en/plugins-reference#user-configuration
 
 **Versioning — bump the `version` of every plugin a change touches, in the same commit.** Patch for a typo or doc-only fix; **minor** for a new capability or a substantive skill/agent rework that stays backwards compatible (workflow spine unchanged, no trigger phrase dropped); major only for a breaking change — a removed skill, a renamed trigger, or a changed config-key contract.

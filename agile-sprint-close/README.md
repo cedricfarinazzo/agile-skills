@@ -1,4 +1,4 @@
-# agile-sprint-close
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-sprint-close
 
 **Close** plugin — ends the sprint cleanly: housekeeping, a global engineering+product gate, post-merge QA sign-off, and the retrospective that feeds the next iteration. Uses the **`gh`** CLI + git and **Confluence + Jira**.
 
