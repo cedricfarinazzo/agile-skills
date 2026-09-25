@@ -257,8 +257,7 @@ def test_an_EMPTY_ticket_set_is_not_forced_to_fail(tmp_path):
     assert _run(tmp_path, {}) == 0
 
 
-def test_a_missing_key_prefix_is_a_usage_error(tmp_path, monkeypatch):
-    monkeypatch.delenv("JIRA_PROJECT_KEY", raising=False)
+def test_a_missing_key_prefix_is_a_usage_error(tmp_path):
     dump = tmp_path / "dump.json"
     dump.write_text("{}", encoding="utf-8")
     assert audit.main(["--comments-json", str(dump)]) == 2
@@ -302,8 +301,7 @@ def test_the_source_hardcodes_no_project_key():
     assert offenders == [], f"a project-scoped key is hardcoded: {offenders}"
 
 
-def test_the_key_prefix_comes_from_the_argument_or_the_environment(monkeypatch, tmp_path):
-    monkeypatch.setenv("JIRA_PROJECT_KEY", "OPS")
+def test_the_key_prefix_comes_from_the_argument(tmp_path):
     dump = tmp_path / "dump.json"
     dump.write_text(
         json.dumps({"OPS-1": ["Jira link created: relates to OPS-2."]}), encoding="utf-8"
@@ -311,23 +309,19 @@ def test_the_key_prefix_comes_from_the_argument_or_the_environment(monkeypatch, 
     (tmp_path / "dump.links.json").write_text(
         json.dumps({"OPS-1": _links(_outward("OPS-2"))}), encoding="utf-8"
     )
-    assert audit.main(["--comments-json", str(dump)]) == 0
+    assert audit.main(["--comments-json", str(dump), "--key-prefix", "OPS"]) == 0
 
 
 def test_the_source_carries_no_credential_literal():
     for marker in ("password", "api_token=", "Bearer ey", "ATATT"):
         assert marker not in _SOURCE, f"a credential-shaped literal is present: {marker!r}"
-    assert "JIRA_API_TOKEN" in _SOURCE, "the token must be read from the environment"
 
 
-def test_a_missing_token_fails_LOUDLY_rather_than_running_unauthenticated(monkeypatch):
-    """An unauthenticated read returns 401s reported as missing links — every pair FAILs
-    for the wrong reason, sending the operator to create links that exist."""
-    monkeypatch.delenv("JIRA_EMAIL", raising=False)
-    monkeypatch.delenv("JIRA_API_TOKEN", raising=False)
-    with pytest.raises(SystemExit) as err:
-        audit._auth_header()
-    assert "JIRA_API_TOKEN" in str(err.value)
+def test_the_script_is_OFFLINE():
+    """The plugin directory holds any script that reads a credential and can reach a host.
+    Jira access belongs to the Atlassian MCP; this script only parses the files it writes."""
+    for marker in ("os.environ", "getenv", "urllib", "http.client", "socket", "subprocess"):
+        assert marker not in _SOURCE, f"the script must stay offline: {marker!r}"
 
 
 # ── the patterns are grounded in real sources, not invented ──

@@ -8,14 +8,8 @@ Usage
 -----
     S="${CLAUDE_PLUGIN_ROOT}/skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py"
 
-    # from a comments dump + its `<dump>.links.json` sidecar (absent ⇒ every row "read failed")
+    # a comments dump + its `<dump>.links.json` sidecar (absent ⇒ every row "read failed")
     python3 "$S" --comments-json dump.json --key-prefix PROJ
-
-    # against live Jira
-    JIRA_EMAIL=… JIRA_API_TOKEN=… JIRA_CLOUD_ID=… \\
-        python3 "$S" --live --key-prefix PROJ --sprint "Sprint 12"
-    JIRA_EMAIL=… JIRA_API_TOKEN=… JIRA_CLOUD_ID=… \\
-        python3 "$S" --live --key-prefix PROJ --keys PROJ-1 PROJ-2
 
 Exit codes: ``0`` every announced pair verified · ``1`` at least one FAIL, or the audit could
 not be performed (see "Zero is not a pass") · ``2`` usage error.
@@ -29,10 +23,10 @@ patterns matched nothing" are the same output. The report always states tickets 
 matches per pattern. Announcement wording varies between runs, hence :data:`PATTERNS`, a
 NAMED family: a new wording adds a member, never loosens an existing one.
 
-Credentials
------------
-``JIRA_EMAIL``/``JIRA_API_TOKEN`` come from the environment only, never an argument (an
-argument lands in shell history and CI logs). No project key, cloud id or site is hardcoded.
+Offline
+-------
+The script reads only the two JSON files. It makes no network call and reads no credential:
+the skill fetches comments and links through the Atlassian MCP and writes the files.
 
 Stdlib only — runs from a bare interpreter.
 """
@@ -40,13 +34,10 @@ Stdlib only — runs from a bare interpreter.
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os
 import re
 import sys
-import urllib.parse
-import urllib.request
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -67,10 +58,6 @@ __all__ = [
 #: the TYPE `Relates` and the DIRECTION `relates to`, two spellings of one thing.
 DEFAULT_LINK_TYPE: Final[str] = "relates"
 
-_DEFAULT_KEY_PREFIX_ENV: Final[str] = "JIRA_PROJECT_KEY"
-_CLOUD_ID_ENV: Final[str] = "JIRA_CLOUD_ID"
-_EMAIL_ENV: Final[str] = "JIRA_EMAIL"
-_TOKEN_ENV: Final[str] = "JIRA_API_TOKEN"
 
 
 @dataclass(frozen=True)
@@ -262,49 +249,6 @@ def _pattern_counts(
     return counts
 
 
-# ── live Jira, behind --live ─────────────────────────────────────────────────────────────────
-
-
-def _auth_header() -> str:
-    """Basic auth from the ENVIRONMENT. Never an argument."""
-    email = os.environ.get(_EMAIL_ENV, "")
-    token = os.environ.get(_TOKEN_ENV, "")
-    if not email or not token:
-        raise SystemExit(
-            f"{_EMAIL_ENV} and {_TOKEN_ENV} must be set for --live. "
-            "They are read from the environment on purpose: an argument lands in shell "
-            "history and in CI logs."
-        )
-    raw = base64.b64encode(f"{email}:{token}".encode()).decode()
-    return f"Basic {raw}"
-
-
-def _api_get(cloud_id: str, path: str, params: str = "") -> dict:
-    url = f"https://api.atlassian.com/ex/jira/{cloud_id}/rest/api/3/{path}{params}"
-    request = urllib.request.Request(  # noqa: S310 — fixed https host, built above
-        url, headers={"Authorization": _auth_header(), "Accept": "application/json"}
-    )
-    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
-        return json.loads(response.read().decode())
-
-
-def _live_keys_for_sprint(cloud_id: str, sprint: str, key_prefix: str) -> list[str]:
-    jql = urllib.parse.quote(f'project = {key_prefix} AND sprint = "{sprint}"')
-    data = _api_get(cloud_id, "search/jql", f"?jql={jql}&fields=key&maxResults=200")
-    return [issue["key"] for issue in data.get("issues", [])]
-
-
-def _live_comments(cloud_id: str, key: str) -> list[str]:
-    data = _api_get(cloud_id, f"issue/{key}", "?fields=comment")
-    comments = ((data.get("fields") or {}).get("comment") or {}).get("comments") or []
-    return [str(c.get("body", "")) for c in comments]
-
-
-def _live_links(cloud_id: str, key: str) -> list[Mapping]:
-    data = _api_get(cloud_id, f"issue/{key}", "?fields=issuelinks")
-    return (data.get("fields") or {}).get("issuelinks") or []
-
-
 # ── entry point ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -312,24 +256,12 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="audit_merge_train_links.py", description=__doc__.split("\n\n")[1]
     )
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument(
+    parser.add_argument(
         "--comments-json",
-        help="a JSON object mapping issue key -> list of comment bodies; needs no credentials",
+        required=True,
+        help="a JSON object mapping issue key -> list of comment bodies",
     )
-    source.add_argument("--live", action="store_true", help="read from Jira")
-    parser.add_argument("--sprint", help="with --live: the sprint whose tickets to audit")
-    parser.add_argument("--keys", nargs="+", help="explicit issue keys instead of --sprint")
-    parser.add_argument(
-        "--key-prefix",
-        default=os.environ.get(_DEFAULT_KEY_PREFIX_ENV, ""),
-        help=f"issue-key prefix, e.g. PROJ (default: ${_DEFAULT_KEY_PREFIX_ENV})",
-    )
-    parser.add_argument(
-        "--cloud-id",
-        default=os.environ.get(_CLOUD_ID_ENV, ""),
-        help=f"Atlassian cloud id (default: ${_CLOUD_ID_ENV})",
-    )
+    parser.add_argument("--key-prefix", default="", help="issue-key prefix, e.g. PROJ")
     return parser.parse_args(argv)
 
 
@@ -337,56 +269,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     if not args.key_prefix:
         print(
-            f"--key-prefix (or ${_DEFAULT_KEY_PREFIX_ENV}) is required — this script is not "
-            "bound to any one project.",
+            "--key-prefix is required — this script is not bound to any one project.",
             file=sys.stderr,
         )
         return 2
 
-    if args.comments_json:
-        with open(args.comments_json, encoding="utf-8") as handle:
-            comments_by_key: dict[str, list[str]] = json.load(handle)
-        # A dump may carry links too, under a sibling `.links.json`. When it does NOT, the
-        # reader RAISES rather than answering "no links" — those are different facts, and
-        # conflating them is the exact shape `verify`'s docstring forbids ("an unreachable
-        # Jira and a missing link must not produce the same row"). Without the raise, every
-        # pair reports `announced but not found` — asserting MISSING when nothing was
-        # checked, the worst case here since a clean offline run would accuse a healthy board.
-        sidecar = os.path.splitext(args.comments_json)[0] + ".links.json"
-        links_by_key: dict[str, list] = {}
-        if os.path.exists(sidecar):
-            with open(sidecar, encoding="utf-8") as handle:
-                links_by_key = json.load(handle)
-
-            def reader(key: str) -> Sequence[Mapping]:
-                return links_by_key.get(key, [])
-        else:
-
-            def reader(key: str) -> Sequence[Mapping]:
-                raise FileNotFoundError(
-                    f"no link data: {sidecar} does not exist. A comments dump proves what was "
-                    "ANNOUNCED; verifying what Jira HAS needs the links too — supply the "
-                    "sidecar, or run with --live."
-                )
-    else:
-        if not args.cloud_id:
-            print(
-                f"--cloud-id (or ${_CLOUD_ID_ENV}) is required with --live.",
-                file=sys.stderr,
-            )
-            return 2
-        keys = args.keys or (
-            _live_keys_for_sprint(args.cloud_id, args.sprint, args.key_prefix)
-            if args.sprint
-            else []
-        )
-        if not keys:
-            print("--live needs --sprint or --keys.", file=sys.stderr)
-            return 2
-        comments_by_key = {key: _live_comments(args.cloud_id, key) for key in keys}
+    with open(args.comments_json, encoding="utf-8") as handle:
+        comments_by_key: dict[str, list[str]] = json.load(handle)
+    # A dump may carry links too, under a sibling `.links.json`. When it does NOT, the
+    # reader RAISES rather than answering "no links" — those are different facts, and
+    # conflating them is the exact shape `verify`'s docstring forbids ("an unreachable
+    # Jira and a missing link must not produce the same row"). Without the raise, every
+    # pair reports `announced but not found` — asserting MISSING when nothing was
+    # checked, the worst case here since a clean offline run would accuse a healthy board.
+    sidecar = os.path.splitext(args.comments_json)[0] + ".links.json"
+    links_by_key: dict[str, list] = {}
+    if os.path.exists(sidecar):
+        with open(sidecar, encoding="utf-8") as handle:
+            links_by_key = json.load(handle)
 
         def reader(key: str) -> Sequence[Mapping]:
-            return _live_links(args.cloud_id, key)
+            return links_by_key.get(key, [])
+    else:
+
+        def reader(key: str) -> Sequence[Mapping]:
+            raise FileNotFoundError(
+                f"no link data: {sidecar} does not exist. A comments dump proves what was "
+                "ANNOUNCED; verifying what Jira HAS needs the links too — supply the sidecar."
+            )
 
     pairs = build_pairs(comments_by_key, key_prefix=args.key_prefix)
     examined = _pattern_counts(comments_by_key, key_prefix=args.key_prefix)

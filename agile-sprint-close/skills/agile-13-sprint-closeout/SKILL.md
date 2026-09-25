@@ -140,11 +140,10 @@ Tear the testing stack down **with volumes** (a stale DB schema is the most comm
 
 ```bash
 S="${CLAUDE_PLUGIN_ROOT}/skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py"
-JIRA_EMAIL=… JIRA_API_TOKEN=… JIRA_CLOUD_ID=… python3 "$S" --live --key-prefix <PROJ> --sprint "<sprint>"  # or --keys K-1 K-2
-python3 "$S" --comments-json dump.json --key-prefix <PROJ>  # offline: {key: [comment bodies]} + dump.links.json {key: issuelinks}
+python3 "$S" --comments-json dump.json --key-prefix <PROJ>  # {key: [comment bodies]} + dump.links.json {key: issuelinks}
 ```
 
-No API token → build the offline dump from `mcp__atlassian__getJiraIssue` (`fields=comment,issuelinks`); a dump without its `.links.json` sidecar reports every row `read failed`, never PASS. No script possible → verify each pair by hand with `mcp__atlassian__getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `mcp__atlassian__createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
+The script is offline and reads no credentials. Build both files from `mcp__atlassian__getJiraIssue` (`fields=comment,issuelinks`) for each ticket in the sprint (`mcp__atlassian__searchJiraIssuesUsingJql` lists them); a dump without its `.links.json` sidecar reports every row `read failed`, never PASS. No script possible → verify each pair by hand with `mcp__atlassian__getJiraIssue` (`fields=issuelinks`), confirming a link of the announced type in either direction. For every FAIL, decide before continuing: create it inline with `mcp__atlassian__createIssueLink` (with user confirmation), or file a follow-up if the pairing is disputed. Record the disposition and pass the table to Phase 7.
 
 **Zero announcements over a non-empty ticket set is a METHOD failure, not a pass.** An empty expected set and an unparsed one are the same output. When no announcement is found, derive the expected set from the merges instead: `gh pr view <N> --json files` for each PR the sprint merged, intersect the file sets pairwise, and treat every intersecting pair as an expected `Relates` between their tickets. **State which source produced the table** — announcements or file collisions — because their blind spots differ: prose can be absent, and a collision set cannot see a coupling that shares no file.
 
