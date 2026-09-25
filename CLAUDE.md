@@ -24,7 +24,7 @@ Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a
 
 ```
 README.md                                 # root README — OVERVIEW only (plugin table, cycle diagram, install, links)
-.claude-plugin/marketplace.json           # marketplace — lists every plugin (git-subdir per path); it is the authoritative plugin list
+.claude-plugin/marketplace.json           # marketplace — lists every plugin (`./<plugin>` relative source); it is the authoritative plugin list
 <plugin>/README.md                        # per-plugin README — the detail for that plugin
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
@@ -214,6 +214,12 @@ Cross-plugin references: skills call siblings by name. Most compose within one p
 
 Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill namespace prefix), `version`, author/homepage/repo/license. Skills and agents are auto-discovered from `skills/*/SKILL.md` and `agents/*.md`.
 
-`.claude-plugin/marketplace.json` (root) lists every plugin via a `git-subdir` source (`cedricfarinazzo/agile-skills` + `path: <plugin>`). It carries **no version key** — versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
+`.claude-plugin/marketplace.json` (root) carries a top-level `description` and lists every plugin with a relative string source, `"source": "./<plugin>"`. It carries **no version key**; versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
+
+**Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning.
+
+- Submission guide: https://claude.com/blog/build-plugins-for-claude
+- Marketplace file reference: https://code.claude.com/docs/en/plugins/marketplace-reference#marketplace-file
+- Directory policy: https://support.claude.com/en/articles/13145358-anthropic-software-directory-policy
 
 **Versioning — bump the `version` of every plugin a change touches, in the same commit.** Patch for a typo or doc-only fix; **minor** for a new capability or a substantive skill/agent rework that stays backwards compatible (workflow spine unchanged, no trigger phrase dropped); major only for a breaking change — a removed skill, a renamed trigger, or a changed config-key contract.
