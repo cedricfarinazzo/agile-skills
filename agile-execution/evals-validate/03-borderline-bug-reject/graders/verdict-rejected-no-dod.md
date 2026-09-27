@@ -8,4 +8,5 @@ APP-318 is a Bug with four falsifiable acceptance criteria and a readiness total
 - The reason given is specifically the absent Definition of Done, not a low readiness total. An answer that rejects because the score is too low, while the score it reports is 6 or above, is incoherent and fails.
 - The answer does not reject for the absent persona or the absent ADR reference. Those may be scored down, but a Bug legitimately has no user persona, and neither is grounds for rejection on its own.
 - The acceptance criteria are credited as falsifiable, quoting at least one (for example AC1's "Reproduce it deterministically before changing anything" or AC3's "State the `repeat:` count that proves the fix").
+- It does NOT claim a To Do → In Progress transition; it moves the ticket to needs-info or labels it.
 Fail if the verdict is pass, out-of-scope, or critical-park.

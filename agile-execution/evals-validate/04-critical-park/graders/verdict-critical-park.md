@@ -8,4 +8,5 @@ APP-229's AC1 compares four metrics against a stored envelope, but the schema gi
 - It names the actual blocking decision: three of the four metrics have no stored band to compare against.
 - It offers at least two concrete, materially different options for resolving it.
 - It states a recommendation among those options.
+- It frames the park as a decision on an otherwise well-specified ticket (six falsifiable ACs, DoD, ADR, blocker Done) — not a readiness rejection.
 Fail if the answer silently picks one resolution and passes the ticket, or if it invents bands for the missing metrics.

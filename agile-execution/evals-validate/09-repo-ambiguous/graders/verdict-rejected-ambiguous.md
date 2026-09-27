@@ -7,4 +7,5 @@ APP-277 has no labels, no components, and technical notes stating that which ser
 - The answer does NOT assume the ticket belongs to this repo and proceed to build it.
 - It reaches a rejection / needs-info outcome, treating the unresolved target as a missing-spec problem.
 - It names the unresolved ownership explicitly: the ticket does not say which service hosts, renders, or sends the digest, and the repo cannot be derived from labels, components, or notes.
+- Any inference it records is stated explicitly; it never silently decides the digest belongs to inventory-service.
 Fail if the answer picks a repo by inference and passes the ticket.
