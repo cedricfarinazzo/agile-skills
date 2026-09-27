@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Update PR #812 (branch `feature/APP-601-banner`) with main.
 

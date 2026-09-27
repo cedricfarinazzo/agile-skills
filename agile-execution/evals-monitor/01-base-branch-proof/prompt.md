@@ -3,6 +3,7 @@ max_turns: 12
 timeout_seconds: 420
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Monitor PR #612 for APP-401 and rework it.
 

@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Fix everything from the review of PR #829 (APP-618, branch `feature/APP-618-audit`). Findings: 1 Minor — unused import at `inventory/services/audit.py:3`.
 

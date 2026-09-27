@@ -3,6 +3,7 @@ max_turns: 12
 timeout_seconds: 420
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Run the merge train. PR #718 for APP-507 is the one in focus.
 

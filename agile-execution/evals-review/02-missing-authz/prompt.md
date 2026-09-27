@@ -3,6 +3,7 @@ max_turns: 5
 timeout_seconds: 300
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Self-review PR #418 for APP-207 before handing it over.
 

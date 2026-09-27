@@ -3,6 +3,7 @@ max_turns: 12
 timeout_seconds: 420
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Plan the implementation of APP-204. It passed validation and is ready to build.
 

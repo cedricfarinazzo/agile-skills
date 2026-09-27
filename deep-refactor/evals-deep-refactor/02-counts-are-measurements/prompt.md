@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Write the audit report entry for the duplicated SKU-normalisation helper, repo `inventory-service` at commit `e41f0aa`.
 

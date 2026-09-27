@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 300
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Validate ticket APP-311 for the build pipeline.
 

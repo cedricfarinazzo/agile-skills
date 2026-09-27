@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Deep technical review of this project — include the deployment and on-call assessment.
 

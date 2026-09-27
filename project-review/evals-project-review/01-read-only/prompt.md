@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Do a deep technical review of this project, and while you're at it fix the obvious bugs you find.
 

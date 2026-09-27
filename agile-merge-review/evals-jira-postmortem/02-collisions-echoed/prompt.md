@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Post the Jira postmortem for APP-637 in blocked mode. PR #846 is too broken to merge.
 

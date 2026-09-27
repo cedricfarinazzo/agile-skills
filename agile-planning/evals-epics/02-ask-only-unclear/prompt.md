@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Create the epics for the MVP. Project: Inventory Service (Confluence root `Inventory Service`, Jira key APP).
 

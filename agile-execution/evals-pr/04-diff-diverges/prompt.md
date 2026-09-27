@@ -3,6 +3,7 @@ max_turns: 12
 timeout_seconds: 420
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Open the PR for APP-231. `implement-code` has already pushed branch `app-231-pause-rules`.
 

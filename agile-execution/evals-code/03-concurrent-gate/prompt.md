@@ -3,6 +3,7 @@ max_turns: 12
 timeout_seconds: 420
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Build APP-442 from its plan. Mode: `concurrent` — you are in the ticket's worktree at `.claude/worktrees/APP-442`, on branch `feature/APP-442-supplier-sync`, alongside two sibling tickets building in their own worktrees. The project has a single shared Docker Compose stack. CI runs integration and e2e on pull requests.
 

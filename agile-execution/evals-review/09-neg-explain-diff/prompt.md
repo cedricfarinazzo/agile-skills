@@ -3,6 +3,7 @@ max_turns: 5
 timeout_seconds: 300
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Explain what this diff does — I'm reading someone else's branch and want to understand it before the standup.
 

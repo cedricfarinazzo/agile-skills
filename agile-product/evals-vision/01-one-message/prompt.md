@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Start a new project: a tool that tells warehouse planners when to reorder stock. Project: Inventory Service (Confluence root `Inventory Service`, Jira key APP).
 

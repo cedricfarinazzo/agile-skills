@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Plan sprint 1 — first sprint for this team. Project: Inventory Service (Confluence root `Inventory Service`, Jira key APP).
 

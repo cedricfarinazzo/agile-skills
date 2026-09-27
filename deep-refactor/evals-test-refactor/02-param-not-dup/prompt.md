@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Test refactor on `tests/test_reorder_qty.py`. Repo `inventory-service`.
 

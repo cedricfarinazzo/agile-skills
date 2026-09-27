@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Fix everything from the review of PR #823 (APP-612). The review found 0 issues.
 

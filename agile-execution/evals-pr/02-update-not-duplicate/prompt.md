@@ -3,6 +3,7 @@ max_turns: 12
 timeout_seconds: 420
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Open or update the PR for APP-204. `implement-code` has just pushed a fix commit to branch `app-204-reorder-rules`.
 

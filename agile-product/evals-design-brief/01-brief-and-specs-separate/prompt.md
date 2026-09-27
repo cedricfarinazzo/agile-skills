@@ -3,6 +3,7 @@ max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Skill]
 runs: 3
+model: sonnet
 ---
 Integrate the Claude Design mockups for the rules screen. Project: Inventory Service (Confluence root `Inventory Service`, Jira key APP).
 
