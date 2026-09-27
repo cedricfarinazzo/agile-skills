@@ -1,4 +1,4 @@
-# agile-merge-review
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-merge-review
 
 **Merge** plugin (formerly `dev-skills`) — clears the open-PR queue *safely*: every PR that lands on `main` has been rebased, deeply reviewed file-by-file against its Jira ACs, re-verified by a fresh CI run, merged, and closed out in Jira. Uses the **`gh`** CLI + git and **Jira**.
 

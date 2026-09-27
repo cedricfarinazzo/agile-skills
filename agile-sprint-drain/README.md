@@ -1,4 +1,4 @@
-# agile-sprint-drain
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-sprint-drain
 
 **Sprint-drain** plugin — runs the active sprint to a fixed point in one watched session by auto-alternating the **build** queue ([agile-10-implement](../agile-execution/README.md)) and the **merge** queue ([agile-11-merge-train](../agile-merge-review/README.md)) until the Jira dependency graph is fully resolved. It removes the human from the implement ↔ merge alternation — you watch, you no longer schedule.
 

@@ -31,12 +31,7 @@ During **refinement** (this skill), after story scope is set and file-level
 
 ## Setup
 
-```bash
-export JIRA_BASE_URL=https://yourorg.atlassian.net
-export JIRA_EMAIL=you@example.com
-export JIRA_API_TOKEN=<your-atlassian-api-token>
-export JIRA_PROJECT=ABC                # or pass via --project ABC
-```
+The script makes no network calls and reads no credentials. For each Story, fetch it with `mcp__atlassian__getJiraIssue` and write its summary + description (plain text) to `<text-dir>/<KEY>.txt` in a scratch directory. Use `mcp__atlassian__searchJiraIssuesUsingJql` first to list a whole sprint's keys.
 
 Optional: create a per-repo watchlist of always-shared files (any single story
 touching one triggers a warning). One path per line, `#` for comments:
@@ -58,21 +53,15 @@ Pass via `-w` on each invocation. Omit entirely to skip the watchlist section.
 
 ## Invocation modes
 
-### Explicit story keys (live)
+### Story text (default)
 
 ```bash
-./scripts/sprint-shared-file-audit.sh ABC-28 ABC-30 ABC-39 ABC-40 ABC-41
+./scripts/sprint-shared-file-audit.sh --text-dir ./story-text ABC-28 ABC-30 ABC-39 ABC-40 ABC-41
 ```
 
-### Full sprint via JQL (live)
+A key with no `<KEY>.txt` counts as touching no files.
 
-```bash
-./scripts/sprint-shared-file-audit.sh --project ABC --sprint "Sprint 5"
-```
-
-Fetches all tickets in the named sprint from Jira.
-
-### Offline fixture mode (no Jira credentials)
+### Pre-extracted fixture
 
 ```bash
 ./scripts/sprint-shared-file-audit.sh \
@@ -85,16 +74,16 @@ Fixture TSV format: `STORY_KEY<TAB>file1<TAB>file2 ...`
 ### Custom watchlist
 
 ```bash
-./scripts/sprint-shared-file-audit.sh -w ./scripts/lib/shared-file-watchlist.txt ABC-28 ABC-30
+./scripts/sprint-shared-file-audit.sh -t ./story-text -w ./scripts/lib/shared-file-watchlist.txt ABC-28 ABC-30
 ```
 
 ### Verbose output
 
 ```bash
-./scripts/sprint-shared-file-audit.sh -v ABC-28 ABC-30
+./scripts/sprint-shared-file-audit.sh -t ./story-text -v ABC-28 ABC-30
 ```
 
-Prints raw extracted text per story — useful when live extraction misses paths.
+Prints raw extracted text per story — useful when extraction misses paths.
 
 ---
 
@@ -156,7 +145,7 @@ gated by zero collisions.
 
 ## Improving detection accuracy
 
-Live Jira extraction works best when ticket "Technical notes" sections
+Extraction works best when ticket "Technical notes" sections
 explicitly name file paths (e.g., `backend/scheduler/main.py`). During
 refinement, instruct PM / dev to add a "Files touched" bullet to each ticket's
 technical notes. This maximises script coverage; otherwise the watchlist
