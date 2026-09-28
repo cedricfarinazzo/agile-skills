@@ -41,3 +41,11 @@ describe('links', () => {
     expect(linksOf(b).at(-1)).toEqual({ label: 'PR #4 VC-3', href: 'https://github.com/acme/app/pull/4' })
   })
 })
+
+describe('retro merges', () => {
+  test('an MCP merge counts as a merge attempt', () => {
+    const r = retroStart(EMPTY_RETRO, 'mcp__github__merge_pull_request', { pullNumber: 4 }, 5)
+    expect(r.prs[4]?.merges).toBe(1)
+    expect(r.since).toBe(5)
+  })
+})

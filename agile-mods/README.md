@@ -38,7 +38,7 @@ hooks/receipts.ts         # /receipts
 hooks/authoring.ts        # authoring checks, /agile-verify
 hooks/state/*.ts          # pure logic: board, guards, receipts, retro, authoring
 docs/*.md                 # one page per mod
-tests/*.test.ts           # bun test over hooks/state (the invariants test runs on this repo)
+tests/*.test.ts           # bun test over hooks/state, and over the hook modules through tests/fake-host.ts (the invariants test runs on this repo)
 ```
 
 The engine allows one hooks module per plugin, one unmatched hook per event, and `$` only in that module's own top-level functions: `register.tsx` owns the hooks and hands the other modules a `Host` of bound calls, as the built-in `diff` mod does.

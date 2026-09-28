@@ -199,3 +199,80 @@ describe('burndown, swimlanes, drain timeline', () => {
     expect(rows.map(r => [r.build, r.merge, r.text])).toEqual([[5, 5, 'build 1 → merge 1 · 2 min'], [5, 0, 'nothing moved · 1 min']])
   })
 })
+
+describe('board edge cases', () => {
+  test('a bare sha from gh pr view -q .headRefOid sets the head', () => {
+    const b = bash(EMPTY, 'gh pr view 4 --json headRefOid -q .headRefOid', `${SHA}\n`)
+    expect(b.prs[4]?.head).toBe(SHA)
+    expect(bash(EMPTY, 'gh pr view 4 --json title', `${SHA}\n`).prs[4]).toBeUndefined()
+  })
+
+  test('a run without headSha, or with a short one, is not recorded', () => {
+    expect(bash(EMPTY, 'gh run list --json databaseId,status', '[{"databaseId":1,"status":"completed"}]').runs).toBeUndefined()
+    expect(bash(EMPTY, 'gh run view 1 --json status,headSha', '{"status":"completed","headSha":"abc1234"}').runs).toBeUndefined()
+  })
+
+  test('a changed read resets the agreeing-read count', () => {
+    const view = 'gh run view 7 --json status,conclusion,headSha'
+    let b = bash(EMPTY, view, JSON.stringify({ status: 'in_progress', headSha: SHA }))
+    b = bash(b, view, JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA }))
+    expect(runOf(b, SHA)?.reads).toBe(1)
+  })
+
+  test('the run store keeps the newest 40 shas', () => {
+    let b = EMPTY
+    for (let i = 0; i < 45; i++) {
+      const sha = i.toString(16).padStart(40, '0')
+      b = bash(b, 'gh run view 1 --json status,headSha', JSON.stringify({ status: 'queued', headSha: sha }))
+    }
+    expect(Object.keys(b.runs ?? {}).length).toBe(40)
+    expect(runOf(b, '0'.repeat(40))).toBeUndefined()
+  })
+
+  test('parked tickets leave the burndown, merged PRs leave the stalls', () => {
+    let b = EMPTY
+    for (const k of ['AB-1', 'AB-2']) b = observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment(k, 'plan'), 'ok')
+    b = observeTool(b, 'Agent', { subagent_type: 'agile-execution:ticket-validator', prompt: 'AB-2' }, 'rejected')
+    expect(sampled(b, 1).burn).toEqual([{ at: 1, left: 1, total: 2 }])
+    for (let i = 0; i < 3; i++) b = skill(b, 'agile-merge-review:merge-update-pr', 'PR 5')
+    expect(stallsOf(b)).toEqual(['PR #5 3a update ×3'])
+    b = observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 5 }, 'ok')
+    expect(stallsOf(b)).toEqual([])
+  })
+
+  test('three rework markers make a ticket stall', () => {
+    let b = EMPTY
+    for (let i = 0; i < 3; i++) b = observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment('AB-3', 'rework'), 'ok')
+    expect(stallsOf(b)).toEqual(['AB-3 rework ×3'])
+  })
+
+  test('the burndown needs two samples, and a unit change restarts it', () => {
+    let b = sampled(observeTool(EMPTY, 'mcp__atlassian__addCommentToJiraIssue', comment('AB-1', 'plan'), 'ok'), 1)
+    expect(burnLine(b)).toBeUndefined()
+    b = sampled(observeTool(b, 'mcp__atlassian__getJiraIssue', {}, JSON.stringify({ key: 'AB-1', fields: { customfield_10016: 2 } })), 2)
+    expect(b.burn).toEqual([{ at: 2, left: 2, total: 2 }])
+  })
+
+  test('swimlanes: a merged PR is done throughout, a running CI is current', () => {
+    let b = observeTool(EMPTY, 'mcp__github__merge_pull_request', { pullNumber: 1 }, 'ok')
+    b = skill(b, 'agile-merge-review:merge-update-pr', 'PR 2')
+    b = bash(b, 'gh pr view 2 --json headRefOid', JSON.stringify({ headRefOid: SHA }))
+    b = bash(b, 'gh run view 9 --json status,headSha', JSON.stringify({ status: 'in_progress', headSha: SHA }))
+    const [merged, running] = laneRows(b)
+    expect(merged?.cells.every(c => c === 'done')).toBe(true)
+    expect(running?.cells).toEqual(['now', 'todo', 'todo', 'now', 'todo', 'todo'])
+    expect(running?.ci).toBe('CI … in_progress')
+  })
+
+  test('a pass still running shows as running, not as nothing moved', () => {
+    let b = observeStart(EMPTY, 'Skill', { skill: 'agile-sprint-drain' }, 0)
+    b = observeStart(b, 'Skill', { skill: 'agile-10-implement' }, 0)
+    expect(passRows(b, 60_000, 10)).toEqual([{ pass: 1, build: 10, merge: 0, text: 'running · 1 min' }])
+  })
+
+  test('loadBoard rejects what is not a board', () => {
+    expect(loadBoard(null)).toBeUndefined()
+    expect(loadBoard({ order: 'x' })).toBeUndefined()
+    expect(loadBoard({ order: [] })?.prOrder).toEqual([])
+  })
+})

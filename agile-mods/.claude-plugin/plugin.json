@@ -1,6 +1,6 @@
 {
   "name": "agile-mods",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Claude Mods for the agile-skills loop: /agile-board sprint board above the prompt (build and merge queues, burndown, parked and looping work, drain pass and outcome; PR pipeline, drain timeline and links panes; retro counts); guards that enforce agent tool grants, the 3f merge gates (pinned reviewed head, fresh green CI) and no push to main or force push inside the loop; /receipts checks agent receipts against the contract; and, in the agile-skills repo, trigger-phrase, MCP-name, version-bump and invariant checks. Needs function hooks (early access, CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1); installs and does nothing without them.",
   "author": {
     "name": "cedricfarinazzo",

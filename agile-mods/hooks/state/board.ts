@@ -211,7 +211,8 @@ const created = (board: Board, pr: number, key: string | undefined): Board => {
 const withRuns = (board: Board, text: string): Board => {
   const parsed = parseJson(text)
   const rows = (Array.isArray(parsed) ? parsed : [parsed]) as RunRow[]
-  let runs = board.runs ?? {}
+  const prior = board.runs ?? {}
+  let runs = prior
   for (const row of rows) {
     const sha = str(row?.headSha)
     if (!SHA.test(sha) || !str(row.status)) continue
@@ -223,7 +224,7 @@ const withRuns = (board: Board, text: string): Board => {
   }
   const keys = Object.keys(runs)
   if (keys.length > MAX_RUNS) runs = Object.fromEntries(keys.slice(-MAX_RUNS).map(k => [k, runs[k]!]))
-  return runs === board.runs ? board : { ...board, runs }
+  return runs === prior ? board : { ...board, runs }
 }
 
 /** The consumer repo's `story-points-field` from its AGENTS.md / CLAUDE.md text. */
