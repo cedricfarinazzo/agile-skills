@@ -27,7 +27,7 @@ A board in the band above the prompt (interactive terminal only), shown once an 
 
 - the active loop: `implement`, `merge-train`, or `drain`;
 - for a drain: the pass number, whether the pass is in `build` or `merge`, and the outcome (`running`, then `STUCK` in red or `DRAINED` in green, with a toast and a desktop notification through `notify-send` or `osascript` where one exists);
-- **burndown**: tickets left (no merged PR, not parked) out of every ticket seen, as a sparkline sampled on each change;
+- **burndown**: work left (no merged PR, not parked) out of every ticket seen, as a sparkline sampled on each change. It counts story points once every ticket on the board has them, else tickets; a switch of unit restarts the line. Points come from the `searchJiraIssuesUsingJql` / `getJiraIssue` results the loop reads, in the field its `story-points-field` names (read from the repo's `AGENTS.md`, then `CLAUDE.md`; default `customfield_10016`). The mod makes no Jira call of its own;
 - **parked and looping work**, in yellow: a ticket `ticket-validator` sent back as Needs Info or parked on a critical decision, a PR whose train step started 3 times or more, a ticket reworked 3 times or more. Each new one also toasts;
 - **build queue**: one line per ticket without a merged PR, with its latest `agile:phase=` marker (or `needs info` / `parked`) and PR number;
 - **merge queue**: one line per PR with its ticket key and merge-train step (`queued`, `3a update`, `3b review`, `3c fix`, `3f merge`, `4 postmortem`, `merged`), open PRs first, and `⟳3b×3` on a looping step.
@@ -51,6 +51,7 @@ Panes:
 | `Agent` → `ticket-validator` answering `rejected` / `critical-park` | Ticket parked (Needs Info / awaiting decision) |
 | `Agent` → `pr-reviewer` receipt, or an inline `merge-review-pr` turn's answer, with `Reviewed sha:` | PR's reviewed sha |
 | `gh pr view <n> --json …headRefOid`, `gh pr list --json …headRefOid` | PR's head |
+| `mcp__atlassian__searchJiraIssuesUsingJql` / `mcp__atlassian__getJiraIssue` returning the points field | Story points per ticket |
 | `gh run view/list --json …headSha…` | CI run on that sha; an unchanged repeat read counts as a second agreeing read |
 | `gh pr view <n> --json …mergedAt` with `mergedAt` set, `gh pr list --state merged --json …`, or `mcp__github__merge_pull_request` | PR merged |
 | Main-loop `turn.complete` answer with `══ STUCK ══` / `══ DRAINED ══` | Drain outcome |

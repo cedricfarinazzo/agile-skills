@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { EMPTY, buildLines, burnLine, drainLine, laneRows, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, parkedOf, passRows, runOf, sampled, stallsOf, type Board } from '../hooks/state/board.ts'
+import { EMPTY, buildLines, burnLine, drainLine, laneRows, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, parkedOf, passRows, pointsFieldOf, runOf, sampled, stallsOf, type Board } from '../hooks/state/board.ts'
 
 const comment = (key: string, phase: string) => ({ issueIdOrKey: key, commentBody: `🤖 <!-- agile:phase=${phase} --> **Plan**` })
 const skill = (b: Board, name: string, args = '') => observeStart(b, 'Skill', { skill: name, args })
@@ -153,6 +153,28 @@ describe('burndown, swimlanes, drain timeline', () => {
     b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-1', title: '' }, '/pull/3')
     b = sampled(observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 3 }, 'ok'), 3)
     expect(burnLine(b)).toMatch(/^burn \S{3}  1\/2 tickets left$/)
+  })
+
+  test('points from the loop Jira reads switch the burndown to points once every ticket has them', () => {
+    let b = EMPTY
+    for (const k of ['AB-1', 'AB-2']) b = sampled(observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment(k, 'pr'), 'ok'), 1)
+    const search = JSON.stringify({ issues: [{ key: 'AB-1', fields: { customfield_10016: 5 } }, { key: 'AB-9', fields: { customfield_10016: 8 } }] })
+    b = sampled(observeTool(b, 'mcp__atlassian__searchJiraIssuesUsingJql', { jql: 'sprint in openSprints()' }, search), 2)
+    expect(b.points).toEqual({ 'AB-1': 5, 'AB-9': 8 })
+    expect(b.burnUnit).toBe('tickets')
+    b = sampled(observeTool(b, 'mcp__atlassian__getJiraIssue', {}, JSON.stringify({ key: 'AB-2', fields: { customfield_10016: 3 } })), 3)
+    expect(b.burnUnit).toBe('points')
+    expect(b.burn).toEqual([{ at: 3, left: 8, total: 8 }])
+    b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-1', title: '' }, '/pull/3')
+    b = sampled(observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 3 }, 'ok'), 4)
+    expect(burnLine(b)).toMatch(/ 3\/8 pts left$/)
+    expect(observeTool(EMPTY, 'mcp__atlassian__getJiraIssue', {}, JSON.stringify({ key: 'AB-2', fields: { customfield_10028: 3 } }), 'customfield_10028').points).toEqual({ 'AB-2': 3 })
+  })
+
+  test('reads the story-points-field config key', () => {
+    expect(pointsFieldOf('- **`story-points-field`**: `customfield_10028`')).toBe('customfield_10028')
+    expect(pointsFieldOf('story-points-field: customfield_10042')).toBe('customfield_10042')
+    expect(pointsFieldOf('no config here')).toBeUndefined()
   })
 
   test('a swimlane row marks reached steps and the CI state of the head', () => {

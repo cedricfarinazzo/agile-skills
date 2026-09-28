@@ -43,8 +43,11 @@ export type Board = {
   site?: string
   repo?: string
   runs?: Record<string, Run>
-  /** Tickets left (no merged PR, not parked) over time, one sample per change. */
+  /** Story points by ticket key, from the loop's own Jira reads. */
+  points?: Record<string, number>
+  /** Work left (no merged PR, not parked) over time, one sample per change, in one unit. */
   burn?: { at: number; left: number; total: number }[]
+  burnUnit?: 'points' | 'tickets'
   passes?: Pass[]
 }
 
@@ -58,6 +61,8 @@ const JIRA_SITE = /(https:\/\/[^\s"'<>()/]+)\/browse\/[A-Z][A-Z0-9]+-\d+/
 const GITHUB_REPO = /(https:\/\/github\.com\/[^\s"'<>()/]+\/[^\s"'<>()/]+)\/pull\/\d+/
 const OUTCOME = /══\s*(DRAINED|STUCK)\s*══/
 const SHA = /^[0-9a-f]{40}$/
+/** agile-10-implement's `story-points-field` default. */
+export const POINTS_FIELD = 'customfield_10016'
 
 // the merge train's per-PR steps, by agent (dispatch) or sub-skill (inline, concurrency=0)
 const STEPS: [RegExp, string][] = [
@@ -221,17 +226,39 @@ const withRuns = (board: Board, text: string): Board => {
   return runs === board.runs ? board : { ...board, runs }
 }
 
+/** The consumer repo's `story-points-field` from its AGENTS.md / CLAUDE.md text. */
+export const pointsFieldOf = (config: string) => config.match(/story-points-field\W*?\s*[:=]?\s*`?(customfield_\d+)/i)?.[1]
+
+/** Every `{ key, fields: { <points field>: n } }` in a Jira search or issue answer. */
+function withPoints(board: Board, text: string, field: string): Board {
+  const found: Record<string, number> = {}
+  const walk = (node: unknown, depth: number) => {
+    if (depth > 6 || typeof node !== 'object' || node === null) return
+    if (Array.isArray(node)) return node.forEach(n => walk(n, depth + 1))
+    const { key, fields } = node as { key?: unknown; fields?: Record<string, unknown> }
+    const points = fields?.[field]
+    if (typeof key === 'string' && TICKET_KEY.test(key) && typeof points === 'number') found[key] = points
+    for (const v of Object.values(node)) walk(v, depth + 1)
+  }
+  walk(parseJson(text), 0)
+  if (!Object.keys(found).length) return board
+  return { ...board, points: { ...board.points, ...found } }
+}
+
 /**
  * Folds one finished tool call into the board.
  *
  * @param args the call's input as `tool.call` carries it (the tool's arguments beside `tool`)
  * @param text what the model read back; undefined on a deny or an error
+ * @param field the Jira field holding story points
  */
-export function observeTool(prior: Board, tool: string, args: Record<string, unknown>, text: string | undefined): Board {
+export function observeTool(prior: Board, tool: string, args: Record<string, unknown>, text: string | undefined, field = POINTS_FIELD): Board {
   if (text === undefined) return prior
   const site = tool.startsWith('mcp__atlassian__') && !prior.site ? text.match(JIRA_SITE)?.[1] : undefined
   const repo = !prior.repo ? text.match(GITHUB_REPO)?.[1] : undefined
   const board = site || repo ? { ...prior, ...(site && { site }), ...(repo && { repo }) } : prior
+
+  if (tool === 'mcp__atlassian__searchJiraIssuesUsingJql' || tool === 'mcp__atlassian__getJiraIssue') return withPoints(board, text, field)
 
   if (tool === 'mcp__atlassian__addCommentToJiraIssue') {
     const key = str(args.issueIdOrKey)
@@ -304,22 +331,29 @@ export function observeAnswer(board: Board, text: string, now = 0, inlineReview?
   return { ...closed, drain: { ...reviewed.drain, outcome } }
 }
 
-/** Tickets not yet merged or parked, out of every ticket the board knows. */
-export function leftOf(board: Board): { left: number; total: number } {
-  const total = board.order.length
+/**
+ * Work not yet merged or parked, out of every ticket the board knows: in story points when every
+ * ticket's points are known, else in tickets (a mixed sum would mean neither).
+ */
+export function leftOf(board: Board): { left: number; total: number; unit: 'points' | 'tickets' } {
+  const points = board.points ?? {}
+  const unit = board.order.length && board.order.every(k => k in points) ? 'points' : 'tickets'
+  const weight = (k: string) => (unit === 'points' ? points[k]! : 1)
+  const sum = (keys: string[]) => keys.reduce((s, k) => s + weight(k), 0)
   const left = board.order.filter(k => {
     const t = board.tickets[k]!
     return !t.parked && !(t.pr && board.prs[t.pr]?.merged)
-  }).length
-  return { left, total }
+  })
+  return { left: sum(left), total: sum(board.order), unit }
 }
 
-/** Adds a burndown sample when the ticket counts changed since the last one. */
+/** Adds a burndown sample when the counts changed since the last one; a unit change restarts the line. */
 export function sampled(board: Board, now: number): Board {
-  const { left, total } = leftOf(board)
-  const last = board.burn?.at(-1)
+  const { left, total, unit } = leftOf(board)
+  const samples = board.burnUnit === unit ? (board.burn ?? []) : []
+  const last = samples.at(-1)
   if (!total || (last && last.left === left && last.total === total)) return board
-  return { ...board, burn: [...(board.burn ?? []), { at: now, left, total }].slice(-MAX_SAMPLES) }
+  return { ...board, burnUnit: unit, burn: [...samples, { at: now, left, total }].slice(-MAX_SAMPLES) }
 }
 
 const BARS = '▁▂▃▄▅▆▇█'
@@ -331,7 +365,7 @@ export function burnLine(board: Board, width = 24): string | undefined {
   const max = Math.max(...samples.map(s => s.total))
   const bars = samples.slice(-width).map(s => BARS[Math.min(BARS.length - 1, Math.round((s.left / max) * (BARS.length - 1)))]).join('')
   const last = samples.at(-1)!
-  return `burn ${bars}  ${last.left}/${last.total} tickets left`
+  return `burn ${bars}  ${last.left}/${last.total} ${board.burnUnit === 'points' ? 'pts' : 'tickets'} left`
 }
 
 /** Stalls: a PR step started STALL_AT times or more, a ticket reworked STALL_AT times or more. */

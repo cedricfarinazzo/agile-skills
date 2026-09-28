@@ -1,6 +1,6 @@
 /* @jsx h */
 import type { EngineInterface, Register } from 'claude-code'
-import { EMPTY, LANES, buildLines, burnLine, drainLine, laneRows, linksOf, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, parkedOf, passRows, sampled, stallsOf, type Board, type Cell } from './state/board.ts'
+import { EMPTY, LANES, POINTS_FIELD, pointsFieldOf, buildLines, burnLine, drainLine, laneRows, linksOf, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, parkedOf, passRows, sampled, stallsOf, type Board, type Cell } from './state/board.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { VERIFY_COMMAND, authoringAfter, authoringBefore, authoringStart, authoringTurn, invariants } from './authoring.ts'
 import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewOf } from './guards.ts'
@@ -23,6 +23,7 @@ const DRAIN_PANE = 'agile-drain'
 let board: Board = EMPTY
 let retro: Retro = EMPTY_RETRO
 let shown = true
+let pointsField = POINTS_FIELD
 
 function hostOf($: EngineInterface): Host {
   return {
@@ -73,6 +74,14 @@ export const register: Register = on => {
     const storedRetro = loadRetro(await $.store.get(RETRO_KEY).catch(() => undefined))
     if (storedRetro) retro = storedRetro
     guardsStart(r.cwd)
+    // agile-10-implement's story-points-field, pinned in the consumer repo's AGENTS.md or CLAUDE.md
+    for (const file of ['AGENTS.md', 'CLAUDE.md']) {
+      const field = pointsFieldOf(await $.fs.read(`${r.cwd}/${file}`).catch(() => ''))
+      if (field) {
+        pointsField = field
+        break
+      }
+    }
     await receiptsStart(host)
     await $.command.register({
       name: 'agile-board',
@@ -133,7 +142,7 @@ export const register: Register = on => {
       isError: r.isError === true,
       text: r.deny !== undefined || r.isError ? undefined : r.text,
     }
-    save($, sampled(observeTool(board, e.tool, args, done.text), await $.clock.now()))
+    save($, sampled(observeTool(board, e.tool, args, done.text, pointsField), await $.clock.now()))
     saveRetro($, retroEnd(retro, e.tool, args, done.text))
     await receiptsAfter(host, e.tool, args, done)
 
