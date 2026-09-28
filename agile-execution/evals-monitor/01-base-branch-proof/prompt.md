@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-execution:implement-monitor` skill for this.
+
 Monitor PR #612 for APP-401 and rework it.
 
 Repo `inventory-service`, branch `feature/APP-401-audit-log`, base `main`.

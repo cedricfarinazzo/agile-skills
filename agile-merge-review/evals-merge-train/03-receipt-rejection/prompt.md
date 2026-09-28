@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-merge-review:agile-11-merge-train` skill for this.
+
 Run the merge train. PR #731 for APP-518 is the one in focus.
 
 Repo `inventory-service`, base `main`.

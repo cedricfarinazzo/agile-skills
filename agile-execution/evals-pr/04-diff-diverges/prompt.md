@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-execution:implement-pr` skill for this.
+
 Open the PR for APP-231. `implement-code` has already pushed branch `app-231-pause-rules`.
 
 Repo context: `inventory-service`, base branch `main`, ticket `APP-231`. There is no shell in this sandbox, so this phase cannot actually complete: you cannot run `gh` and cannot open or edit a PR. What those commands would return is inlined below.

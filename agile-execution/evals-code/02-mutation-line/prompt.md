@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-execution:implement-code` skill for this.
+
 Build APP-437 from its plan. Mode: `sequential`.
 
 Repo `inventory-service`, base `main`, branch `feature/APP-437-reorder-qty`.

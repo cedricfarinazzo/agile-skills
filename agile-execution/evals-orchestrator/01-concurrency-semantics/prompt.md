@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-execution:agile-10-implement` skill for this.
+
 Implement the sprint with concurrency=3.
 
 Repo context: `inventory-service`, project key `APP`, sprint 36 active. The project runs a single shared Docker Compose stack. CI runs integration and e2e on pull requests.

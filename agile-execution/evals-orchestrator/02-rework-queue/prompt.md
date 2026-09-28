@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-execution:agile-10-implement` skill for this.
+
 Implement the sprint.
 
 Repo context: `inventory-service`, project key `APP`. Config: `todo-status-name: To Do`, `in-review-status-name: In Review`.

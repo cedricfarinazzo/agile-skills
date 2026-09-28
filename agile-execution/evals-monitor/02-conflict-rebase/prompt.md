@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-execution:implement-monitor` skill for this.
+
 Monitor PR #631 for APP-418 and rework it.
 
 Repo `inventory-service`, branch `feature/APP-418-reorder-audit`, base `main`. This run is `concurrency=3`, so the ticket's code lives in its own worktree at `.claude/worktrees/APP-418`, and the shared checkout has `main` checked out.

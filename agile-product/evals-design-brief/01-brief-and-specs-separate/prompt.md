@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-product:agile-3-design-brief` skill for this.
+
 Integrate the Claude Design mockups for the rules screen. Project: Inventory Service (Confluence root `Inventory Service`, Jira key APP).
 
 No shell, `gh`, Jira or Confluence MCP here — do not call them or dispatch agents. Everything you would have read is inlined. State what you do and exactly what you would write or return.
