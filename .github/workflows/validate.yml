@@ -56,3 +56,12 @@ jobs:
       - name: bun test
         working-directory: agile-mods
         run: bun test
+
+  skills-ref:
+    runs-on: ubuntu-latest
+    name: skills (skills-ref)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Agent Skills reference validator
+        run: ./.github/scripts/skills-ref.sh
