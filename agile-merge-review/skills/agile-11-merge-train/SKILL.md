@@ -89,7 +89,7 @@ Rank by: **CI status** (already-green PRs are zero-risk wins) → **foundational
 3c  merge-fix-until-satisfied (:fix-until-satisfied)  runs on every PR, 0-issue reviews included (satisfaction gate)
 3d  bad-PR escape hatch       CONDITIONAL — replaces 3e–3g when 3b/3c find an unsalvageable defect
 3e  CI monitor                HARD GATE, its own turn after the push. New run STARTED, then COMPLETED + SUCCESS
-3f  gh pr merge --squash --match-head-commit <reviewed sha>   only after 3e names a green run id; confirm via state, not exit code
+3f  gh pr merge --squash      only after 3e names a green run id; confirm via state, not exit code
 3g  merge-jira-postmortem     (:jira-postmortem)      comment + transition; verify comment id + done-category
 ```
 
@@ -146,14 +146,14 @@ RUN=$(gh run list --branch <branch> -L1 --json databaseId --jq '.[0].databaseId'
 until [ "$(gh run view $RUN --json status --jq .status)" = "completed" ]; do sleep 20; done
 sleep 10   # the first terminal read can be wrong — confirm it before acting (see below)
 [ "$(gh run view $RUN --json status --jq .status)" = "completed" ] || exit 1
-gh run view $RUN --json status,conclusion,headSha,jobs
+gh run view $RUN --json status,conclusion,jobs
 ```
 
 Run it with Bash `run_in_background: true` — never chain foreground `sleep`s, and never idle the train while it completes: keep advancing other PRs' non-merging phases (rebase, review, fix) meanwhile — only the merge itself is serialized. **Arm one watcher per run, for every PR whose run you are waiting on** — not just the one in focus: a run that completes unobserved is indistinguishable from one still queued, and that delay is pure loss because a green run is immediately actionable while the merge is the serialized step. Assert `conclusion == "success"` on that named id. **If you cannot state the run id at 3f, you may not merge.**
 
 **Re-read a terminal status once before acting on it.** The API is eventually consistent: a single poll can report `completed` with a conclusion the next call contradicts, and a watcher that exits on the first terminal read carries that wrong answer into 3f. Two agreeing reads, or the run is not finished. A conclusion no second read confirms is not evidence — of green *or* of red.
 
-**No-op path (3a returned No-op):** no new run will start. Read the existing run on branch HEAD by id (`gh run view <id> --json status,conclusion,headSha`, two agreeing reads as above) and verify it still covers the landable tree with `git merge-base --is-ancestor origin/main <run-sha>` — exit 0 → valid, proceed to 3f; exit 1 → contradicts the no-op signal, investigate rather than forcing an empty commit.
+**No-op path (3a returned No-op):** no new run will start. Read the existing run on branch HEAD once and verify it still covers the landable tree with `git merge-base --is-ancestor origin/main <run-sha>` — exit 0 → valid, proceed to 3f; exit 1 → contradicts the no-op signal, investigate rather than forcing an empty commit.
 
 **Diagnosing a red run:**
 
@@ -176,7 +176,7 @@ Run it with Bash `run_in_background: true` — never chain foreground `sleep`s, 
 - **Different** → 3c pushed after the review, so the landing tree holds code no independent review has read. Not cleared. Re-dispatch `:pr-reviewer` on the delta (`git diff <reviewed-sha>..<new-tip>`, every file it touches read in full), verify its receipt as at 3b, record the **new** reviewed sha, re-enter 3e, and return here. Repeat until they match. This is the common case — any PR whose review found something goes through 3c.
 - **Non-behavioural delta → bounded re-review.** When the delta provably changes no executable code (docs/comments only — e.g. equal docstring-stripped ASTs, or unchanged code-blob hashes), scope the re-review to Critical findings and factual errors in the delta's own claims; further prose-polish or citation-precision nits are **recorded in the report, not fixed**, and the re-review dispatch must say so. Otherwise each cosmetic fix surfaces a fresh cosmetic nit and burns another push + CI cycle for no behaviour change. A behavioural delta keeps the full lens sweep.
 
-Then `gh pr merge <N> --squash --match-head-commit <reviewed sha>` — the pin makes GitHub refuse the merge if the head moved after the check above. **No `--delete-branch`** (that flag also tries to delete the local branch, which fails when a worktree still holds it, *after* the merge already happened). **A non-zero exit is not proof the merge failed:** always read `gh pr view <N> --json state,mergedAt` — `mergedAt` set means it merged whatever the exit code said, and retrying a successful merge is how a train reports a false failure. Only an unset `mergedAt` is a genuine failure. Branch deletion waits for Phase 4b.
+Then `gh pr merge <N> --squash` — **no `--delete-branch`** (that flag also tries to delete the local branch, which fails when a worktree still holds it, *after* the merge already happened). **A non-zero exit is not proof the merge failed:** always read `gh pr view <N> --json state,mergedAt` — `mergedAt` set means it merged whatever the exit code said, and retrying a successful merge is how a train reports a false failure. Only an unset `mergedAt` is a genuine failure. Branch deletion waits for Phase 4b.
 
 ### 3g. Postmortem + Jira state
 

@@ -123,8 +123,8 @@ Escalate **only** on a *critical* decision: **both** hard-to-reverse / high-blas
    - **Scrum** — `project = <KEY>` AND status matches `todo-status-name` AND `sprint in openSprints()`. Exclude `futureSprints()` and no-sprint tickets (= backlog). Multiple open sprints → scope to the named/most recent.
    - **Kanban** — `project = <KEY>` AND status matches `todo-status-name` AND on the board, not the backlog: subtract `/rest/agile/1.0/board/<id>/backlog` keys, or exclude `backlog-status-name` in JQL.
 
-   Run it via `mcp__atlassian__searchJiraIssuesUsingJql` with `fields` including `summary`, `status` and the `story-points-field` id, so every candidate's points are in this one answer, then **re-verify the invariant per candidate** — drop anything the JQL let through.
-2. **Load each candidate in full** (`mcp__atlassian__getJiraIssue`): summary, description, AC, DoD, technical notes, Specs UI + ADR links, labels, points (`story-points-field`), **`issuelinks`**, and any linked Bugs from a prior QA run.
+   Run it via `mcp__atlassian__searchJiraIssuesUsingJql`, then **re-verify the invariant per candidate** — drop anything the JQL let through.
+2. **Load each candidate in full** (`mcp__atlassian__getJiraIssue`): summary, description, AC, DoD, technical notes, Specs UI + ADR links, labels, points, **`issuelinks`**, and any linked Bugs from a prior QA run.
 3. **Build the dependency graph** from `issuelinks` and topologically sort. A ticket is eligible only if every blocker is already `Done` or completes earlier in this same run; otherwise it is **deferred**. A cycle aborts the run.
 4. **Build the rework queue:** `in-review-status-name` tickets on the same board carrying a `🤖 <!-- agile:phase=pr -->` marker. They skip the build phases and go straight to `implement-monitor`.
 5. **No work → stop cleanly.** No open sprint, no/empty board, no eligible ticket, or every remaining ticket deferred with an empty rework queue: emit the Phase 3 report with an empty table and a one-line reason, then end. Never idle, poll, or invent work.
