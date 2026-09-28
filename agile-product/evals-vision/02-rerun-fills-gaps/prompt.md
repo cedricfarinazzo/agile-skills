@@ -9,4 +9,4 @@ Update the vision doc. Project: Inventory Service (Confluence root `Inventory Se
 
 No shell, `gh`, Jira or Confluence MCP here — do not call them or dispatch agents. Everything you would have read is inlined. State what you do and exactly what you would write or return.
 
-Existing `Vision — Inventory Service`: Problem (filled), Target users (filled), Business goals (filled), Success metrics (heading only, empty), Out of scope ("TBD"). New info from the user: success metric is "stockouts down 30% in 6 months".
+Existing `Vision — Inventory Service`: Problem (filled), Target users (filled), Business goals (filled), Success metrics (heading only, empty), Out of scope (heading only, empty). New info from the user: success metric is "stockouts down 30% in 6 months".

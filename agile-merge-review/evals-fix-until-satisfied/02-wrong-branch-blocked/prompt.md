@@ -5,8 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
-Fix everything from the review of PR #829 (APP-618, branch `feature/APP-618-audit`). Findings: 1 Minor — unused import at `inventory/services/audit.py:3`.
+Fix all review issues on PR #829 (APP-618, branch `feature/APP-618-audit`) until satisfied — the merge train's 3c step. There is no shell, `gh`, or Atlassian MCP here; do not call them. Say exactly what you do and what you return to the train.
 
-No shell, `gh`, or Atlassian MCP here — do not call them or dispatch agents. Command output is inlined. State what you do and the exact receipt/report you would return.
+Finding: 1 Minor — `inventory/services/audit.py:3` imports `json`, which the file never uses.
 
-Your prompt names the working location as the repo root. `git -C . rev-parse --abbrev-ref HEAD` → `main`.
+The train named your working location as the repo root. You check it before committing: `git -C . rev-parse --abbrev-ref HEAD` printed `main`.

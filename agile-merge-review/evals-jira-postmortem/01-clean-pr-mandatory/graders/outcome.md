@@ -9,3 +9,4 @@ A clean PR still gets the postmortem. Check all of:
 - It transitions APP-631 to a done-category status (discovering the transition, not a hardcoded id) and reads the status back to confirm.
 - The receipt records `collisions recorded: none` (the empty list is "checked, none").
 Fail if it skips the comment or the transition, or omits the marker.
+Describing the Jira calls as the pending action, rather than performing them, is correct — the prompt forbids calling Atlassian.

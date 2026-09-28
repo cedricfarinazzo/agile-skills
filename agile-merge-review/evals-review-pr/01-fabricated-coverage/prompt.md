@@ -7,6 +7,8 @@ model: sonnet
 ---
 Review PR #852 (APP-642).
 
+The repository is not checked out in this sandbox — do not search the working tree; every file you need is inlined below.
+
 No shell, `gh`, or Atlassian MCP here — do not call them or dispatch agents. Command output is inlined. State what you do and the exact receipt/report you would return.
 
 `headRefOid` → `31bf0c7`. Diff: `inventory/services/export.py`, `tests/test_export.py`.

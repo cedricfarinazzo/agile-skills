@@ -5,7 +5,9 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
-Deep refactor pass, repo `inventory-service`.
+Deep refactor audit of `inventory-service` — classify this candidate for the report.
+
+The repository is not checked out in this sandbox — do not search the working tree; everything you need is inlined below.
 
 No shell, `gh`, Atlassian or Confluence MCP here — do not call them or dispatch agents. Everything you would have read is inlined. State what you do and exactly what you would write or return.
 

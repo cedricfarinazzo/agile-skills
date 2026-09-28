@@ -9,3 +9,4 @@ Blocked mode with one collision. Check all of:
 - The collision with #844 / APP-635 on sweep.py appears as a Cross-PR conflicts bullet, and the receipt's `collisions recorded` echoes exactly `APP-635@inventory/services/sweep.py`.
 - It does not invent collisions not passed.
 Fail if it transitions, drops the collision, or invents one.
+Describing the Jira calls as the pending action, rather than performing them, is correct — the prompt forbids calling Atlassian.

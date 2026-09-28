@@ -5,7 +5,7 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
-Post the Jira postmortem for APP-637 in blocked mode. PR #846 is too broken to merge.
+Post the jira postmortem for APP-637 in blocked mode. PR #846 is too broken to merge.
 
 No shell, `gh`, or Atlassian MCP here — do not call them or dispatch agents. Command output is inlined. State what you do and the exact receipt/report you would return.
 
