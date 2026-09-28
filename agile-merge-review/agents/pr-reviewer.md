@@ -2,7 +2,7 @@
 name: pr-reviewer
 description: Runs merge-review-pr for agile-11-merge-train — the independent pre-merge review, reading every changed file in full against the Jira ACs and CLAUDE.md conventions. Dispatched by the orchestrator, never invoked directly.
 model: opus
-effort: high
+effort: medium
 tools: Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__getConfluencePage
 ---
 
