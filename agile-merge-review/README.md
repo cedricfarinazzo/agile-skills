@@ -1,4 +1,4 @@
-# agile-merge-review
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-merge-review
 
 **Merge** plugin (formerly `dev-skills`) — clears the open-PR queue *safely*: every PR that lands on `main` has been rebased, deeply reviewed file-by-file against its Jira ACs, re-verified by a fresh CI run, merged, and closed out in Jira. Uses the **`gh`** CLI + git and **Jira**.
 
@@ -53,7 +53,7 @@ The train's main agent **orchestrates only**: it runs no step's work in its own 
 3e CI wait                fresh, post-rebase green (not "green yesterday")
 3f reviewed-sha gate      landing tip == the sha 3b reviewed, else re-review the delta → back to 3e
 3f gh pr merge --squash   verify with `gh pr view --json state,mergedAt` (exit code is not the signal)
-3g merge-jira-postmortem  comment + transition Done; echoes the collisions it recorded
+3g merge-jira-postmortem  comment (opens with the post_merge marker) + transition Done; echoes the collisions it recorded
 —  branch cleanup        end of train, best-effort (a worktree holding a branch is harmless)
 ```
 

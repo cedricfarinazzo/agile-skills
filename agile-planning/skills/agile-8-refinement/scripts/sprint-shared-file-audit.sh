@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
 # sprint-shared-file-audit.sh — detect shared-file collisions across sprint stories
 #
-# Bundled with agile-8-refinement skill. Project-agnostic: pass any Jira project
-# key via --project (defaults to env JIRA_PROJECT).
-#
-# Requires: curl, jq (for live Jira mode)
-# Env vars (live mode only): JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT
+# Bundled with agile-8-refinement skill. Offline only: it makes no network calls
+# and reads no credentials. The caller fetches each Story (Atlassian MCP) and
+# writes its summary + description to <text-dir>/<KEY>.txt.
 #
 # Usage:
-#   sprint-shared-file-audit.sh ABC-28 ABC-30 ABC-39 ...                        (explicit keys)
-#   sprint-shared-file-audit.sh --project ABC --sprint "Sprint 4"                (JQL mode)
+#   sprint-shared-file-audit.sh --text-dir <dir> ABC-28 ABC-30 ABC-39 ...
 #   sprint-shared-file-audit.sh --fixture path/to/fixture.tsv ABC-28 ABC-30 ...
 #
 # Exit codes: 0=clean, 1=collisions/watchlist-hits, 2=arg/env error
@@ -26,27 +23,16 @@ Options:
   -w, --watchlist <path>   Optional: per-repo watchlist of always-shared files.
                            Any single story touching one of these triggers a
                            "watchlist hit" row. Omit to skip the section.
-  -p, --project <KEY>      Jira project key (also via env JIRA_PROJECT)
-  -s, --sprint <name>      JQL sprint name — fetches story keys via Jira API
+  -t, --text-dir <dir>     Directory holding <KEY>.txt per story (summary + description)
   -f, --fixture <path>     Offline fixture TSV (STORY<TAB>file1<TAB>file2 ...)
   -v, --verbose            Print raw extracted text per story
   -h, --help               Show this help
 
-Environment (required for live Jira mode):
-  JIRA_BASE_URL            e.g. https://yourorg.atlassian.net
-  JIRA_EMAIL               Atlassian account email
-  JIRA_API_TOKEN           Atlassian API token
-  JIRA_PROJECT             Jira project key (or pass --project)
-
 Examples:
-  # Live mode — explicit keys (collisions only, no watchlist)
-  JIRA_BASE_URL=https://example.atlassian.net JIRA_EMAIL=pm@co JIRA_API_TOKEN=xxx JIRA_PROJECT=ABC \\
-    $(basename "$0") ABC-28 ABC-30 ABC-39 ABC-40 ABC-41
+  # Story text written by the skill
+  $(basename "$0") --text-dir ./story-text ABC-28 ABC-30 ABC-39
 
-  # Live mode — full sprint
-  $(basename "$0") --project ABC --sprint "Sprint 4"
-
-  # Offline mode — fixture file
+  # Pre-extracted fixture
   $(basename "$0") --fixture ./my-sprint-fixture.tsv ABC-28 ABC-30 ABC-39 ABC-40 ABC-41
 
   # With per-repo watchlist
@@ -61,11 +47,10 @@ EOF
 
 # ---------- arg parsing ----------
 WATCHLIST_PATH=""
-SPRINT_NAME=""
+TEXT_DIR=""
 FIXTURE_PATH=""
 VERBOSE=0
-PROJECT_KEY="${JIRA_PROJECT:-}"
-STORY_KEYS=()
+STORY_IDS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -74,19 +59,16 @@ while [[ $# -gt 0 ]]; do
     -w|--watchlist)
       [[ $# -lt 2 ]] && { echo "ERROR: --watchlist requires a path" >&2; exit 2; }
       WATCHLIST_PATH="$2"; shift 2 ;;
-    -p|--project)
-      [[ $# -lt 2 ]] && { echo "ERROR: --project requires a key" >&2; exit 2; }
-      PROJECT_KEY="$2"; shift 2 ;;
-    -s|--sprint)
-      [[ $# -lt 2 ]] && { echo "ERROR: --sprint requires a name" >&2; exit 2; }
-      SPRINT_NAME="$2"; shift 2 ;;
+    -t|--text-dir)
+      [[ $# -lt 2 ]] && { echo "ERROR: --text-dir requires a path" >&2; exit 2; }
+      TEXT_DIR="$2"; shift 2 ;;
     -f|--fixture)
       [[ $# -lt 2 ]] && { echo "ERROR: --fixture requires a path" >&2; exit 2; }
       FIXTURE_PATH="$2"; shift 2 ;;
     -*)
       echo "ERROR: unknown option '$1'" >&2; exit 2 ;;
     *)
-      STORY_KEYS+=("$1"); shift ;;
+      STORY_IDS+=("$1"); shift ;;
   esac
 done
 
@@ -96,25 +78,8 @@ if [[ -n "${WATCHLIST_PATH}" && ! -f "${WATCHLIST_PATH}" ]]; then
   exit 2
 fi
 
-# ---------- resolve story keys ----------
-if [[ -n "${SPRINT_NAME}" ]]; then
-  for var in JIRA_BASE_URL JIRA_EMAIL JIRA_API_TOKEN; do
-    [[ -z "${!var:-}" ]] && { echo "ERROR: env var ${var} required for JQL mode" >&2; exit 2; }
-  done
-  if [[ -z "${PROJECT_KEY}" ]]; then
-    echo "ERROR: --project <KEY> or JIRA_PROJECT env required for JQL mode" >&2; exit 2
-  fi
-  JQL="sprint = \"${SPRINT_NAME}\" AND project = ${PROJECT_KEY} ORDER BY key ASC"
-  mapfile -t SPRINT_KEYS < <(
-    curl -sf -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-      "${JIRA_BASE_URL}/rest/api/3/search?jql=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${JQL}")&maxResults=200&fields=key" \
-      | jq -r '.issues[].key'
-  )
-  STORY_KEYS=("${SPRINT_KEYS[@]}" "${STORY_KEYS[@]}")
-fi
-
-if [[ ${#STORY_KEYS[@]} -eq 0 ]]; then
-  echo "ERROR: no story keys provided. Use explicit keys or --sprint <name>" >&2
+if [[ ${#STORY_IDS[@]} -eq 0 ]]; then
+  echo "ERROR: no story keys provided. Pass story keys as arguments" >&2
   usage >&2
   exit 2
 fi
@@ -142,20 +107,6 @@ extract_paths_from_text() {
   } | sed 's/[,;:()"'"'"']//g' | sort -u
 }
 
-# ---------- fetch description per story ----------
-fetch_jira_description() {
-  local key="$1"
-  local resp
-  resp=$(curl -sf -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-    "${JIRA_BASE_URL}/rest/api/3/issue/${key}?fields=summary,description")
-  local summary
-  summary=$(echo "${resp}" | jq -r '.fields.summary // ""')
-  # Flatten ADF (Atlassian Document Format) to plain text
-  local desc
-  desc=$(echo "${resp}" | jq -r '[.fields.description | .. | .text? // empty] | join(" ")' 2>/dev/null || echo "")
-  echo "${summary} ${desc}"
-}
-
 # ---------- build story→files map ----------
 declare -A STORY_FILES  # key → space-separated file list
 
@@ -166,52 +117,53 @@ if [[ -n "${FIXTURE_PATH}" ]]; then
     exit 2
   fi
   declare -A FIXTURE_MAP
-  while IFS=$'\t' read -r story_key rest; do
-    [[ -z "${story_key}" || "${story_key}" == \#* ]] && continue
-    FIXTURE_MAP["${story_key}"]="${rest}"
+  while IFS=$'\t' read -r story_id rest; do
+    [[ -z "${story_id}" || "${story_id}" == \#* ]] && continue
+    FIXTURE_MAP["${story_id}"]="${rest}"
   done < "${FIXTURE_PATH}"
 
-  for key in "${STORY_KEYS[@]}"; do
-    if [[ -n "${FIXTURE_MAP[${key}]:-}" ]]; then
-      files=$(echo "${FIXTURE_MAP[${key}]}" | tr '\t' '\n' | sort -u | tr '\n' ' ')
-      STORY_FILES["${key}"]="${files}"
+  for story in "${STORY_IDS[@]}"; do
+    if [[ -n "${FIXTURE_MAP[${story}]:-}" ]]; then
+      files=$(echo "${FIXTURE_MAP[${story}]}" | tr '\t' '\n' | sort -u | tr '\n' ' ')
+      STORY_FILES["${story}"]="${files}"
     else
-      STORY_FILES["${key}"]=""
+      STORY_FILES["${story}"]=""
     fi
     if [[ ${VERBOSE} -eq 1 ]]; then
-      echo "[VERBOSE] ${key} (fixture): ${STORY_FILES[${key}]}"
+      echo "[VERBOSE] ${story} (fixture): ${STORY_FILES[${story}]}"
     fi
   done
 else
-  # Live Jira mode
-  for var in JIRA_BASE_URL JIRA_EMAIL JIRA_API_TOKEN; do
-    [[ -z "${!var:-}" ]] && { echo "ERROR: env var ${var} required for live mode" >&2; exit 2; }
-  done
-  for key in "${STORY_KEYS[@]}"; do
-    echo "Fetching ${key}..." >&2
-    text=$(fetch_jira_description "${key}")
+  # Text mode: <TEXT_DIR>/<KEY>.txt per story
+  if [[ -z "${TEXT_DIR}" || ! -d "${TEXT_DIR}" ]]; then
+    echo "ERROR: --text-dir <dir> or --fixture <path> required" >&2
+    exit 2
+  fi
+  for story in "${STORY_IDS[@]}"; do
+    text=""
+    [[ -f "${TEXT_DIR}/${story}.txt" ]] && text=$(cat "${TEXT_DIR}/${story}.txt")
     if [[ ${VERBOSE} -eq 1 ]]; then
-      echo "[VERBOSE] ${key} raw text: ${text}" >&2
+      echo "[VERBOSE] ${story} raw text: ${text}" >&2
     fi
     files=$(extract_paths_from_text "${text}" | tr '\n' ' ')
-    STORY_FILES["${key}"]="${files}"
+    STORY_FILES["${story}"]="${files}"
   done
 fi
 
 # ---------- build file→stories collision map ----------
 declare -A FILE_STORIES
 
-for key in "${STORY_KEYS[@]}"; do
-  files_str="${STORY_FILES[${key}]:-}"
+for story in "${STORY_IDS[@]}"; do
+  files_str="${STORY_FILES[${story}]:-}"
   [[ -z "${files_str}" ]] && continue
   for f in ${files_str}; do
     [[ -z "${f}" ]] && continue
     if [[ -n "${FILE_STORIES[${f}]:-}" ]]; then
-      if [[ " ${FILE_STORIES[${f}]} " != *" ${key} "* ]]; then
-        FILE_STORIES["${f}"]="${FILE_STORIES[${f}]} ${key}"
+      if [[ " ${FILE_STORIES[${f}]} " != *" ${story} "* ]]; then
+        FILE_STORIES["${f}"]="${FILE_STORIES[${f}]} ${story}"
       fi
     else
-      FILE_STORIES["${f}"]="${key}"
+      FILE_STORIES["${f}"]="${story}"
     fi
   done
 done
@@ -226,8 +178,8 @@ done
 COLLISION_FOUND=0
 WATCHLIST_HIT=0
 
-declare -a COLLISION_ROWS
-declare -a WATCHLIST_ROWS
+declare -a COLLISION_ROWS=()
+declare -a WATCHLIST_ROWS=()
 
 for f in $(echo "${!FILE_STORIES[@]}" | tr ' ' '\n' | sort); do
   stories="${FILE_STORIES[${f}]:-}"
@@ -282,7 +234,7 @@ print_section() {
 
 echo
 echo "Sprint Shared-File Audit"
-echo "Stories: ${STORY_KEYS[*]}"
+echo "Stories: ${STORY_IDS[*]}"
 echo "Watchlist: ${WATCHLIST_PATH:-<none>}"
 echo "Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo
@@ -292,12 +244,12 @@ if [[ ${COLLISION_FOUND} -eq 0 && ${WATCHLIST_HIT} -eq 0 ]]; then
   exit 0
 fi
 
-declare -a SORTED_COLLISION
+declare -a SORTED_COLLISION=()
 if [[ ${#COLLISION_ROWS[@]} -gt 0 ]]; then
   mapfile -t SORTED_COLLISION < <(printf '%s\n' "${COLLISION_ROWS[@]}" | sort -t$'\t' -k1 -rn)
 fi
 
-declare -a SORTED_WATCHLIST
+declare -a SORTED_WATCHLIST=()
 if [[ ${#WATCHLIST_ROWS[@]} -gt 0 ]]; then
   mapfile -t SORTED_WATCHLIST < <(printf '%s\n' "${WATCHLIST_ROWS[@]}" | sort -t$'\t' -k1 -rn)
 fi

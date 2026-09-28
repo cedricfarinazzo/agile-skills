@@ -29,7 +29,7 @@ conflict_map entry:
 ## Steps
 
 1. **Gather from session context:** every issue found during review; every fix applied and why; what was already correct; AC-by-AC verification (satisfied / not, and why); **conscious accepts** (each deliberate DoD deviation — what the DoD asks, what was done instead, why the convention wins, where the equivalent-strength coverage lives, and that it was deliberate); **cross-PR conflicts from the caller's entry, not from recollection**.
-2. **Post the comment** via `mcp__atlassian__addCommentToJiraIssue` (configured `cloudId`, `contentFormat: markdown`) and **capture the returned comment id** — it is the proof it was posted.
+2. **Post the comment** via `mcp__atlassian__addCommentToJiraIssue` (configured `cloudId`, `contentFormat: markdown`) and **capture the returned comment id** — it is the proof it was posted. It **opens with `🤖 <!-- agile:phase=post_merge -->`**: this comment is the ticket's only record that the merge path ran, and the audit gates read the marker, not the prose.
 3. **`merged` mode → transition to Done.** `mcp__atlassian__getTransitionsForJiraIssue`, find the transition whose target status category is `done` / colorName `green`, call `mcp__atlassian__transitionJiraIssue`. (Fast path: if the repo declares a stable `done-transition-id`, call it directly and fall back to the lookup on failure.) **Then read the status back** with `mcp__atlassian__getJiraIssue` and confirm the category is `done` — a transition call that returned without the ticket landing in a done-category status is not complete.
 4. **`blocked` mode → do not transition.** The PR stays open with a block comment and the ticket stays in its column.
 5. **Return the receipt.** `agile-11-merge-train` 3g verifies it before counting the PR done, and its Phase 5 re-dispatches this skill for any merged PR whose ticket is not done-category. `collisions recorded` echoes exactly what you wrote into the comment — that echo is how the caller proves the Phase-1 conflict map reached the ticket instead of evaporating in the hand-off.
@@ -38,6 +38,7 @@ conflict_map entry:
 Postmortem receipt:
   mode: merged | blocked
   comment id: <id from step 2>
+  marker: post_merge posted
   status: <current status name> (category: <done | in-progress | ...>)
   collisions recorded: <KEY>@<file>, <KEY>@<file>   |   none
 ```
@@ -47,6 +48,8 @@ Postmortem receipt:
 Every issue gets its own numbered section with root cause, fix, and a **generalizable** lesson ("always use X pattern when Y", never "fix this specific file"). Be specific — file names, line numbers, function names. The comment is a permanent ticket artifact read by humans during retro and future incident investigations, so write full sentences in normal English, and **never omit "What was correct"**, however many issues there were.
 
 ```markdown
+🤖 <!-- agile:phase=post_merge -->
+
 ## Post-merge review findings — what was wrong
 
 <TOTAL> issue(s) found during PR review, <FIXED> fixed before merge.
@@ -71,6 +74,8 @@ On a 0-issue PR, open with "0 issues found during PR review." and go straight to
 **Block mode:**
 
 ```markdown
+🤖 <!-- agile:phase=post_merge -->
+
 ## PR blocked — not merged
 
 **Reason:** <one line on why this cannot be merged as-is>

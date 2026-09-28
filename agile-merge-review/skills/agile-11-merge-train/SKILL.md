@@ -27,7 +27,7 @@ A receipt carries proof fields only — plus findings for `:pr-reviewer`, where 
 | `3e CI monitor` | named completed all-green run id on the post-push tip | independent `gh run view` of that id |
 | **`3f` reviewed-sha gate** | the 3b reviewed sha + the sha about to merge | `headRefOid` **==** the reviewed sha. Different ⇒ unreviewed code → re-dispatch `:pr-reviewer` on the delta, re-enter 3e. Not clearable any other way |
 | `3f merge` | `mergedAt` set | `gh pr view --json state,mergedAt` == MERGED — the merge command's **exit code is not the signal** |
-| `3g merge-jira-postmortem` | **posted comment id + resulting status category + `collisions recorded`** | `mcp__atlassian__getJiraIssue` confirms done-category; the echo matches this PR's `conflict_map` entry. A merged PR whose ticket ≠ Done, or whose echo drops a collision, re-dispatches 3g |
+| `3g merge-jira-postmortem` | **posted comment id + resulting status category + `collisions recorded` + `marker: post_merge posted`** | `mcp__atlassian__getJiraIssue` confirms done-category and that the comment opens with `🤖 <!-- agile:phase=post_merge -->`; the echo matches this PR's `conflict_map` entry. A merged PR whose ticket ≠ Done, or whose echo drops a collision, re-dispatches 3g |
 
 **The train is strictly sequential** regardless of how the PRs were built — each merge moves `main` and the next PR must rebase onto it. Build-side `concurrency` never makes the train parallel.
 

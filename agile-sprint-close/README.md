@@ -1,4 +1,4 @@
-# agile-sprint-close
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-sprint-close
 
 **Close** plugin — ends the sprint cleanly: housekeeping, a global engineering+product gate, post-merge QA sign-off, and the retrospective that feeds the next iteration. Uses the **`gh`** CLI + git and **Confluence + Jira**.
 
@@ -28,6 +28,8 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 1. **Engineer** — does the system actually work on a freshly rebuilt dev stack? (smoke + integration)
 2. **Architect / PM** — does delivered code match the documented intent (Vision/PRD/ADR/Roadmap/epic ACs)?
 3. **Tech Lead** — does it hold up under an impartial deep review of all sprint diffs?
+
+Phase 6.5 audits the merge train's Jira links with a bundled stdlib script (`skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py`; tests beside it, `python3 -m pytest` that dir).
 
 A single Critical from any lens blocks closeout. It publishes a report to the `Closeouts` Confluence folder (sibling of `Retrospectives`), which the retro reads. Catches the "every AC green in isolation, but the wired system is broken" class of bug.
 

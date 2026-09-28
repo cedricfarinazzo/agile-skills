@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this repo is
 
-A Claude Code marketplace of focused plugins — six split by cycle phase so users load only what they run, one out-of-cycle cleanup plugin, and one mod plugin:
+A Claude Code marketplace of focused plugins — six split by cycle phase so users load only what they run, two out-of-cycle review/cleanup plugins, and one mod plugin:
 
 - **`agile-product`** — discovery: Vision Doc, PRD, Design Brief / Specs UI, ADR (Confluence).
 - **`agile-planning`** — Roadmap (+ its published Artifact), Epics, Stories, Refinement, Sprint Planning (Confluence + Jira).
@@ -13,6 +13,7 @@ A Claude Code marketplace of focused plugins — six split by cycle phase so use
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
 - **`agile-sprint-drain`** — outer loop alternating `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Invokes both **inline via the Skill tool** and ships no agents (see dispatch nesting, below). Requires both plugins installed.
 - **`deep-refactor`** — out-of-cycle cleanup, three skills sharing one audit → report → ticket → drain loop, each freezing a different side of the repo: `deep-refactor` (code changes, tests frozen), `test-refactor` (tests change, production frozen), `doc-refactor` (markdown changes, source frozen). Ships no agents. Tracker-agnostic; needs `gh`.
+- **`project-review`** — out-of-cycle, read-only deep technical assessment of an arbitrary software or IT project. Produces an evidence-backed Markdown report and does not require Jira, Confluence, or `gh`.
 - **`agile-mods`** — Claude Mods (function hooks, early access): TypeScript in `hooks/`, no skills or agents. `/agile-board` sprint board, guards that enforce rules this file and the skills state in prose (tool grants, reviewed-sha gate, base-branch proof, untrusted output), `/receipts`, retro counts, and authoring checks active only in this repo. **A mod guard mirrors a prose rule: change the rule (a grant, a receipt field, the `Reviewed sha:` line, a `Triggers:` format, the verify block) and update `agile-mods/hooks/state/` in the same change.** Engine limits: one hooks module (`register.tsx` owns every hook and passes a `Host` to the others), one unmatched hook per event, `$` only in that file. Keep logic in `hooks/state/` and run `cd agile-mods && bun test` plus `claude plugin validate ./agile-mods`. Claude-only: no `.codex-plugin`, no `.agents/plugins/marketplace.json` entry.
 
 `agile-10-implement` clears the **build** queue (`To Do` → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`). User-facing skills keep global cycle numbering (`agile-1` … `agile-15`); composed sub-skills (`implement-*`, `merge-*`) are **unnumbered** because users don't call them. Namespace = plugin name: `/agile-planning:agile-5-roadmap`.
@@ -24,12 +25,12 @@ Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a
 
 ```
 README.md                                 # root README — OVERVIEW only (plugin table, cycle diagram, install, links)
-.claude-plugin/marketplace.json           # marketplace — lists every plugin (git-subdir per path); it is the authoritative plugin list
+.claude-plugin/marketplace.json           # marketplace — lists every plugin (`./<plugin>` relative source); it is the authoritative plugin list
 <plugin>/README.md                        # per-plugin README — the detail for that plugin
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review only)
-agile-planning/skills/agile-8-refinement/scripts/   # bundled scripts — invoke via ${CLAUDE_PLUGIN_ROOT}
+<plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
 There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
@@ -214,6 +215,18 @@ Cross-plugin references: skills call siblings by name. Most compose within one p
 
 Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill namespace prefix), `version`, author/homepage/repo/license. Skills and agents are auto-discovered from `skills/*/SKILL.md` and `agents/*.md`.
 
-`.claude-plugin/marketplace.json` (root) lists every plugin via a `git-subdir` source (`cedricfarinazzo/agile-skills` + `path: <plugin>`). It carries **no version key** — versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
+`.claude-plugin/marketplace.json` (root) carries a top-level `description` and lists every plugin with a relative string source, `"source": "./<plugin>"`. It carries **no version key**; versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
+
+**Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning.
+
+The directory also holds two things for review. Avoid both:
+
+- **No credential read from the installer's machine** (`MCP_FORWARDS_CREDENTIAL_ENV`). A skill, script, or agent must not read a token from env vars or files and send it to a host. Reach Jira and Confluence through the Atlassian MCP tools, which own authentication; bundled scripts stay offline and take their input as files. If a plugin truly needs a secret, declare it as a `userConfig` option with `sensitive: true` and reference it as `${user_config.KEY}`. The scanner also matches on names: in bundled scripts, don't name variables with `KEY`, `TOKEN`, `SECRET`, or `PASS` unless they hold one. It can still flag a false positive (for example the review verdict `pass` read as a password next to the manifest's GitHub URL); explain it in the submission instead of changing the code.
+- **Every plugin has an icon** (`ICON_MISSING`): a square SVG of at least 128px at `<plugin>/.claude-plugin/icon.svg`.
+
+- Submission guide: https://claude.com/blog/build-plugins-for-claude
+- Marketplace file reference: https://code.claude.com/docs/en/plugins/marketplace-reference#marketplace-file
+- Directory policy: https://support.claude.com/en/articles/13145358-anthropic-software-directory-policy
+- Plugin manifest reference (`userConfig`, `${user_config.KEY}`): https://code.claude.com/docs/en/plugins-reference#user-configuration
 
 **Versioning — bump the `version` of every plugin a change touches, in the same commit.** Patch for a typo or doc-only fix; **minor** for a new capability or a substantive skill/agent rework that stays backwards compatible (workflow spine unchanged, no trigger phrase dropped); major only for a breaking change — a removed skill, a renamed trigger, or a changed config-key contract.

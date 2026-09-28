@@ -1,4 +1,4 @@
-# agile-product
+# <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-product
 
 Product **discovery** plugin — the *what & why* of the cycle. Turns a raw idea into the approved Confluence docs that everything downstream derives from. Integrates with **Confluence** (and reads Jira for context).
 

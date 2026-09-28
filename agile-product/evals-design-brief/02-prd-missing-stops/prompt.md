@@ -1,0 +1,14 @@
+---
+max_turns: 6
+timeout_seconds: 240
+allowed_tools: [Skill]
+runs: 3
+model: sonnet
+---
+Use the `agile-product:agile-3-design-brief` skill for this.
+
+Create the design brief. Project: Inventory Service (Confluence root `Inventory Service`, Jira key APP).
+
+No shell, `gh`, Jira or Confluence MCP here — do not call them or dispatch agents. Everything you would have read is inlined. State what you do and exactly what you would write or return.
+
+No PRD page exists for this project; only the Vision Doc.
