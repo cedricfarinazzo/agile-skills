@@ -2,7 +2,7 @@
 name: ticket-validator
 description: Runs the implement-validate phase for agile-10-implement — repo-scope check + 7-criterion readiness score, returns pass/out-of-scope/rejected/critical-park. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
-effort: medium
+effort: low
 tools: EnterWorktree, Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
 ---
 

@@ -2,7 +2,7 @@
 name: fix-until-satisfied
 description: Runs merge-fix-until-satisfied for agile-11-merge-train — fixes every review finding (critical + minor), re-verifies, and is the mandatory satisfaction gate even on a 0-issue review. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
-effort: high
+effort: medium
 tools: EnterWorktree, Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue
 ---
 

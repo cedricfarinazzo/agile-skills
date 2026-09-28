@@ -2,7 +2,7 @@
 name: self-reviewer
 description: Runs the implement-review phase for agile-10-implement — the author's six-lens self-review of the PR, posting the verdict to the PR and Jira. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
-effort: high
+effort: medium
 tools: Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage
 ---
 

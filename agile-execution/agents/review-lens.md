@@ -2,7 +2,7 @@
 name: review-lens
 description: Reviews a PR's changed files against one or more assigned implement-review lenses. Opt-in fan-out for a large PR only; dispatched directly by agile-10-implement, one per lens group.
 model: sonnet
-effort: high
+effort: medium
 tools: Read, Grep, Glob, Bash, WebFetch, mcp__atlassian__getJiraIssue, mcp__atlassian__getConfluencePage
 ---
 
