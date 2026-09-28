@@ -45,3 +45,14 @@ jobs:
         env:
           PLUGIN: ${{ matrix.plugin }}
         run: ./.github/scripts/validate.sh "./$PLUGIN"
+
+  mods-test:
+    runs-on: ubuntu-latest
+    name: agile-mods (bun test)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      # one test runs CLAUDE.md's invariants script over this checkout (bash + python3, both on the runner)
+      - name: bun test
+        working-directory: agile-mods
+        run: bun test

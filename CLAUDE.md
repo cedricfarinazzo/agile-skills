@@ -217,7 +217,7 @@ Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill na
 
 `.claude-plugin/marketplace.json` (root) carries a top-level `description` and lists every plugin with a relative string source, `"source": "./<plugin>"`. It carries **no version key**; versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
 
-**Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning. CI (`.github/workflows/validate.yml`) runs both on every PR, for every plugin `marketplace.json` lists, and fails on a warning; the validator needs no login.
+**Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning. CI (`.github/workflows/validate.yml`) runs both on every PR, for every plugin `marketplace.json` lists, and fails on a warning; the validator needs no login. The same workflow runs `bun test` in `agile-mods`.
 
 The directory also holds two things for review. Avoid both:
 
