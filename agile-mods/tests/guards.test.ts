@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fenceOf, grantDenial, headReadOf, mergeTargetOf, reviewedOf, shaGateDenial, unprovenClaimOf } from '../hooks/state/guards.ts'
+import { fenceOf, grantDenial, mergeTargetOf, reviewedOf, shaGateDenial, unprovenClaimOf } from '../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -32,13 +32,9 @@ describe('reviewed-sha gate', () => {
     expect(reviewedOf({ prompt: 'PR 12' }, 'no sha here')).toBeUndefined()
   })
 
-  test('reads an inline review head from gh pr view', () => {
-    expect(headReadOf('Bash', { command: 'gh pr view 12 --json title,headRefOid' }, `{"title":"x","headRefOid":"${SHA}"}`)).toEqual({ pr: 12, sha: SHA })
-    expect(headReadOf('Bash', { command: 'gh pr view 12 --json title' }, `{"headRefOid":"${SHA}"}`)).toBeUndefined()
-  })
-
   test('targets gh and MCP merges', () => {
     expect(mergeTargetOf('Bash', { command: 'gh pr merge 12 --squash' })).toEqual({ pr: 12 })
+    expect(mergeTargetOf('Bash', { command: `gh pr merge 12 --squash --match-head-commit ${SHA}` })).toEqual({ pr: 12, head: SHA })
     expect(mergeTargetOf('mcp__github__merge_pull_request', { pullNumber: 12, expectedHeadSha: SHA })).toEqual({ pr: 12, head: SHA })
     expect(mergeTargetOf('Bash', { command: 'gh pr view 12' })).toBeUndefined()
   })
@@ -47,7 +43,7 @@ describe('reviewed-sha gate', () => {
     expect(shaGateDenial(12, undefined, SHA)).toContain('no reviewed sha')
     expect(shaGateDenial(12, SHA, OTHER)).toContain('unreviewed code')
     expect(shaGateDenial(12, SHA, SHA.slice(0, 12))).toBeUndefined()
-    expect(shaGateDenial(12, SHA, undefined)).toBeUndefined()
+    expect(shaGateDenial(12, SHA, undefined)).toContain('could not read')
   })
 })
 

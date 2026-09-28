@@ -1,10 +1,10 @@
 import type { Finished, Host } from './host.ts'
 import { PR_REF } from './state/board.ts'
-import { baseProofReminder, fenceOf, grantDenial, headReadOf, isReviewStep, mergeTargetOf, reviewedOf, shaGateDenial, unprovenClaimOf } from './state/guards.ts'
+import { baseProofReminder, fenceOf, grantDenial, isReviewStep, mergeTargetOf, reviewedOf, shaGateDenial, unprovenClaimOf } from './state/guards.ts'
 
 // Guards: the rules the skills state in prose, enforced on the call that would break them.
 // - a subagent's tool grant: review-lens and pr-reviewer never edit or post, jira-postmortem never links;
-// - the 3f reviewed-sha gate: while a merge train runs, a merge refuses a head no review vouched for;
+// - the 3f reviewed-sha gate: during the turn a merge train runs in, a merge refuses a head no review vouched for;
 // - base-branch proof: a receipt claiming "pre-existing" or "flaky" with no comparison gets a reminder;
 // - untrusted output: a PR, issue, ticket or page whose text reads like an instruction gets a fence.
 
@@ -24,7 +24,6 @@ async function agentTypeOf(host: Host, id: string): Promise<string | undefined> 
 async function headOf(host: Host, pr: number): Promise<string | undefined> {
   const run = await host.run(['gh', 'pr', 'view', String(pr), '--json', 'headRefOid', '-q', '.headRefOid'], { cwd, timeoutMs: 20_000 }).catch(() => undefined)
   const sha = run?.exitCode === 0 ? run.stdout.trim() : ''
-  if (!sha) host.log(`agile-mods: could not read PR #${pr}'s head; the reviewed-sha gate compares nothing for this merge`)
   return sha || undefined
 }
 
@@ -58,8 +57,6 @@ export function guardsAfter(tool: string, args: Record<string, unknown>, done: F
     const review = reviewedOf(args, text)
     if (review) reviewed.set(review.pr, review.sha)
   }
-  const read = inlineReview !== undefined ? headReadOf(tool, args, text) : undefined
-  if (read && read.pr === inlineReview) reviewed.set(read.pr, read.sha)
   const extra: string[] = []
   const claim = tool === 'Agent' ? unprovenClaimOf(text) : undefined
   if (claim) extra.push(baseProofReminder(claim))
@@ -68,8 +65,9 @@ export function guardsAfter(tool: string, args: Record<string, unknown>, done: F
   return extra
 }
 
-/** A main-loop turn's answer: an inline review's receipt names its reviewed sha. */
+/** A main-loop turn's answer: an inline review's receipt names its reviewed sha; the train ends with the turn. */
 export function guardsTurn(answer: string) {
+  trainActive = false
   if (inlineReview === undefined) return
   const review = reviewedOf({ args: `PR ${inlineReview}` }, answer)
   if (review) reviewed.set(review.pr, review.sha)

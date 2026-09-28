@@ -75,15 +75,9 @@ export function mergeTargetOf(tool: string, args: Record<string, unknown>): { pr
   if (tool === 'mcp__github__merge_pull_request' && typeof args.pullNumber === 'number') {
     return { pr: args.pullNumber, head: str(args.expectedHeadSha) || undefined }
   }
-  const merge = tool === 'Bash' ? str(args.command).match(/\bgh pr merge\s+(\d+)/) : null
-  return merge ? { pr: Number(merge[1]) } : undefined
-}
-
-/** An inline review's reading of the head: `gh pr view <n> --json …headRefOid` and its answer. */
-export function headReadOf(tool: string, args: Record<string, unknown>, text: string): { pr: number; sha: string } | undefined {
-  const view = tool === 'Bash' ? str(args.command).match(/\bgh pr view\s+(\d+)\b.*headRefOid/) : null
-  const sha = view ? text.match(/"headRefOid"\s*:\s*"([0-9a-f]{40})"/)?.[1] ?? text.trim().match(/^[0-9a-f]{40}$/)?.[0] : undefined
-  return view && sha ? { pr: Number(view[1]), sha } : undefined
+  const command = tool === 'Bash' ? str(args.command) : ''
+  const merge = command.match(/\bgh pr merge\s+(\d+)/)
+  return merge ? { pr: Number(merge[1]), head: command.match(/--match-head-commit[=\s]+([0-9a-f]{7,40})\b/)?.[1] } : undefined
 }
 
 export const sameSha = (a: string, b: string) => a.length >= 7 && b.length >= 7 && (a.startsWith(b) || b.startsWith(a))
@@ -91,7 +85,7 @@ export const sameSha = (a: string, b: string) => a.length >= 7 && b.length >= 7 
 /** The 3f reviewed-sha gate: the refusal when the head about to merge is not the reviewed one. */
 export function shaGateDenial(pr: number, reviewed: string | undefined, head: string | undefined): string | undefined {
   if (!reviewed) return `PR #${pr} has no reviewed sha in this session: run 3b (pr-reviewer) before merging.`
-  if (!head) return undefined
+  if (!head) return `could not read PR #${pr}'s head to compare with the reviewed sha ${reviewed.slice(0, 12)}: retry, or pin the head (expectedHeadSha / gh pr merge --match-head-commit ${reviewed}).`
   return sameSha(reviewed, head)
     ? undefined
     : `PR #${pr} head ${head.slice(0, 12)} is not the reviewed sha ${reviewed.slice(0, 12)}: unreviewed code. Re-dispatch pr-reviewer on the delta (reviewed=${reviewed}) and re-enter 3e.`
