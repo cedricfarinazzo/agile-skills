@@ -19,44 +19,56 @@ Without it the plugin installs and does nothing.
 | [Retro data](#retro-data) | `/agile-board retro` | always |
 | [Authoring checks](#authoring-checks) | `/agile-verify` | only in the agile-skills repo |
 
-Every hook calls `next`: the board, receipts and retro only observe; the guards and authoring checks refuse a call (`deny`, which the model reads as the tool's error) or add context after a result.
+Every hook calls `next`. The board, receipts and retro only observe. The guards and authoring checks can refuse a call (`deny`, which the model reads as the tool's error) or add context after a result.
+
+**Where the data comes from.** The mods make no Jira or GitHub call of their own. They read the calls the loop already makes, with their arguments and results: Jira comments and searches, `gh pr` and `gh run` output, agent dispatches and receipts. So the board shows what this session saw. A ticket the loop has not touched, or a status changed by hand in Jira, does not appear. The only commands a mod runs itself are `git rev-parse` (push guard), `git diff`/`git show` and the invariants script (authoring checks, this repo only), and `notify-send`/`osascript` (drain notice).
 
 ## Sprint board
 
-A board in the band above the prompt (interactive terminal only), shown once an agile loop starts:
+A board in the band above the prompt (interactive terminal only). It appears once an agile loop starts and shows, top to bottom:
 
-- the active loop: `implement`, `merge-train`, or `drain`;
-- for a drain: the pass number, whether the pass is in `build` or `merge`, and the outcome (`running`, then `STUCK` in red or `DRAINED` in green, with a toast and a desktop notification through `notify-send` or `osascript` where one exists);
-- **burndown**: work left (no merged PR, not parked) out of every ticket seen, as a sparkline sampled on each change. It counts story points once every ticket on the board has them, else tickets; a switch of unit restarts the line. Points come from the `searchJiraIssuesUsingJql` / `getJiraIssue` results the loop reads, in the field its `story-points-field` names (read from the repo's `AGENTS.md`, then `CLAUDE.md`; default `customfield_10016`). The mod makes no Jira call of its own;
-- **parked and looping work**, in yellow: a ticket `ticket-validator` sent back as Needs Info or parked on a critical decision, a PR whose train step started 3 times or more, a ticket reworked 3 times or more. Each new one also toasts;
-- **build queue**: one line per ticket without a merged PR, with its latest `agile:phase=` marker (or `needs info` / `parked`) and PR number;
-- **merge queue**: one line per PR with its ticket key and merge-train step (`queued`, `3a update`, `3b review`, `3c fix`, `3f merge`, `4 postmortem`, `merged`), open PRs first, and `⟳3b×3` on a looping step.
+| Line | Shows |
+|---|---|
+| Header | The active loop: `implement`, `merge-train` or `drain` |
+| Drain | Pass number, whether the pass is in `build` or `merge`, and the outcome: `running`, then `STUCK` (red) or `DRAINED` (green). The end also toasts and sends a desktop notification through `notify-send` or `osascript` where one exists |
+| Burndown | Work left as a sparkline, sampled on each change: `burn ▇▆▅▃  13/21 pts left`. Work left means tickets with no merged PR that are not parked |
+| Parked and looping (yellow) | Tickets `ticket-validator` sent back as Needs Info or parked on a critical decision; PRs whose train step started 3 times or more; tickets reworked 3 times or more. Each new entry also toasts once |
+| Build queue | One line per ticket without a merged PR: its latest `agile:phase=` marker (or `needs info` / `parked`) and PR number |
+| Merge queue | One line per PR: ticket key and train step (`queued`, `3a update`, `3b review`, `3c fix`, `3f merge`, `4 postmortem`, `merged`), open PRs first, `⟳3b×3` on a looping step |
 
 The section of the running stage is bold. State is kept in `$.store`, so a resumed session shows where the loop stood.
 
-Panes:
+**Burndown unit.** The line counts story points once every ticket on the board has them, and tickets until then: a sum of points for some tickets and 1 for others would mean neither. A change of unit restarts the line. Points are read from the `mcp__atlassian__searchJiraIssuesUsingJql` and `mcp__atlassian__getJiraIssue` results the loop gets, in the field named by the repo's `story-points-field` (read from `AGENTS.md`, then `CLAUDE.md`; default `customfield_10016`). `agile-10-implement` requests that field in its sprint search.
 
-- `/agile-board prs`: the PR pipeline, one row per PR and a column per train step (`3a 3b 3c 3e 3f 4`): `✔` reached, `●` current, `✖` red CI. Each row also shows the CI state of the PR's head and the reviewed sha.
-- `/agile-board drain`: the drain timeline, one bar per pass split into build time and merge time, with what the pass moved (`build 3 → merge 2`, or `nothing moved`) and how long it took.
-- `/agile-board links`: each ticket's Jira page and each PR, once a tool result has named the Jira site and GitHub repo.
+### Panes
+
+| Command | Pane |
+|---|---|
+| `/agile-board prs` | PR pipeline: one row per PR, one column per train step (`3a 3b 3c 3e 3f 4`): `✔` reached, `●` current, `✖` red CI. Each row ends with the CI state of the PR's head and the reviewed sha |
+| `/agile-board drain` | Drain timeline: one bar per pass, split into build time (cyan) and merge time (magenta), with what the pass moved (`build 3 → merge 2`, or `nothing moved`) and how long it took |
+| `/agile-board links` | Each ticket's Jira page and each PR, once a tool result has named the Jira site and GitHub repo |
+
+`/agile-board retro` prints the [retro data](#retro-data); `/agile-board reset` clears the board and the retro counts, and ends the guards' loop state.
+
+### What updates the board
 
 | Tool call | Board update |
 |---|---|
 | `Skill` → `agile-sprint-drain` / `agile-10-implement` / `agile-11-merge-train` (at start) | Active loop and stage; each implement run inside a drain opens a pass |
-| `mcp__atlassian__addCommentToJiraIssue` with `agile:phase=<x>` | Ticket phase |
-| `gh pr create` / `mcp__github__create_pull_request` | PR number (ticket key read from title or branch) |
-| `gh pr list --state open --json …` (the train's first read) | Merge queue |
-| `Agent` → `pr-updater` / `pr-reviewer` / `fix-until-satisfied` / `jira-postmortem`, or `Skill` → the matching `merge-*` sub-skill (at start) | PR step; the PR number is read from the dispatch prompt, description or args (`#42`, `PR 42`, `/pull/42`) |
-| `gh pr merge <n>` (at start) | Step `3f merge` — not merged |
+| `mcp__atlassian__addCommentToJiraIssue` with `agile:phase=<x>` | Ticket phase; `rework` markers count toward a loop |
+| `mcp__atlassian__searchJiraIssuesUsingJql` / `mcp__atlassian__getJiraIssue` returning the points field | Story points per ticket |
 | `Agent` → `ticket-validator` answering `rejected` / `critical-park` | Ticket parked (Needs Info / awaiting decision) |
+| `gh pr create` / `mcp__github__create_pull_request` | PR number (ticket key read from title or branch); counts as built in the current drain pass |
+| `gh pr list --state open --json …` (the train's first read) | Merge queue |
+| `Agent` → `pr-updater` / `pr-reviewer` / `fix-until-satisfied` / `jira-postmortem`, or `Skill` → the matching `merge-*` sub-skill (at start) | PR step and its start count; the PR number is read from the dispatch prompt, description or args (`#42`, `PR 42`, `/pull/42`) |
 | `Agent` → `pr-reviewer` receipt, or an inline `merge-review-pr` turn's answer, with `Reviewed sha:` | PR's reviewed sha |
 | `gh pr view <n> --json …headRefOid`, `gh pr list --json …headRefOid` | PR's head |
-| `mcp__atlassian__searchJiraIssuesUsingJql` / `mcp__atlassian__getJiraIssue` returning the points field | Story points per ticket |
 | `gh run view/list --json …headSha…` | CI run on that sha; an unchanged repeat read counts as a second agreeing read |
-| `gh pr view <n> --json …mergedAt` with `mergedAt` set, `gh pr list --state merged --json …`, or `mcp__github__merge_pull_request` | PR merged |
-| Main-loop `turn.complete` answer with `══ STUCK ══` / `══ DRAINED ══` | Drain outcome |
+| `gh pr merge <n>` (at start) | Step `3f merge`, not merged |
+| `gh pr view <n> --json …mergedAt` with `mergedAt` set, `gh pr list --state merged --json …`, or `mcp__github__merge_pull_request` | PR merged; counts as merged in the current drain pass |
+| Main-loop `turn.complete` answer with `══ STUCK ══` / `══ DRAINED ══` | Drain outcome; closes the last pass |
 
-`gh pr merge`'s exit code is not treated as a merge, following `agile-11-merge-train`: only `mergedAt` is. The per-pass `build:N merge:N` counts in the drain's banners are not shown: they are text inside one long turn, which a hook reads only when the turn ends.
+`gh pr merge`'s exit code is not treated as a merge, following `agile-11-merge-train`: only `mergedAt` is. The drain's own `build:N merge:N` banners are text inside one long turn, which a hook reads only when the turn ends, so the timeline counts PRs created and merged instead.
 
 ## Guards
 
@@ -65,9 +77,11 @@ Panes:
 | `review-lens` and `pr-reviewer` never edit or post; `review-lens` never invokes `implement-review` (CLAUDE.md, tool grants) | A call from inside that agent's loop to `Write`/`Edit`/`NotebookEdit`, a posting GitHub/Atlassian MCP tool, `gh pr comment/review/merge/edit`, `gh issue comment/…`, `gh api -X POST/PATCH/PUT/DELETE` or `git push` is refused |
 | `jira-postmortem` never creates issue links | `mcp__atlassian__createIssueLink` from that agent is refused |
 | 3f merge gates (`agile-11-merge-train` 3e and 3f) | From a merge train's or drain's start to its final report, `gh pr merge <n>` / `mcp__github__merge_pull_request` is refused unless: the head is pinned (`--match-head-commit <sha>` / `expectedHeadSha`), so GitHub itself refuses a head that moved; the pin equals the reviewed sha, when a `pr-reviewer` receipt named one; and a CI run on that sha read `completed`/`success` on two agreeing reads (`gh run view <id> --json status,conclusion,headSha`) |
-| No push to the base branch, force push only with a lease (`agile-10-implement`, `merge-update-pr`) | From an implement, merge-train or drain start to its final report, and in any `agile-execution` / `agile-merge-review` agent: a `git push` to `main`/`master` (by refspec, or with none from a checkout of it) and `--force` / `-f` / `--mirror` are refused; `--force-with-lease` passes |
+| Work reaches the base branch only through a PR; force push only with a lease (`agile-11-merge-train` Rules) | From an implement, merge-train or drain start to its final report, and in any `agile-execution` / `agile-merge-review` agent: a `git push` to `main`/`master` (by refspec, or with none from a checkout of it) and `--force` / `-f` / `--mirror` are refused; `--force-with-lease` passes |
 
-A loop ends with its final report: `## Sprint implementation`, `Per-PR outcome`, or a drain's `══ DRAINED ══` / `══ STUCK ══` (inside a drain, only the drain's banner). `/agile-board reset` also ends it. Merges and pushes outside a loop are not gated. For an inline `merge-review-pr`, whose reviewed sha a hook reads only when the turn ends, the gate checks the pin and CI, and GitHub checks the pin.
+**When a loop counts as running.** A loop spans several turns (3e waits a turn for CI), so it runs from its orchestrator's start to its final report: `## Sprint implementation` (implement), `Per-PR outcome` (merge train), or `══ DRAINED ══` / `══ STUCK ══` (drain; inside a drain, only this banner ends it). `/agile-board reset` also ends it. Merges and pushes outside a loop are not gated.
+
+**Why the head is pinned.** The pin moves the "is this still the reviewed head?" check to GitHub, at the moment of the merge, where nothing can move in between. When the train runs the review inline (`concurrency=0`), a hook reads the reviewed sha only when the turn ends, after the merge; the gate then checks that a pin and green CI exist, and GitHub checks the pin.
 
 ## Receipt inspector
 
