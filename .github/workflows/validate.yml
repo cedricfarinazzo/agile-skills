@@ -1,0 +1,47 @@
+name: validate
+
+# claude plugin validate needs no login or API key: it only reads the manifests and files.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  marketplace:
+    runs-on: ubuntu-latest
+    outputs:
+      plugins: ${{ steps.list.outputs.plugins }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Validate the marketplace
+        run: ./.github/scripts/validate.sh .
+      # the marketplace is the authoritative plugin list, so a new plugin is validated without editing this file
+      - id: list
+        run: echo "plugins=$(jq -c '[.plugins[].name]' .claude-plugin/marketplace.json)" >> "$GITHUB_OUTPUT"
+
+  plugin:
+    needs: marketplace
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJson(needs.marketplace.outputs.plugins) }}
+    name: plugin (${{ matrix.plugin }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Validate the plugin
+        # the name comes from marketplace.json, which a PR can change: pass it as data, never as shell text
+        env:
+          PLUGIN: ${{ matrix.plugin }}
+        run: ./.github/scripts/validate.sh "./$PLUGIN"

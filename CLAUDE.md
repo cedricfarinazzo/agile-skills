@@ -33,7 +33,7 @@ README.md                                 # root README — OVERVIEW only (plugi
 <plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
-There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
+There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, `.github/` (CI), and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
 
 **Docs split:** the root `README.md` is an overview that **links** to each plugin README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, orchestrator internals) lives in `<plugin>/README.md`. Change a skill → update its plugin README; keep the root overview-only. The canonical Confluence tree lives in full in `agile-planning/README.md`.
 
@@ -217,7 +217,7 @@ Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill na
 
 `.claude-plugin/marketplace.json` (root) carries a top-level `description` and lists every plugin with a relative string source, `"source": "./<plugin>"`. It carries **no version key**; versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
 
-**Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning.
+**Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning. CI (`.github/workflows/validate.yml`) runs both on every PR, for every plugin `marketplace.json` lists, and fails on a warning; the validator needs no login.
 
 The directory also holds two things for review. Avoid both:
 
