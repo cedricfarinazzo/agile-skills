@@ -1,6 +1,6 @@
 import type { Finished, Host } from './host.ts'
 import { PR_REF } from './state/board.ts'
-import { baseProofReminder, fenceOf, grantDenial, isReviewStep, mergeTargetOf, reviewedOf, shaGateDenial, unprovenClaimOf } from './state/guards.ts'
+import { baseProofReminder, fenceOf, grantDenial, headReadOf, isReviewStep, mergeTargetOf, reviewedOf, shaGateDenial, unprovenClaimOf } from './state/guards.ts'
 
 // Guards: the rules the skills state in prose, enforced on the call that would break them.
 // - a subagent's tool grant: review-lens and pr-reviewer never edit or post, jira-postmortem never links;
@@ -11,6 +11,8 @@ import { baseProofReminder, fenceOf, grantDenial, isReviewStep, mergeTargetOf, r
 let cwd: string | undefined
 let trainActive = false
 let inlineReview: number | undefined
+// the head an inline review read as it started; it counts as reviewed once the train reaches 3c
+let pendingHead: { pr: number; sha: string } | undefined
 const reviewed = new Map<number, string>()
 const agentTypes = new Map<string, string>()
 
@@ -42,6 +44,11 @@ export async function guardsBefore(host: Host, tool: string, args: Record<string
   if (tool === 'Skill' && /(^|:)(agile-11-merge-train|agile-sprint-drain)$/.test(skill)) trainActive = true
   if (tool === 'Skill' && /(^|:)merge-review-pr$/.test(skill)) {
     inlineReview = Number(String(args.args ?? '').match(PR_REF)?.[1]) || undefined
+    pendingHead = undefined
+  }
+  if (tool === 'Skill' && /(^|:)merge-fix-until-satisfied$/.test(skill) && pendingHead) {
+    reviewed.set(pendingHead.pr, pendingHead.sha)
+    pendingHead = undefined
   }
   const target = mergeTargetOf(tool, args)
   if (!target || !trainActive) return undefined
@@ -57,6 +64,8 @@ export function guardsAfter(tool: string, args: Record<string, unknown>, done: F
     const review = reviewedOf(args, text)
     if (review) reviewed.set(review.pr, review.sha)
   }
+  const read = inlineReview !== undefined && !pendingHead ? headReadOf(tool, args, text) : undefined
+  if (read && read.pr === inlineReview) pendingHead = read
   const extra: string[] = []
   const claim = tool === 'Agent' ? unprovenClaimOf(text) : undefined
   if (claim) extra.push(baseProofReminder(claim))
@@ -68,6 +77,7 @@ export function guardsAfter(tool: string, args: Record<string, unknown>, done: F
 /** A main-loop turn's answer: an inline review's receipt names its reviewed sha; the train ends with the turn. */
 export function guardsTurn(answer: string) {
   trainActive = false
+  pendingHead = undefined
   if (inlineReview === undefined) return
   const review = reviewedOf({ args: `PR ${inlineReview}` }, answer)
   if (review) reviewed.set(review.pr, review.sha)

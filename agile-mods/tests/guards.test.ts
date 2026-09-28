@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fenceOf, grantDenial, mergeTargetOf, reviewedOf, shaGateDenial, unprovenClaimOf } from '../hooks/state/guards.ts'
+import { fenceOf, grantDenial, headReadOf, mergeTargetOf, reviewedOf, shaGateDenial, unprovenClaimOf } from '../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -30,6 +30,11 @@ describe('reviewed-sha gate', () => {
     expect(reviewedOf({ description: 'review PR #12' }, `## PR #12 Review — x\n\nReviewed sha: ${SHA}\n`)).toEqual({ pr: 12, sha: SHA })
     expect(reviewedOf({ prompt: 'PR 12' }, `Reviewed sha: ${OTHER}   (delta-review only: reviewed \`${SHA.slice(0, 7)}..${OTHER}\`)`)).toEqual({ pr: 12, sha: OTHER })
     expect(reviewedOf({ prompt: 'PR 12' }, 'no sha here')).toBeUndefined()
+  })
+
+  test('reads an inline review head from gh pr view', () => {
+    expect(headReadOf('Bash', { command: 'gh pr view 12 --json title,headRefOid' }, `{"title":"x","headRefOid":"${SHA}"}`)).toEqual({ pr: 12, sha: SHA })
+    expect(headReadOf('Bash', { command: 'gh pr view 12 --json title' }, `{"headRefOid":"${SHA}"}`)).toBeUndefined()
   })
 
   test('targets gh and MCP merges', () => {

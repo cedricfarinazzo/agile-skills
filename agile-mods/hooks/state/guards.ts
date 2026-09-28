@@ -80,6 +80,13 @@ export function mergeTargetOf(tool: string, args: Record<string, unknown>): { pr
   return merge ? { pr: Number(merge[1]), head: command.match(/--match-head-commit[=\s]+([0-9a-f]{7,40})\b/)?.[1] } : undefined
 }
 
+/** An inline review's reading of the head: `gh pr view <n> --json …headRefOid` and its answer. */
+export function headReadOf(tool: string, args: Record<string, unknown>, text: string): { pr: number; sha: string } | undefined {
+  const view = tool === 'Bash' ? str(args.command).match(/\bgh pr view\s+(\d+)\b.*headRefOid/) : null
+  const sha = view ? text.match(/"headRefOid"\s*:\s*"([0-9a-f]{40})"/)?.[1] ?? text.trim().match(/^[0-9a-f]{40}$/)?.[0] : undefined
+  return view && sha ? { pr: Number(view[1]), sha } : undefined
+}
+
 export const sameSha = (a: string, b: string) => a.length >= 7 && b.length >= 7 && (a.startsWith(b) || b.startsWith(a))
 
 /** The 3f reviewed-sha gate: the refusal when the head about to merge is not the reviewed one. */

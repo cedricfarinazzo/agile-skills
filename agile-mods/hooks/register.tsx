@@ -45,6 +45,7 @@ function save($: EngineInterface, next: Board) {
     $.ui.toast(`agile: ${text}`, { timeoutMs: 10000 })
     // a drain runs unattended: its end also reaches the desktop, where a notifier exists
     void $.process.run(['notify-send', 'agile-skills', text], { timeoutMs: 5000 })
+      .then(run => { if (run.exitCode !== 0) throw new Error('notify-send failed') })
       .catch(() => $.process.run(['osascript', '-e', `display notification ${JSON.stringify(text)} with title "agile-skills"`], { timeoutMs: 5000 }))
       .catch(() => undefined)
   }

@@ -70,7 +70,7 @@ export async function authoringBefore(host: Host, tool: string, args: Record<str
   const command = tool === 'Bash' ? str(args.command) : ''
   if (!/\bgit\s+commit\b/.test(command)) return undefined
   const unquoted = command.replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, '""')
-  const range = /\bgit\s+commit\b[^|;&]*\s-[a-zA-Z]*a/.test(unquoted) ? ['HEAD'] : ['--cached']
+  const range = /\bgit\s+commit\b[^|;&]*\s(-[a-zA-Z]*a|--all\b)/.test(unquoted) ? ['HEAD'] : ['--cached']
   const changed = ((await git(host, ['diff', ...range, '--name-only'])) ?? '').split('\n').filter(Boolean)
   const diff = (await git(host, ['diff', ...range, '-U0', '--', '*/.claude-plugin/plugin.json'])) ?? ''
   const missing = missingBumps(changed, bumpedOf(diff), plugins)
