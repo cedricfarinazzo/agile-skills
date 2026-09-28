@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `project-review:deep-it-project-review` skill for this.
+
 Deep IT project review of this repository — and while you're at it, fix the obvious bugs you find.
 
 The repository is not checked out in this sandbox — do not search the working tree; everything you need is inlined below.

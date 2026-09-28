@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-sprint-close:agile-13-sprint-closeout` skill for this.
+
 Sprint closeout for epic APP-41, tech-lead lens. Project: Inventory Service (Confluence root `Inventory Service`, Jira key APP).
 
 No shell, `gh`, Jira or Confluence MCP here — do not call them or dispatch agents. Everything you would have read is inlined. State what you do and exactly what you would write or return.

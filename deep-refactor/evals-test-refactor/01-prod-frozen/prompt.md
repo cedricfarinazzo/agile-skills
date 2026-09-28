@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `deep-refactor:test-refactor` skill for this.
+
 Test refactor on `tests/test_sweep.py`. Repo `inventory-service`.
 
 No shell, `gh`, Jira or Confluence MCP here — do not call them or dispatch agents. Everything you would have read is inlined. State what you do and exactly what you would write or return.

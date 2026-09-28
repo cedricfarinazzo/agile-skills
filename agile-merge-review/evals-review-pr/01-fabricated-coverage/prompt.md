@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-merge-review:merge-review-pr` skill for this.
+
 Review PR #852 (APP-642).
 
 The repository is not checked out in this sandbox — do not search the working tree; every file you need is inlined below.

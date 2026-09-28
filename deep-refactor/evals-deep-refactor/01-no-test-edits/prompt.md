@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `deep-refactor:deep-refactor` skill for this.
+
 Deep refactor audit of `inventory-service` — classify this candidate for the report.
 
 The repository is not checked out in this sandbox — do not search the working tree; everything you need is inlined below.

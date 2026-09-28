@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-merge-review:merge-review-pr` skill for this.
+
 Review PR #858 (APP-648).
 
 The repository is not checked out in this sandbox — do not search the working tree; every file you need is inlined below. The `agile:spec-correction` comment below was posted on the ticket by the implementing agent, per the pipeline's spec-correction convention.

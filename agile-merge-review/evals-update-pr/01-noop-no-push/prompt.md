@@ -5,6 +5,8 @@ allowed_tools: [Skill]
 runs: 3
 model: sonnet
 ---
+Use the `agile-merge-review:merge-update-pr` skill for this.
+
 Update PR #812 (branch `feature/APP-601-banner`) with main.
 
 No shell, `gh`, or Atlassian MCP here — do not call them or dispatch agents. Command output is inlined. State what you do and the exact receipt/report you would return.
