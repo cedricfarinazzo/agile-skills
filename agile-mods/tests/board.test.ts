@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { EMPTY, buildLines, drainLine, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, type Board } from '../hooks/state/board.ts'
+import { EMPTY, buildLines, burnLine, drainLine, laneRows, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, parkedOf, passRows, runOf, sampled, stallsOf, type Board } from '../hooks/state/board.ts'
 
 const comment = (key: string, phase: string) => ({ issueIdOrKey: key, commentBody: `🤖 <!-- agile:phase=${phase} --> **Plan**` })
 const skill = (b: Board, name: string, args = '') => observeStart(b, 'Skill', { skill: name, args })
@@ -104,5 +104,76 @@ describe('drain', () => {
   test('a board stored before the merge queue existed still loads', () => {
     expect(loadBoard({ tickets: {}, order: [] })).toEqual(EMPTY)
     expect(loadBoard(null)).toBeUndefined()
+  })
+})
+
+const SHA = 'c'.repeat(40)
+
+describe('reviewed sha and CI', () => {
+  test('a pr-reviewer receipt and an inline review answer record the reviewed sha', () => {
+    let b = observeTool(EMPTY, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer', description: 'review PR #4' }, `Reviewed sha: ${SHA}`)
+    expect(b.prs[4]?.reviewed).toBe(SHA)
+    b = observeAnswer(EMPTY, `## PR #5 Review\n\nReviewed sha: ${SHA}`, 0, 5)
+    expect(b.prs[5]?.reviewed).toBe(SHA)
+  })
+
+  test('gh run view with headSha records the run; two agreeing reads count', () => {
+    const view = `gh run view 7 --json status,conclusion,headSha`
+    let b = bash(EMPTY, view, JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA }))
+    expect(runOf(b, SHA)).toEqual({ status: 'completed', conclusion: 'success', reads: 1 })
+    b = bash(b, view, JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA }))
+    expect(runOf(b, SHA.slice(0, 7))?.reads).toBe(2)
+    b = bash(b, 'gh run view 7 --json status,conclusion', '{"status":"completed","conclusion":"success"}')
+    expect(runOf(b, SHA)?.reads).toBe(2)
+  })
+})
+
+describe('parked and stalls', () => {
+  test('a validator verdict parks the ticket', () => {
+    let b = observeTool(EMPTY, 'Agent', { subagent_type: 'agile-execution:ticket-validator', prompt: 'validate VC-2' }, 'verdict: rejected')
+    b = observeTool(b, 'Agent', { subagent_type: 'agile-execution:ticket-validator', prompt: 'validate VC-3' }, 'verdict: critical-park')
+    expect(parkedOf(b)).toEqual(['VC-2 Needs Info', 'VC-3 awaiting decision'])
+    expect(buildLines(b, 5)[0]).toContain('needs info')
+  })
+
+  test('a step started three times for one PR is a stall', () => {
+    let b = EMPTY
+    for (let i = 0; i < 3; i++) b = skill(b, 'agile-merge-review:merge-review-pr', 'PR 9')
+    expect(stallsOf(b)).toEqual(['PR #9 3b review ×3'])
+    expect(mergeLines(b, 5)[0]).toContain('⟳3b×3')
+  })
+})
+
+describe('burndown, swimlanes, drain timeline', () => {
+  test('samples tickets left only on change, draws a sparkline', () => {
+    let b = EMPTY
+    for (const k of ['AB-1', 'AB-2']) b = sampled(observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment(k, 'pr'), 'ok'), 1)
+    b = sampled(b, 2)
+    expect(b.burn?.length).toBe(2)
+    b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-1', title: '' }, '/pull/3')
+    b = sampled(observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 3 }, 'ok'), 3)
+    expect(burnLine(b)).toMatch(/^burn \S{3}  1\/2 tickets left$/)
+  })
+
+  test('a swimlane row marks reached steps and the CI state of the head', () => {
+    let b = skill(EMPTY, 'agile-merge-review:merge-update-pr', 'PR 4')
+    b = skill(b, 'agile-merge-review:merge-review-pr', 'PR 4')
+    b = bash(b, 'gh pr view 4 --json headRefOid', JSON.stringify({ headRefOid: SHA }))
+    b = bash(b, 'gh run list --branch x -L1 --json databaseId,status,conclusion,headSha', JSON.stringify([{ databaseId: 1, status: 'completed', conclusion: 'failure', headSha: SHA }]))
+    const [row] = laneRows(b)
+    expect(row?.cells).toEqual(['done', 'now', 'todo', 'fail', 'todo', 'todo'])
+    expect(row?.ci).toBe('CI ✖ failure')
+  })
+
+  test('each drain pass records build and merge time and what it moved', () => {
+    let b = observeStart(EMPTY, 'Skill', { skill: 'agile-sprint-drain' }, 0)
+    b = observeStart(b, 'Skill', { skill: 'agile-10-implement' }, 0)
+    b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-1', title: '' }, '/pull/3')
+    b = observeStart(b, 'Skill', { skill: 'agile-11-merge-train' }, 60_000)
+    b = observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 3 }, 'ok')
+    b = observeStart(b, 'Skill', { skill: 'agile-10-implement' }, 120_000)
+    b = observeAnswer(b, '══ DRAINED ══', 180_000)
+    const rows = passRows(b, 180_000, 10)
+    expect(rows.map(r => [r.build, r.merge, r.text])).toEqual([[5, 5, 'build 1 → merge 1 · 2 min'], [5, 0, 'nothing moved · 1 min']])
   })
 })

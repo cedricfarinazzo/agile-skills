@@ -16,11 +16,8 @@ describe('receipts', () => {
     ])
   })
 
-  test('pr-reviewer needs a reviewed sha; an unproven base claim is flagged', () => {
-    expect(receiptIssues('agile-merge-review:pr-reviewer', '## PR #3 Review\nlint error is pre-existing')).toEqual([
-      '"pre-existing" without base-branch proof',
-      'no reviewed sha',
-    ])
+  test('pr-reviewer needs a reviewed sha', () => {
+    expect(receiptIssues('agile-merge-review:pr-reviewer', '## PR #3 Review\nlint error is pre-existing')).toEqual(['no reviewed sha'])
   })
 
   test('only the two agent plugins carry the contract', () => {

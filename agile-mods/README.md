@@ -13,7 +13,7 @@ Without it the plugin installs and does nothing.
 
 | Feature | Command | Active |
 |---|---|---|
-| [Sprint board](#sprint-board) | `/agile-board [show \| hide \| links \| retro \| reset]` | always |
+| [Sprint board](#sprint-board) | `/agile-board [show \| hide \| prs \| drain \| links \| retro \| reset]` | always |
 | [Guards](#guards) | — | always |
 | [Receipt inspector](#receipt-inspector) | `/receipts [all \| clear]` | always |
 | [Retro data](#retro-data) | `/agile-board retro` | always |
@@ -27,10 +27,18 @@ A board in the band above the prompt (interactive terminal only), shown once an 
 
 - the active loop: `implement`, `merge-train`, or `drain`;
 - for a drain: the pass number, whether the pass is in `build` or `merge`, and the outcome (`running`, then `STUCK` in red or `DRAINED` in green, with a toast and a desktop notification through `notify-send` or `osascript` where one exists);
-- **build queue**: one line per ticket without a merged PR, with its latest `agile:phase=` marker and PR number;
-- **merge queue**: one line per PR with its ticket key and merge-train step (`queued`, `3a update`, `3b review`, `3c fix`, `3f merge`, `4 postmortem`, `merged`), open PRs first.
+- **burndown**: tickets left (no merged PR, not parked) out of every ticket seen, as a sparkline sampled on each change;
+- **parked and looping work**, in yellow: a ticket `ticket-validator` sent back as Needs Info or parked on a critical decision, a PR whose train step started 3 times or more, a ticket reworked 3 times or more. Each new one also toasts;
+- **build queue**: one line per ticket without a merged PR, with its latest `agile:phase=` marker (or `needs info` / `parked`) and PR number;
+- **merge queue**: one line per PR with its ticket key and merge-train step (`queued`, `3a update`, `3b review`, `3c fix`, `3f merge`, `4 postmortem`, `merged`), open PRs first, and `⟳3b×3` on a looping step.
 
-The section of the running stage is bold. `/agile-board links` opens a pane with each ticket's Jira page and each PR, once a tool result has named the Jira site and GitHub repo. State is kept in `$.store`, so a resumed session shows where the loop stood.
+The section of the running stage is bold. State is kept in `$.store`, so a resumed session shows where the loop stood.
+
+Panes:
+
+- `/agile-board prs`: the PR pipeline, one row per PR and a column per train step (`3a 3b 3c 3e 3f 4`): `✔` reached, `●` current, `✖` red CI. Each row also shows the CI state of the PR's head and the reviewed sha.
+- `/agile-board drain`: the drain timeline, one bar per pass split into build time and merge time, with what the pass moved (`build 3 → merge 2`, or `nothing moved`) and how long it took.
+- `/agile-board links`: each ticket's Jira page and each PR, once a tool result has named the Jira site and GitHub repo.
 
 | Tool call | Board update |
 |---|---|
@@ -40,6 +48,10 @@ The section of the running stage is bold. `/agile-board links` opens a pane with
 | `gh pr list --state open --json …` (the train's first read) | Merge queue |
 | `Agent` → `pr-updater` / `pr-reviewer` / `fix-until-satisfied` / `jira-postmortem`, or `Skill` → the matching `merge-*` sub-skill (at start) | PR step; the PR number is read from the dispatch prompt, description or args (`#42`, `PR 42`, `/pull/42`) |
 | `gh pr merge <n>` (at start) | Step `3f merge` — not merged |
+| `Agent` → `ticket-validator` answering `rejected` / `critical-park` | Ticket parked (Needs Info / awaiting decision) |
+| `Agent` → `pr-reviewer` receipt, or an inline `merge-review-pr` turn's answer, with `Reviewed sha:` | PR's reviewed sha |
+| `gh pr view <n> --json …headRefOid`, `gh pr list --json …headRefOid` | PR's head |
+| `gh run view/list --json …headSha…` | CI run on that sha; an unchanged repeat read counts as a second agreeing read |
 | `gh pr view <n> --json …mergedAt` with `mergedAt` set, `gh pr list --state merged --json …`, or `mcp__github__merge_pull_request` | PR merged |
 | Main-loop `turn.complete` answer with `══ STUCK ══` / `══ DRAINED ══` | Drain outcome |
 
@@ -51,17 +63,16 @@ The section of the running stage is bold. `/agile-board links` opens a pane with
 |---|---|
 | `review-lens` and `pr-reviewer` never edit or post; `review-lens` never invokes `implement-review` (CLAUDE.md, tool grants) | A call from inside that agent's loop to `Write`/`Edit`/`NotebookEdit`, a posting GitHub/Atlassian MCP tool, `gh pr comment/review/merge/edit`, `gh issue comment/…`, `gh api -X POST/PATCH/PUT/DELETE` or `git push` is refused |
 | `jira-postmortem` never creates issue links | `mcp__atlassian__createIssueLink` from that agent is refused |
-| 3f reviewed-sha gate (`agile-11-merge-train`) | During a turn in which a merge train or drain runs, `gh pr merge <n>` / `mcp__github__merge_pull_request` is refused when no review recorded a sha for the PR, or when the PR's `headRefOid` (from `expectedHeadSha`, else `gh pr view`) differs from it, or cannot be read. The reviewed sha comes from a `pr-reviewer` receipt's `Reviewed sha:` line, or, for an inline `merge-review-pr`, from the `gh pr view <n> --json …headRefOid` read it starts with, counted once the train reaches 3c (`merge-fix-until-satisfied`), and from the same line in its answer |
-| Base-branch proof (every agent's receipt contract) | An agent receipt claiming "pre-existing", "unrelated to the diff", "environment issue", "tooling drift" or "flaky" without mentioning a base-branch / exit-code comparison gets a context reminder |
-| Untrusted tool output (orchestrators, receipt contract) | Output of `gh pr/issue view/list/diff`, `gh api`, GitHub/Atlassian read tools or `WebFetch` that contains instruction-like text ("ignore previous instructions", "you are now", `<system>` …) gets a context fence |
+| 3f merge gates (`agile-11-merge-train` 3e and 3f) | From a merge train's or drain's start to its final report, `gh pr merge <n>` / `mcp__github__merge_pull_request` is refused unless: the head is pinned (`--match-head-commit <sha>` / `expectedHeadSha`), so GitHub itself refuses a head that moved; the pin equals the reviewed sha, when a `pr-reviewer` receipt named one; and a CI run on that sha read `completed`/`success` on two agreeing reads (`gh run view <id> --json status,conclusion,headSha`) |
+| No push to the base branch, force push only with a lease (`agile-10-implement`, `merge-update-pr`) | From an implement, merge-train or drain start to its final report, and in any `agile-execution` / `agile-merge-review` agent: a `git push` to `main`/`master` (by refspec, or with none from a checkout of it) and `--force` / `-f` / `--mirror` are refused; `--force-with-lease` passes |
 
-Manual merges outside a train are not gated. If the PR head cannot be read, the gate logs it and lets the merge through: the skill's own gate still applies.
+A loop ends with its final report: `## Sprint implementation`, `Per-PR outcome`, or a drain's `══ DRAINED ══` / `══ STUCK ══` (inside a drain, only the drain's banner). `/agile-board reset` also ends it. Merges and pushes outside a loop are not gated. For an inline `merge-review-pr`, whose reviewed sha a hook reads only when the turn ends, the gate checks the pin and CI, and GitHub checks the pin.
 
 ## Receipt inspector
 
 Each `agile-execution:*` / `agile-merge-review:*` agent receipt is checked as it returns. A flagged receipt toasts; `/receipts` lists flagged ones, `/receipts all` every one (last 40, kept in `$.store`).
 
-Flags: `no receipt`, `preamble`, `summary/praise section`, `blocked: …`, `unapplied_mutations: …`, `"<claim>" without base-branch proof`, `no reviewed sha` (pr-reviewer), `agent errored`.
+Flags: `no receipt`, `preamble`, `summary/praise section`, `blocked: …`, `unapplied_mutations: …`, `no reviewed sha` (pr-reviewer), `agent errored`.
 
 ## Retro data
 
@@ -84,7 +95,7 @@ Active only when the session's directory is this repo (its `.claude-plugin/marke
 hooks/hooks.json          # names the one module
 hooks/register.tsx        # every hook; binds $ into a Host for the modules below
 hooks/host.ts             # the Host type
-hooks/guards.ts           # guards: grant backstop, reviewed-sha gate, reminders
+hooks/guards.ts           # guards: grant backstop, 3f merge gates, push guard
 hooks/receipts.ts         # /receipts
 hooks/authoring.ts        # authoring checks, /agile-verify
 hooks/state/*.ts          # pure logic: board, guards, receipts, retro, authoring

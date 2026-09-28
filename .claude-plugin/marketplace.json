@@ -105,7 +105,7 @@
     {
       "name": "agile-mods",
       "source": "./agile-mods",
-      "description": "Claude Mods (function hooks, early access) — /agile-board sprint board, guards (tool grants, reviewed-sha merge gate, base-branch proof, untrusted output), /receipts, retro counts, and authoring checks for this repo.",
+      "description": "Claude Mods (function hooks, early access) — /agile-board sprint board and panes, guards (tool grants, pinned reviewed head + fresh CI at merge, no push to main), /receipts, retro counts, and authoring checks for this repo.",
       "category": "development",
       "tags": [
         "hooks",

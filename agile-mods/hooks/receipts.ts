@@ -3,8 +3,8 @@ import { PR_REF } from './state/board.ts'
 import { isContractAgent, keepReceipt, receiptIssues, receiptsText, type Receipt } from './state/receipts.ts'
 
 // /receipts: every agile-execution / agile-merge-review agent's receipt, checked against the shared
-// receipt contract as it comes back — preamble, summary section, blocked, unapplied_mutations, a
-// base-branch claim with no proof, pr-reviewer without a reviewed sha. A flagged receipt also toasts.
+// receipt contract as it comes back — preamble, summary section, blocked, unapplied_mutations,
+// pr-reviewer without a reviewed sha. A flagged receipt also toasts.
 
 const STORE_KEY = 'receipts'
 let receipts: Receipt[] = []

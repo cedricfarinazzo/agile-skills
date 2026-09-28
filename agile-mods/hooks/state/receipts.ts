@@ -1,8 +1,6 @@
 // Pure receipt checks for /receipts: the parts of the shared receipt contract a reader can test
 // without re-running the phase.
 
-import { unprovenClaimOf } from './guards.ts'
-
 export type Receipt = {
   agent: string
   at: number
@@ -29,8 +27,6 @@ export function receiptIssues(agentType: string, text: string): string[] {
   if (blocked && !/^(none|no|false|null|-|—|\[\])$/i.test(blocked)) issues.push(`blocked: ${blocked.slice(0, 80)}`)
   const unapplied = text.match(/^\W*unapplied_mutations\W*[:=]\s*(.+)$/im)?.[1]?.trim()
   if (unapplied && !/^(none|no|\[\]|-|—|0)$/i.test(unapplied)) issues.push(`unapplied_mutations: ${unapplied.slice(0, 80)}`)
-  const claim = unprovenClaimOf(text)
-  if (claim) issues.push(`"${claim}" without base-branch proof`)
   if (agent === 'pr-reviewer' && !/Reviewed sha:\s*`?[0-9a-f]{7,40}/i.test(text)) issues.push('no reviewed sha')
   return issues
 }

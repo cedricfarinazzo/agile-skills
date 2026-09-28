@@ -1,22 +1,25 @@
 /* @jsx h */
 import type { EngineInterface, Register } from 'claude-code'
-import { EMPTY, buildLines, drainLine, linksOf, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, type Board } from './state/board.ts'
+import { EMPTY, LANES, buildLines, burnLine, drainLine, laneRows, linksOf, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, parkedOf, passRows, sampled, stallsOf, type Board, type Cell } from './state/board.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { VERIFY_COMMAND, authoringAfter, authoringBefore, authoringStart, authoringTurn, invariants } from './authoring.ts'
-import { guardsAfter, guardsBefore, guardsStart, guardsTurn } from './guards.ts'
+import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewOf } from './guards.ts'
 import { argsOf, type Finished, type Host } from './host.ts'
 import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsStart } from './receipts.ts'
 
 // The plugin's one hooks module. /agile-board draws the sprint above the prompt: a build queue
 // (tickets by agile:phase marker) and a merge queue (PRs by merge-train step), folded from the
 // loop's own tool calls and the drain's closing banner, kept in $.store. The same calls feed the
-// retro counts that ride agile-15-retro's Skill call as context, and the links pane.
+// retro counts that ride agile-15-retro's Skill call as context, and three panes: links, the PR
+// swimlanes (/agile-board prs) and the drain timeline (/agile-board drain).
 // The guards (guards.ts), /receipts (receipts.ts) and the authoring checks (authoring.ts) share
 // these hooks: each event is registered once, and `$` reaches them only as the Host bound here.
 
 const STORE_KEY = 'board'
 const RETRO_KEY = 'retro'
 const LINKS_PANE = 'agile-links'
+const PRS_PANE = 'agile-prs'
+const DRAIN_PANE = 'agile-drain'
 let board: Board = EMPTY
 let retro: Retro = EMPTY_RETRO
 let shown = true
@@ -37,7 +40,10 @@ function hostOf($: EngineInterface): Host {
 function save($: EngineInterface, next: Board) {
   if (next === board) return
   const before = board.drain?.outcome
+  const known = new Set([...stallsOf(board), ...parkedOf(board)])
   board = next
+  const fresh = [...stallsOf(board).map(s => `looping: ${s}`), ...parkedOf(board).map(s => `parked: ${s}`)].filter(s => !known.has(s.replace(/^\w+: /, '')))
+  if (fresh.length) $.ui.toast(`agile: ${fresh.join(' · ')}`, { timeoutMs: 10000 })
   void $.store.set(STORE_KEY, board).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
   $.ui.invalidate('ui.render')
   if (board.drain && board.drain.outcome !== 'running' && before !== board.drain.outcome) {
@@ -70,8 +76,8 @@ export const register: Register = on => {
     await receiptsStart(host)
     await $.command.register({
       name: 'agile-board',
-      description: 'Sprint board above the prompt: show, hide, links, retro, reset (agile-mods)',
-      argumentHint: '[show | hide | links | retro | reset]',
+      description: 'Sprint board above the prompt: show, hide, prs, drain, links, retro, reset (agile-mods)',
+      argumentHint: '[show | hide | prs | drain | links | retro | reset]',
       immediate: true,
     }).catch(err => $.ui.log(`agile-mods: /agile-board not registered: ${err}`))
     await $.command.register(RECEIPTS_COMMAND).catch(err => $.ui.log(`agile-mods: /receipts not registered: ${err}`))
@@ -86,9 +92,15 @@ export const register: Register = on => {
     if (arg === 'reset') {
       save($, EMPTY)
       saveRetro($, EMPTY_RETRO)
+      guardsReset()
       return { text: 'agile board and retro counts cleared' }
     }
     if (arg === 'retro') return { text: retroText(retro, await $.clock.now()) ?? 'no loop data recorded yet' }
+    if (arg === 'prs' || arg === 'drain') {
+      if (arg === 'prs' ? !board.prOrder.length : !board.passes?.length) return { text: arg === 'prs' ? 'no PRs on the board yet' : 'no drain passes recorded yet' }
+      await $.ui.open({ id: arg === 'prs' ? PRS_PANE : DRAIN_PANE, title: arg === 'prs' ? 'agile PR pipeline' : 'agile drain timeline', closeOnEscape: true, focus: true })
+      return {}
+    }
     if (arg === 'links') {
       if (!linksOf(board).length) return { text: 'no links yet: they appear once a Jira or PR result names its site' }
       await $.ui.open({ id: LINKS_PANE, title: 'agile links', closeOnEscape: true, focus: true })
@@ -109,22 +121,23 @@ export const register: Register = on => {
   on('tool.call', async ($, e, next) => {
     const host = hostOf($)
     const args = argsOf(e)
-    const deny = (await guardsBefore(host, e.tool, args, e.agentId)) ?? (await authoringBefore(host, e.tool, args))
+    const deny = (await guardsBefore(host, board, e.tool, args, e.agentId)) ?? (await authoringBefore(host, e.tool, args))
     if (deny) return { deny }
 
-    save($, observeStart(board, e.tool, args))
-    saveRetro($, retroStart(retro, e.tool, args, await $.clock.now()))
+    const now = await $.clock.now()
+    save($, observeStart(board, e.tool, args, now))
+    saveRetro($, retroStart(retro, e.tool, args, now))
     const r = await next(e)
     const done: Finished = {
       denied: r.deny !== undefined,
       isError: r.isError === true,
       text: r.deny !== undefined || r.isError ? undefined : r.text,
     }
-    save($, observeTool(board, e.tool, args, done.text))
+    save($, sampled(observeTool(board, e.tool, args, done.text), await $.clock.now()))
     saveRetro($, retroEnd(retro, e.tool, args, done.text))
     await receiptsAfter(host, e.tool, args, done)
 
-    const extra = [...guardsAfter(e.tool, args, done), ...(await authoringAfter(host, e.tool, args, done))]
+    const extra = await authoringAfter(host, e.tool, args, done)
     if (e.tool === 'Skill' && done.text !== undefined && /(^|:)agile-15-retro$/.test(String(args.skill))) {
       const data = retroText(retro, await $.clock.now())
       if (data) extra.push(data)
@@ -135,7 +148,8 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const r = await next(e)
     if (e.agentId) return r
-    save($, observeAnswer(board, r.text ?? ''))
+    const now = await $.clock.now()
+    save($, sampled(observeAnswer(board, r.text ?? '', now, inlineReviewOf()), now))
     saveRetro($, retro)
     guardsTurn(r.text ?? '')
     await authoringTurn(hostOf($))
@@ -147,15 +161,19 @@ export const register: Register = on => {
     if (!shown || idle || e.props.hasSurvey || e.surface !== 'terminal') return next(e)
     const { Box, Text } = await $.ui.resolve(e)
     const drain = drainLine(board)
+    const burn = burnLine(board)
+    const flags = [...parkedOf(board).map(s => `⏸ ${s}`), ...stallsOf(board).map(s => `⟳ ${s}`)].join('  ')
     const color = board.drain?.outcome === 'STUCK' ? 'red' : board.drain?.outcome === 'DRAINED' ? 'green' : undefined
-    // header, drain line, two section titles, and a row for whatever else draws in the band
-    const rows = Math.max(2, Math.min(12, e.props.maxRows - 5))
+    // header, drain, burn and flag lines, two section titles, and a row for whatever else draws in the band
+    const rows = Math.max(2, Math.min(12, e.props.maxRows - 5 - (burn ? 1 : 0) - (flags ? 1 : 0)))
     const build = buildLines(board, Math.ceil(rows / 2))
     const merge = mergeLines(board, rows - build.length)
     return (
       <Box flexDirection="column">
         <Text dimColor wrap="truncate">{`agile · ${board.loop ?? 'idle'} · /agile-board links · hide`}</Text>
         {drain ? <Text color={color} bold wrap="truncate">{drain}</Text> : null}
+        {burn ? <Text wrap="truncate">{burn}</Text> : null}
+        {flags ? <Text color="yellow" wrap="truncate">{flags}</Text> : null}
         {build.length ? <Text bold={board.stage === 'build'} dimColor={board.stage !== 'build'}>build queue</Text> : null}
         {build.map(line => <Text key={`b:${line.slice(0, 10)}`} wrap="truncate">{line}</Text>)}
         {merge.length ? <Text bold={board.stage === 'merge'} dimColor={board.stage !== 'merge'}>merge queue</Text> : null}
@@ -166,6 +184,39 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
+    if (e.requestId === PRS_PANE) {
+      const { Box, Text } = await $.ui.resolve(e)
+      const mark: Record<Cell, [string, string | undefined]> = { done: ['✔', 'green'], now: ['●', 'yellow'], todo: ['·', undefined], fail: ['✖', 'red'] }
+      return (
+        <Box flexDirection="column">
+          <Text bold>{`${'PR'.padEnd(7)}${'ticket'.padEnd(11)}${LANES.map(l => l.padEnd(4)).join('')}`}</Text>
+          {laneRows(board).map(row => (
+            <Box key={`p:${row.pr}`} flexDirection="row">
+              <Text>{`#${String(row.pr).padEnd(6)}${row.key.padEnd(11)}`}</Text>
+              {row.cells.map((c, i) => <Text key={`c:${row.pr}:${LANES[i]}`} color={mark[c][1]} bold={c === 'now'}>{mark[c][0].padEnd(4)}</Text>)}
+              <Text dimColor>{` ${row.ci}${row.reviewed ? `  reviewed ${row.reviewed}` : ''}`}</Text>
+            </Box>
+          ))}
+        </Box>
+      )
+    }
+    if (e.requestId === DRAIN_PANE) {
+      const { Box, Text } = await $.ui.resolve(e)
+      const rows = passRows(board, await $.clock.now())
+      return (
+        <Box flexDirection="column">
+          {rows.map(r => (
+            <Box key={`d:${r.pass}`} flexDirection="row">
+              <Text>{`pass ${String(r.pass).padEnd(3)}`}</Text>
+              <Text color="cyan">{'█'.repeat(r.build)}</Text>
+              <Text color="magenta">{'█'.repeat(r.merge)}</Text>
+              <Text dimColor>{`  ${r.text}`}</Text>
+            </Box>
+          ))}
+          <Text dimColor>{'build ' }<Text color="cyan">█</Text>{'  merge '}<Text color="magenta">█</Text>{board.drain ? `  · ${board.drain.outcome}` : ''}</Text>
+        </Box>
+      )
+    }
     if (e.requestId !== LINKS_PANE) return next(e)
     const { Box, Text, Link } = await $.ui.resolve(e)
     const links = linksOf(board)
