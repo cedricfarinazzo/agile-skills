@@ -2,7 +2,7 @@
 name: build-monitor
 description: Runs the implement-monitor phase for agile-10-implement — processes new PR review comments, diagnoses and fixes failing checks, rebases on conflict/staleness. Dispatched by the orchestrator, never invoked directly.
 model: sonnet
-effort: medium
+effort: low
 tools: EnterWorktree, Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage
 ---
 

@@ -2,7 +2,7 @@
 name: ticket-planner
 description: Runs the implement-plan phase for agile-10-implement — reads ADR/Specs/PRD/linked bugs and produces the file-level plan + AC→test map. Dispatched by the orchestrator, never invoked directly.
 model: opus
-effort: high
+effort: medium
 tools: EnterWorktree, Read, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
 ---
 
