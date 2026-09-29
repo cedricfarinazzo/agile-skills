@@ -322,14 +322,22 @@ export function observeTool(prior: Board, tool: string, args: Record<string, unk
   return board
 }
 
-/** Folds a finished turn's answer: the drain's closing banner sets its outcome, an inline review's receipt its sha. */
-export function observeAnswer(board: Board, text: string, now = 0, inlineReview?: number): Board {
-  const review = inlineReview !== undefined ? reviewedOf({ args: `PR ${inlineReview}` }, text) : undefined
-  const reviewed = review ? withPr(board, review.pr, { reviewed: review.sha }) : board
+/**
+ * Folds one model response of a loop running merge-review-pr inline for `pr`: the answer that
+ * names `Reviewed sha:` records it. Read per response, not per turn, so the sha is known before
+ * the 3f merge in the same turn or the same session agent.
+ */
+export function observeReview(board: Board, pr: number, text: string): Board {
+  const review = reviewedOf({ args: `PR ${pr}` }, text)
+  return review ? withPr(board, review.pr, { reviewed: review.sha }) : board
+}
+
+/** Folds a finished main-loop turn's answer: the drain's closing banner sets its outcome. */
+export function observeAnswer(board: Board, text: string, now = 0): Board {
   const outcome = text.match(OUTCOME)?.[1] as Outcome | undefined
-  if (!outcome || !reviewed.drain) return reviewed
-  const closed = withPass(reviewed, () => ({ end: now }))
-  return { ...closed, drain: { ...reviewed.drain, outcome } }
+  if (!outcome || !board.drain) return board
+  const closed = withPass(board, () => ({ end: now }))
+  return { ...closed, drain: { ...board.drain, outcome } }
 }
 
 /**

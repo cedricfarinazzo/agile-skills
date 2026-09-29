@@ -1,9 +1,9 @@
 /* @jsx h */
 import type { EngineInterface, Register } from 'claude-code'
-import { EMPTY, LANES, POINTS_FIELD, pointsFieldOf, buildLines, burnLine, drainLine, laneRows, linksOf, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, parkedOf, passRows, sampled, stallsOf, type Board, type Cell } from './state/board.ts'
+import { EMPTY, LANES, POINTS_FIELD, pointsFieldOf, buildLines, burnLine, drainLine, laneRows, linksOf, loadBoard, mergeLines, observeAnswer, observeReview, observeStart, observeTool, parkedOf, passRows, sampled, stallsOf, type Board, type Cell } from './state/board.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { VERIFY_COMMAND, authoringAfter, authoringBefore, authoringStart, authoringTurn, invariants } from './authoring.ts'
-import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewOf } from './guards.ts'
+import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewDone, inlineReviewOf } from './guards.ts'
 import { argsOf, type Finished, type Host } from './host.ts'
 import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsStart } from './receipts.ts'
 
@@ -154,13 +154,27 @@ export const register: Register = on => {
     return extra.length && r.deny === undefined && !r.isError ? { ...r, context: [...(r.context ?? []), ...extra] } : r
   })
 
+  // an inline merge-review-pr names its reviewed sha in a response of the loop that ran it: the
+  // main loop, or a drain's merge-session agent, whose whole run is one turn ending after the merge
+  on('turn.step', async function* ($, e, next) {
+    const r = yield* next(e)
+    const pr = inlineReviewOf(e.agentId)
+    if (pr === undefined || !r.answer) return r
+    const reviewed = observeReview(board, pr, r.answer)
+    if (reviewed !== board) {
+      save($, reviewed)
+      inlineReviewDone(e.agentId)
+    }
+    return r
+  })
+
   on('turn.complete', async ($, e, next) => {
     const r = await next(e)
+    guardsTurn(r.text ?? '', e.agentId)
     if (e.agentId) return r
     const now = await $.clock.now()
-    save($, sampled(observeAnswer(board, r.text ?? '', now, inlineReviewOf()), now))
+    save($, sampled(observeAnswer(board, r.text ?? '', now), now))
     saveRetro($, retro)
-    guardsTurn(r.text ?? '')
     await authoringTurn(hostOf($))
     return r
   })

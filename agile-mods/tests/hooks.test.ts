@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { authoringAfter, authoringBefore, authoringStart, authoringTurn } from '../hooks/authoring.ts'
-import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewOf } from '../hooks/guards.ts'
+import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewDone, inlineReviewOf } from '../hooks/guards.ts'
 import { receiptsAfter, receiptsCommand, receiptsStart } from '../hooks/receipts.ts'
-import { EMPTY, observeTool, type Board } from '../hooks/state/board.ts'
+import { EMPTY, observeReview, observeTool, type Board } from '../hooks/state/board.ts'
 import { fakeHost } from './fake-host.ts'
 
 const SHA = 'd'.repeat(40)
@@ -80,6 +80,33 @@ describe('guards hook', () => {
     expect(inlineReviewOf()).toBe(12)
     guardsTurn('')
     expect(inlineReviewOf()).toBeUndefined()
+  })
+
+  test('an inline review inside a merge-session agent is kept per loop', async () => {
+    const { host } = fakeHost({ agents: [{ id: 's1', type: 'agile-sprint-drain:merge-session' }] })
+    await guardsBefore(host, EMPTY, ...skill('agile-merge-review:merge-review-pr', 'PR 9'), 's1')
+    expect(inlineReviewOf('s1')).toBe(9)
+    expect(inlineReviewOf()).toBeUndefined()
+    guardsTurn('')
+    expect(inlineReviewOf('s1')).toBe(9)
+    inlineReviewDone('s1')
+    expect(inlineReviewOf('s1')).toBeUndefined()
+  })
+
+  test('in dispatch=session, the gate holds inside the session agent against the sha its review named', async () => {
+    const { host } = fakeHost({ agents: [{ id: 's1', type: 'agile-sprint-drain:merge-session' }] })
+    await guardsBefore(host, EMPTY, ...skill('agile-sprint-drain'), undefined)
+    await guardsBefore(host, EMPTY, ...skill('agile-merge-review:agile-11-merge-train'), 's1')
+    const b = observeReview(greenBoard(), 7, `Reviewed sha: ${SHA}`)
+    expect(await guardsBefore(host, b, 'Bash', { command: `gh pr merge 7 --squash --match-head-commit ${'e'.repeat(40)}` }, 's1')).toContain('unreviewed code')
+    expect(await guardsBefore(host, b, 'Bash', { command: `gh pr merge 7 --squash --match-head-commit ${SHA}` }, 's1')).toBeUndefined()
+    guardsTurn('- **Per-PR outcome** — merged 7', 's1')
+    expect(await guardsBefore(host, b, 'Bash', { command: 'gh pr merge 7' }, 's1')).toContain('--match-head-commit')
+  })
+
+  test('the push guard holds in a session agent', async () => {
+    const { host } = fakeHost({ agents: [{ id: 'b1', type: 'agile-sprint-drain:build-session' }] })
+    expect(await guardsBefore(host, EMPTY, 'Bash', { command: 'git push -f origin feat/x' }, 'b1')).toContain('lease')
   })
 })
 

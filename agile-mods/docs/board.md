@@ -58,14 +58,14 @@ The section of the running stage is bold. State is kept in `$.store`, so a resum
 | `gh pr create` / `mcp__github__create_pull_request` | PR number (ticket key read from title or branch); counts as built in the current drain pass |
 | `gh pr list --state open --json …` (the train's first read) | Merge queue |
 | `Agent` → `pr-updater` / `pr-reviewer` / `fix-until-satisfied` / `jira-postmortem`, or `Skill` → the matching `merge-*` sub-skill (at start) | PR step and its start count; the PR number is read from the dispatch prompt, description or args (`#42`, `PR 42`, `/pull/42`) |
-| `Agent` → `pr-reviewer` receipt, or an inline `merge-review-pr` turn's answer, with `Reviewed sha:` | PR's reviewed sha |
+| `Agent` → `pr-reviewer` receipt, or a response of a loop running `merge-review-pr` inline (main loop or a drain's `merge-session`), with `Reviewed sha:` | PR's reviewed sha |
 | `gh pr view <n> --json …headRefOid`, `gh pr list --json …headRefOid` | PR's head |
 | `gh run view/list --json …headSha…` | CI run on that sha; an unchanged repeat read counts as a second agreeing read |
 | `gh pr merge <n>` (at start) | Step `3f merge`, not merged |
 | `gh pr view <n> --json …mergedAt` with `mergedAt` set, `gh pr list --state merged --json …`, or `mcp__github__merge_pull_request` | PR merged; counts as merged in the current drain pass |
 | Main-loop `turn.complete` answer with `══ STUCK ══` / `══ DRAINED ══` | Drain outcome; closes the last pass |
 
-`gh pr merge`'s exit code is not treated as a merge, following `agile-11-merge-train`: only `mergedAt` is. The drain's own `build:N merge:N` banners are text inside one long turn, which a hook reads only when the turn ends, so the timeline counts PRs created and merged instead.
+`gh pr merge`'s exit code is not treated as a merge, following `agile-11-merge-train`: only `mergedAt` is. The drain's own `build:N merge:N` banners are text inside one long turn, which the board reads only from the turn's final answer, so the timeline counts PRs created and merged instead.
 
 ## Limits
 

@@ -2,7 +2,7 @@ import type { Finished, Host } from './host.ts'
 import { PR_REF } from './state/board.ts'
 import { isContractAgent, keepReceipt, receiptIssues, receiptsText, type Receipt } from './state/receipts.ts'
 
-// /receipts: every agile-execution / agile-merge-review agent's receipt, checked against the shared
+// /receipts: every agile-execution / agile-merge-review / agile-sprint-drain agent's receipt, checked against the shared
 // receipt contract as it comes back — preamble, summary section, blocked, unapplied_mutations,
 // pr-reviewer without a reviewed sha. A flagged receipt also toasts.
 

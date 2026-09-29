@@ -69,7 +69,7 @@ export const isSkillFile = (path: string) => /(^|\/)skills\/[^/]+\/SKILL\.md$/.t
  */
 export const INVARIANTS_SCRIPT = String.raw`
 set -u
-d=$(diff <(ls agile-*/agents/*.md | xargs -n1 basename | sed 's/.md//' | sort) <(grep -rhoE 'agile-(execution|merge-review):[a-z-]+' agile-*/skills | cut -d: -f2 | sort -u))
+d=$(diff <(ls agile-*/agents/*.md | xargs -n1 basename | sed 's/.md//' | sort) <(grep -rhoE 'agile-(execution|merge-review|sprint-drain):[a-z-]+' agile-*/skills | cut -d: -f2 | sort -u))
 [ -n "$d" ] && echo "agents vs dispatch points differ: $(echo "$d" | tr '\n' ' ')"
 n=$(grep -rl 'Work discovered mid-phase' --include='SKILL.md' agile-* deep-refactor 2>/dev/null | while read f; do sed -n '/## Work discovered mid-phase/,/^## /p' "$f" | head -n -1 | md5sum | cut -c1-8; done | sort -u | wc -l)
 [ "$n" -gt 1 ] && echo "Work discovered mid-phase block: $n variants"

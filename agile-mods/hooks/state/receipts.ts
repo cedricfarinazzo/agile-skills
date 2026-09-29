@@ -13,7 +13,7 @@ const SUMMARY = /^#{1,4}\s*(Summary|Overview|Praise|What went well)\b/im
 const FINDINGS_AGENTS = new Set(['pr-reviewer', 'review-lens', 'self-reviewer'])
 
 /** Whether an agent type belongs to the plugins whose agents carry the receipt contract. */
-export const isContractAgent = (agentType: string) => /^agile-(execution|merge-review):/.test(agentType)
+export const isContractAgent = (agentType: string) => /^agile-(execution|merge-review|sprint-drain):/.test(agentType)
 
 /** The contract breaches visible in one receipt; empty when none shows. */
 export function receiptIssues(agentType: string, text: string): string[] {

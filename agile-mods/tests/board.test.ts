@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { EMPTY, buildLines, burnLine, drainLine, laneRows, loadBoard, mergeLines, observeAnswer, observeStart, observeTool, parkedOf, passRows, pointsFieldOf, runOf, sampled, stallsOf, type Board } from '../hooks/state/board.ts'
+import { EMPTY, buildLines, burnLine, drainLine, laneRows, loadBoard, mergeLines, observeAnswer, observeReview, observeStart, observeTool, parkedOf, passRows, pointsFieldOf, runOf, sampled, stallsOf, type Board } from '../hooks/state/board.ts'
 
 const comment = (key: string, phase: string) => ({ issueIdOrKey: key, commentBody: `🤖 <!-- agile:phase=${phase} --> **Plan**` })
 const skill = (b: Board, name: string, args = '') => observeStart(b, 'Skill', { skill: name, args })
@@ -113,8 +113,12 @@ describe('reviewed sha and CI', () => {
   test('a pr-reviewer receipt and an inline review answer record the reviewed sha', () => {
     let b = observeTool(EMPTY, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer', description: 'review PR #4' }, `Reviewed sha: ${SHA}`)
     expect(b.prs[4]?.reviewed).toBe(SHA)
-    b = observeAnswer(EMPTY, `## PR #5 Review\n\nReviewed sha: ${SHA}`, 0, 5)
+    b = observeReview(EMPTY, 5, `## PR #5 Review\n\nReviewed sha: ${SHA}`)
     expect(b.prs[5]?.reviewed).toBe(SHA)
+  })
+
+  test('a response without the reviewed sha leaves the board as it was', () => {
+    expect(observeReview(EMPTY, 5, 'Reading the diff of PR #5 now.')).toBe(EMPTY)
   })
 
   test('gh run view with headSha records the run; two agreeing reads count', () => {
