@@ -49,7 +49,7 @@ Trade-off: `session` reuses cached reads (ticket, ADR, plan, touched files) acro
                actionable empty & items remain → STUCK ;  else loop
 ```
 
-Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. Context stays lean because every per-ticket phase and per-PR step runs in its own subagent and returns a capped receipt — the loop itself keeps only structured per-item outcomes, never a re-narrated pass.
+Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. Context stays lean because every per-ticket phase and per-PR step (or, under `dispatch=session`, each session) runs in its own subagent and returns a capped receipt — the loop itself keeps only structured per-item outcomes, never a re-narrated pass.
 
 ## Actionable-work guard, not "zero progress"
 

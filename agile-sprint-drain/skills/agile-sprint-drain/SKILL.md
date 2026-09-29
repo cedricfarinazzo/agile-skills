@@ -33,6 +33,7 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 - **Batch the build.** Pass at most `session-batch` keys (default `1`) to each `build-session`; the rest wait for the next pass. Every turn re-sends the whole session context, so a ticket carried in a later ticket's session is paid for on every turn of that ticket — raise it only with measured numbers.
 - **Fresh merge context every pass.** `merge-session` is a new agent that never saw the authoring — it is the adversarial reviewer. The build-side `implement-review` is now a self-check by the same context that wrote the code; `agile-11-merge-train`'s review step is the independent gate and must never be skipped or collapsed into the build session.
 - **Build and merge sessions are never the same agent**, and are never resumed across passes.
+- **Codex** does not discover the session agents: run `dispatch=phase` and say so.
 - **Receipts are verified here** exactly as the orchestrators verify phase receipts: per-ticket / per-PR outcomes plus the Jira markers each claims. A marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
 
 ## The loop
