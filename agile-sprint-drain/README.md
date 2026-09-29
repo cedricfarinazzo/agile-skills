@@ -18,11 +18,18 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 | # | Skill | Role |
 |---|-------|------|
-| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train (invoked inline via the Skill tool) to a fixed point, with an actionable-work guard; optional `concurrency=N` passed through to the build |
+| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train (invoked inline via the Skill tool) to a fixed point, with an actionable-work guard; optional `concurrency=N` passed through to the build; optional `dispatch=session` |
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
-**No agents.** This plugin ships no `agents/` dir: the drain invokes both orchestrators **inline via the Skill tool**. Wrapping an orchestrator in a subagent cannot work — subagent dispatch does not nest, and an orchestrator's whole job is to dispatch. The parallelism lives one layer down, in `agile-10-implement`'s per-ticket worktree dispatch (`concurrency=N`), which is unaffected.
+**Two agents, used only under `dispatch=session`.** By default (`dispatch=phase`) the drain invokes both orchestrators **inline via the Skill tool**, and every phase runs in its own named agent one layer down. Under `dispatch=session` each pass instead dispatches `build-session` (runs `agile-10-implement` with `concurrency=0`, at most `session-batch` tickets) and then a fresh `merge-session` (runs `agile-11-merge-train` with `concurrency=0`). Dispatch depth stays 1: the session agents never dispatch.
+
+| Agent | Model / effort | Runs |
+|---|---|---|
+| `build-session` | opus / medium | one build pass, all phases inline, prompt cache shared across a ticket's phases |
+| `merge-session` | opus / medium | one merge pass in a context that never saw the authoring — the independent reviewer |
+
+Trade-off: `session` reuses cached reads (ticket, ADR, plan, touched files) across a ticket's phases instead of re-reading them cold in every phase agent. It gives up build `concurrency=N>1` (forced to 1), the per-phase tool-grant enforcement, and an independent build-side review — `implement-review` becomes a self-check, and the merge session's review is the independent gate.
 
 ## Why it exists
 
@@ -66,7 +73,7 @@ By the dependency gate a ticket is un-startable until its blocker's PR merges �
 
 ## Configuration
 
-Reads nothing extra — it inherits both orchestrators' `## Skill configuration` from the consumer repo's `CLAUDE.md` / `AGENTS.md` (`cloudId`, status names, `base-branch`, repo / `repo-component-map`, lint/test commands, etc.).
+`session-batch` (optional, default `1`) — max tickets per `build-session` under `dispatch=session`. Otherwise reads nothing extra — it inherits both orchestrators' `## Skill configuration` from the consumer repo's `CLAUDE.md` / `AGENTS.md` (`cloudId`, status names, `base-branch`, repo / `repo-component-map`, lint/test commands, etc.).
 
 ## Where it fits
 

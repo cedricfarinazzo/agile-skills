@@ -1,6 +1,6 @@
 ---
 name: agile-sprint-drain
-description: "Drain the active sprint to a fixed point: auto-alternate agile-10-implement (build) and agile-11-merge-train (merge) until both empty (DRAINED) or blocked (STUCK). Optional concurrency=N. Triggers: drain the sprint, run the sprint to completion, implement and merge until done, clear the whole board, ship the sprint."
+description: "Drain the active sprint to a fixed point: auto-alternate agile-10-implement (build) and agile-11-merge-train (merge) until both empty (DRAINED) or blocked (STUCK). Optional concurrency=N, dispatch=session. Triggers: drain the sprint, run the sprint to completion, implement and merge until done, clear the whole board, ship the sprint."
 user-invocable: true
 ---
 
@@ -16,9 +16,24 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 - **`agile-execution`** and **`agile-merge-review`** are installed — this skill does nothing if either is absent.
 - The consumer repo's `## Skill configuration` block exists. This skill reads nothing extra — it inherits both orchestrators' config: `cloudId`, the status names, `base-branch`, `max-build-concurrency`, and the lint/test commands.
 
-**Both orchestrators are invoked inline via the Skill tool, in this context — never wrapped in a subagent.** That is the only workable shape: subagent dispatch does not nest, and an orchestrator is itself a dispatcher. So this layer has no dispatch mode of its own, and leanness comes from the fact that every per-ticket phase and per-PR step still runs in its own subagent and returns a capped receipt — the plans, diffs, review reports, and CI logs live and die there.
+**Input:** optional `concurrency=N` and `dispatch=phase|session`.
 
-**Input:** optional `concurrency=N`, passed straight through to the **build** call only (the train is always sequential). Absent → `agile-10-implement`'s own default. `N` governs that skill's per-ticket dispatch — a git worktree per ticket at `N>1` — and is unaffected by this skill running inline.
+## Dispatch modes
+
+| mode | how each orchestrator runs | agent boundary |
+|---|---|---|
+| `dispatch=phase` (default) | inline in this context via the Skill tool | one named agent per phase (validate, plan, code, …; update, review, postmortem) |
+| `dispatch=session` | inside one `agile-sprint-drain:build-session` agent, then one fresh `agile-sprint-drain:merge-session` agent, per pass | one agent per orchestrator run; every phase runs inline in it (`concurrency=0`) |
+
+**`phase`** — `concurrency=N` passes straight through to the **build** call only (the train is always sequential). Absent → `agile-10-implement`'s own default. `N` governs that skill's per-ticket dispatch — a git worktree per ticket at `N>1`. Leanness comes from every phase returning a capped receipt; the price is that each phase agent starts cold and re-reads the ticket, ADR, plan and touched files the previous phase already had.
+
+**`session`** — trades per-phase isolation for prompt-cache reuse: a ticket's reads land once and stay cached through validate → plan → code → review → publish. Rules:
+
+- **Dispatch depth stays 1.** The session agent runs its orchestrator with `concurrency=0`; it never dispatches. So `concurrency=N>1` is incompatible — state `concurrency=N ignored under dispatch=session → 1` and continue.
+- **Batch the build.** Pass at most `session-batch` keys (default `1`) to each `build-session`; the rest wait for the next pass. Every turn re-sends the whole session context, so a ticket carried in a later ticket's session is paid for on every turn of that ticket — raise it only with measured numbers.
+- **Fresh merge context every pass.** `merge-session` is a new agent that never saw the authoring — it is the adversarial reviewer. The build-side `implement-review` is now a self-check by the same context that wrote the code; `agile-11-merge-train`'s review step is the independent gate and must never be skipped or collapsed into the build session.
+- **Build and merge sessions are never the same agent**, and are never resumed across passes.
+- **Receipts are verified here** exactly as the orchestrators verify phase receipts: per-ticket / per-PR outcomes plus the Jira markers each claims. A marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
 
 ## The loop
 
@@ -50,14 +65,18 @@ Each iteration is one **pass**. Compute queue state from the live board before e
          build_torun = eligible To-Do + non-parked in-flight tickets,
                        MINUS anything retired HUMAN-BLOCKED in the LEDGER
          if non-empty AND not backpressured:
-           call agile-10-implement inline [concurrency=N] [keys=<in-flight keys>]
+           call agile-10-implement [concurrency=N] [keys=<in-flight keys>]
+             phase   → inline via the Skill tool
+             session → dispatch build-session with ≤ session-batch keys
            # pass in-flight keys explicitly — agile-10 selects To-Do by default and
            # would otherwise skip an In-Progress ticket; it resumes each via markers.
            fold its per-ticket outcomes into the LEDGER
 
       5. merge_torun = open PRs not retired HUMAN-BLOCKED
          if non-empty:
-           call agile-11-merge-train inline; fold its per-PR outcomes into the LEDGER
+           call agile-11-merge-train; fold its per-PR outcomes into the LEDGER
+             phase   → inline via the Skill tool
+             session → dispatch a fresh merge-session
            # a green, reviewed PR enters the train while other tickets are still
            # building — merges stay strictly sequential among themselves, but they
            # never wait for the build queue to drain.
