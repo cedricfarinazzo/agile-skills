@@ -8,7 +8,7 @@ Read and follow [CLAUDE.md](CLAUDE.md) for the shared workflow and invariants. T
 
 - Canonical packages are the root-level plugin directories. Codex manifests live in `<plugin>/.codex-plugin/plugin.json`; keep their identity, version, and skill source aligned with the matching Claude manifests.
 - The Codex marketplace is `.agents/plugins/marketplace.json`. Its entries must match package directories and manifest names.
-- Installed Codex plugins do not discover plugin-local named phase agents. Execution and merge workflows run their phase chains inline (`concurrency=0`) on Codex.
+- Installed Codex plugins do not discover plugin-local named phase agents. Execution and merge workflows run their phase chains inline (`concurrency=0`) on Codex, and `agile-sprint-drain` treats `dispatch=session` as `dispatch=phase`.
 - On Codex, invoke skills as `$skill-name`; Claude Code uses its Skill tool and plugin namespace.
 - Prefer the consumer repository's `AGENTS.md` for `## Skill configuration`; retain `CLAUDE.md` as a compatibility fallback.
 - Resolve bundled scripts relative to the loaded `SKILL.md` on Codex. `${CLAUDE_PLUGIN_ROOT}` applies only to Claude Code.

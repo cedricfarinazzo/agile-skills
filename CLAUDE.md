@@ -11,7 +11,7 @@ A Claude Code marketplace of focused plugins — six split by cycle phase so use
 - **`agile-execution`** — autonomous build loop: `agile-10-implement` + six `implement-*` sub-skills + scoped agents. Needs `gh`.
 - **`agile-merge-review`** — PR workflow: `agile-11-merge-train` + four `merge-*` sub-skills + four agents. Needs `gh`.
 - **`agile-sprint-close`** — tech-debt sweep, sprint closeout, QA validation (confirm-after-merge), retro. Needs `gh` + Atlassian.
-- **`agile-sprint-drain`** — outer loop alternating `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Invokes both **inline via the Skill tool** and ships no agents (see dispatch nesting, below). Requires both plugins installed.
+- **`agile-sprint-drain`** — outer loop alternating `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Invokes both **inline via the Skill tool** by default; `dispatch=session` runs each in its own session agent (see dispatch nesting, below). Requires both plugins installed.
 - **`deep-refactor`** — out-of-cycle cleanup, three skills sharing one audit → report → ticket → drain loop, each freezing a different side of the repo: `deep-refactor` (code changes, tests frozen), `test-refactor` (tests change, production frozen), `doc-refactor` (markdown changes, source frozen). Ships no agents. Tracker-agnostic; needs `gh`.
 - **`project-review`** — out-of-cycle, read-only deep technical assessment of an arbitrary software or IT project. Produces an evidence-backed Markdown report and does not require Jira, Confluence, or `gh`.
 - **`agile-mods`** — Claude Mods (function hooks, early access): TypeScript in `hooks/`, no skills or agents; one page per mod in `agile-mods/docs/`, linked from its README. `/agile-board` sprint board, guards that enforce rules this file and the skills state in prose (tool grants, the 3f pinned-head and fresh-CI gates, no push to main or force push in the loop), `/receipts`, retro counts, and authoring checks active only in this repo. **A mod guard mirrors a prose rule: change the rule (a grant, a receipt field, the `Reviewed sha:` line, the 3e/3f `gh run view`/`gh pr merge` commands, a `Triggers:` format, the verify block) and update `agile-mods/hooks/state/` in the same change.** Engine limits: one hooks module (`register.tsx` owns every hook and passes a `Host` to the others), one unmatched hook per event, `$` only in that file. Keep logic in `hooks/state/` and run `cd agile-mods && bun test` plus `claude plugin validate ./agile-mods`. Claude-only: no `.codex-plugin`, no `.agents/plugins/marketplace.json` entry.
@@ -29,7 +29,7 @@ README.md                                 # root README — OVERVIEW only (plugi
 <plugin>/README.md                        # per-plugin README — the detail for that plugin
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
-<plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review only)
+<plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
 <plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
@@ -47,7 +47,7 @@ Frontmatter + markdown instructions. **Exactly three fields are in use across ev
 
 ## Agents (scoped subagent dispatch)
 
-`agile-execution` and `agile-merge-review` each ship an `agents/` dir (plugin root, auto-discovered like `skills/`). Every dispatch point uses a **named agent from that dir** scoped to that phase's workload — never the generic catch-all.
+`agile-execution`, `agile-merge-review` and `agile-sprint-drain` each ship an `agents/` dir (plugin root, auto-discovered like `skills/`). Every dispatch point uses a **named agent from that dir** scoped to that phase's workload — never the generic catch-all.
 
 ```yaml
 ---
@@ -80,6 +80,7 @@ An agent's body stays short and **points** at its sub-skill rather than restatin
 | `pr-reviewer` | `Write`/`Edit`, posting tools | It reviews; it never fixes and never posts to Jira. The postmortem owns that. |
 | `jira-postmortem` | `mcp__atlassian__createIssueLink` | The skill forbids link creation — Phase 4 of the train owns it. The grant enforces what prose only asked for. |
 | `ticket-validator`, `ticket-planner`, `pr-publisher` | `Edit` | None of them modifies source. |
+| `build-session`, `merge-session` | `Agent`, `EnterWorktree` | They run their orchestrator with `concurrency=0`; a dispatch from inside would be depth 2. Their grant is otherwise the union of the phases they run inline, so the per-phase withholdings above do not apply inside them. |
 
 ### Model / effort
 
@@ -91,6 +92,7 @@ An agent's body stays short and **points** at its sub-skill rather than restatin
 | `build-implementer` | opus / medium | writes the code everything else is measured against; opus for quality, medium because the plan already framed the work and `pr-reviewer` re-reads the result |
 | `fix-until-satisfied`, `review-lens`, `self-reviewer` | sonnet / medium | heavy cognitive work with a downstream check — the independent `pr-reviewer` gate re-reads the same code before merge; for the two review agents the read *is* the job |
 | `ticket-validator`, `build-monitor` | sonnet / low | look mechanical, own a **silent** failure mode — readiness scoring, and the flake-vs-regression call plus the stack-side fix |
+| `build-session`, `merge-session` | opus / medium | each runs a whole orchestrator inline, so it must meet the strictest phase inside it — code authoring and the pre-`main` review |
 | `pr-publisher`, `jira-postmortem`, `pr-updater` | sonnet / low | mechanical, or fully re-read downstream: a body assembled from a diff, a templated comment + one transition, and a rebase whose result `pr-reviewer` reads file-by-file at 3b |
 
 **Ask what re-reads the output before dropping a tier.** `build-monitor` runs at low even though nothing downstream re-does its flake-vs-regression call — Phase 3 checks that a base-branch comparison *exists*, not that it was right — so watch it first if regressions slip through as "flakes". `pr-updater` can sit at low precisely because something does: 3b `pr-reviewer` (opus/medium) reads every changed file in full at the reviewed sha straight after the rebase, and 3f refuses any sha that review has not read.
@@ -100,7 +102,7 @@ An agent's body stays short and **points** at its sub-skill rather than restatin
 ### Dispatch nesting depth is 1 — no subagent spawns a subagent
 
 1. A dispatch point whose sub-skill needs further fan-out (e.g. `implement-review`'s six-lens read) is fanned out **directly by the top-level orchestrator**, never by an intermediate agent spawning children — the large-PR lens split supplies evidence to `self-reviewer`, which validates and publishes the verdict.
-2. **Never wrap an orchestrator in an agent.** Its whole job is to dispatch, so "run orchestrator X" in an agent is pointless — it can only run X fully inline (`concurrency=0`), forfeiting the isolation the wrapper was for, and X stalls the moment it dispatches. `agile-sprint-drain` therefore runs both orchestrators inline and ships no `agents/` dir. Leanness comes from the leaf agents' capped receipts, not from isolating the orchestrator.
+2. **Wrap an orchestrator in an agent only to run it fully inline (`concurrency=0`) — never to let it dispatch.** A wrapped orchestrator stalls the moment it dispatches. The one sanctioned wrap is `agile-sprint-drain dispatch=session`: `build-session` and `merge-session` each run one orchestrator inline, trading per-phase isolation for prompt-cache reuse, with the merge session in a fresh context so review stays adversarial. The default `dispatch=phase` runs both orchestrators inline in the drain's own context.
 
 ## Shared runtime conventions (embedded, like the Confluence tree)
 
@@ -172,7 +174,7 @@ Cheap to check, expensive to lose. Each has caught a real regression here.
 ```bash
 # 1. Agent files ↔ dispatch points — no orphan agent, no dangling name
 diff <(ls agile-*/agents/*.md | xargs -n1 basename | sed 's/.md//' | sort) \
-     <(grep -rhoE 'agile-(execution|merge-review):[a-z-]+' agile-*/skills | cut -d: -f2 | sort -u)
+     <(grep -rhoE 'agile-(execution|merge-review|sprint-drain):[a-z-]+' agile-*/skills | cut -d: -f2 | sort -u)
 
 # 2. Confluence tree byte-identical everywhere (must print "1 variant"), and
 # 3. frontmatter complete + names match their dir/filename
