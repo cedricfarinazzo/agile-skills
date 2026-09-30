@@ -66,9 +66,10 @@ User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) acro
          ──────────────────────────────────────────────────
    agile-sprint-drain  alternates 10 ⇄ 11 to a fixed point:
      each pass: implement eligible To-Do → merge open PRs
-     (default: both orchestrators INLINE, phases in agents ;
-      dispatch=session: one build-session + one fresh
-      merge-session agent per pass ; only outcomes → ledger) ;
+     (concurrency=N caps started-but-unmerged tickets ;
+      default: both orchestrators INLINE, phases in agents ;
+      dispatch=session: build-session + fresh merge-session,
+      CI waits end in a handoff ; only outcomes → ledger) ;
      actionable-work guard keeps retrying while any item can
      advance, STUCK only when all remaining are human-blocked ;
      DRAINED (all Done + merged) hands off to agile-sprint-close
