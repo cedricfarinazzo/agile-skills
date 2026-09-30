@@ -22,6 +22,8 @@ No review issues and nothing ugly spotted → skip to Phase 3. Otherwise, per is
 3. **Grep for analogous sites.** Fixing a field name means grepping every test file for the old name; a wrong port in one docstring means checking its siblings. One fix, then the sweep.
 4. Run the project's linter on the file (`ruff check`, `eslint`, `golangci-lint`, …). Markdown / YAML / TOML / JSON have no linter — just verify the file still parses.
 
+**Delta round (`round>=2` from the caller):** fix only the findings named, with the smallest change that resolves each. No opportunistic cleanup and no analogous-site sweep beyond files the fix touches; every extra edit is new surface for the next review round.
+
 **"Fix all" means fix all, including every Minor.** Minor is a severity, not permission to punt. The only acceptable skip is a fix that would expand the diff into files the PR did not already touch — file a follow-up inline and note it in the postmortem. Never declare Satisfied with unaddressed Minor findings on the report.
 
 If a fix reveals a deeper problem, escalate and explain before proceeding.

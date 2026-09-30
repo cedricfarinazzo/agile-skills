@@ -120,7 +120,7 @@ Verify before advancing: the verdict must carry the **reviewed sha**, a **Files-
 
 Dispatch to `agile-merge-review:fix-until-satisfied` even when 3b reported 0 issues: it is the explicit satisfaction gate that re-examines the files, runs the local gate, and returns the "Satisfied. No remaining issues." verdict authorising 3e. A 0-issue review without that verdict is incomplete.
 
-- **Every finding gets fixed — Critical AND Minor.** "Minor" is a severity, not permission to defer. The only acceptable skip is an out-of-scope finding that would expand the diff into untouched files — file a follow-up inline and reference it in the postmortem.
+- **Every finding gets fixed — Critical AND Minor**, until the review-round budget (3f) is spent. "Minor" is a severity, not permission to defer. The only acceptable skip is an out-of-scope finding that would expand the diff into untouched files — file a follow-up inline and reference it in the postmortem.
 - **It does not poll CI.** It names the pre-push run id + pushed sha and returns immediately; waiting for the fresh run is 3e's job. Verify the pushed sha is the branch tip.
 - **Expect a second review whenever 3c pushes.** Its own re-examination is not an independent review — 3f's reviewed-sha gate will send the delta back to `:pr-reviewer`. That is normal flow, not a failure.
 
@@ -173,8 +173,15 @@ Top-level: run it with Bash `run_in_background: true`. Inside a dispatched conte
 **Reviewed-sha gate — run this BEFORE the merge command.** Compare `gh pr view <N> --json headRefOid` to the sha 3b reviewed.
 
 - **Equal** → the reviewed tree is the landing tree; merge.
-- **Different** → 3c pushed after the review, so the landing tree holds code no independent review has read. Not cleared. Re-dispatch `:pr-reviewer` on the delta (`git diff <reviewed-sha>..<new-tip>`, every file it touches read in full), verify its receipt as at 3b, record the **new** reviewed sha, re-enter 3e, and return here. Repeat until they match. This is the common case — any PR whose review found something goes through 3c.
+- **Different** → 3c pushed after the review, so the landing tree holds code no independent review has read. Not cleared. Re-dispatch `:pr-reviewer` on the delta (`git diff <reviewed-sha>..<new-tip>`, every file it touches read in full), verify its receipt as at 3b, record the **new** reviewed sha, re-enter 3e, and return here. This is the common case — any PR whose review found something goes through 3c. Repeat within the round budget below.
 - **Non-behavioural delta → bounded re-review.** When the delta provably changes no executable code (docs/comments only — e.g. equal docstring-stripped ASTs, or unchanged code-blob hashes), scope the re-review to Critical findings and factual errors in the delta's own claims; further prose-polish or citation-precision nits are **recorded in the report, not fixed**, and the re-review dispatch must say so. Otherwise each cosmetic fix surfaces a fresh cosmetic nit and burns another push + CI cycle for no behaviour change. A behavioural delta keeps the full lens sweep.
+
+**Review-round budget — the loop must converge.** A round is one review (3b, or a delta re-review here) plus the 3c push it triggers. **At most 3 rounds per PR per train run**: one full, two delta. Pass `round=<n>` to `:pr-reviewer` and `:fix-until-satisfied`.
+
+- **Delta rounds judge the delta only.** Findings must sit in lines the delta changed or in behaviour it changed. Code an earlier round already passed is not re-opened; the reviewer lists anything it notices there as `out-of-delta` notes, not findings.
+- **Delta-round fixes are minimal.** Fix only the findings named, with the smallest change; no opportunistic cleanup. Every extra edit is new surface for the next round.
+- **A fix that breeds the next finding twice in a row** (round N's finding was introduced by round N−1's fix, for two consecutive rounds) → stop now, as at the budget.
+- **At the budget, stop pushing.** An open Critical → 3d (blocked, ticket stays put, human decides). Only Minors left → do not fix them here: list them in the postmortem and the report as one warranted follow-up (this train reports follow-ups, it does not create them), then merge the last sha that was both reviewed and green. That sha is the reviewed sha for 3f; the unpushed Minors are the follow-up.
 
 Then `gh pr merge <N> --squash --match-head-commit <reviewed sha>` — the pin makes GitHub refuse the merge if the head moved after the check above. **No `--delete-branch`** (that flag also tries to delete the local branch, which fails when a worktree still holds it, *after* the merge already happened). **A non-zero exit is not proof the merge failed:** always read `gh pr view <N> --json state,mergedAt` — `mergedAt` set means it merged whatever the exit code said, and retrying a successful merge is how a train reports a false failure. Only an unset `mergedAt` is a genuine failure. Branch deletion waits for Phase 4b.
 
