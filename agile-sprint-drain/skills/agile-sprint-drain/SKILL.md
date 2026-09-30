@@ -20,18 +20,17 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 
 ## `concurrency=N` is a WIP limit on the whole chain
 
-`N` caps the sprint tickets **anywhere between `To Do` and merged** — building, in-flight, or sitting as an open PR waiting for review, rebase, CI, or merge. It is **not** the build fan-out. `concurrency=2` means at most 2 such tickets on the board at once, never "2 building + however many PRs pile up behind them".
+`N` caps sprint tickets **started and not yet merged**: building, in-flight, or an open PR in review, rebase, CI, or merge. It is **not** the build fan-out: `concurrency=2` never means "2 building + any number of PRs behind them".
 
-    wip        = inflight_count + merge_count        # every started, unmerged ticket
-    free_slots = max(0, N - wip)
+    free_slots = max(0, N - (inflight_count + merge_count))
 
-- Only `free_slots` new `To Do` tickets are admitted per pass. `free_slots == 0` → no build call; the pass does merge work only. A ticket frees its slot when its PR **merges** (or it exits to Needs Info / human-blocked-and-retired), not when its PR opens.
-- Pass the admitted tickets to `agile-10-implement` as explicit `keys=`, never the whole queue, with `concurrency=min(N, admitted + resumed)`. Its own `concurrency` caps only its build fan-out; this skill owns the chain-wide cap.
-- Retired HUMAN-BLOCKED items still hold their slot — they are real open work — but if every slot is held by retired items the loop is STUCK, not waiting.
-- Starting over the limit (more open PRs than `N` from an earlier run) admits nothing until the train brings `wip` below `N`. Say so in the banner.
-- Absent → `max-build-concurrency`, else `1`. State the resolved `N` in the first banner.
+- Admit at most `free_slots` new `To Do` tickets per pass; `0` → no build call, merge work only. A slot frees when the PR **merges** or the ticket exits (Needs Info, retired human-blocked), not when the PR opens.
+- Always pass the admitted tickets as explicit `keys=` to `agile-10-implement`, with `concurrency=min(N, keys)`. Its `concurrency` caps only build fan-out; this skill owns the chain cap.
+- Retired items keep their slot; if retired items hold every slot → STUCK.
+- Starting over the limit (open PRs from an earlier run) admits nothing until `wip < N`; say so in the banner.
+- Absent → `max-build-concurrency`, else `1`. State `N` in the first banner.
 
-Why: the train merges strictly sequentially and every merge moves the base, so each open PR needs a rebase and a **fresh** CI run per merge ahead of it — P open PRs cost O(P²) CI runs and rebase tokens, and none of them ships sooner. Capping the chain caps P. Skip a rebase you can prove unnecessary (merged file set disjoint from the PR's, or the exercised subtree byte-identical between the verified base and the new tip) rather than re-running on principle.
+Why: merges are sequential and each moves the base, so every open PR pays a rebase and a **fresh** CI run per merge ahead of it — O(P²) for P open PRs, shipping nothing sooner. Skip a rebase you can prove unnecessary (merged file set disjoint from the PR's, or the exercised subtree byte-identical between the verified base and the new tip).
 
 ## Dispatch modes
 
@@ -40,25 +39,24 @@ Why: the train merges strictly sequentially and every merge moves the base, so e
 | `dispatch=phase` (default) | inline in this context via the Skill tool | one named agent per phase (validate, plan, code, …; update, review, postmortem) |
 | `dispatch=session` | inside one `agile-sprint-drain:build-session` agent, then one fresh `agile-sprint-drain:merge-session` agent, per pass | one agent per orchestrator run; every phase runs inline in it (`concurrency=0`) |
 
-**`phase`** — the build call gets the admitted keys and `concurrency=min(N, keys)` (a git worktree per ticket when `>1`); the train is always sequential. Leanness comes from every phase returning a capped receipt; the price is that each phase agent starts cold and re-reads the ticket, ADR, plan and touched files the previous phase already had.
+**`phase`** — each phase runs in its own named agent with a capped receipt; the price is that each starts cold and re-reads the ticket, ADR, plan and touched files. `concurrency>1` gives a git worktree per ticket.
 
-**`session`** — trades per-phase isolation for prompt-cache reuse: a ticket's reads land once and stay cached through validate → plan → code → review → publish. Rules:
+**`session`** — trades per-phase isolation for prompt-cache reuse: a ticket's reads stay cached through validate → plan → code → review → publish.
 
-- **Dispatch depth stays 1.** The session agent runs its orchestrator with `concurrency=0`; it never dispatches. The WIP limit `N` still applies to the chain; builds just run one session at a time.
-- **Batch the build.** Pass at most `session-batch` keys (default `1`), capped by `free_slots`, to each `build-session`; the rest wait for the next pass. Every turn re-sends the whole session context, so a ticket carried in a later ticket's session is paid for on every turn of that ticket — raise it only with measured numbers.
-- **Resolve once, hand down.** Read the `## Skill configuration` block once per invocation and pass the resolved values in each dispatch prompt, with the exact keys / PR numbers to act on. A session must not re-discover config, re-list the sprint, or re-read tickets it was not given.
-- **The build session ends at `In Review`.** It opens the PR and returns; it does not wait on PR CI. Waiting on CI inside a session re-sends its whole context every poll turn. CI on open PRs is watched here, cheaply, and fixed by the merge session.
-- **Dispatch a merge session only when a PR is actionable now** — CI finished (green or red), a review to address, a conflict to rebase. If every open PR is still running CI, arm one background `gh run watch <run-id> --exit-status` per run here (the first to finish wakes the pass) instead of spawning a session that would itself sit polling. Pass the actionable PR numbers and `max PRs` = their count.
-- **Sessions do not wait on CI** — see `## Waiting on CI`. A `waiting: <run id>` receipt from a session means: arm a background watch on that run here, do other actionable work, and when it finishes dispatch a fresh session of the same kind with the handoff and the result. A fresh merge session given `resume_at` reads only what the remaining steps need, which costs less than re-writing the paused session's expired cache.
-- **Keep receipts to one line per item.** Fold them into the LEDGER and drop them; never forward a session's receipt into the next session's prompt.
-- **Fresh merge context every pass.** `merge-session` is a new agent that never saw the authoring — it is the adversarial reviewer. The build-side `implement-review` is now a self-check by the same context that wrote the code; `agile-11-merge-train`'s review step is the independent gate and must never be skipped or collapsed into the build session.
-- **Build and merge sessions are never the same agent**, and are never resumed: a CI wait ends a session with a handoff, and a fresh session continues from it (below).
+- **Depth stays 1.** Sessions run their orchestrator with `concurrency=0` and never dispatch. The WIP limit still applies; builds run one session at a time.
+- **Batch:** at most `session-batch` keys (default `1`), capped by `free_slots`, per `build-session`. Every turn re-sends the session context, so raise it only with measured numbers.
+- **Resolve once, hand down.** Read `## Skill configuration` once per invocation; each dispatch prompt carries the resolved values and the exact keys / PR numbers. Sessions never re-discover config, re-list the sprint, or read tickets they were not given.
+- **`build-session` ends at `In Review`**: it opens the PR and returns without waiting on CI.
+- **Dispatch `merge-session` only for PRs actionable now** (CI finished, review to address, conflict to rebase), passing those PR numbers and `max PRs` = their count. While every PR is still in CI, arm one background `gh run watch <run-id> --exit-status` per run here instead.
+- **Sessions never wait on CI** (`## Waiting on CI`). On a `waiting` handoff, watch that run here, do other work, then dispatch a fresh session of the same kind with the handoff and the result.
+- **Fresh merge context.** `merge-session` never saw the authoring and is the independent reviewer; the build-side `implement-review` is a self-check. The train's review step is never skipped or folded into the build session.
+- **Sessions are never reused or resumed**, and build and merge are never the same agent.
+- **Receipts:** one line per item, folded into the LEDGER and dropped, never forwarded to the next session. Verify them like phase receipts: a marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
 - **Codex** does not discover the session agents: run `dispatch=phase` and say so.
-- **Receipts are verified here** exactly as the orchestrators verify phase receipts: per-ticket / per-PR outcomes plus the Jira markers each claims. A marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
 
 ## The loop
 
-Each iteration is one **pass**. Compute queue state from the live board before each pass — never from memory of a previous one. **A pass never blocks on one item's external wait** (a running CI job, a queued build): re-derive the whole board every time and act on whatever is actionable NOW — a green check on another PR, a finished review, a ticket the last merge unblocked. It must not **under-observe** either: every item with a running external check carries its own armed watch, so the pass reacts to whichever completes FIRST rather than in the order they happened to be started.
+Each iteration is one **pass**, computed from the live board, never from memory. **Never block on one item's external wait**: act on whatever is actionable now, and keep a watch armed per running check so the pass reacts to whichever finishes first.
 
     PASS:  (pass_count += 1)
       1. BUILD QUEUE — status = <todo-status-name>
@@ -87,8 +85,7 @@ Each iteration is one **pass**. Compute queue state from the live board before e
            call agile-10-implement keys=<build_torun> concurrency=min(N, |build_torun|)
              phase   → inline via the Skill tool
              session → dispatch build-session with ≤ session-batch of those keys
-           # always pass keys explicitly — without them agile-10 takes the whole
-           # To-Do queue and blows the WIP limit; it resumes in-flight keys via markers.
+           # without keys agile-10 takes the whole To-Do queue; in-flight keys resume via markers
            fold its per-ticket outcomes into the LEDGER
 
       5. merge_torun = open PRs not retired HUMAN-BLOCKED
@@ -96,13 +93,9 @@ Each iteration is one **pass**. Compute queue state from the live board before e
            call agile-11-merge-train; fold its per-PR outcomes into the LEDGER
              phase   → inline via the Skill tool
              session → dispatch a fresh merge-session
-           # a green, reviewed PR enters the train while other tickets are still
-           # building — merges stay strictly sequential among themselves, but they
-           # never wait for the build queue to drain.
-
-      # The counts still include human-blocked items, so DRAINED never fires over
-      # them; only the RUN sets exclude them, so a parked ticket isn't re-ground
-      # every pass until the guard retires the last one.
+           # merges never wait for the build queue to drain
+      # counts include human-blocked items (DRAINED never fires over them);
+      # only the RUN sets exclude them
 
       6. ACTIONABLE-WORK GUARD:
            for each remaining item (build + PR + in-flight):
@@ -115,21 +108,19 @@ Each iteration is one **pass**. Compute queue state from the live board before e
            if pass_count >= MAX_PASSES            -> STUCK (oscillation ceiling)
            else                                   -> goto PASS
 
-**Why an actionable-work guard rather than "zero progress this pass"**: a pass that nets zero board movement is not proof the work is unresolvable — it may hold a flaky check that reruns green, a rework not yet attempted, a review one cycle from converging. Stopping on the first such pass abandons exactly the work the loop exists to grind through. The anti-spin guarantee is the **per-item fingerprint**, which retires only the item that is actually stuck while everything else keeps advancing.
+A zero-progress pass is not proof of a dead end (a flaky rerun, an unattempted rework); the per-item fingerprint retires only the item actually stuck.
 
 ### Eligibility — mirror `agile-10-implement` exactly
 
-The blocker gate lives in `agile-10-implement`'s dependency-graph step, not in `implement-validate` (repo-scope + readiness only). Mirror it so the two never disagree:
+The gate lives in `agile-10-implement`'s dependency-graph step, not `implement-validate`:
 
-- Build the blocker set from each ticket's `issuelinks` — the **"is blocked by"** type (inbound side of `blocks`).
-- A blocker is cleared **only** when it is `<done-status-name>` **and** its PR is merged. `In Review` ≠ cleared — its code is not on the base branch. Never stub, stack, or branch off an unmerged blocker to fake eligibility.
-- A ticket is eligible iff **every** "is blocked by" link is cleared; otherwise it is deferred and does not count toward `build_count`.
-
-Unlike a single `agile-10-implement` run (where a blocker may clear earlier in the same run), across drain passes a blocker only clears when its PR actually **merges** — which is precisely what makes the next pass produce new work.
+- Blockers = each ticket's **"is blocked by"** `issuelinks` (inbound side of `blocks`).
+- Cleared **only** when `<done-status-name>` **and** its PR is merged. `In Review` ≠ cleared. Never stub, stack, or branch off an unmerged blocker.
+- Eligible iff every blocker is cleared; otherwise deferred, not counted in `build_count`. Across passes a blocker clears only when its PR **merges** — which is what produces the next pass's work.
 
 ### What counts as merged
 
-`gh` merge state, not the Jira marker: `agile-11-merge-train` merges at 3f and only then transitions to `Done` at 3g. Count a PR merged when `gh pr view <N> --json mergedAt,state` says so. The `To Do → In Review` half of the counter comes from `agile-10-implement`'s per-ticket outcomes this pass.
+`gh pr view <N> --json mergedAt,state`, not the Jira marker (the train merges at 3f, transitions to `Done` at 3g).
 
 ### LEDGER, fingerprints, actionability
 
@@ -137,37 +128,26 @@ The LEDGER is the one piece of state **not** re-derivable from Jira/`gh` each pa
 
 **Fingerprint** — did this item make real progress this pass?
 - **build ticket:** `(jira status, latest 🤖 phase-marker id, blocker-set hash, park/needs-info flag)`
-- **open PR:** `(hash of sorted failing check names+conclusions, reviewDecision, mergeStateStatus)` — deliberately **not** the head SHA. A rebase moves the SHA every pass while `main` advances, which would reset the stall counter forever on a PR whose checks fail identically. Progress is a change in the *failure signature*; a genuine rework commit shows up there anyway.
+- **open PR:** `(hash of sorted failing check names+conclusions, reviewDecision, mergeStateStatus)` — **not** the head SHA, which every rebase moves while the failure stays identical.
 
 **Actionable** = an item the loop itself can still advance:
 - **build ticket** — eligible with a build attempt left (`stall < K`), or deferred behind a blocker chain that bottoms out in an actionable item. Parked on a critical decision, sent to Needs Info, or blocked behind an entirely human-blocked chain → human-blocked.
 - **open PR** — an un-retried CI check, a rework cycle the train hasn't attempted, or a rebasable conflict. Fix cycles exhausted, awaiting a human reviewer, or a parked critical decision → human-blocked.
 
-**K = 3** for PR/CI items (a legitimate long rework can look identical for a pass or two), **K = 2** for build tickets. A ticket whose build subagent is still running this pass is not "no progress" — only count stall once it has returned without advancing.
+**K = 3** for PR/CI items, **K = 2** for build tickets. A build still running this pass is not a stall.
 
-**`MAX_PASSES` = `2 × (initial build_count + merge_count) + 10`** — generous enough that healthy work with normal rework never hits it, tight enough to stop an A/B/A/B oscillation the per-item counter cannot catch. It is the sole oscillation backstop, so it must have a concrete value.
+**`MAX_PASSES` = `2 × (initial build_count + merge_count) + 10`** — the sole backstop against A/B/A/B oscillation the per-item counter cannot catch.
 
-**These counters are per-invocation.** A fresh re-invoke after an interruption starts at 0, re-grinding retryable work (harmless — DRAINED is re-derivable) and resetting the ceiling. A human re-invoking is itself the decision to retry.
+**Counters are per-invocation**; a re-invoke starts at 0, which is the human's decision to retry.
 
-## Audit-trail gate — a ticket is drained only if it can say how it shipped
+## Audit-trail gate
 
-The queue counters measure **status**, not evidence: a ticket is `Done` with a merged PR whether or not anything recorded how it was built and reviewed. So the loop can reach zero on a board that cannot answer "who reviewed this, and against what?" for a share of what it just shipped. **This failure is invisible by construction — the code is fine, the tests are green, only the trail is missing** — which is exactly why it needs a gate rather than good intentions.
-
-Before declaring DRAINED, re-read **every sprint ticket now in a done status — not only the ones this invocation closed** — and confirm each carries:
+Counters measure status, not evidence: a `Done` ticket with a merged PR may have no record of how it was built and reviewed. Before DRAINED, re-read **every sprint ticket in a done status — not only those this invocation closed** (an interrupted drain would otherwise escape the gate) — and confirm it carries:
 
 1. its **phase markers** for the path that built it, and
-2. a **post-merge comment naming the merged PR** — the postmortem the merge train posts.
+2. a **post-merge comment naming the merged PR** (the train's postmortem).
 
-A ticket that is `Done` and merged with neither is **not drained**. Per ticket, do one of:
-
-- **Backfill it** — post the missing marker or postmortem now, explicitly labelled retroactive, naming the PR and stating why it is late (work directed inline outside the pipeline, an interrupted session, a step that failed to write). A retroactive record that says it is retroactive is honest; one that reads as contemporaneous is not.
-- **Record it as a deliberate exception** in the report, with the reason.
-
-Neither option is "leave it". Report the count either way — `audit trail: N/N complete` over **every done ticket in the sprint**, or the list of exceptions — because a silent pass here is indistinguishable from a board that never checked.
-
-**Scoping the gate to this invocation would exempt exactly the tickets most likely to be missing a trail.** The counters reset on re-invoke, so a session interrupted mid-drain — one of the routes that leaves the hole in the first place — would close its tickets under one invocation and pass the gate under the next, having never been checked. A ticket already carrying both records costs one read to confirm; that is the whole price of not having a blind spot shaped like an interruption.
-
-**Work directed inline is a route, not an exemption.** When a human asks for a change directly mid-drain, it still gets a ticket and it still gets a trail; skipping the pipeline is a reasonable way to move fast, and it does not change what the board owes afterwards.
+Missing either → **not drained**. Per ticket: **backfill** it, labelled retroactive, naming the PR and why it is late; or **record a deliberate exception** with the reason. Never leave it. Report `audit trail: N/N complete` over every done sprint ticket, or the exceptions. Work a human directed inline mid-drain still owes a ticket and a trail.
 
 ## Work discovered mid-phase — do it, or ticket it properly
 
@@ -185,17 +165,17 @@ Every phase discovers work its ticket did not plan for. Two decisions, in order,
 
 ## Scope
 
-It does not bypass either orchestrator's pauses: a ticket `agile-10-implement` parks on a critical decision is marked human-blocked here and the loop keeps running every other actionable item. It never writes `Done`, opens a PR, or merges itself — every invariant the orchestrators enforce holds because the work still flows through them unchanged. When DRAINED, it hands off to `agile-sprint-close`.
+Never bypasses an orchestrator's pause (a parked ticket is human-blocked here; the rest keeps running). Never writes `Done`, opens a PR, or merges itself. On DRAINED, hands off to `agile-sprint-close`.
 
 ## Reports
 
-**DRAINED** — the only healthy stop: **nothing remains**. Every sprint ticket `Done` + merged, or legitimately exited (out-of-scope, Needs Info). Any human-blocked item still on the board means items remain, so the outcome is STUCK. List the Done tickets and any exits with their reason, **state the audit-trail gate's result (`N/N complete`, or the exceptions and why)**, then point at `agile-sprint-close`. A DRAINED report that does not mention the gate has not run it.
+**DRAINED** — the only healthy stop: every sprint ticket `Done` + merged or legitimately exited (out-of-scope, Needs Info); any human-blocked item left means STUCK. List Done tickets and exits with reasons, **the audit-trail result (`N/N complete` or exceptions)**, then point at `agile-sprint-close`.
 
-**STUCK** — the actionable set emptied (or `MAX_PASSES` was hit) while items remain. For each remaining item, name its class: **parked critical decision**; **Needs Info / under-spec**; **dead blocker chain** (name the blocker); **CI failed identically K passes** (name the check + repeated fingerprint); **unconverged review** (cycles exhausted, or awaiting a human); **persistent conflict**. On a ceiling stop, list separately any items still actionable — the human can just re-invoke for those. This is the human's work list: resolve one upstream blocker and re-invoke.
+**STUCK** — actionable set empty (or `MAX_PASSES` hit) with items remaining. Classify each: **parked critical decision**; **Needs Info / under-spec**; **dead blocker chain** (name the blocker); **CI failed identically K passes** (check + fingerprint); **unconverged review** (cycles exhausted, or awaiting a human); **persistent conflict**. On a ceiling stop, list still-actionable items separately — re-invoking handles them.
 
 ## Output discipline
 
-Fold each orchestrator's return into the LEDGER as structured per-item outcomes — never re-narrate a pass. Print only the pass banners and per-item outcome lines: no command output, diffs, or transcripts.
+Print only pass banners and per-item outcome lines — no command output, diffs, transcripts, or re-narrated passes.
 
     ══ drain pass 1 ══  eligible:5  wip:0/2  admit:2
     ▶ agile-10-implement keys=PROJ-101,PROJ-102
@@ -207,17 +187,15 @@ Fold each orchestrator's return into the LEDGER as structured per-item outcomes 
 
 ## Waiting on CI
 
-A background task wakes only the context that started it, and only when that context is the top-level session. A dispatched agent — and any skill running inline inside one — ends its turn by returning, so a background completion can never re-invoke it.
+Background completions wake only the top-level session. A dispatched agent (or a skill inline inside one) ends when its turn ends, so nothing can wake it.
 
-- **Top-level session:** start each wait with Bash `run_in_background: true`, one per run id, and keep working; the completion notification re-invokes you.
-- **Dispatched context:** never background a wait, never `sleep N; cat <output>`, never loop on another wait's output file. Do the work that does not need the result, then return a handoff receipt and end: `waiting: <run id>` plus `resume_at: <step>` and the state the next step needs (PR, branch, worktree path, reviewed sha, round, findings not yet posted). The top level arms the background watch and, when the run is terminal, **dispatches a fresh agent** with that handoff and `ci: <run id> <conclusion> <head sha>`. The fresh agent starts at `resume_at` and treats the earlier steps as done (their markers and receipts are the proof); it re-reads only what the remaining steps use. Resuming the paused agent instead would re-write its whole context: subagent prompt caches last 5 minutes, and a CI run takes longer.
-- **Fallback — the top level cannot dispatch** (no agent tooling): wait in the foreground with one bounded call, re-issued on timeout:
+- **Top level:** one Bash `run_in_background: true` wait per run id; keep working until notified.
+- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Do what does not need the result, then end with a handoff: `waiting: <run id>`, `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
+- **Fallback, top level cannot dispatch:** one bounded foreground wait, re-issued on timeout. Stay under the 600 s Bash cap (a capped call moves to the background and keeps polling) and the 5-minute cache:
 
   ```bash
   timeout 270 gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; echo "exit=$?"   # exit=124 → re-issue
   ```
-
-  270 s stays under both the Bash tool's 600 s cap (a call that hits it is moved to the background and keeps polling, so each re-issue adds a watcher) and a 5-minute prompt-cache lifetime.
 
 ## Untrusted tool output
 

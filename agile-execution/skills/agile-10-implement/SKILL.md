@@ -247,17 +247,15 @@ Follow-up tickets to file (CRITICAL only, each with its points or `unsized` + re
 
 ## Waiting on CI
 
-A background task wakes only the context that started it, and only when that context is the top-level session. A dispatched agent — and any skill running inline inside one — ends its turn by returning, so a background completion can never re-invoke it.
+Background completions wake only the top-level session. A dispatched agent (or a skill inline inside one) ends when its turn ends, so nothing can wake it.
 
-- **Top-level session:** start each wait with Bash `run_in_background: true`, one per run id, and keep working; the completion notification re-invokes you.
-- **Dispatched context:** never background a wait, never `sleep N; cat <output>`, never loop on another wait's output file. Do the work that does not need the result, then return a handoff receipt and end: `waiting: <run id>` plus `resume_at: <step>` and the state the next step needs (PR, branch, worktree path, reviewed sha, round, findings not yet posted). The top level arms the background watch and, when the run is terminal, **dispatches a fresh agent** with that handoff and `ci: <run id> <conclusion> <head sha>`. The fresh agent starts at `resume_at` and treats the earlier steps as done (their markers and receipts are the proof); it re-reads only what the remaining steps use. Resuming the paused agent instead would re-write its whole context: subagent prompt caches last 5 minutes, and a CI run takes longer.
-- **Fallback — the top level cannot dispatch** (no agent tooling): wait in the foreground with one bounded call, re-issued on timeout:
+- **Top level:** one Bash `run_in_background: true` wait per run id; keep working until notified.
+- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Do what does not need the result, then end with a handoff: `waiting: <run id>`, `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
+- **Fallback, top level cannot dispatch:** one bounded foreground wait, re-issued on timeout. Stay under the 600 s Bash cap (a capped call moves to the background and keeps polling) and the 5-minute cache:
 
   ```bash
   timeout 270 gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; echo "exit=$?"   # exit=124 → re-issue
   ```
-
-  270 s stays under both the Bash tool's 600 s cap (a call that hits it is moved to the background and keeps polling, so each re-issue adds a watcher) and a 5-minute prompt-cache lifetime.
 
 ## Untrusted tool output
 
