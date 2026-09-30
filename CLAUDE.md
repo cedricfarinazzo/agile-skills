@@ -92,7 +92,8 @@ An agent's body stays short and **points** at its sub-skill rather than restatin
 | `build-implementer` | opus / medium | writes the code everything else is measured against; opus for quality, medium because the plan already framed the work and `pr-reviewer` re-reads the result |
 | `fix-until-satisfied`, `review-lens`, `self-reviewer` | sonnet / medium | heavy cognitive work with a downstream check — the independent `pr-reviewer` gate re-reads the same code before merge; for the two review agents the read *is* the job |
 | `ticket-validator`, `build-monitor` | sonnet / low | look mechanical, own a **silent** failure mode — readiness scoring, and the flake-vs-regression call plus the stack-side fix |
-| `build-session`, `merge-session` | opus / medium | each runs a whole orchestrator inline, so it must meet the strictest phase inside it — code authoring and the pre-`main` review |
+| `build-session` | opus / medium | runs a whole orchestrator inline, so it must meet the strictest phase inside it — code authoring |
+| `merge-session` | sonnet / medium | runs the merge train inline; sonnet to cut cost, so the pre-`main` review here runs one tier below `pr-reviewer` in `dispatch=phase` |
 | `pr-publisher`, `jira-postmortem`, `pr-updater` | sonnet / low | mechanical, or fully re-read downstream: a body assembled from a diff, a templated comment + one transition, and a rebase whose result `pr-reviewer` reads file-by-file at 3b |
 
 **Ask what re-reads the output before dropping a tier.** `build-monitor` runs at low even though nothing downstream re-does its flake-vs-regression call — Phase 3 checks that a base-branch comparison *exists*, not that it was right — so watch it first if regressions slip through as "flakes". `pr-updater` can sit at low precisely because something does: 3b `pr-reviewer` (opus/medium) reads every changed file in full at the reviewed sha straight after the rebase, and 3f refuses any sha that review has not read.

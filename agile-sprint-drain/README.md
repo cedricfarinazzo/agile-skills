@@ -27,7 +27,7 @@ One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain 
 | Agent | Model / effort | Runs |
 |---|---|---|
 | `build-session` | opus / medium | one build pass, all phases inline, prompt cache shared across a ticket's phases |
-| `merge-session` | opus / medium | one merge pass in a context that never saw the authoring — the independent reviewer |
+| `merge-session` | sonnet / medium | one merge pass in a context that never saw the authoring — the independent reviewer |
 
 Trade-off: `session` reuses cached reads (ticket, ADR, plan, touched files) across a ticket's phases instead of re-reading them cold in every phase agent. It gives up build `concurrency=N>1` (forced to 1), the per-phase tool-grant enforcement, and an independent build-side review — `implement-review` becomes a self-check, and the merge session's review is the independent gate.
 
