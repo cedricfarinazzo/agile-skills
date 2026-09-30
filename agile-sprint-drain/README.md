@@ -22,7 +22,7 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
-**Two agents, used only under `dispatch=session`.** By default (`dispatch=phase`) the drain invokes both orchestrators **inline via the Skill tool**, and every phase runs in its own named agent one layer down. Under `dispatch=session` each pass instead dispatches `build-session` (runs `agile-10-implement` with `concurrency=0`, at most `session-batch` tickets, returns at `In Review` without waiting on CI) and then a fresh `merge-session` (runs `agile-11-merge-train` with `concurrency=0`), dispatched only when a PR is actionable — while every PR is still in CI the drain blocks on `gh pr checks --watch` itself rather than paying a session to poll. Dispatch depth stays 1: the session agents never dispatch.
+**Two agents, used only under `dispatch=session`.** By default (`dispatch=phase`) the drain invokes both orchestrators **inline via the Skill tool**, and every phase runs in its own named agent one layer down. Under `dispatch=session` each pass instead dispatches `build-session` (runs `agile-10-implement` with `concurrency=0`, at most `session-batch` tickets, returns at `In Review` without waiting on CI) and then a fresh `merge-session` (runs `agile-11-merge-train` with `concurrency=0`), dispatched only when a PR is actionable — while every PR is still in CI the drain watches each run in the background itself rather than paying a session to poll. A session that reaches a CI wait ends with a handoff (`waiting: <run id>`, `resume_at`), and the drain dispatches a fresh session from it once the run finishes; sessions are never resumed (subagent caches last 5 minutes). Dispatch depth stays 1: the session agents never dispatch.
 
 | Agent | Model / effort | Runs |
 |---|---|---|
@@ -50,7 +50,7 @@ Trade-off: `session` reuses cached reads (ticket, ADR, plan, touched files) acro
                actionable empty & items remain → STUCK ;  else loop
 ```
 
-Pass banners stream so the alternation is legible: `══ drain pass N ══ build:X merge:Y`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. Context stays lean because every per-ticket phase and per-PR step (or, under `dispatch=session`, each session) runs in its own subagent and returns a capped receipt — the loop itself keeps only structured per-item outcomes, never a re-narrated pass.
+Pass banners stream so the alternation is legible: `══ drain pass N ══ eligible:X wip:W/N admit:A`, interleaved with the orchestrators' own `▶ TICKET` / `✓ TICKET` markers. Context stays lean because every per-ticket phase and per-PR step (or, under `dispatch=session`, each session) runs in its own subagent and returns a capped receipt — the loop itself keeps only structured per-item outcomes, never a re-narrated pass.
 
 ## Actionable-work guard, not "zero progress"
 
