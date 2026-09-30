@@ -29,7 +29,7 @@ Check three things and act.
 
 **3. Merge conflicts / staleness.** `mergeStateStatus` `DIRTY`/`BEHIND` → refresh the base **without switching to it** (`git fetch origin <base>`), then `git merge --no-ff origin/<base>` on the ticket's branch, resolve, lint-after-rebase, push. (`git merge --continue` rejects `--no-edit` — use `GIT_EDITOR=true`.) Do not `git checkout <base>` first: inside the ticket's worktree that fails outright — the shared checkout already holds the base branch, and git refuses to check one branch out in two worktrees. `git fetch` + `origin/<base>` needs no checkout and is correct in both modes.
 
-**Checks still running → return, do not wait.** Under dispatch (`build-monitor`), handle what is actionable now, then return the receipt with `waiting: <run id>`; the orchestrator watches that run and resumes you with its result. Read state by run id, not PR head (`gh run view <id> --json status,conclusion,headSha,jobs`).
+**Checks still running → return, do not wait.** Under dispatch (`build-monitor`), handle what is actionable now, then return the handoff receipt (`waiting: <run id>`, `resume_at`); the orchestrator watches that run and dispatches a fresh monitor with its result. Read state by run id, not PR head (`gh run view <id> --json status,conclusion,headSha,jobs`).
 
 **Best-effort within the run:** handle whatever comments, check results, and conflicts exist now. Do not block indefinitely on a human reviewer — once the current state is handled, record status and return; a later re-run picks up new comments via the marker filter.
 
@@ -40,8 +40,8 @@ Fixes that touch code follow `implement-code`'s rules (the ADR is law, every AC 
 A background task wakes only the context that started it, and only when that context is the top-level session. A dispatched agent — and any skill running inline inside one — ends its turn by returning, so a background completion can never re-invoke it.
 
 - **Top-level session:** start each wait with Bash `run_in_background: true`, one per run id, and keep working; the completion notification re-invokes you.
-- **Dispatched context:** never background a wait, never `sleep N; cat <output>`, never loop on another wait's output file. Do the work that does not need the result, then return the receipt with `waiting: <run id>` — a pause, not an end: keep the rest of your state in context. The top level arms the background watch and, when the run is terminal, **resumes the same agent** (`SendMessage` to its id) with `ci: <run id> <conclusion> <head sha>`; you continue from where you stopped. A fresh dispatch instead would re-read everything the paused agent already held.
-- **Fallback — the dispatcher cannot resume** (no `SendMessage`, e.g. Codex): wait in the foreground with one bounded call, re-issued on timeout:
+- **Dispatched context:** never background a wait, never `sleep N; cat <output>`, never loop on another wait's output file. Do the work that does not need the result, then return a handoff receipt and end: `waiting: <run id>` plus `resume_at: <step>` and the state the next step needs (PR, branch, worktree path, reviewed sha, round, findings not yet posted). The top level arms the background watch and, when the run is terminal, **dispatches a fresh agent** with that handoff and `ci: <run id> <conclusion> <head sha>`. The fresh agent starts at `resume_at` and treats the earlier steps as done (their markers and receipts are the proof); it re-reads only what the remaining steps use. Resuming the paused agent instead would re-write its whole context: subagent prompt caches last 5 minutes, and a CI run takes longer.
+- **Fallback — the top level cannot dispatch** (no agent tooling): wait in the foreground with one bounded call, re-issued on timeout:
 
   ```bash
   timeout 270 gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; echo "exit=$?"   # exit=124 → re-issue
