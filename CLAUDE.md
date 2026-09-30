@@ -92,7 +92,7 @@ An agent's body stays short and **points** at its sub-skill rather than restatin
 | `build-implementer` | opus / medium | writes the code everything else is measured against; opus for quality, medium because the plan already framed the work and `pr-reviewer` re-reads the result |
 | `fix-until-satisfied`, `review-lens`, `self-reviewer` | sonnet / medium | heavy cognitive work with a downstream check — the independent `pr-reviewer` gate re-reads the same code before merge; for the two review agents the read *is* the job |
 | `ticket-validator`, `build-monitor` | sonnet / low | look mechanical, own a **silent** failure mode — readiness scoring, and the flake-vs-regression call plus the stack-side fix |
-| `build-session` | opus / medium | runs a whole orchestrator inline, so it must meet the strictest phase inside it — code authoring |
+| `build-session` | opus / low | runs a whole orchestrator inline; opus for code authoring, low effort to cut cost since the plan frames the work and the merge review re-reads the result |
 | `merge-session` | sonnet / medium | runs the merge train inline; sonnet to cut cost, so the pre-`main` review here runs one tier below `pr-reviewer` in `dispatch=phase` |
 | `pr-publisher`, `jira-postmortem`, `pr-updater` | sonnet / low | mechanical, or fully re-read downstream: a body assembled from a diff, a templated comment + one transition, and a rebase whose result `pr-reviewer` reads file-by-file at 3b |
 
