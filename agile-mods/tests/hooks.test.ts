@@ -104,6 +104,17 @@ describe('guards hook', () => {
     expect(await guardsBefore(host, b, 'Bash', { command: 'gh pr merge 7' }, 's1')).toContain('--match-head-commit')
   })
 
+  test('a fresh merge-session resuming at 3e after a CI handoff merges against the sha an earlier session reviewed', async () => {
+    const { host } = fakeHost({ agents: [{ id: 's1', type: 'agile-sprint-drain:merge-session' }, { id: 's2', type: 'agile-sprint-drain:merge-session' }] })
+    await guardsBefore(host, EMPTY, ...skill('agile-sprint-drain'), undefined)
+    await guardsBefore(host, EMPTY, ...skill('agile-merge-review:merge-review-pr', 'PR 7'), 's1')
+    const b = observeReview(greenBoard(), 7, `Reviewed sha: ${SHA}`)
+    inlineReviewDone('s1')
+    guardsTurn(`waiting: 3\nresume_at: 3e`, 's1')
+    expect(await guardsBefore(host, b, 'Bash', { command: `gh pr merge 7 --squash --match-head-commit ${'e'.repeat(40)}` }, 's2')).toContain('unreviewed code')
+    expect(await guardsBefore(host, b, 'Bash', { command: `gh pr merge 7 --squash --match-head-commit ${SHA}` }, 's2')).toBeUndefined()
+  })
+
   test('the push guard holds in a session agent', async () => {
     const { host } = fakeHost({ agents: [{ id: 'b1', type: 'agile-sprint-drain:build-session' }] })
     expect(await guardsBefore(host, EMPTY, 'Bash', { command: 'git push -f origin feat/x' }, 'b1')).toContain('lease')

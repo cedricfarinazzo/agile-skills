@@ -155,7 +155,8 @@ export const register: Register = on => {
   })
 
   // an inline merge-review-pr names its reviewed sha in a response of the loop that ran it: the
-  // main loop, or a drain's merge-session agent, whose whole run is one turn ending after the merge
+  // main loop, or a drain's merge-session agent; the sha lands on the board, so a fresh session
+  // resuming at 3e after a CI handoff merges against it
   on('turn.step', async function* ($, e, next) {
     const r = yield* next(e)
     const pr = inlineReviewOf(e.agentId)
