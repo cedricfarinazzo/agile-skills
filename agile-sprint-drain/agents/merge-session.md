@@ -1,7 +1,7 @@
 ---
 name: merge-session
 description: Runs one agile-11-merge-train pass fully inline (concurrency=0) for agile-sprint-drain dispatch=session, in a fresh context that never saw the authoring. Dispatched by the orchestrator, never invoked directly.
-model: opus
+model: sonnet
 effort: medium
 tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__searchJiraIssuesUsingJql, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__createJiraIssue, mcp__atlassian__createIssueLink
 ---
