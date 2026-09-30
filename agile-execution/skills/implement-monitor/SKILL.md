@@ -29,17 +29,23 @@ Check three things and act.
 
 **3. Merge conflicts / staleness.** `mergeStateStatus` `DIRTY`/`BEHIND` → refresh the base **without switching to it** (`git fetch origin <base>`), then `git merge --no-ff origin/<base>` on the ticket's branch, resolve, lint-after-rebase, push. (`git merge --continue` rejects `--no-edit` — use `GIT_EDITOR=true`.) Do not `git checkout <base>` first: inside the ticket's worktree that fails outright — the shared checkout already holds the base branch, and git refuses to check one branch out in two worktrees. `git fetch` + `origin/<base>` needs no checkout and is correct in both modes.
 
-**Poll without foreground `sleep`** — one background `until` loop, read the output when it fires:
-
-```bash
-until [ "$(gh pr view <N> --json statusCheckRollup --jq '[.statusCheckRollup[]|select(.status!="COMPLETED")]|length')" = "0" ]; do sleep 20; done; gh pr view <N> --json statusCheckRollup,mergeStateStatus,reviewDecision --jq '{merge:.mergeStateStatus,decision:.reviewDecision,checks:[.statusCheckRollup[]|{n:.name,c:.conclusion}]}'
-```
-
-Run it with `run_in_background: true`; the completion notification re-invokes you.
+**Checks still running → return, do not wait.** Under dispatch (`build-monitor`), handle what is actionable now, then return the handoff receipt (`waiting: <run id>`, `resume_at`); the orchestrator watches that run and dispatches a fresh monitor with its result. Read state by run id, not PR head (`gh run view <id> --json status,conclusion,headSha,jobs`).
 
 **Best-effort within the run:** handle whatever comments, check results, and conflicts exist now. Do not block indefinitely on a human reviewer — once the current state is handled, record status and return; a later re-run picks up new comments via the marker filter.
 
 Fixes that touch code follow `implement-code`'s rules (the ADR is law, every AC tested, suites green before push). Because this phase holds the stack it runs the **full** gate before pushing — lint + unit + integration, and e2e / fresh-DB migration where relevant, including the tiers a concurrent build deferred. A critical decision surfacing during rework is escalated to the orchestrator, never guessed.
+
+## Waiting on CI
+
+Background completions wake only the top-level session. A dispatched agent (or a skill inline inside one) ends when its turn ends, so nothing can wake it.
+
+- **Top level:** one Bash `run_in_background: true` wait per run id; keep working until notified.
+- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Do what does not need the result, then end with a handoff: `waiting: <run id>`, `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
+- **Fallback, no background notifications or no dispatch (e.g. Codex):** one bounded foreground wait, re-issued on timeout. Stay under the 600 s Bash cap (a capped call moves to the background and keeps polling) and the 5-minute cache:
+
+  ```bash
+  timeout 270 gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; echo "exit=$?"   # exit=124 → re-issue
+  ```
 
 ## Marker — mandatory, exact format
 

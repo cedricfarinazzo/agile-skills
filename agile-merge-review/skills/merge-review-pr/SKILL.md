@@ -13,7 +13,7 @@ Reads every changed file in full — not just the diff — and reports findings 
 
 PR number from args; if absent, `gh pr list --state open` and ask.
 
-**Delta mode** — the caller may pass `reviewed=<sha>` (the post-fix re-review at `agile-11-merge-train` 3f). Scope the read to `git diff <sha>..HEAD`: read **in full** every file that delta touches, re-verify every AC the delta affects, and report the new `headRefOid` as the reviewed sha. The already-reviewed remainder is not re-read; everything else here is unchanged.
+**Delta mode** — the caller may pass `reviewed=<sha>` (the post-fix re-review at `agile-11-merge-train` 3f). Scope the read to `git diff <sha>..HEAD`: read **in full** every file that delta touches, re-verify every AC the delta affects, and report the new `headRefOid` as the reviewed sha. The already-reviewed remainder is not re-read. **Findings are limited to what the delta changed or broke** — a line it edited, or behaviour it altered elsewhere. Something you notice in code an earlier round passed goes under `out-of-delta` notes, not findings: re-opening passed code is what keeps a review/fix loop from converging. Everything else here is unchanged.
 
 ## Steps
 
