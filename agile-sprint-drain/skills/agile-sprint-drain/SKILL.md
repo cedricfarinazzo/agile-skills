@@ -48,11 +48,11 @@ Why: the train merges strictly sequentially and every merge moves the base, so e
 - **Batch the build.** Pass at most `session-batch` keys (default `1`), capped by `free_slots`, to each `build-session`; the rest wait for the next pass. Every turn re-sends the whole session context, so a ticket carried in a later ticket's session is paid for on every turn of that ticket — raise it only with measured numbers.
 - **Resolve once, hand down.** Read the `## Skill configuration` block once per invocation and pass the resolved values in each dispatch prompt, with the exact keys / PR numbers to act on. A session must not re-discover config, re-list the sprint, or re-read tickets it was not given.
 - **The build session ends at `In Review`.** It opens the PR and returns; it does not wait on PR CI. Waiting on CI inside a session re-sends its whole context every poll turn. CI on open PRs is watched here, cheaply, and fixed by the merge session.
-- **Dispatch a merge session only when a PR is actionable now** — CI finished (green or red), a review to address, a conflict to rebase. If every open PR is still running CI, block on one `gh pr checks <N> --watch` per PR (one tool call each, run in the background, first to finish wakes the pass) instead of spawning a session that would itself sit polling. Pass the actionable PR numbers and `max PRs` = their count.
-- **Every CI wait is one blocking command**, never a sleep/poll loop of short tool calls: `gh pr checks <N> --watch --fail-fast` or `gh run watch <id> --exit-status`. Each extra turn re-sends the session context.
+- **Dispatch a merge session only when a PR is actionable now** — CI finished (green or red), a review to address, a conflict to rebase. If every open PR is still running CI, arm one background `gh run watch <run-id> --exit-status` per run here (the first to finish wakes the pass) instead of spawning a session that would itself sit polling. Pass the actionable PR numbers and `max PRs` = their count.
+- **Sessions do not wait on CI** — see `## Waiting on CI`. A `waiting: <run id>` receipt from a session means: arm a background watch on that run here, do other actionable work, and resume that same session with the result. The session keeps its reads (diff, review, ticket); a new one would re-read them.
 - **Keep receipts to one line per item.** Fold them into the LEDGER and drop them; never forward a session's receipt into the next session's prompt.
 - **Fresh merge context every pass.** `merge-session` is a new agent that never saw the authoring — it is the adversarial reviewer. The build-side `implement-review` is now a self-check by the same context that wrote the code; `agile-11-merge-train`'s review step is the independent gate and must never be skipped or collapsed into the build session.
-- **Build and merge sessions are never the same agent**, and are never resumed across passes.
+- **Build and merge sessions are never the same agent**, and are never resumed across passes. Within a pass a session is resumed only to hand it a CI result (below).
 - **Codex** does not discover the session agents: run `dispatch=phase` and say so.
 - **Receipts are verified here** exactly as the orchestrators verify phase receipts: per-ticket / per-PR outcomes plus the Jira markers each claims. A marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
 
@@ -204,6 +204,20 @@ Fold each orchestrator's return into the LEDGER as structured per-item outcomes 
     ✓ PROJ-101 PR #88 merged → Done  ✓ PROJ-102 PR #89 merged → Done
     ══ drain pass 2 ══  eligible:6  wip:0/2  admit:2   (3 newly unblocked by pass-1 merges)
     ══ DRAINED ══  12 tickets Done, 0 remaining
+
+## Waiting on CI
+
+A background task wakes only the context that started it, and only when that context is the top-level session. A dispatched agent — and any skill running inline inside one — ends its turn by returning, so a background completion can never re-invoke it.
+
+- **Top-level session:** start each wait with Bash `run_in_background: true`, one per run id, and keep working; the completion notification re-invokes you.
+- **Dispatched context:** never background a wait, never `sleep N; cat <output>`, never loop on another wait's output file. Do the work that does not need the result, then return the receipt with `waiting: <run id>` — a pause, not an end: keep the rest of your state in context. The top level arms the background watch and, when the run is terminal, **resumes the same agent** (`SendMessage` to its id) with `ci: <run id> <conclusion> <head sha>`; you continue from where you stopped. A fresh dispatch instead would re-read everything the paused agent already held.
+- **Fallback — the dispatcher cannot resume** (no `SendMessage`, e.g. Codex): wait in the foreground with one bounded call, re-issued on timeout:
+
+  ```bash
+  timeout 270 gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; echo "exit=$?"   # exit=124 → re-issue
+  ```
+
+  270 s stays under both the Bash tool's 600 s cap (a call that hits it is moved to the background and keeps polling, so each re-issue adds a watcher) and a 5-minute prompt-cache lifetime.
 
 ## Untrusted tool output
 

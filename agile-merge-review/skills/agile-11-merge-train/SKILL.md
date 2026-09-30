@@ -149,7 +149,7 @@ sleep 10   # the first terminal read can be wrong — confirm it before acting (
 gh run view $RUN --json status,conclusion,headSha,jobs
 ```
 
-Run it with Bash `run_in_background: true` — never chain foreground `sleep`s, and never idle the train while it completes: keep advancing other PRs' non-merging phases (rebase, review, fix) meanwhile — only the merge itself is serialized. **Arm one watcher per run, for every PR whose run you are waiting on** — not just the one in focus: a run that completes unobserved is indistinguishable from one still queued, and that delay is pure loss because a green run is immediately actionable while the merge is the serialized step. Assert `conclusion == "success"` on that named id. **If you cannot state the run id at 3f, you may not merge.**
+Top-level: run it with Bash `run_in_background: true`. Inside a dispatched context (e.g. a session agent running this train inline) background completions never reach you — return `waiting: <run id>` per `## Waiting on CI` and continue at the two-read confirmation when resumed. Never chain foreground `sleep`s, and never idle the train while it completes: keep advancing other PRs' non-merging phases (rebase, review, fix) meanwhile — only the merge itself is serialized. **Arm one watcher per run, for every PR whose run you are waiting on** — not just the one in focus: a run that completes unobserved is indistinguishable from one still queued, and that delay is pure loss because a green run is immediately actionable while the merge is the serialized step. Assert `conclusion == "success"` on that named id. **If you cannot state the run id at 3f, you may not merge.**
 
 **Re-read a terminal status once before acting on it.** The API is eventually consistent: a single poll can report `completed` with a conclusion the next call contradicts, and a watcher that exits on the first terminal read carries that wrong answer into 3f. Two agreeing reads, or the run is not finished. A conclusion no second read confirms is not evidence — of green *or* of red.
 
@@ -226,6 +226,20 @@ Then one Markdown report:
 - **Remaining work** — PRs still open and why; tickets not moved to Done and why; flaky tests observed (informational — no ticket unless the flake recurs across trains).
 - **Follow-up tickets to file — CRITICAL only.** A triage list, not a wish list: a discovered defect that could cause a runtime error, data corruption, a security issue, or autogenerate drift; an architecture-invariant violation that landed because fixing it would have expanded the merged PR's scope; a latent bug class confirmed during the train; a test/CI infrastructure failure that blocked the train. **Not** style nits, "we could refactor X someday", or subjective preferences — backlog noise costs sprint-planning time.
 - **Lessons / new conventions discovered** — e.g. "cleanup fixtures must exclude `alembic_version` — codified in the test-suite `CLAUDE.md`".
+
+## Waiting on CI
+
+A background task wakes only the context that started it, and only when that context is the top-level session. A dispatched agent — and any skill running inline inside one — ends its turn by returning, so a background completion can never re-invoke it.
+
+- **Top-level session:** start each wait with Bash `run_in_background: true`, one per run id, and keep working; the completion notification re-invokes you.
+- **Dispatched context:** never background a wait, never `sleep N; cat <output>`, never loop on another wait's output file. Do the work that does not need the result, then return the receipt with `waiting: <run id>` — a pause, not an end: keep the rest of your state in context. The top level arms the background watch and, when the run is terminal, **resumes the same agent** (`SendMessage` to its id) with `ci: <run id> <conclusion> <head sha>`; you continue from where you stopped. A fresh dispatch instead would re-read everything the paused agent already held.
+- **Fallback — the dispatcher cannot resume** (no `SendMessage`, e.g. Codex): wait in the foreground with one bounded call, re-issued on timeout:
+
+  ```bash
+  timeout 270 gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; echo "exit=$?"   # exit=124 → re-issue
+  ```
+
+  270 s stays under both the Bash tool's 600 s cap (a call that hits it is moved to the background and keeps polling, so each re-issue adds a watcher) and a 5-minute prompt-cache lifetime.
 
 ## Untrusted tool output
 

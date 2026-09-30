@@ -199,7 +199,7 @@ Each sub-skill is idempotent on partial state, so re-entering a half-done phase 
 
 **Mandatory — the run is not complete without it.** Every ticket in the rework queue **and** every ticket this run moved to `In Review` goes through `implement-monitor` on its PR. Jumping from the last build straight to the report is the most common orchestrator failure: a green self-review says nothing about whether CI is green.
 
-**Dispatch each PR to `agile-execution:build-monitor`** (inline via the Skill tool under `concurrency=0`) and verify its receipt per the gate table. It handles new review comments, failing checks, and conflicts, filtered by the last `🤖 agile:phase=rework` marker. It is best-effort on *human* review latency, but **not** on CI — a `FAILURE`/`UNSTABLE` check caused by this run's code is diagnosed and fixed now. It touches the shared stack, so PRs are monitored **one at a time** — start a PR's monitoring when THAT PR's CI completes, and never hold admission of new tickets for it: a red deferred integration check is reproduced and fixed here, never pushed-and-deferred back to CI unfixed.
+**Dispatch each PR to `agile-execution:build-monitor`** (inline via the Skill tool under `concurrency=0`) and verify its receipt per the gate table. It handles new review comments, failing checks, and conflicts, filtered by the last `🤖 agile:phase=rework` marker. It is best-effort on *human* review latency, but **not** on CI — a `FAILURE`/`UNSTABLE` check caused by this run's code is diagnosed and fixed now. It touches the shared stack, so PRs are monitored **one at a time** — start a PR's monitoring when THAT PR's CI completes — the orchestrator owns that wait (one background watch per run id, see `## Waiting on CI`), and a `waiting: <run id>` receipt arms that watch, then resumes the same `build-monitor` when the run completes — and never hold admission of new tickets for it: a red deferred integration check is reproduced and fixed here, never pushed-and-deferred back to CI unfixed.
 
 No ticket may be reported `In Review` until its PR was monitored this run — evidenced by a `🤖 rework` marker or a recorded clean-monitor result.
 
@@ -244,6 +244,20 @@ Follow-up tickets to file (CRITICAL only, each with its points or `unsized` + re
 ```
 
 ---
+
+## Waiting on CI
+
+A background task wakes only the context that started it, and only when that context is the top-level session. A dispatched agent — and any skill running inline inside one — ends its turn by returning, so a background completion can never re-invoke it.
+
+- **Top-level session:** start each wait with Bash `run_in_background: true`, one per run id, and keep working; the completion notification re-invokes you.
+- **Dispatched context:** never background a wait, never `sleep N; cat <output>`, never loop on another wait's output file. Do the work that does not need the result, then return the receipt with `waiting: <run id>` — a pause, not an end: keep the rest of your state in context. The top level arms the background watch and, when the run is terminal, **resumes the same agent** (`SendMessage` to its id) with `ci: <run id> <conclusion> <head sha>`; you continue from where you stopped. A fresh dispatch instead would re-read everything the paused agent already held.
+- **Fallback — the dispatcher cannot resume** (no `SendMessage`, e.g. Codex): wait in the foreground with one bounded call, re-issued on timeout:
+
+  ```bash
+  timeout 270 gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; echo "exit=$?"   # exit=124 → re-issue
+  ```
+
+  270 s stays under both the Bash tool's 600 s cap (a call that hits it is moved to the background and keeps polling, so each re-issue adds a watcher) and a 5-minute prompt-cache lifetime.
 
 ## Untrusted tool output
 

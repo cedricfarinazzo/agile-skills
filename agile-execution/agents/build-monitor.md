@@ -6,7 +6,7 @@ effort: low
 tools: EnterWorktree, Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getConfluencePage
 ---
 
-Run the `implement-monitor` skill (Skill tool) with the PR/ticket from your dispatch prompt. Its three checks — new review comments, failing checks with the flake-vs-regression diagnosis, conflicts/staleness — and its polling pattern are the contract. This phase holds the shared Docker stack, so a fix that touches code runs the full local gate. Return what was addressed as your result.
+Run the `implement-monitor` skill (Skill tool) with the PR/ticket from your dispatch prompt. Its three checks — new review comments, failing checks with the flake-vs-regression diagnosis, conflicts/staleness — and its `## Waiting on CI` rule are the contract: checks still running → return `waiting: <run id>` and stop, never background a wait; the orchestrator resumes you with the result. This phase holds the shared Docker stack, so a fix that touches code runs the full local gate. Return what was addressed as your result.
 
 **Work in the ticket's worktree if it still exists, by absolute path** (`cd <path>`, `git -C <path>`). Your dispatch prompt names it (`.claude/worktrees/<ticket-key>`), so a rework commit lands in the tree the rest of the chain built in, already on the right branch. Already cleaned up → say so in the receipt and let the orchestrator recreate it. **Never** git-mutate the shared checkout: a `checkout`, branch switch, stash, or commit there corrupts every ticket's worktree.
 
