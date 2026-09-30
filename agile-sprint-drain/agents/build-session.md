@@ -2,7 +2,7 @@
 name: build-session
 description: Runs one agile-10-implement pass fully inline (concurrency=0) for agile-sprint-drain dispatch=session — every build phase of the given tickets in one cached context. Dispatched by the orchestrator, never invoked directly.
 model: opus
-effort: medium
+effort: low
 tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch, Skill, mcp__atlassian__getJiraIssue, mcp__atlassian__searchJiraIssuesUsingJql, mcp__atlassian__editJiraIssue, mcp__atlassian__addCommentToJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__transitionJiraIssue, mcp__atlassian__createJiraIssue, mcp__atlassian__getConfluencePage, mcp__atlassian__search
 ---
 
