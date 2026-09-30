@@ -18,6 +18,21 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 
 **Input:** optional `concurrency=N` and `dispatch=phase|session`.
 
+## `concurrency=N` is a WIP limit on the whole chain
+
+`N` caps the sprint tickets **anywhere between `To Do` and merged** — building, in-flight, or sitting as an open PR waiting for review, rebase, CI, or merge. It is **not** the build fan-out. `concurrency=2` means at most 2 such tickets on the board at once, never "2 building + however many PRs pile up behind them".
+
+    wip        = inflight_count + merge_count        # every started, unmerged ticket
+    free_slots = max(0, N - wip)
+
+- Only `free_slots` new `To Do` tickets are admitted per pass. `free_slots == 0` → no build call; the pass does merge work only. A ticket frees its slot when its PR **merges** (or it exits to Needs Info / human-blocked-and-retired), not when its PR opens.
+- Pass the admitted tickets to `agile-10-implement` as explicit `keys=`, never the whole queue, with `concurrency=min(N, admitted + resumed)`. Its own `concurrency` caps only its build fan-out; this skill owns the chain-wide cap.
+- Retired HUMAN-BLOCKED items still hold their slot — they are real open work — but if every slot is held by retired items the loop is STUCK, not waiting.
+- Starting over the limit (more open PRs than `N` from an earlier run) admits nothing until the train brings `wip` below `N`. Say so in the banner.
+- Absent → `max-build-concurrency`, else `1`. State the resolved `N` in the first banner.
+
+Why: the train merges strictly sequentially and every merge moves the base, so each open PR needs a rebase and a **fresh** CI run per merge ahead of it — P open PRs cost O(P²) CI runs and rebase tokens, and none of them ships sooner. Capping the chain caps P. Skip a rebase you can prove unnecessary (merged file set disjoint from the PR's, or the exercised subtree byte-identical between the verified base and the new tip) rather than re-running on principle.
+
 ## Dispatch modes
 
 | mode | how each orchestrator runs | agent boundary |
@@ -25,12 +40,17 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 | `dispatch=phase` (default) | inline in this context via the Skill tool | one named agent per phase (validate, plan, code, …; update, review, postmortem) |
 | `dispatch=session` | inside one `agile-sprint-drain:build-session` agent, then one fresh `agile-sprint-drain:merge-session` agent, per pass | one agent per orchestrator run; every phase runs inline in it (`concurrency=0`) |
 
-**`phase`** — `concurrency=N` passes straight through to the **build** call only (the train is always sequential). Absent → `agile-10-implement`'s own default. `N` governs that skill's per-ticket dispatch — a git worktree per ticket at `N>1`. Leanness comes from every phase returning a capped receipt; the price is that each phase agent starts cold and re-reads the ticket, ADR, plan and touched files the previous phase already had.
+**`phase`** — the build call gets the admitted keys and `concurrency=min(N, keys)` (a git worktree per ticket when `>1`); the train is always sequential. Leanness comes from every phase returning a capped receipt; the price is that each phase agent starts cold and re-reads the ticket, ADR, plan and touched files the previous phase already had.
 
 **`session`** — trades per-phase isolation for prompt-cache reuse: a ticket's reads land once and stay cached through validate → plan → code → review → publish. Rules:
 
-- **Dispatch depth stays 1.** The session agent runs its orchestrator with `concurrency=0`; it never dispatches. So `concurrency=N>1` is incompatible — state `concurrency=N ignored under dispatch=session → 1` and continue.
-- **Batch the build.** Pass at most `session-batch` keys (default `1`) to each `build-session`; the rest wait for the next pass. Every turn re-sends the whole session context, so a ticket carried in a later ticket's session is paid for on every turn of that ticket — raise it only with measured numbers.
+- **Dispatch depth stays 1.** The session agent runs its orchestrator with `concurrency=0`; it never dispatches. The WIP limit `N` still applies to the chain; builds just run one session at a time.
+- **Batch the build.** Pass at most `session-batch` keys (default `1`), capped by `free_slots`, to each `build-session`; the rest wait for the next pass. Every turn re-sends the whole session context, so a ticket carried in a later ticket's session is paid for on every turn of that ticket — raise it only with measured numbers.
+- **Resolve once, hand down.** Read the `## Skill configuration` block once per invocation and pass the resolved values in each dispatch prompt, with the exact keys / PR numbers to act on. A session must not re-discover config, re-list the sprint, or re-read tickets it was not given.
+- **The build session ends at `In Review`.** It opens the PR and returns; it does not wait on PR CI. Waiting on CI inside a session re-sends its whole context every poll turn. CI on open PRs is watched here, cheaply, and fixed by the merge session.
+- **Dispatch a merge session only when a PR is actionable now** — CI finished (green or red), a review to address, a conflict to rebase. If every open PR is still running CI, block on one `gh pr checks <N> --watch` per PR (one tool call each, run in the background, first to finish wakes the pass) instead of spawning a session that would itself sit polling. Pass the actionable PR numbers and `max PRs` = their count.
+- **Every CI wait is one blocking command**, never a sleep/poll loop of short tool calls: `gh pr checks <N> --watch --fail-fast` or `gh run watch <id> --exit-status`. Each extra turn re-sends the session context.
+- **Keep receipts to one line per item.** Fold them into the LEDGER and drop them; never forward a session's receipt into the next session's prompt.
 - **Fresh merge context every pass.** `merge-session` is a new agent that never saw the authoring — it is the adversarial reviewer. The build-side `implement-review` is now a self-check by the same context that wrote the code; `agile-11-merge-train`'s review step is the independent gate and must never be skipped or collapsed into the build session.
 - **Build and merge sessions are never the same agent**, and are never resumed across passes.
 - **Codex** does not discover the session agents: run `dispatch=phase` and say so.
@@ -59,18 +79,16 @@ Each iteration is one **pass**. Compute queue state from the live board before e
       3. EXIT: build_count == 0 AND merge_count == 0 AND inflight_count == 0
                  -> run the AUDIT-TRAIL GATE (below); DRAINED only if it passes
 
-      4. BUILD BACKPRESSURE — while merge_count > 2 x N (N = build concurrency),
-         SKIP this step: no new ticket enters the build queue this pass.
-         Step 5 still runs, so the pass does review/fix/merge work only.
-
-         build_torun = eligible To-Do + non-parked in-flight tickets,
+      4. WIP ADMISSION — free_slots = max(0, N - (inflight_count + merge_count))
+         build_torun = non-parked in-flight tickets (already hold a slot)
+                       + first free_slots eligible To-Do tickets
                        MINUS anything retired HUMAN-BLOCKED in the LEDGER
-         if non-empty AND not backpressured:
-           call agile-10-implement [concurrency=N] [keys=<in-flight keys>]
+         if non-empty:
+           call agile-10-implement keys=<build_torun> concurrency=min(N, |build_torun|)
              phase   → inline via the Skill tool
-             session → dispatch build-session with ≤ session-batch keys
-           # pass in-flight keys explicitly — agile-10 selects To-Do by default and
-           # would otherwise skip an In-Progress ticket; it resumes each via markers.
+             session → dispatch build-session with ≤ session-batch of those keys
+           # always pass keys explicitly — without them agile-10 takes the whole
+           # To-Do queue and blows the WIP limit; it resumes in-flight keys via markers.
            fold its per-ticket outcomes into the LEDGER
 
       5. merge_torun = open PRs not retired HUMAN-BLOCKED
@@ -96,8 +114,6 @@ Each iteration is one **pass**. Compute queue state from the live board before e
            if actionable is empty AND items remain -> STUCK (report each reason)
            if pass_count >= MAX_PASSES            -> STUCK (oscillation ceiling)
            else                                   -> goto PASS
-
-**Why build backpressure at `2 x N`**: the train merges strictly sequentially and every merge moves the base, so each still-open PR may need a rebase and a **fresh** verification run — with P open PRs a naive drain costs O(P²) runs, and more where CI validates serially. Past that line an extra PR ships nothing sooner; it just lengthens a queue the next merge re-invalidates. Backpressure caps P instead. Two exceptions: a **fix** dispatch on an already-open PR is always allowed (it repairs a queue entry rather than adding one), and a finished plan keeps — resume that ticket's build from its marker once the count drops. Skip a rebase you can prove unnecessary (merged file set disjoint from the PR's, or the exercised subtree byte-identical between the verified base and the new tip) rather than re-running on principle.
 
 **Why an actionable-work guard rather than "zero progress this pass"**: a pass that nets zero board movement is not proof the work is unresolvable — it may hold a flaky check that reruns green, a rework not yet attempted, a review one cycle from converging. Stopping on the first such pass abandons exactly the work the loop exists to grind through. The anti-spin guarantee is the **per-item fingerprint**, which retires only the item that is actually stuck while everything else keeps advancing.
 
@@ -181,13 +197,12 @@ It does not bypass either orchestrator's pauses: a ticket `agile-10-implement` p
 
 Fold each orchestrator's return into the LEDGER as structured per-item outcomes — never re-narrate a pass. Print only the pass banners and per-item outcome lines: no command output, diffs, or transcripts.
 
-    ══ drain pass 1 ══  build:5  merge:0  (concurrency 3)
-    ▶ agile-10-implement (build queue)
-    ✓ PROJ-101 → In Review  ✓ PROJ-102 → In Review  … (build drains 5)
-    ══ drain pass 1 (merge) ══  open PRs:3  (2 still building — the train starts anyway)
-    ▶ agile-11-merge-train (merge queue)
-    ✓ PROJ-101 PR #88 merged → Done  … (merge drains 5, the last 2 as they open)
-    ══ drain pass 2 ══  build:3  merge:0   (3 newly unblocked by pass-1 merges)
+    ══ drain pass 1 ══  eligible:5  wip:0/2  admit:2
+    ▶ agile-10-implement keys=PROJ-101,PROJ-102
+    ✓ PROJ-101 → In Review  ✓ PROJ-102 → In Review
+    ▶ agile-11-merge-train (PR #88, #89)
+    ✓ PROJ-101 PR #88 merged → Done  ✓ PROJ-102 PR #89 merged → Done
+    ══ drain pass 2 ══  eligible:6  wip:0/2  admit:2   (3 newly unblocked by pass-1 merges)
     ══ DRAINED ══  12 tickets Done, 0 remaining
 
 ## Untrusted tool output

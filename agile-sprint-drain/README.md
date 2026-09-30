@@ -18,18 +18,18 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 | # | Skill | Role |
 |---|-------|------|
-| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train (invoked inline via the Skill tool) to a fixed point, with an actionable-work guard; optional `concurrency=N` passed through to the build; optional `dispatch=session` |
+| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train (invoked inline via the Skill tool) to a fixed point, with an actionable-work guard; optional `concurrency=N` = WIP limit on the whole chain (build + open PRs); optional `dispatch=session` |
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
-**Two agents, used only under `dispatch=session`.** By default (`dispatch=phase`) the drain invokes both orchestrators **inline via the Skill tool**, and every phase runs in its own named agent one layer down. Under `dispatch=session` each pass instead dispatches `build-session` (runs `agile-10-implement` with `concurrency=0`, at most `session-batch` tickets) and then a fresh `merge-session` (runs `agile-11-merge-train` with `concurrency=0`). Dispatch depth stays 1: the session agents never dispatch.
+**Two agents, used only under `dispatch=session`.** By default (`dispatch=phase`) the drain invokes both orchestrators **inline via the Skill tool**, and every phase runs in its own named agent one layer down. Under `dispatch=session` each pass instead dispatches `build-session` (runs `agile-10-implement` with `concurrency=0`, at most `session-batch` tickets, returns at `In Review` without waiting on CI) and then a fresh `merge-session` (runs `agile-11-merge-train` with `concurrency=0`), dispatched only when a PR is actionable — while every PR is still in CI the drain blocks on `gh pr checks --watch` itself rather than paying a session to poll. Dispatch depth stays 1: the session agents never dispatch.
 
 | Agent | Model / effort | Runs |
 |---|---|---|
 | `build-session` | opus / low | one build pass, all phases inline, prompt cache shared across a ticket's phases |
 | `merge-session` | sonnet / medium | one merge pass in a context that never saw the authoring — the independent reviewer |
 
-Trade-off: `session` reuses cached reads (ticket, ADR, plan, touched files) across a ticket's phases instead of re-reading them cold in every phase agent. It gives up build `concurrency=N>1` (forced to 1), the per-phase tool-grant enforcement, and an independent build-side review — `implement-review` becomes a self-check, and the merge session's review is the independent gate.
+Trade-off: `session` reuses cached reads (ticket, ADR, plan, touched files) across a ticket's phases instead of re-reading them cold in every phase agent. It gives up parallel builds (one session at a time; the WIP limit still applies), the per-phase tool-grant enforcement, and an independent build-side review — `implement-review` becomes a self-check, and the merge session's review is the independent gate.
 
 ## Why it exists
 
@@ -42,7 +42,8 @@ Trade-off: `session` reuses cached reads (ticket, ADR, plan, touched files) acro
                  unresolved blocker (blocker must be Done AND PR merged).      → build_count
 2. MERGE QUEUE — open PRs linked to this sprint's tickets (gh pr list).        → merge_count
 3. EXIT      — build_count == 0 AND merge_count == 0  → DRAINED
-4. build>0   → call agile-10-implement (Skill tool) [concurrency=N]            → fold outcomes
+4. ADMIT     — free = N − (in-flight + open PRs); build in-flight + first `free` eligible
+               → call agile-10-implement (Skill tool) keys=<those>              → fold outcomes
 5. merge>0   → call agile-11-merge-train (Skill tool)                          → fold outcomes
 6. GUARD     — recompute each item's fingerprint; retire an item human-blocked after
                K identical passes. actionable = items the loop can still advance.
@@ -62,7 +63,7 @@ By the dependency gate a ticket is un-startable until its blocker's PR merges �
 
 ## What it does NOT do
 
-- Never writes `Done`, opens PRs, or merges itself — it only **sequences** the two orchestrators, so every invariant they enforce (builds sequential by default / opt-in concurrent via a passed-through `concurrency=N`; single shared Docker stack; strictly sequential merge; repo-scope gate; three-role review; per-step receipt verification) is preserved.
+- Never writes `Done`, opens PRs, or merges itself — it only **sequences** the two orchestrators, so every invariant they enforce (at most `concurrency=N` tickets started-but-unmerged across the whole chain; single shared Docker stack; strictly sequential merge; repo-scope gate; three-role review; per-step receipt verification) is preserved.
 - Does not bypass either orchestrator's pauses — a critical-decision park in implement still parks that one ticket; the guard marks it human-blocked and keeps running on other actionable items, STUCK-stopping only when the actionable set empties.
 - Does not invoke `agile-sprint-close`. On DRAINED it hands off to it.
 
