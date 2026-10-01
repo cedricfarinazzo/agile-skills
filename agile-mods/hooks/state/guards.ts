@@ -76,7 +76,8 @@ export function mergeDenial(pr: number, head: string | undefined, reviewed: stri
   }
   if (!run) return `PR #${pr}: no CI run seen on ${head.slice(0, 12)}. Read it by run id with gh run view <id> --json status,conclusion,headSha (3e) before merging.`
   if (run.status !== 'completed' || run.conclusion !== 'success') {
-    return `PR #${pr}: CI run${run.id ? ` ${run.id}` : ''} on ${head.slice(0, 12)} is ${run.status}${run.conclusion ? `/${run.conclusion}` : ''}, not completed/success.`
+    const seen = `${run.status}${run.conclusion ? `/${run.conclusion}` : ''}`
+    return `PR #${pr}: the last read of CI run${run.id ? ` ${run.id}` : ''} on ${head.slice(0, 12)} was ${seen}, not completed/success. This guard only sees raw JSON from gh run view <id> --json status,conclusion,headSha (a --jq filter or gh pr checks is not folded in): if the run has finished since, re-read it that way, twice, then merge.`
   }
   if (run.reads < 2) return `PR #${pr}: CI run${run.id ? ` ${run.id}` : ''} read green once. Re-read it (gh run view <id> --json status,conclusion,headSha): two agreeing reads, or the run is not finished.`
   return undefined
