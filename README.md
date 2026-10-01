@@ -4,7 +4,7 @@
 
 [Claude Code](https://claude.ai/code) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
 
-Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
+Raw idea → sprint retro, wired into **Confluence** and **Jira**. Focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
 
 | Plugin | Phase | Skills | Needs |
 |--------|-------|--------|-------|
@@ -16,6 +16,7 @@ Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused
 | <img src="agile-sprint-drain/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
 | <img src="deep-refactor/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
 | <img src="project-review/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**project-review**](project-review/README.md) | Project assessment (out-of-cycle, read-only) | Deep IT Project Review — evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains | None |
+| <img src="agile-mods/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-mods**](agile-mods/README.md) | Enforcement + visibility (Claude Mods, early access) | No skills — `/agile-board` sprint board with burndown, PR pipeline and drain timeline panes, guards on the loop's rules (tool grants, pinned reviewed head + fresh CI at merge, no push to main), `/receipts`, retro counts, authoring checks | `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
 

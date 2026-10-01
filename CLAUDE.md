@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this repo is
 
-A Claude Code marketplace shipping **eight focused plugins** — six split by cycle phase so users load only what they run, plus two out-of-cycle review/cleanup plugins:
+A Claude Code marketplace of focused plugins — six split by cycle phase so users load only what they run, two out-of-cycle review/cleanup plugins, and one mod plugin:
 
 - **`agile-product`** — discovery: Vision Doc, PRD, Design Brief / Specs UI, ADR (Confluence).
 - **`agile-planning`** — Roadmap (+ its published Artifact), Epics, Stories, Refinement, Sprint Planning (Confluence + Jira).
@@ -14,6 +14,7 @@ A Claude Code marketplace shipping **eight focused plugins** — six split by cy
 - **`agile-sprint-drain`** — outer loop alternating `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Invokes both **inline via the Skill tool** by default; `dispatch=session` runs each in its own session agent (see dispatch nesting, below). Requires both plugins installed.
 - **`deep-refactor`** — out-of-cycle cleanup, three skills sharing one audit → report → ticket → drain loop, each freezing a different side of the repo: `deep-refactor` (code changes, tests frozen), `test-refactor` (tests change, production frozen), `doc-refactor` (markdown changes, source frozen). Ships no agents. Tracker-agnostic; needs `gh`.
 - **`project-review`** — out-of-cycle, read-only deep technical assessment of an arbitrary software or IT project. Produces an evidence-backed Markdown report and does not require Jira, Confluence, or `gh`.
+- **`agile-mods`** — Claude Mods (function hooks, early access): TypeScript in `hooks/`, no skills or agents; one page per mod in `agile-mods/docs/`, linked from its README. `/agile-board` sprint board, guards that enforce rules this file and the skills state in prose (tool grants, the 3f pinned-head and fresh-CI gates, no push to main or force push in the loop), `/receipts`, retro counts, and authoring checks active only in this repo. **A mod guard mirrors a prose rule: change the rule (a grant, a receipt field, the `Reviewed sha:` line, the 3e/3f `gh run view`/`gh pr merge` commands, a `Triggers:` format, the verify block) and update `agile-mods/hooks/state/` in the same change.** Engine limits: one hooks module (`register.tsx` owns every hook and passes a `Host` to the others), one unmatched hook per event, `$` only in that file. Keep logic in `hooks/state/` and run `cd agile-mods && bun test` plus `claude plugin validate ./agile-mods`. Claude-only: no `.codex-plugin`, no `.agents/plugins/marketplace.json` entry.
 
 `agile-10-implement` clears the **build** queue (`To Do` → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`). User-facing skills keep global cycle numbering (`agile-1` … `agile-15`); composed sub-skills (`implement-*`, `merge-*`) are **unnumbered** because users don't call them. Namespace = plugin name: `/agile-planning:agile-5-roadmap`.
 
@@ -32,7 +33,7 @@ README.md                                 # root README — OVERVIEW only (plugi
 <plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
-There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
+There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, `.github/` (CI), and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
 
 **Docs split:** the root `README.md` is an overview that **links** to each plugin README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, orchestrator internals) lives in `<plugin>/README.md`. Change a skill → update its plugin README; keep the root overview-only. The canonical Confluence tree lives in full in `agile-planning/README.md`.
 
@@ -222,7 +223,7 @@ Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill na
 
 `.claude-plugin/marketplace.json` (root) carries a top-level `description` and lists every plugin with a relative string source, `"source": "./<plugin>"`. It carries **no version key**; versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.
 
-**Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning.
+**Anthropic plugin directory submission.** The directory scans only files inside the submitted repo, so it rejects `git-subdir`, `github`, `url`, and `npm` sources (`EXTERNAL_SOURCE_NOT_ALLOWED`), and it warns on a missing marketplace `description` (`MARKETPLACE_DESCRIPTION_MISSING`). Run `claude plugin validate .` and `claude plugin validate <plugin>` before committing a manifest change; both must pass with no warning. CI (`.github/workflows/validate.yml`) runs both on every PR, for every plugin `marketplace.json` lists, and fails on a warning; the validator needs no login. The same workflow runs `bun test` in `agile-mods`, and the Agent Skills reference validator (`skills-ref`, via `uvx`, pinned) on every skill, which catches frontmatter `claude plugin validate` lets through (bad YAML, name ≠ folder, unknown fields); its one ignored error is `user-invocable`, which the open spec does not list.
 
 The directory also holds two things for review. Avoid both:
 

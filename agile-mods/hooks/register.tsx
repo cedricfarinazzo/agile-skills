@@ -1,0 +1,253 @@
+/* @jsx h */
+import type { EngineInterface, Register } from 'claude-code'
+import { EMPTY, LANES, POINTS_FIELD, pointsFieldOf, buildLines, burnLine, drainLine, laneRows, linksOf, loadBoard, mergeLines, observeAnswer, observeReview, observeStart, observeTool, parkedOf, passRows, sampled, stallsOf, type Board, type Cell } from './state/board.ts'
+import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
+import { VERIFY_COMMAND, authoringAfter, authoringBefore, authoringStart, authoringTurn, invariants } from './authoring.ts'
+import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewDone, inlineReviewOf } from './guards.ts'
+import { argsOf, type Finished, type Host } from './host.ts'
+import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsStart } from './receipts.ts'
+
+// The plugin's one hooks module. /agile-board draws the sprint above the prompt: a build queue
+// (tickets by agile:phase marker) and a merge queue (PRs by merge-train step), folded from the
+// loop's own tool calls and the drain's closing banner, kept in $.store. The same calls feed the
+// retro counts that ride agile-15-retro's Skill call as context, and three panes: links, the PR
+// swimlanes (/agile-board prs) and the drain timeline (/agile-board drain).
+// The guards (guards.ts), /receipts (receipts.ts) and the authoring checks (authoring.ts) share
+// these hooks: each event is registered once, and `$` reaches them only as the Host bound here.
+
+const STORE_KEY = 'board'
+const RETRO_KEY = 'retro'
+const LINKS_PANE = 'agile-links'
+const PRS_PANE = 'agile-prs'
+const DRAIN_PANE = 'agile-drain'
+let board: Board = EMPTY
+let retro: Retro = EMPTY_RETRO
+let shown = true
+let pointsField = POINTS_FIELD
+
+function hostOf($: EngineInterface): Host {
+  return {
+    now: () => $.clock.now(),
+    run: (argv, init) => $.process.run(argv, init),
+    read: path => $.fs.read(path),
+    agents: () => $.agent.list(),
+    storeGet: key => $.store.get(key),
+    storeSet: (key, value) => $.store.set(key, value),
+    log: text => $.ui.log(text),
+    toast: (text, timeoutMs) => $.ui.toast(text, timeoutMs ? { timeoutMs } : undefined),
+  }
+}
+
+function save($: EngineInterface, next: Board) {
+  if (next === board) return
+  const before = board.drain?.outcome
+  const known = new Set([...stallsOf(board), ...parkedOf(board)])
+  board = next
+  const fresh = [...stallsOf(board).map(s => `looping: ${s}`), ...parkedOf(board).map(s => `parked: ${s}`)].filter(s => !known.has(s.replace(/^\w+: /, '')))
+  if (fresh.length) $.ui.toast(`agile: ${fresh.join(' · ')}`, { timeoutMs: 10000 })
+  void $.store.set(STORE_KEY, board).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
+  $.ui.invalidate('ui.render')
+  if (board.drain && board.drain.outcome !== 'running' && before !== board.drain.outcome) {
+    const text = drainLine(board) ?? ''
+    $.ui.toast(`agile: ${text}`, { timeoutMs: 10000 })
+    // a drain runs unattended: its end also reaches the desktop, where a notifier exists
+    void $.process.run(['notify-send', 'agile-skills', text], { timeoutMs: 5000 })
+      .then(run => { if (run.exitCode !== 0) throw new Error('notify-send failed') })
+      .catch(() => $.process.run(['osascript', '-e', `display notification ${JSON.stringify(text)} with title "agile-skills"`], { timeoutMs: 5000 }))
+      .catch(() => undefined)
+  }
+}
+
+function saveRetro($: EngineInterface, next: Retro) {
+  const synced = board.drain ? retroDrain(next, board.drain.pass, board.drain.outcome) : next
+  if (synced === retro) return
+  retro = synced
+  void $.store.set(RETRO_KEY, retro).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
+}
+
+export const register: Register = on => {
+  on('session.start', async ($, e, next) => {
+    const r = await next(e)
+    const host = hostOf($)
+    const stored = loadBoard(await $.store.get(STORE_KEY).catch(() => undefined))
+    if (stored) board = stored
+    const storedRetro = loadRetro(await $.store.get(RETRO_KEY).catch(() => undefined))
+    if (storedRetro) retro = storedRetro
+    guardsStart(r.cwd)
+    // agile-10-implement's story-points-field, pinned in the consumer repo's AGENTS.md or CLAUDE.md
+    for (const file of ['AGENTS.md', 'CLAUDE.md']) {
+      const field = pointsFieldOf(await $.fs.read(`${r.cwd}/${file}`).catch(() => ''))
+      if (field) {
+        pointsField = field
+        break
+      }
+    }
+    await receiptsStart(host)
+    await $.command.register({
+      name: 'agile-board',
+      description: 'Sprint board above the prompt: show, hide, prs, drain, links, retro, reset (agile-mods)',
+      argumentHint: '[show | hide | prs | drain | links | retro | reset]',
+      immediate: true,
+    }).catch(err => $.ui.log(`agile-mods: /agile-board not registered: ${err}`))
+    await $.command.register(RECEIPTS_COMMAND).catch(err => $.ui.log(`agile-mods: /receipts not registered: ${err}`))
+    if (await authoringStart(host, r.cwd)) {
+      await $.command.register(VERIFY_COMMAND).catch(err => $.ui.log(`agile-mods: /agile-verify not registered: ${err}`))
+    }
+    return r
+  })
+
+  on('command.run', { command: 'agile-board' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+    if (arg === 'reset') {
+      save($, EMPTY)
+      saveRetro($, EMPTY_RETRO)
+      guardsReset()
+      return { text: 'agile board and retro counts cleared' }
+    }
+    if (arg === 'retro') return { text: retroText(retro, await $.clock.now()) ?? 'no loop data recorded yet' }
+    if (arg === 'prs' || arg === 'drain') {
+      if (arg === 'prs' ? !board.prOrder.length : !board.passes?.length) return { text: arg === 'prs' ? 'no PRs on the board yet' : 'no drain passes recorded yet' }
+      await $.ui.open({ id: arg === 'prs' ? PRS_PANE : DRAIN_PANE, title: arg === 'prs' ? 'agile PR pipeline' : 'agile drain timeline', closeOnEscape: true, focus: true })
+      return {}
+    }
+    if (arg === 'links') {
+      if (!linksOf(board).length) return { text: 'no links yet: they appear once a Jira or PR result names its site' }
+      await $.ui.open({ id: LINKS_PANE, title: 'agile links', closeOnEscape: true, focus: true })
+      return {}
+    }
+    shown = arg !== 'hide'
+    $.ui.invalidate('ui.render')
+    return { text: shown ? 'agile board shown' : 'agile board hidden' }
+  })
+
+  on('command.run', { command: 'receipts' }, async ($, e) => ({ text: await receiptsCommand(hostOf($), e.args.trim().toLowerCase()) }))
+
+  on('command.run', { command: 'agile-verify' }, async ($, e, next) => {
+    const drift = await invariants(hostOf($))
+    return { text: drift || 'invariants hold: agents ↔ dispatch, mid-phase block, Confluence tree, frontmatter' }
+  })
+
+  on('tool.call', async ($, e, next) => {
+    const host = hostOf($)
+    const args = argsOf(e)
+    const deny = (await guardsBefore(host, board, e.tool, args, e.agentId)) ?? (await authoringBefore(host, e.tool, args))
+    if (deny) return { deny }
+
+    const now = await $.clock.now()
+    save($, observeStart(board, e.tool, args, now))
+    saveRetro($, retroStart(retro, e.tool, args, now))
+    const r = await next(e)
+    const done: Finished = {
+      denied: r.deny !== undefined,
+      isError: r.isError === true,
+      text: r.deny !== undefined || r.isError ? undefined : r.text,
+    }
+    save($, sampled(observeTool(board, e.tool, args, done.text, pointsField), await $.clock.now()))
+    saveRetro($, retroEnd(retro, e.tool, args, done.text))
+    await receiptsAfter(host, e.tool, args, done)
+
+    const extra = await authoringAfter(host, e.tool, args, done)
+    if (e.tool === 'Skill' && done.text !== undefined && /(^|:)agile-15-retro$/.test(String(args.skill))) {
+      const data = retroText(retro, await $.clock.now())
+      if (data) extra.push(data)
+    }
+    return extra.length && r.deny === undefined && !r.isError ? { ...r, context: [...(r.context ?? []), ...extra] } : r
+  })
+
+  // an inline merge-review-pr names its reviewed sha in a response of the loop that ran it: the
+  // main loop, or a drain's merge-session agent; the sha lands on the board, so a fresh session
+  // resuming at 3e after a CI handoff merges against it
+  on('turn.step', async function* ($, e, next) {
+    const r = yield* next(e)
+    const pr = inlineReviewOf(e.agentId)
+    if (pr === undefined || !r.answer) return r
+    const reviewed = observeReview(board, pr, r.answer)
+    if (reviewed !== board) {
+      save($, reviewed)
+      inlineReviewDone(e.agentId)
+    }
+    return r
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    const r = await next(e)
+    guardsTurn(r.text ?? '', e.agentId)
+    if (e.agentId) return r
+    const now = await $.clock.now()
+    save($, sampled(observeAnswer(board, r.text ?? '', now), now))
+    saveRetro($, retro)
+    await authoringTurn(hostOf($))
+    return r
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const idle = !board.loop && board.order.length === 0 && board.prOrder.length === 0
+    if (!shown || idle || e.props.hasSurvey || e.surface !== 'terminal') return next(e)
+    const { Box, Text } = await $.ui.resolve(e)
+    const drain = drainLine(board)
+    const burn = burnLine(board)
+    const flags = [...parkedOf(board).map(s => `⏸ ${s}`), ...stallsOf(board).map(s => `⟳ ${s}`)].join('  ')
+    const color = board.drain?.outcome === 'STUCK' ? 'red' : board.drain?.outcome === 'DRAINED' ? 'green' : undefined
+    // header, drain, burn and flag lines, two section titles, and a row for whatever else draws in the band
+    const rows = Math.max(2, Math.min(12, e.props.maxRows - 5 - (burn ? 1 : 0) - (flags ? 1 : 0)))
+    const build = buildLines(board, Math.ceil(rows / 2))
+    const merge = mergeLines(board, rows - build.length)
+    return (
+      <Box flexDirection="column">
+        <Text dimColor wrap="truncate">{`agile · ${board.loop ?? 'idle'} · /agile-board links · hide`}</Text>
+        {drain ? <Text color={color} bold wrap="truncate">{drain}</Text> : null}
+        {burn ? <Text wrap="truncate">{burn}</Text> : null}
+        {flags ? <Text color="yellow" wrap="truncate">{flags}</Text> : null}
+        {build.length ? <Text bold={board.stage === 'build'} dimColor={board.stage !== 'build'}>build queue</Text> : null}
+        {build.map(line => <Text key={`b:${line.slice(0, 10)}`} wrap="truncate">{line}</Text>)}
+        {merge.length ? <Text bold={board.stage === 'merge'} dimColor={board.stage !== 'merge'}>merge queue</Text> : null}
+        {merge.map(line => <Text key={`m:${line.slice(0, 7)}`} wrap="truncate">{line}</Text>)}
+        {await next(e)}
+      </Box>
+    )
+  })
+
+  on('ui.render', { component: 'Pane' }, async ($, e, next) => {
+    if (e.requestId === PRS_PANE) {
+      const { Box, Text } = await $.ui.resolve(e)
+      const mark: Record<Cell, [string, string | undefined]> = { done: ['✔', 'green'], now: ['●', 'yellow'], todo: ['·', undefined], fail: ['✖', 'red'] }
+      return (
+        <Box flexDirection="column">
+          <Text bold>{`${'PR'.padEnd(7)}${'ticket'.padEnd(11)}${LANES.map(l => l.padEnd(4)).join('')}`}</Text>
+          {laneRows(board).map(row => (
+            <Box key={`p:${row.pr}`} flexDirection="row">
+              <Text>{`#${String(row.pr).padEnd(6)}${row.key.padEnd(11)}`}</Text>
+              {row.cells.map((c, i) => <Text key={`c:${row.pr}:${LANES[i]}`} color={mark[c][1]} bold={c === 'now'}>{mark[c][0].padEnd(4)}</Text>)}
+              <Text dimColor>{` ${row.ci}${row.reviewed ? `  reviewed ${row.reviewed}` : ''}`}</Text>
+            </Box>
+          ))}
+        </Box>
+      )
+    }
+    if (e.requestId === DRAIN_PANE) {
+      const { Box, Text } = await $.ui.resolve(e)
+      const rows = passRows(board, await $.clock.now())
+      return (
+        <Box flexDirection="column">
+          {rows.map(r => (
+            <Box key={`d:${r.pass}`} flexDirection="row">
+              <Text>{`pass ${String(r.pass).padEnd(3)}`}</Text>
+              <Text color="cyan">{'█'.repeat(r.build)}</Text>
+              <Text color="magenta">{'█'.repeat(r.merge)}</Text>
+              <Text dimColor>{`  ${r.text}`}</Text>
+            </Box>
+          ))}
+          <Text dimColor>{'build ' }<Text color="cyan">█</Text>{'  merge '}<Text color="magenta">█</Text>{board.drain ? `  · ${board.drain.outcome}` : ''}</Text>
+        </Box>
+      )
+    }
+    if (e.requestId !== LINKS_PANE) return next(e)
+    const { Box, Text, Link } = await $.ui.resolve(e)
+    const links = linksOf(board)
+    return (
+      <Box flexDirection="column">
+        {links.length ? links.map(l => <Link key={`l:${l.href}`} href={l.href} label={l.label} />) : <Text dimColor>no links yet</Text>}
+      </Box>
+    )
+  })
+}
