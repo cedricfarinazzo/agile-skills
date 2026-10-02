@@ -4,6 +4,11 @@
     S="${CLAUDE_PLUGIN_ROOT}/skills/session-audit/scripts/session_usage.py"
     python3 "$S" find <title-or-session-id>
     python3 "$S" report --run before=a.jsonl --run after=b.jsonl,c.jsonl [--agents]
+    python3 "$S" report --run ... --shipped before=7,4634 --shipped after=35,19847
+
+`--shipped NAME=<merged PRs>,<added lines>` adds the efficiency table: cost and
+units per merged PR and per added line, with the gain of the last run over the
+first.
 
 A run is one or more transcripts (a resumed or forked session writes a second
 file that repeats the first one's messages; they are counted once). Subagent
@@ -196,6 +201,36 @@ def report(name, paths, prices, show_agents):
     for stamp, text in human:
         print("  %s  %s" % (stamp, text))
     print()
+    return all_usd, all_tok
+
+
+def efficiency(results, shipped):
+    """Rows of (label, value per run..., gain first/last) for runs that have shipped work."""
+    names = [n for n in results if n in shipped]
+    rows = []
+    for label, pick, div, scale in (
+        ("Cost per merged PR ($)", 0, 0, 1), ("Cost per added line ($)", 0, 1, 1),
+        ("Units per merged PR (M)", 1, 0, 1e6), ("Units per added line (K)", 1, 1, 1e3),
+    ):
+        vals = [results[n][pick] / shipped[n][div] / scale if shipped[n][div] else 0.0 for n in names]
+        gain = vals[0] / vals[-1] if len(vals) > 1 and vals[-1] else None
+        rows.append((label, vals, gain))
+    return names, rows
+
+
+def print_efficiency(results, shipped):
+    names, rows = efficiency(results, shipped)
+    if not names:
+        return
+    print("## efficiency")
+    print("shipped: %s" % ", ".join("%s=%d PRs/%d lines" % (n, shipped[n][0], shipped[n][1]) for n in names))
+    gain_col = len(names) > 1
+    print("\n| measure | %s%s |" % (" | ".join(names), " | gain" if gain_col else ""))
+    print("|---|%s" % ("---|" * (len(names) + gain_col)))
+    for label, vals, gain in rows:
+        cells = " | ".join("%.3f" % v if v < 1 else "%.1f" % v for v in vals)
+        print("| %s | %s%s |" % (label, cells, " | %.1fx" % gain if gain else (" | -" if gain_col else "")))
+    print()
 
 
 def find(needle, root):
@@ -224,6 +259,7 @@ def main(argv=None):
     r.add_argument("--run", action="append", required=True, metavar="NAME=a.jsonl[,b.jsonl]")
     r.add_argument("--price", action="append", default=[], metavar="MODEL=IN,OUT")
     r.add_argument("--agents", action="store_true", help="list every subagent dispatch")
+    r.add_argument("--shipped", action="append", default=[], metavar="NAME=PRS,LINES")
     args = ap.parse_args(argv)
     if args.cmd == "find":
         return find(args.needle, args.projects)
@@ -233,9 +269,16 @@ def main(argv=None):
         p_in, p_out = pair.split(",")
         prices[model] = (float(p_in), float(p_out))
     print("prices (USD per million, input/output): %s\n" % ", ".join("%s=%g/%g" % (m, a, b) for m, (a, b) in prices.items()))
+    results = {}
     for spec in args.run:
         name, _, files = spec.partition("=")
-        report(name, files.split(","), prices, args.agents)
+        results[name] = report(name, files.split(","), prices, args.agents)
+    shipped = {}
+    for spec in args.shipped:
+        name, _, pair = spec.partition("=")
+        prs, added = pair.split(",")
+        shipped[name] = (int(prs), int(added))
+    print_efficiency(results, shipped)
     return 0
 
 

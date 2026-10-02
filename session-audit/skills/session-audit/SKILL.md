@@ -47,7 +47,20 @@ Count merged PRs and added lines per run. Leave out throwaway PRs closed unmerge
 
 ## 4. Normalise and compare
 
-Report cost and units **per merged PR and per added line**. When PR sizes differ between runs, the per-line figure is the fair one; give both and say which you lead with. Give the cost gain and the unit gain separately: a model-tier change lowers cost without lowering units.
+Re-run the report with the counts from step 3; it prints the efficiency table:
+
+```bash
+python3 "$S" report --run before=… --run after=… --shipped before=<PRs>,<lines> --shipped after=<PRs>,<lines>
+```
+
+| measure | before | after | gain |
+|---|---|---|---|
+| Cost per merged PR | | | |
+| Cost per added line | | | |
+| Units per merged PR | | | |
+| Units per added line | | | |
+
+**Always show this table to the user**, with the script's figures, for a single run too (no gain column). When PR sizes differ between runs, the per-line figure is the fair one; give both and say which you lead with. Give the cost gain and the unit gain separately: a model-tier change lowers cost without lowering units.
 
 ## 5. Check that it still works
 
@@ -69,7 +82,7 @@ Every finding names the skill or agent file to change and a rough saving.
 
 ## Report
 
-Verdict first, in one line. Then the comparison table (PRs merged, lines added, total cost, cost per PR, cost per line, units per PR, units per line, top-level share), where the saving came from, problems ranked by cost, and proposed edits. Close with the caveats that bound the claim: mixed segments, assumed prices, anything not verified.
+Verdict first, in one line. Then the step-4 efficiency table, the run totals (PRs merged, lines added, total cost, top-level share), where the saving came from, problems ranked by cost, and proposed edits. Close with the caveats that bound the claim: mixed segments, assumed prices, anything not verified.
 
 Keep the report generic enough to share: counts and ratios, not ticket text or customer content.
 

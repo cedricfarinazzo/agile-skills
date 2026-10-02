@@ -30,6 +30,7 @@ python3 session_usage.py report --run before=a.jsonl --run after=b.jsonl,c.jsonl
 
 - A run may span several transcripts; messages shared by a resumed or forked session are counted once.
 - Subagent transcripts are read from `<session>/subagents/` beside each file.
+- `--shipped NAME=<merged PRs>,<added lines>` adds the efficiency table: cost and units per merged PR and per added line, with the gain between runs.
 - Default prices are assumptions; pass `--price` for real ones.
 
 Tests: `python3 -m pytest session-audit/skills/session-audit/scripts`.

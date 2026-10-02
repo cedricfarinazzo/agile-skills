@@ -55,3 +55,18 @@ def test_subagents_and_profile(tmp_path, capsys):
     assert tools["Agent"] == 1 and waits == 1 and prompts == [40] and len(receipts) == 1
     su.report("r", [str(p)], su.DEFAULT_PRICES, True)
     assert "p:worker" in capsys.readouterr().out
+
+
+def test_efficiency_table_normalises_by_shipped_work(capsys):
+    results = {"before": (400.0, 480e6), "after": (420.0, 800e6)}
+    shipped = {"before": (8, 5600), "after": (24, 9600)}
+    _, rows = su.efficiency(results, shipped)
+    assert [round(r[2], 1) for r in rows] == [2.9, 1.6, 1.8, 1.0]
+    su.print_efficiency(results, shipped)
+    out = capsys.readouterr().out
+    assert "| Cost per merged PR ($) | 50.0 | 17.5 | 2.9x |" in out
+
+
+def test_efficiency_single_run_has_no_gain_column(capsys):
+    su.print_efficiency({"only": (100.0, 50e6)}, {"only": (5, 1000)})
+    assert "gain" not in capsys.readouterr().out
