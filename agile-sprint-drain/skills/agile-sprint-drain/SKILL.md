@@ -1,6 +1,6 @@
 ---
 name: agile-sprint-drain
-description: "Drain the active sprint to a fixed point: auto-alternate agile-10-implement (build) and agile-11-merge-train (merge) until both empty (DRAINED) or blocked (STUCK). Optional concurrency=N, dispatch=session. Triggers: drain the sprint, run the sprint to completion, implement and merge until done, clear the whole board, ship the sprint."
+description: "Drain the active sprint to a fixed point: auto-alternate agile-10-implement (build) and agile-11-merge-train (merge) until both empty (DRAINED) or blocked (STUCK). Optional concurrency=N, dispatch=session, max-merges=N. Triggers: drain the sprint, run the sprint to completion, implement and merge until done, clear the whole board, ship the sprint."
 user-invocable: true
 ---
 
@@ -16,7 +16,7 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
 - **`agile-execution`** and **`agile-merge-review`** are installed — this skill does nothing if either is absent.
 - The consumer repo's `## Skill configuration` block exists. This skill reads nothing extra — it inherits both orchestrators' config: `cloudId`, the status names, `base-branch`, `max-build-concurrency`, and the lint/test commands.
 
-**Input:** optional `concurrency=N` and `dispatch=phase|session`.
+**Input:** optional `concurrency=N`, `dispatch=phase|session`, and `max-merges=N` (stop as PAUSED after N merges; absent → unbounded).
 
 ## `concurrency=N` is a WIP limit on the whole chain
 
@@ -45,10 +45,11 @@ Why: merges are sequential and each moves the base, so every open PR pays a reba
 
 - **Depth stays 1.** Sessions run their orchestrator with `concurrency=0` and never dispatch. The WIP limit still applies; builds run one session at a time.
 - **Batch:** at most `session-batch` keys (default `1`), capped by `free_slots`, per `build-session`. Every turn re-sends the session context, so raise it only with measured numbers.
-- **Resolve once, hand down.** Read `## Skill configuration` once per invocation; each dispatch prompt carries the resolved values and the exact keys / PR numbers. Sessions never re-discover config, re-list the sprint, or read tickets they were not given.
+- **Resolve once, hand down.** Read `## Skill configuration` once per invocation and write the resolved values plus any standing rule every session needs (repo constraints, operator exceptions) to `<state-dir>/context.md` (`## State on disk`). A dispatch prompt carries that path, the exact keys / PR numbers, and the handoff if any — never the rules restated. Sessions never re-discover config, re-list the sprint, or read tickets they were not given.
 - **`build-session` ends at `In Review`**: it opens the PR and returns without waiting on CI.
 - **Dispatch `merge-session` only for PRs actionable now** (CI finished, review to address, conflict to rebase), passing those PR numbers and `max PRs` = their count. While every PR is still in CI, arm one background `gh run watch <run-id> --exit-status` per run here instead.
 - **Sessions never wait on CI** (`## Waiting on CI`). On a `waiting` handoff, watch that run here, do other work, then dispatch a fresh session of the same kind with the handoff and the result.
+- **A failed run is diagnosed in a session, not here.** Pass `ci: <run id> failure <head sha>` to a fresh `merge-session`; read no job list or log in this context.
 - **Fresh merge context.** `merge-session` never saw the authoring and is the independent reviewer; the build-side `implement-review` is a self-check. The train's review step is never skipped or folded into the build session.
 - **Sessions are never reused or resumed**, and build and merge are never the same agent.
 - **Receipts:** one line per item, folded into the LEDGER and dropped, never forwarded to the next session. Verify them like phase receipts: a marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
@@ -106,6 +107,7 @@ Each iteration is one **pass**, computed from the live board, never from memory.
            actionable = remaining items neither human-blocked nor out of retries
            if actionable is empty AND items remain -> STUCK (report each reason)
            if pass_count >= MAX_PASSES            -> STUCK (oscillation ceiling)
+           if merges this invocation >= max-merges -> PAUSED (items remain; ledger kept)
            else                                   -> goto PASS
 
 A zero-progress pass is not proof of a dead end (a flaky rerun, an unattempted rework); the per-item fingerprint retires only the item actually stuck.
@@ -138,7 +140,16 @@ The LEDGER is the one piece of state **not** re-derivable from Jira/`gh` each pa
 
 **`MAX_PASSES` = `2 × (initial build_count + merge_count) + 10`** — the sole backstop against A/B/A/B oscillation the per-item counter cannot catch.
 
-**Counters are per-invocation**; a re-invoke starts at 0, which is the human's decision to retry.
+**Counters are per-invocation**; a re-invoke starts at 0, which is the human's decision to retry. The one exception is a re-invoke after PAUSED, which restores them from the ledger file.
+
+## State on disk
+
+`<state-dir>` = `$(git rev-parse --git-common-dir)/agile-drain`: never committed, shared by every worktree. Pass sessions its absolute path.
+
+- `context.md` — resolved config and standing rules, written once per invocation.
+- `ledger.md` — the LEDGER, rewritten at the end of every pass. Fold each receipt into it and keep working from the file, so a context compaction loses nothing. Delete it on DRAINED or STUCK; keep it on PAUSED.
+
+`max-merges=N` bounds one invocation's context on a long sprint: `/loop /agile-sprint-drain max-merges=N` runs each chunk in a fresh context and resumes from the ledger.
 
 ## Audit-trail gate
 
@@ -169,6 +180,8 @@ Never bypasses an orchestrator's pause (a parked ticket is human-blocked here; t
 
 ## Reports
 
+**PAUSED** — `max-merges` reached with actionable items left. One line: merged this invocation, items remaining, `re-invoke to continue`. Not a healthy stop and not a failure.
+
 **DRAINED** — the only healthy stop: every sprint ticket `Done` + merged or legitimately exited (out-of-scope, Needs Info); any human-blocked item left means STUCK. List Done tickets and exits with reasons, **the audit-trail result (`N/N complete` or exceptions)**, then point at `agile-sprint-close`.
 
 **STUCK** — actionable set empty (or `MAX_PASSES` hit) with items remaining. Classify each: **parked critical decision**; **Needs Info / under-spec**; **dead blocker chain** (name the blocker); **CI failed identically K passes** (check + fingerprint); **unconverged review** (cycles exhausted, or awaiting a human); **persistent conflict**. On a ceiling stop, list still-actionable items separately — re-invoking handles them.
@@ -189,7 +202,11 @@ Print only pass banners and per-item outcome lines — no command output, diffs,
 
 Background completions wake only the top-level session. A dispatched agent (or a skill inline inside one) ends when its turn ends, so nothing can wake it.
 
-- **Top level:** one Bash `run_in_background: true` wait per run id; keep working until notified.
+- **Top level:** one Bash `run_in_background: true` wait per run id, with `timeout` above the run's usual duration (not the 600 s foreground cap); keep working until notified. One wake per run: no `sleep` loop, no short wait re-issued on expiry, and read the result in the same call as the next action.
+
+  ```bash
+  gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; gh run view <run-id> --json status,conclusion,headSha
+  ```
 - **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Do what does not need the result, then end with a handoff: `waiting: <run id>`, `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
 - **Fallback, no background notifications or no dispatch (e.g. Codex):** one bounded foreground wait, re-issued on timeout. Stay under the 600 s Bash cap (a capped call moves to the background and keeps polling) and the 5-minute cache:
 
