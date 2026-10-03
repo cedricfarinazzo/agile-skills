@@ -1,0 +1,1 @@
+Run doc-refactor rules. AGENTS.md repeats a required deployment safety rule in two auto-loaded instruction files, while notes/last-sprint.md is a work-status log containing one durable directive about a deprecated database table.
