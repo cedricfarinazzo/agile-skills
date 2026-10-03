@@ -1,0 +1,1 @@
+Use test-refactor characterize for the invoice cancellation flow before a later code cleanup. The production cancellation function is hard to follow and current tests only assert its internal helper calls.
