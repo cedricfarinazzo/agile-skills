@@ -8,6 +8,7 @@ Three skills sharing one discipline: audit deeply, prove every claim, ship as a 
 - **`test-refactor`** — the inverse: audit one test suite at a time (dead tests, duplication, parallel-unsafety, depth gaps), with production code frozen and coverage parity proven per module.
 - **`test-refactor characterize <scope>`** — establish minimal owner-boundary behavior proof before a risky code cleanup, with production frozen; the resulting test becomes the later refactor's contract.
 - **`doc-refactor`** — audit every markdown file (READMEs, `docs/`, agent-instruction files) for lies, drift, duplication and bloat, with the source frozen and every surviving claim verified rather than read.
+- **`doc-refactor rules`** — audit the standing instruction corpus for redundant, stale, brittle, conflicting, or low-yield rules while preserving verified load-bearing invariants.
 
 ## The loop (all three skills)
 
@@ -37,6 +38,7 @@ Three skills sharing one discipline: audit deeply, prove every claim, ship as a 
 - Generated docs (docstring API refs, `--help` dumps, TOCs) are never hand-edited; fix the generator or declare the file hand-maintained.
 - **Some markdown is executable** — `CLAUDE.md`, `AGENTS.md`, skill/agent frontmatter. Trigger phrases are never subtracted, every removal states what it governed, and the per-session token cost of auto-loaded files is baselined and gated like `test-refactor` gates wall-clock.
 - Compression is proven by a **per-file** operative-token diff (commands, flags, config keys, MCP names) — a token surviving in another doc is not evidence this one kept it.
+- In `rules` mode, every standing directive earns its permanent context cost: its behavioral impact is recorded and only evidence-backed redundancy, staleness, brittleness, misfiling, conflict, or low-yield ritual is changed.
 
 ## Install
 
