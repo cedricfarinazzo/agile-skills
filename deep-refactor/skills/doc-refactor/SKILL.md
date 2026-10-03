@@ -6,6 +6,10 @@ user-invocable: true
 
 # doc-refactor
 
+## Codex inline mode
+
+When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
+
 The third sibling, with the contract inverted once more. `deep-refactor` freezes the test suite; `test-refactor` freezes production code; here **the source is frozen entirely** and the markdown is the object of change. A doc fix that "needs" a code change is out of scope — a doc that disagrees with the code is a finding, the audit says which side is wrong, and if it's the code that's wrong it becomes its own separately-ticketed PR, never smuggled into a doc PR.
 
 **The goal is documentation that is true, findable, DRY and cheap to read.** The failure mode is not ugliness, it is **a confident false statement**: a doc that lies costs more than no doc at all, because a reader acts on it and then debugs the wrong thing. So the proof here is neither a suite nor a coverage number — it is **verification**. Every claim that survives the audit has been executed or resolved against the repo, and an unchecked sentence is a hypothesis wearing the voice of documentation.
@@ -18,7 +22,7 @@ Four phases: **audit → report → ticket → drain**.
 
 **Inventory before you judge.** Every `.md` in the repo, each tagged with its audience and its **load path** — human-browsed on the forge, rendered by a docs site, or auto-loaded into an agent's context. That tag decides every later call: a README optimizes for a newcomer's first ten minutes, a `docs/` page for a reader who already arrived and knows what they want, an instruction file for a machine that will follow it literally and bill you per token.
 
-Then fan out **parallel read-only agents over disjoint slices** (root docs, the `docs/` tree, per-package READMEs, `.github/` templates, agent-instruction files), plus one pass over the docs *toolchain* — site config, nav/sidebar, link checker, generator markers. **Loop until dry**: a second pass over "already read" docs routinely finds a stale command the first pass skimmed past because it looked plausible. The exit condition is a pass that comes back empty.
+On Claude Code, fan out **parallel read-only agents over disjoint slices** (root docs, the `docs/` tree, per-package READMEs, `.github/` templates, agent-instruction files), plus one pass over the docs *toolchain* — site config, nav/sidebar, link checker, generator markers. On Codex, cover those slices and the toolchain in order inline. **Loop until dry**: a second pass over "already read" docs routinely finds a stale command the first pass skimmed past because it looked plausible. The exit condition is a pass that comes back empty.
 
 Classify every file — no doc is skipped because it reads well:
 

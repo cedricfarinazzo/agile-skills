@@ -6,6 +6,10 @@ user-invocable: true
 
 # deep-refactor
 
+## Codex inline mode
+
+When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
+
 **The goal is code that is clean, DRY and easy to understand.** The existing test suite is the proof that behavior didn't move — which means **editing a test to make a refactor pass is cheating**: it silently rewrites the contract you're claiming to preserve. Treat every test edit as a red flag to design around (aliases, facades, injection), not a convenience. The rare edit that is genuinely warranted — a fixture that encodes a bug, a guard whose shape must follow a file split — is done in the open: enumerated in advance, justified per file, concentrated in one ticket.
 
 Four phases: **audit → report → ticket → drain**. The discipline that makes it safe at scale: nothing is proposed until it has been vetted against the codebase's *change constraints*, and nothing is claimed until it has been measured or executed.
@@ -14,7 +18,7 @@ Four phases: **audit → report → ticket → drain**. The discipline that make
 
 **Question the global architecture first.** Before hunting local smells, render a verdict on the big shapes — service boundaries, sync/async splits, dependency direction, layering — with evidence. "The architecture is sound; the debt is duplication and god-files" is a finding; so is the opposite. Either way the verdict scopes everything below, and a structural problem found here outranks every cleanup.
 
-Then fan out **parallel read-only agents over disjoint areas** (one per subsystem: domain core, workers/jobs, API surface, build/dependency/config hygiene). Run a mechanical scanner (dead code / duplication / complexity) alongside for signal, not verdicts.
+On Claude Code, fan out **parallel read-only agents over disjoint areas** (one per subsystem: domain core, workers/jobs, API surface, build/dependency/config hygiene). On Codex, cover those areas in that order inline. Run a mechanical scanner (dead code / duplication / complexity) alongside for signal, not verdicts.
 
 **Loop until dry.** One sweep is never exhaustive: after acting on a pass, run another with fresh eyes on the areas the first pass only skimmed — a second pass over "already audited" code routinely surfaces defects the first missed. The exit condition is a pass that comes back empty, not a list that looks long enough.
 
