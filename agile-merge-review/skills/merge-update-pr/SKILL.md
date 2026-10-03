@@ -5,6 +5,14 @@ description: "Rebase PR branch on main: merge --no-ff, resolve conflicts intelli
 
 # merge-update-pr
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+On Codex this sub-skill runs inline under `agile-11-merge-train` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
+
+## Purpose
+
 Bring a PR branch up to date with main and push. Resolve conflicts by understanding both sides — never blindly take one.
 
 **Input:** PR number or branch name from args; ask if neither is given.

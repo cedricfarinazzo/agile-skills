@@ -6,6 +6,14 @@ user-invocable: true
 
 # agile-sprint-drain
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+When loaded by Codex, run the entire drain, including both orchestrators and all their phases, inline with `concurrency=0`. Normalize every `dispatch` value to inline execution; never spawn, request, or claim a named agent, subagent, `build-session`, or `merge-session`.
+
+## Purpose
+
 Outer scheduler that removes the human from the implement ↔ merge alternation.
 
 `agile-10-implement` turns every **eligible** `To Do` Story into an open, self-reviewed PR (`In Review`). `agile-11-merge-train` reviews and merges those PRs, writing each ticket to **Done**. Ticket A blocked by ticket B is only eligible once **B is `Done` and B's PR is merged** — so every merge pass can unlock new build work. This skill runs that loop to a fixed point, reading the same marker stream both orchestrators emit and making the implement-vs-merge call itself.
@@ -53,7 +61,7 @@ Why: merges are sequential and each moves the base, so every open PR pays a reba
 - **Fresh merge context.** `merge-session` never saw the authoring and is the independent reviewer; the build-side `implement-review` is a self-check. The train's review step is never skipped or folded into the build session.
 - **Sessions are never reused or resumed**, and build and merge are never the same agent.
 - **Receipts:** one line per item, folded into the LEDGER and dropped, never forwarded to the next session. Verify them like phase receipts: a marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
-- **Codex** does not discover the session agents: run `dispatch=phase` and say so.
+- **Codex** does not discover any plugin-local agents: normalize every `dispatch` value and `concurrency` value to full inline execution (`concurrency=0`), then state that normalization in the final report. Do not claim any phase agent, `build-session`, or `merge-session` ran.
 
 ## The loop
 

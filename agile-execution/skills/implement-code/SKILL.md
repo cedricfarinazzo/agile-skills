@@ -6,6 +6,14 @@ user-invocable: false
 
 # implement_code
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+On Codex this sub-skill runs inline under `agile-10-implement` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
+
+## Purpose
+
 Build phase for `agile-10-implement`. Invoked with a planned ticket — and, on a fix pass, the numbered review findings. Posts the `🤖 agile:phase=implement` marker. **Does not open the PR**; `implement-pr` does that after this phase returns.
 
 **Build mode** — the orchestrator passes `mode=sequential | concurrent` (default `sequential`):

@@ -11,13 +11,20 @@ It edits nothing. Its output is a report.
 /plugin install session-audit@agile-skills
 ```
 
+For Codex:
+
+```text
+codex plugin marketplace add cedricfarinazzo/agile-skills
+codex plugin add session-audit@agile-skills
+```
+
 ## Skill
 
 | Skill | Purpose | Triggers |
 |---|---|---|
 | `session-audit` | Cost and efficiency audit of one run, or a before/after comparison of two | "audit this session's cost", "compare before and after sessions", "is the new version more efficient", "where do the tokens go", "subagent cost breakdown" |
 
-Invoke it as `/session-audit:session-audit`.
+Invoke it as `/session-audit:session-audit` in Claude Code or `$session-audit` in Codex.
 
 ## Bundled script
 

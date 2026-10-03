@@ -2,6 +2,8 @@
 
 Three skills sharing one discipline: audit deeply, prove every claim, ship as a sequenced PR train. Each freezes a different side of the repo as its proof.
 
+**Codex:** install with `codex plugin add deep-refactor@agile-skills` and invoke `$deep-refactor`, `$test-refactor`, or `$doc-refactor`. See [the compatibility guide](../docs/CODEX_COMPATIBILITY.md) for runtime preflight and host differences.
+
 - **`deep-refactor`** — audit an entire codebase and ship everything it finds, with the test suite as the frozen contract.
 - **`test-refactor`** — the inverse: audit one test suite at a time (dead tests, duplication, parallel-unsafety, depth gaps), with production code frozen and coverage parity proven per module.
 - **`doc-refactor`** — audit every markdown file (READMEs, `docs/`, agent-instruction files) for lies, drift, duplication and bloat, with the source frozen and every surviving claim verified rather than read.

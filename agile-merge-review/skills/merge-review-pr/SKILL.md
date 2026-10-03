@@ -5,6 +5,14 @@ description: "Deep PR review: read every changed file in full, check correctness
 
 # merge-review-pr
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+On Codex this sub-skill runs inline under `agile-11-merge-train` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
+
+## Purpose
+
 **Independent review of an open PR by someone other than its author** — the authoritative pre-merge gate before code lands on `main` (invoked by `agile-11-merge-train` 3b). The implementer already self-reviewed in `implement-review`; this is the second pair of eyes. Do not trust the author's self-assessment: verify against the spec and the ADR yourself. (The third layer, `agile-13-sprint-closeout`, reviews the whole sprint against its goal, not one PR.)
 
 Reads every changed file in full — not just the diff — and reports findings by severity with a verifiable receipt. Under the merge train it runs in a dedicated subagent with a fresh context, and the orchestrator checks that receipt before the PR advances.

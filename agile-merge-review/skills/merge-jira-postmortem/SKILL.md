@@ -5,6 +5,14 @@ description: "Post structured post-merge comment to Jira ticket + transition to 
 
 # merge-jira-postmortem
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+On Codex this sub-skill runs inline under `agile-11-merge-train` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
+
+## Purpose
+
 Post a structured post-merge findings comment to a Jira ticket, synthesised from this session's review and fix work, and — when the PR merged — transition the ticket to **Done**. In `blocked` mode, post the block-notice comment and leave the ticket state untouched.
 
 **Mandatory even on a clean PR.** A 0-issue PR still gets the comment and the transition; "What was correct" becomes the whole body. Skipping because "nothing went wrong" strands the ticket in its in-review column and breaks the merge-train contract.

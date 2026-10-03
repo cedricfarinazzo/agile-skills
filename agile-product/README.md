@@ -23,6 +23,8 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP.
 
 Invoke directly with `/agile-product:<skill>`, or let Claude auto-fire on a matching phrase.
 
+**Codex:** install with `codex plugin add agile-product@agile-skills` and invoke the same user-facing skill as `$<skill-name>`. Read [the compatibility guide](../docs/CODEX_COMPATIBILITY.md) before a run that writes to Confluence.
+
 ## How it works
 
 Each skill **reads what the previous one wrote, then interviews you only for the gaps** — it never drafts a section it has no real information for, asks all missing questions in one message, and states every assumption explicitly. Runs are idempotent + resumable: re-running fills only what's missing, never duplicates a page.
