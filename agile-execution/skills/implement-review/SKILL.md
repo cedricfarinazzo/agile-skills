@@ -6,6 +6,10 @@ user-invocable: false
 
 # implement_review
 
+## Codex inline mode
+
+On Codex this sub-skill runs inline under `agile-10-implement` with `concurrency=0`; never spawn or assume a named agent or review-lens subagent. Read all six lenses in one pass, then perform the normal receipt and publication gate.
+
 **The implementing developer's own self-review.** You wrote this code in `implement-code`; now read it across six lenses before handing it over, and the findings get fixed in the same branch (the orchestrator loops back into `implement-code`). Ask "did I miss anything obvious?" — not "is this good enough to merge".
 
 The same code is reviewed three times by three roles, and this is the first: `merge-review-pr` (in `agile-11-merge-train`) is the independent pre-merge gate by someone who did not write it, and `agile-13-sprint-closeout` is the global end-of-sprint review of the wired-together whole. Stay in lane: be thorough, but this does not replace the independent gate.

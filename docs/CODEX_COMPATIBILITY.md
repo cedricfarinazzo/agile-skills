@@ -9,11 +9,11 @@ Every package ships three aligned manifests: Claude Code at `.claude-plugin/plug
 | Invoke a skill | `/<plugin>:<skill>` | `$skill` |
 | Plugin-local `agents/*.md` | Registered named agents; `model`, `effort`, and `tools` apply | Not registered; those fields are not translated to OpenAI models |
 | Execution and merge workflows | Named phase agents | Inline phase chain with `concurrency=0` |
-| Sprint drain `dispatch=session` | `build-session` then a fresh `merge-session` | Normalize to `dispatch=phase`; report the normalization |
+| Sprint drain `dispatch=session` | `build-session` then a fresh `merge-session` | Normalize every `dispatch` value to full inline execution; report the normalization |
 | CI wait without notifications | Host background wait | Reissue bounded foreground `timeout 270 gh run watch` waits |
 | Claude live Artifact | Publish when the tool is available | Skip when unavailable; Confluence remains the source of truth |
 
-Codex’s inline fallback preserves the workflow outcome but not Claude’s isolated-worker model selection. Equal per-worker isolation requires a separate Codex-native orchestrator with OpenAI model IDs and explicit tool grants; it cannot be declared through Claude `agents/*.md` files.
+Codex is intentionally locked to full inline execution. It preserves the workflow outcome but not Claude’s isolated-worker model selection; no Codex-native orchestration is planned in this package.
 
 ## Runtime preflight
 

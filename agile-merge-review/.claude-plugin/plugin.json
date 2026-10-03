@@ -2,7 +2,7 @@
   "name": "agile-merge-review",
   "displayName": "Agile Merge Review",
   "description": "Merge-review skills for Claude Code — deep PR review, fix-until-satisfied, rebase with conflict resolution, structured Jira postmortems, and multi-PR merge train. Needs the gh CLI. (Formerly dev-skills.)",
-  "version": "1.18.2",
+  "version": "1.19.0",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"

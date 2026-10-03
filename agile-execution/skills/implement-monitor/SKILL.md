@@ -6,6 +6,10 @@ user-invocable: false
 
 # implement_monitor
 
+## Codex inline mode
+
+On Codex this sub-skill runs inline under `agile-10-implement` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
+
 PR monitoring + rework for `agile-10-implement`, applied to the **pre-merge** PR. Invoked per ticket whose PR is open — just-built, or from the rework queue.
 
 **Always sequential, in both modes.** Rework touches the shared Docker stack, so under `concurrency>1` this phase is the serial tail: the Phase-1 build fans out across worktrees (stack-free only), then its PRs are monitored one at a time holding the stack. This is where the deferred stack-bound tiers actually run — a red integration/e2e check from CI is **reproduced and fixed here**, never re-pushed in the hope CI flips.

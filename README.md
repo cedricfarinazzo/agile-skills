@@ -128,7 +128,7 @@ codex plugin add agile-planning@agile-skills
 # install any other phase by the same name
 ```
 
-Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Invoke skills as `$skill-name`. Its execution and merge workflows run inline because installed plugins do not register plugin-local named agents; `agile-sprint-drain dispatch=session` is normalized to `dispatch=phase`. Claude-only Artifact publication is optional: Confluence remains the source of truth when no Artifact tool is available.
+Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Invoke skills as `$skill-name`. Codex is locked to full inline execution: no plugin-local agent or subagent dispatch, every workflow phase uses `concurrency=0`, and every sprint-drain `dispatch` value normalizes to inline execution. Claude-only Artifact publication is optional: Confluence remains the source of truth when no Artifact tool is available.
 
 See [Claude Code and Codex compatibility](docs/CODEX_COMPATIBILITY.md) for the runtime matrix, preflight requirements, and release smoke-test procedure.
 
