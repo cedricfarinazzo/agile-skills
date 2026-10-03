@@ -50,6 +50,10 @@ Classify every file — no doc is skipped because it reads well:
 
 One synthesized document: falsehoods (each with the check that caught it), stale sections, the **duplication map** naming the chosen home for every repeated fact, replicated invariants with their sync rule, generated files with their generators, compression candidates with measured sizes, the gap list, and any **code defects the audit uncovered** — reported, not fixed. Three baselines attached: total doc bytes, the per-file token cost of everything auto-loaded into an agent's context, and the link/anchor/command checks as a pass table. Publish where the team can act on it; the report is the contract for everything after.
 
+### Cleanup train ledger
+
+The report carries one durable row per candidate: `ID`, surviving claim or reader behavior, evidence, canonical home, pins, frozen source boundary, validation command, dependency, and status. Status is exactly `Proposed`, `Approved`, `In progress`, `Blocked`, `Superseded`, `Done`, or `Rejected` (with a one-line reason). A change whose truth cannot be established from the repository is `Blocked — verification required`; do not invent its replacement. A replicated invariant or instruction that is deliberately load-bearing is `Deliberate — do not fix`, not duplication to collapse.
+
 ## Phase 3 — Ticket
 
 One ticket = one PR, sequenced:
@@ -62,10 +66,13 @@ One ticket = one PR, sequenced:
 
 Every ticket lists its own out-of-scope items. Source diff in every PR is **empty**, verified mechanically (diff the non-doc paths — zero lines); the only non-markdown files a doc PR may touch are docs-toolchain config (site nav, link-checker config), named in the ticket in advance.
 
+Every ticket is executable with no audit-session context. State the surviving reader behavior, exact in-scope and tempting-but-out-of-scope paths, canonical post-change home, frozen source boundary, pins, repository-native commands with expected results, and specific STOP conditions (drift, a new pin, a required source edit, or a failed claim verification). End with a **prevention decision**: `Guard added`, `Ownership recorded`, or `No guard justified`. Add a guard only when it is the cheapest independent proof; never add a brittle link/source grep or permanent instruction merely to make the ticket look complete.
+
 ## Phase 4 — Drain
 
 - One branch per ticket off current main; isolated worktrees when parallel. Markdown looks conflict-free and isn't — every ticket in this train rewrites the same handful of READMEs.
 - **Re-verify at the merged state, not at authoring time.** Each merged car moves the paths and headings the next car's ticket cites: locate every target by content, never by line number, and re-run the link, anchor and command checks against the branch's own tree rather than trusting the report. A claim that no longer holds is a finding to report, never a silent skip or a blind apply.
+- **Reconcile the ledger before every car.** Re-check every ready candidate against current main. Mark independently fixed work `Superseded`; refresh drifted evidence and scope before it can run; retain a reintroduced resolved problem as `Possible regression`, not a duplicate; and leave an evidence-backed `Rejected` or `Deliberate — do not fix` row visible so the next audit does not relitigate it. Drain all remaining `Approved` work without pausing for a checkpoint.
 - **Do not hand-roll the drain.** Each ticket goes through the project's normal implement → review → merge pipeline (`agile-10-implement` / `agile-11-merge-train` where installed), so every car carries the same validation, phase markers, review receipts and post-merge postmortem as any other ticket. An audit train is a *source of tickets*, never a parallel process with weaker evidence: a car that merges with no marker trail leaves the board unable to say how the change was reviewed, and that gap is invisible precisely because the change shipped fine.
 - **Render before you merge.** Markdown is compiled by renderers you don't control — the forge, the docs site, and a model reading the raw text disagree about nested lists, tables, inline HTML, relative links and admonitions. Check the actual rendered page for anything structural; a relative link that resolves on disk can still 404 on the published site.
 - **Prove the compression kept its operative tokens.** The per-file before/after diff of commands, flags and keys goes in the PR as output, not as a sentence in the description claiming it was done.

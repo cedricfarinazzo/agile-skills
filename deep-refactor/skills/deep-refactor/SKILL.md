@@ -36,6 +36,10 @@ Every agent follows three rules:
 
 One synthesized report: defects, perf, dependency/image wins, safe backlog, blocked list — each item with exact `file:line`, its pin inventory, evidence, and effort. Publish it where the team can act on it. The report is the contract for everything after.
 
+### Cleanup train ledger
+
+The report carries one durable row per candidate: `ID`, preserved behavior, evidence, canonical owner, pins, frozen side, validation command, dependency, and status. Status is exactly `Proposed`, `Approved`, `In progress`, `Blocked`, `Superseded`, `Done`, or `Rejected` (with a one-line reason). A candidate that needs behavior proof before code can safely move is `Blocked — characterization required`; hand it to `test-refactor` with production frozen, then return to this train once that test is established. A weak, duplicate, by-design, or uneconomic candidate is `Rejected` or `Deliberate — do not fix`, never a ticket padded into the train.
+
 **Every count in the report is a measurement with a date, not a fact.** A report is a snapshot of a tree the train is about to change, so record each count *with the command that produced it and the commit it was taken at* — "47 call sites (`grep -rc …` at `abc1234`)", never a bare "47". The command is what makes the number re-derivable by whoever builds the car three merges later; the bare number is what silently goes wrong.
 
 ## Phase 3 — Ticket
@@ -50,6 +54,8 @@ Slice into a sequenced train, one ticket = one PR:
 
 Every ticket links the report and lists its own out-of-scope items so nothing gets sneaked in.
 
+Every ticket is executable with no audit-session context. State the preserved behavior, exact in-scope and tempting-but-out-of-scope paths, canonical post-change owner, frozen side, pins, repository-native commands with expected results, and specific STOP conditions (drift, a new pin, a required out-of-scope edit, or a failed characterization). End with a **prevention decision**: `Guard added`, `Ownership recorded`, or `No guard justified`. Add a guard only when it is the cheapest independent proof; never add a brittle source grep or permanent instruction merely to make the ticket look complete.
+
 **A ticket states the property and the command that derives its count — never a frozen literal.** Write "every site that calls `foo()` without a timeout (`rg -c …`)", not "the 47 sites". A literal count is correct only at the instant it was measured, has to be maintained by whoever moves the code, and is silently wrong until someone re-runs it — which, in a sequenced train, is guaranteed to be the person building the last car. The same applies to the effort figure: a saving is quoted as the benchmark that produced it, or it is quoted as an unknown.
 
 ## Phase 4 — Drain
@@ -62,6 +68,7 @@ Every ticket links the report and lists its own out-of-scope items so nothing ge
   - **Re-derive every count, enumeration and baseline on the car's own branch point before planning it**, using the command the report recorded. Expect the number to have moved in either direction: an earlier car may have already fixed some sites, or introduced a second code path that widened the set. Quote deltas against the re-derived figure, never against the report's snapshot.
 
   A claim that no longer holds — the symbol is pinned after all, the file was already fixed, the set is now larger than the ticket says — is a *finding to report*, never a silent skip or a blind apply. Report it on the ticket before implementing, so the reviewer reads the corrected reading rather than the stale one.
+- **Reconcile the ledger before every car.** Re-check every ready candidate against current main. Mark independently fixed work `Superseded`; refresh drifted evidence and scope before it can run; retain a reintroduced resolved problem as `Possible regression`, not a duplicate; and leave an evidence-backed `Rejected` or `Deliberate — do not fix` row visible so the next audit does not relitigate it. Drain all remaining `Approved` work without pausing for a checkpoint.
 - **Do not hand-roll the drain.** Each ticket goes through the project's normal implement → review → merge pipeline (`agile-10-implement` / `agile-11-merge-train` where installed), so every car carries the same validation, phase markers, review receipts and post-merge postmortem as any other ticket. An audit train is a *source of tickets*, never a parallel process with weaker evidence: a car that merges with no marker trail leaves the board unable to say how the change was reviewed, and that gap is invisible precisely because the code shipped fine.
 - Merge only on a green CI run you verified yourself; sequential merges; rebase the next branch when file sets intersect.
 - **Two identical CI failures are not a flake.** Diagnose from the actual logs and artifacts (a cancelled job means a hang — find what hung); fix on the branch with the diagnosis in the PR; announce any cross-PR interaction (e.g. a guard that must change once a sibling merges) in both PR bodies, then actually apply it.

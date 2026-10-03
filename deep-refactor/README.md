@@ -13,9 +13,9 @@ Three skills sharing one discipline: audit deeply, prove every claim, ship as a 
 | Phase | What happens | The discipline |
 |---|---|---|
 | **Audit** | Parallel read-only agents over disjoint areas + a mechanical scanner; loop until a pass comes back empty | Every proposal carries its **pin inventory** (test imports, patch targets, source-text guards, coverage detectors, CI globs; for docs: inbound links, site nav, `#anchor` targets, load-bearing filenames) and its **evidence** (instrumented counts, mutation probes, real diffs, executed commands) |
-| **Report** | One synthesized document: defects / deletions / merges / safe backlog / blocked list / "deliberate — do not fix" | Defects outrank refactors; recorded decisions aren't relitigated |
+| **Report** | One synthesized document: defects / deletions / merges / safe backlog / blocked list / "deliberate — do not fix", plus a reconciled train ledger | Every row carries proof, frozen side, validation, dependencies, and a durable status; recorded decisions aren't relitigated |
 | **Ticket** | Sequenced train, one ticket = one PR, sanctioned edits enumerated in advance, non-goals listed per ticket | `deep-refactor`: bugs first, structural splits last, zero test edits in between. `test-refactor`: deletions/merges → harness → parallel-isolation → runtime cost → depth, zero production edits throughout. `doc-refactor`: falsehoods → deletions → dedup → compression → gaps, file moves last, zero source edits throughout |
-| **Drain** | One branch per ticket, isolated worktrees for parallel work, sequential merges on self-verified green CI | Verify with the **real workload**; every touched guard or test gets a **non-vacuity proof** (inject a defect, watch it fail, revert); two identical CI failures are a diagnosis, not a rerun |
+| **Drain** | One branch per ticket, isolated worktrees for parallel work, sequential merges on self-verified green CI | Reconcile the train against current main before every car; verify with the **real workload**; every touched guard or test gets a **non-vacuity proof** (inject a defect, watch it fail, revert); two identical CI failures are a diagnosis, not a rerun |
 
 ## test-refactor specifics
 
