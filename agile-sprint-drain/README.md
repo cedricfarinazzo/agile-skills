@@ -18,7 +18,7 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 | # | Skill | Role |
 |---|-------|------|
-| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train (invoked inline via the Skill tool) to a fixed point, with an actionable-work guard; optional `concurrency=N` = WIP limit on the whole chain (build + open PRs); optional `dispatch=session` |
+| — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train (invoked inline via the Skill tool) to a fixed point, with an actionable-work guard; optional `concurrency=N` = WIP limit on the whole chain (build + open PRs); optional `dispatch=session`; optional `max-merges=N` stops as PAUSED after N merges, resumable from the on-disk ledger |
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
@@ -74,7 +74,7 @@ By the dependency gate a ticket is un-startable until its blocker's PR merges �
 
 ## Configuration
 
-`session-batch` (optional, default `1`) — max tickets per `build-session` under `dispatch=session`. Otherwise reads nothing extra — it inherits both orchestrators' `## Skill configuration` from the consumer repo's `CLAUDE.md` / `AGENTS.md` (`cloudId`, status names, `base-branch`, repo / `repo-component-map`, lint/test commands, etc.).
+`session-batch` (optional, default `1`) — max tickets per `build-session` under `dispatch=session`. Run state (`context.md`, `ledger.md`) lives in `.git/agile-drain/`, never committed; for a long sprint, `/loop /agile-sprint-drain max-merges=N` runs each chunk in a fresh context. Otherwise reads nothing extra — it inherits both orchestrators' `## Skill configuration` from the consumer repo's `CLAUDE.md` / `AGENTS.md` (`cloudId`, status names, `base-branch`, repo / `repo-component-map`, lint/test commands, etc.).
 
 ## Where it fits
 
