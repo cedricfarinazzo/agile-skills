@@ -6,6 +6,7 @@ Three skills sharing one discipline: audit deeply, prove every claim, ship as a 
 
 - **`deep-refactor`** — audit an entire codebase and ship everything it finds, with the test suite as the frozen contract.
 - **`test-refactor`** — the inverse: audit one test suite at a time (dead tests, duplication, parallel-unsafety, depth gaps), with production code frozen and coverage parity proven per module.
+- **`test-refactor characterize <scope>`** — establish minimal owner-boundary behavior proof before a risky code cleanup, with production frozen; the resulting test becomes the later refactor's contract.
 - **`doc-refactor`** — audit every markdown file (READMEs, `docs/`, agent-instruction files) for lies, drift, duplication and bloat, with the source frozen and every surviving claim verified rather than read.
 
 ## The loop (all three skills)
@@ -25,6 +26,7 @@ Three skills sharing one discipline: audit deeply, prove every claim, ship as a 
 - Profile-driven runtime cost: suite wall-clock + peak memory are baselined in the audit and gated per PR (measured before/after; a speedup never bought with coverage).
 - **Single-parallel-run invariant**: the whole suite runs in one parallel invocation in the CI test job — parallelism conflicts are fixed by isolating the test (unique schemas/ports/dirs per worker, no shared state, no sleeps), never by splitting the run, serializing, or retrying.
 - Keeping good coverage is a stated goal: per-module parity against the audit baseline gated per PR, depth additions on critical paths push it up — a cleanup that ends with less real coverage has failed.
+- Before a deletion, an odd-looking test must clear the retention bar: name the regression it detects, any real callers of its seam, stronger surviving proof, and focused validation. “Looks coupled” is not deletion evidence.
 
 ## doc-refactor specifics
 

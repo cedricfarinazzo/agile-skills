@@ -22,6 +22,10 @@ Four phases: **audit → report → ticket → drain**. The discipline that make
 
 **Question the global architecture first.** Before hunting local smells, render a verdict on the big shapes — service boundaries, sync/async splits, dependency direction, layering — with evidence. "The architecture is sound; the debt is duplication and god-files" is a finding; so is the opposite. Either way the verdict scopes everything below, and a structural problem found here outranks every cleanup.
 
+### AI cleanup taxonomy
+
+Audit for the residue high-volume implementation agents commonly leave behind: duplicated business rules that have drifted; one-implementation abstractions and forwarding wrappers; obsolete flags, aliases, and compatibility paths; broad catches, silent fallbacks, and inconsistent error boundaries; dead exports or unreachable branches; and tests that forced production-only seams. A pattern is not a finding because it looks generated: name its concrete cost, `path:line` evidence, the behavior that must survive, and the canonical owner after cleanup. If that behavior lacks trustworthy proof, block the refactor for `test-refactor characterize <scope>` rather than changing code on faith.
+
 On Claude Code, fan out **parallel read-only agents over disjoint areas** (one per subsystem: domain core, workers/jobs, API surface, build/dependency/config hygiene). On Codex, cover those areas in that order inline. Run a mechanical scanner (dead code / duplication / complexity) alongside for signal, not verdicts.
 
 **Loop until dry.** One sweep is never exhaustive: after acting on a pass, run another with fresh eyes on the areas the first pass only skimmed — a second pass over "already audited" code routinely surfaces defects the first missed. The exit condition is a pass that comes back empty, not a list that looks long enough.
