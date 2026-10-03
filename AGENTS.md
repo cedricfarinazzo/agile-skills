@@ -24,4 +24,6 @@ for plugin in agile-* deep-refactor project-review session-audit; do
 done
 ```
 
+Run `python3 scripts/validate_dual_host_packaging.py` to verify marketplace, manifest, and portable-package parity before release. See `docs/CODEX_COMPATIBILITY.md` for the host runtime matrix and clean-host smoke test.
+
 Confirm that every marketplace entry names a root package, both marketplaces expose the same package set, and every manifest name matches its package.

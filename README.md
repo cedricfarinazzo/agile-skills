@@ -130,6 +130,8 @@ codex plugin add agile-planning@agile-skills
 
 Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Invoke skills as `$skill-name`. Its execution and merge workflows run inline because installed plugins do not register plugin-local named agents; `agile-sprint-drain dispatch=session` is normalized to `dispatch=phase`. Claude-only Artifact publication is optional: Confluence remains the source of truth when no Artifact tool is available.
 
+See [Claude Code and Codex compatibility](docs/CODEX_COMPATIBILITY.md) for the runtime matrix, preflight requirements, and release smoke-test procedure.
+
 ### GitHub Copilot CLI
 
 Skills follow the [Agent Skills](https://agentskills.io) open standard — copy the skill directories you want:
