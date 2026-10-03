@@ -61,6 +61,8 @@ def main():
             failures += fail(f"{package}: manifest versions differ")
         if manifests[1].get("skills") != "./skills/":
             failures += fail(f"{package}: Codex skills path must be ./skills/")
+        if package in {"agile-execution", "agile-merge-review", "agile-sprint-drain"} and "Subagents" in manifests[1].get("interface", {}).get("capabilities", []):
+            failures += fail(f"{package}: Codex is inline-only and must not advertise Subagents")
         if manifests[2].get("$schema") != "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json":
             failures += fail(f"{package}: portable manifest has the wrong schema")
 

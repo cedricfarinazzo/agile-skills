@@ -12,6 +12,8 @@ user-invocable: false
 
 On Codex this sub-skill runs inline under `agile-10-implement` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
 
+## Purpose
+
 PR phase for `agile-10-implement`, invoked after `implement-code` pushed the branch. **This skill owns opening the PR**, off `<base-branch>`. Idempotent — it updates an existing open PR rather than opening a duplicate.
 
 **Autonomous — never prompt the user.** This phase makes no product or design decisions: the build is done and it only describes it, so there is no critical-decision path here. Where the diff and the plan disagree, say so in the PR body and continue. This holds in `concurrency=0` inline mode too, where no agent wraps this skill.

@@ -11,6 +11,8 @@ description: "Fix every PR review issue, commit, push, re-check until satisfied.
 
 On Codex this sub-skill runs inline under `agile-11-merge-train` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
 
+## Purpose
+
 Fix every issue from a PR review, commit, re-examine, repeat until satisfied. The `"Satisfied. No remaining issues."` verdict is the contract callers (`agile-11-merge-train` 3c) gate on.
 
 **Input:** the issues from the current session (`merge-review-pr` output or an inline review). No review yet → run `merge-review-pr` first.

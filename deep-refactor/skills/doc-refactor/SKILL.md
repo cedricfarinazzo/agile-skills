@@ -12,6 +12,8 @@ user-invocable: true
 
 When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
 
+## Purpose
+
 The third sibling, with the contract inverted once more. `deep-refactor` freezes the test suite; `test-refactor` freezes production code; here **the source is frozen entirely** and the markdown is the object of change. A doc fix that "needs" a code change is out of scope — a doc that disagrees with the code is a finding, the audit says which side is wrong, and if it's the code that's wrong it becomes its own separately-ticketed PR, never smuggled into a doc PR.
 
 **The goal is documentation that is true, findable, DRY and cheap to read.** The failure mode is not ugliness, it is **a confident false statement**: a doc that lies costs more than no doc at all, because a reader acts on it and then debugs the wrong thing. So the proof here is neither a suite nor a coverage number — it is **verification**. Every claim that survives the audit has been executed or resolved against the repo, and an unchecked sentence is a hypothesis wearing the voice of documentation.

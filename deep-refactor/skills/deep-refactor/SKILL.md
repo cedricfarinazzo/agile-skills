@@ -12,6 +12,8 @@ user-invocable: true
 
 When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
 
+## Purpose
+
 **The goal is code that is clean, DRY and easy to understand.** The existing test suite is the proof that behavior didn't move — which means **editing a test to make a refactor pass is cheating**: it silently rewrites the contract you're claiming to preserve. Treat every test edit as a red flag to design around (aliases, facades, injection), not a convenience. The rare edit that is genuinely warranted — a fixture that encodes a bug, a guard whose shape must follow a file split — is done in the open: enumerated in advance, justified per file, concentrated in one ticket.
 
 Four phases: **audit → report → ticket → drain**. The discipline that makes it safe at scale: nothing is proposed until it has been vetted against the codebase's *change constraints*, and nothing is claimed until it has been measured or executed.

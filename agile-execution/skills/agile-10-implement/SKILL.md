@@ -11,6 +11,8 @@ description: "Autonomously build the active sprint/board in Jira dependency orde
 
 When loaded by Codex, run every phase inline in this context with `concurrency=0`. Never spawn, request, or claim a named agent or subagent; preserve every phase gate, marker, and receipt yourself.
 
+## Purpose
+
 Clears the **build** queue: every eligible `To Do` Story on the active board becomes an open, self-reviewed PR at `In Review`, in Jira dependency order, unattended. `agile-11-merge-train` then clears the **merge** queue (open PR → `main`). An ambiguous ticket goes back as Needs Info; never guess its spec.
 
 **Non-goals:** merging to `main` (`agile-11-merge-train`); transitioning to `Done` (skill 14); scope not in the Story; backlog or future-sprint tickets.

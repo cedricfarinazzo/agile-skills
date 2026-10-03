@@ -11,6 +11,8 @@ description: "Process every open PR sequentially: rebase → deep review → fix
 
 When loaded by Codex, run every PR phase inline in this context with `concurrency=0`. Never spawn, request, or claim a named agent or subagent; preserve every phase gate, reviewed-sha check, and receipt yourself.
 
+## Purpose
+
 Clears the open-PR queue **safely**. Composes `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem` and adds the multi-PR layer: ordering, cross-PR conflict detection, Jira state, and the final report.
 
 **Goal:** every PR that lands on `main` was deeply read by a reviewer, rebased onto the current tip, re-verified by a **fresh** CI run, and matched against its Jira ACs. The 3b receipt gate — Files-read equal to the diff set — enforces that.
