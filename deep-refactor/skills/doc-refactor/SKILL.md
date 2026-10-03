@@ -20,6 +20,10 @@ The third sibling, with the contract inverted once more. `deep-refactor` freezes
 
 **Some markdown is executable.** `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, skill and agent frontmatter — these are loaded into an agent's context and change what it does. Treat them as code with no test suite: a dropped trigger phrase or a deleted rule is a silent behavioral regression that nothing will catch, and they are paid in **tokens on every session, forever**, which makes their size a deliverable and not a matter of taste.
 
+### `rules` — standing-instruction hygiene
+
+When invoked with `rules`, audit the whole standing-rule corpus in addition to the normal markdown inventory: root and nested `AGENTS.md`/`CLAUDE.md`, agent and skill instructions, conventions, and binding ADR constraints. A rule is a directive that changes behavior across tasks, not a bounded work-status note; extract any durable directive buried in a status log instead of retaining the log wholesale. For each rule, state its neutral behavioral impact and its continuing context cost, then flag only evidenced problems: `Redundant`, `Stale / superseded`, `Misfiled`, `Low-yield ritual`, `Not actionable`, `Brittle`, or `Conflicts`. A healthy rule has no manufactured critique. Compare the corpus with installed skills and current ADRs before calling a rule duplicate, and preserve intentionally replicated invariants with their existing sync proof.
+
 Four phases: **audit → report → ticket → drain**.
 
 ## Phase 1 — Audit
