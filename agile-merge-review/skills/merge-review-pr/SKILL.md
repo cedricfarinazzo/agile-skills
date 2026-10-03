@@ -5,7 +5,9 @@ description: "Deep PR review: read every changed file in full, check correctness
 
 # merge-review-pr
 
-## Codex inline mode
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
 
 On Codex this sub-skill runs inline under `agile-11-merge-train` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
 

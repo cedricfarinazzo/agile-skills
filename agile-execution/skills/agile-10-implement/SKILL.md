@@ -5,7 +5,9 @@ description: "Autonomously build the active sprint/board in Jira dependency orde
 
 # agile_10_implement
 
-## Codex inline mode
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
 
 When loaded by Codex, run every phase inline in this context with `concurrency=0`. Never spawn, request, or claim a named agent or subagent; preserve every phase gate, marker, and receipt yourself.
 

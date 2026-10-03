@@ -6,7 +6,9 @@ user-invocable: true
 
 # agile-sprint-drain
 
-## Codex inline mode
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
 
 When loaded by Codex, run the entire drain, including both orchestrators and all their phases, inline with `concurrency=0`. Normalize every `dispatch` value to inline execution; never spawn, request, or claim a named agent, subagent, `build-session`, or `merge-session`.
 

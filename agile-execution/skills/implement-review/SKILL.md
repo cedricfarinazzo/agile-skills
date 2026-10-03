@@ -6,7 +6,9 @@ user-invocable: false
 
 # implement_review
 
-## Codex inline mode
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
 
 On Codex this sub-skill runs inline under `agile-10-implement` with `concurrency=0`; never spawn or assume a named agent or review-lens subagent. Read all six lenses in one pass, then perform the normal receipt and publication gate.
 

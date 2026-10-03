@@ -6,7 +6,9 @@ user-invocable: true
 
 # doc-refactor
 
-## Codex inline mode
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
 
 When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
 

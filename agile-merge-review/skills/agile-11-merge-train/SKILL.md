@@ -5,7 +5,9 @@ description: "Process every open PR sequentially: rebase → deep review → fix
 
 # agile_11_merge_train
 
-## Codex inline mode
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
 
 When loaded by Codex, run every PR phase inline in this context with `concurrency=0`. Never spawn, request, or claim a named agent or subagent; preserve every phase gate, reviewed-sha check, and receipt yourself.
 
