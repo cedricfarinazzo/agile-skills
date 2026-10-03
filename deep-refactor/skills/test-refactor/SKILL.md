@@ -1,6 +1,6 @@
 ---
 name: test-refactor
-description: "Audit one test suite at a time for dead weight, duplication, parallel-unsafety and runtime cost, then ticket and ship the cleanup as a PR train — with production code frozen and good coverage kept, proven per module rather than assumed. Triggers: test refactor, clean the tests, refactor the tests, test suite audit, DRY the tests, parallelize the test suite, speed up the tests."
+description: "Audit one test suite at a time for dead weight, duplication, parallel-unsafety and runtime cost, or characterize behavior before a risky refactor — with production code frozen and good coverage kept, proven per module rather than assumed. Triggers: test refactor, characterize before refactor, characterization tests, clean the tests, refactor the tests, test suite audit, DRY the tests, parallelize the test suite, speed up the tests."
 user-invocable: true
 ---
 
@@ -20,6 +20,12 @@ The sibling of `deep-refactor`, with the contract inverted. There, the test suit
 
 **One suite at a time.** The user names the scope (e.g. "backend unit tests", "frontend component tests", "integration"). Everything outside it is untouchable this run; cross-suite findings go in the report as follow-ups.
 
+### `characterize <scope>` — establish a frozen contract first
+
+When invoked with `characterize`, do not run a deletion campaign. Production code stays frozen and the sole goal is to add the smallest owner-boundary tests that expose the behavior a later `deep-refactor` ticket must preserve. Start with a named risky flow, public contract, failure mode, or compatibility path; never characterize internal call shape merely because it is easy to assert. Each new test answers: (1) what observable behavior or invariant it protects, (2) what credible regression makes it fail, (3) why existing coverage misses that regression, and (4) whether it demands a production seam no production caller needs. If the fourth answer is yes, move the test to the real boundary instead.
+
+For a reported bug, prove the test fails on the pre-fix behavior when feasible. One owner-boundary regression covers one defect; do not replay it at every crossed layer. Report the established contract, its owning test, targeted validation, and the precise `deep-refactor` candidate it unblocks. Then return to the normal audit → report → ticket → drain flow; characterization is a ticket in that flow, not a new approval gate.
+
 Four phases: **audit → report → ticket → drain**.
 
 ## Phase 1 — Audit
@@ -34,6 +40,8 @@ Classify every test — no test is skipped because it looks fine:
 4. **Shallow on critical paths — deepen.** Identify the platform-critical modules; a happy-path-only test on one is a finding. Add edge cases, failure paths, boundary values, property-based tests where they pay. Depth on what matters outranks breadth on what doesn't.
 5. **Unreadable or WET — refactor.** Copy-paste setup becomes shared fixtures, factories, builders. But **locality beats indirection**: a reader must see what a test asserts without chasing five fixtures, and a test must contain **no logic** — a loop or conditional that computes the expected value re-implements the subject and inherits its bugs. Explicit expected values, self-describing names, one assertion story per test.
 6. **Expensive — profile, then cheapen.** Profile the suite: the slowest tests, the costliest fixtures, and peak memory per worker — measured, not guessed. The usual culprits: real sleeps and timeouts where a condition wait or fake clock belongs; expensive state rebuilt per test that one wider-scoped, read-only fixture could serve (widen scope **only** for state no test mutates — a shared mutable fixture trades speed for coupling and parallel-unsafety); oversized fixture data where a minimal case proves the same thing; unmocked network/disk on paths the test doesn't assert; subprocess or container spawns per test that can be pooled per worker; giant parametrize grids where a boundary-value subset has identical failure-detection power (prove it: the dropped cases catch no mutation the kept ones miss). A speedup must never be bought with coverage — that's what the parity gate below is for.
+
+**Retention bar before deletion.** An odd-looking test stays unless the audit records its exact name/location, the regression it can detect, non-test callers of any production or support seam it covers, stronger surviving owner-boundary proof (or why none is needed), the reason/history it exists where available, the deletion it unlocks, risk, and a focused validation command. Source inspection can be an independent guard only when it protects an externally meaningful key, byte, path, or architecture contract and survives an identifier-only refactor. A test that merely resembles implementation is suspect, not disposable.
 
 **Hermeticity is part of the audit.** A unit test that opens a real network connection is broken even while green: on a dev machine a local service may silently answer (the test then has side effects on a live system), and on CI nothing answers — each swallowed best-effort call burns a connect-retry budget, and in the wrong network mode hangs the suite outright. The diagnosis signature is CI durations quantized at identical values (±0.2 s) across unrelated tests: that is a timeout constant, never compute. Audit for unpatched I/O seams (publishes, queue sends, best-effort telemetry) and treat local wall-clock as inadmissible evidence about CI — a suite that is fast locally can be 10× slower on CI for reasons only CI can show you.
 
