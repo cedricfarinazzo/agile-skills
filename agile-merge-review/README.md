@@ -24,6 +24,8 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 
 The `merge-*` blocks are **unnumbered sub-skills** the train composes — each **dispatched to its named `agile-merge-review:*` agent** that invokes the sub-skill via the Skill tool and returns a receipt the train verifies; you don't call them directly. Invoke `/agile-merge-review:agile-11-merge-train` ("merge train", "process all open PRs").
 
+**Codex:** invoke `$agile-11-merge-train`. Plugin-local phase agents are Claude Code-only; Codex runs the phase chain inline with `concurrency=0` and does not claim named-agent dispatch.
+
 **Agents** (`agents/` dir, one per dispatch point — model/effort scoped to that step's workload):
 
 | Agent | Runs | Model / effort |

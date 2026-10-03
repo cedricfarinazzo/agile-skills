@@ -4,7 +4,7 @@
 
 [Claude Code](https://claude.ai/code) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
 
-Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
+Raw idea → sprint retro, wired into **Confluence** and **Jira**. Focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
 
 | Plugin | Phase | Skills | Needs |
 |--------|-------|--------|-------|
@@ -128,7 +128,7 @@ codex plugin add agile-planning@agile-skills
 # install any other phase by the same name
 ```
 
-Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Its execution and merge workflows run inline because installed plugins do not register plugin-local named agents.
+Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Invoke skills as `$skill-name`. Its execution and merge workflows run inline because installed plugins do not register plugin-local named agents; `agile-sprint-drain dispatch=session` is normalized to `dispatch=phase`. Claude-only Artifact publication is optional: Confluence remains the source of truth when no Artifact tool is available.
 
 ### GitHub Copilot CLI
 

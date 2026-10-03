@@ -26,6 +26,8 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP + `gh`.
 
 The `implement-*` blocks are **unnumbered sub-skills** (`user-invocable: false` — hidden from the `/` menu, but the orchestrator still composes them, each dispatched to a named `agile-execution:*` agent that invokes the sub-skill via the Skill tool) — you don't call them directly. Invoke `/agile-execution:agile-10-implement` ("implement the sprint", "work the sprint", "pick up tickets").
 
+**Codex:** invoke `$agile-10-implement`. Plugin-local phase agents are Claude Code-only; Codex runs the same phase chain inline with `concurrency=0` and does not claim named-agent dispatch.
+
 **Agents** (`agents/` dir, one per dispatch point — model/effort scoped to that phase's workload, not the generic catch-all agent):
 
 | Agent | Runs | Model / effort |

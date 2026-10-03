@@ -1,6 +1,6 @@
 {
   "name": "session-audit",
-  "version":"0.1.0",
+  "version":"0.1.1",
   "description": "Out-of-cycle, read-only cost and efficiency audit of Claude Code sessions that ran agile-skills: per-skill and per-subagent spend, a before/after delta normalised by work shipped, and ranked improvements.",
   "author": {
     "name": "cedricfarinazzo",

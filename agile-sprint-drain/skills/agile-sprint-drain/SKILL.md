@@ -53,7 +53,7 @@ Why: merges are sequential and each moves the base, so every open PR pays a reba
 - **Fresh merge context.** `merge-session` never saw the authoring and is the independent reviewer; the build-side `implement-review` is a self-check. The train's review step is never skipped or folded into the build session.
 - **Sessions are never reused or resumed**, and build and merge are never the same agent.
 - **Receipts:** one line per item, folded into the LEDGER and dropped, never forwarded to the next session. Verify them like phase receipts: a marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
-- **Codex** does not discover the session agents: run `dispatch=phase` and say so.
+- **Codex** does not discover the session agents: normalize `dispatch=session` to `dispatch=phase`, run the chain inline, and state that normalization in the final report. Do not claim `build-session` or `merge-session` ran.
 
 ## The loop
 

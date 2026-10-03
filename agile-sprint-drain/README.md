@@ -20,7 +20,9 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 |---|-------|------|
 | — | `agile-sprint-drain` | **Outer orchestrator** (user-invoked) — alternates agile-10-implement and agile-11-merge-train (invoked inline via the Skill tool) to a fixed point, with an actionable-work guard; optional `concurrency=N` = WIP limit on the whole chain (build + open PRs); optional `dispatch=session`; optional `max-merges=N` stops as PAUSED after N merges, resumable from the on-disk ledger |
 
-One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
+One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` in Claude Code or `$agile-sprint-drain` in Codex ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
+
+On Codex, plugin-local agent files are not registered. The workflow runs inline; `dispatch=session` is normalized to `dispatch=phase`, and no `build-session` or `merge-session` agent is dispatched.
 
 **Two agents, used only under `dispatch=session`.** By default (`dispatch=phase`) the drain invokes both orchestrators **inline via the Skill tool**, and every phase runs in its own named agent one layer down. Under `dispatch=session` each pass instead dispatches `build-session` (runs `agile-10-implement` with `concurrency=0`, at most `session-batch` tickets, returns at `In Review` without waiting on CI) and then a fresh `merge-session` (runs `agile-11-merge-train` with `concurrency=0`), dispatched only when a PR is actionable — while every PR is still in CI the drain watches each run in the background itself rather than paying a session to poll. A session that reaches a CI wait ends with a handoff (`waiting: <run id>`, `resume_at`), and the drain dispatches a fresh session from it once the run finishes; sessions are never resumed (subagent caches last 5 minutes). Dispatch depth stays 1: the session agents never dispatch.
 
