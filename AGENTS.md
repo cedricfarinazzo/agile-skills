@@ -16,15 +16,14 @@ Read and follow [CLAUDE.md](CLAUDE.md) for the shared workflow and invariants. T
 
 ## Verify
 
-Run the existing Claude invariants, then validate portable/Codex packaging and every Claude manifest:
+Run the existing Claude invariants and every Claude manifest:
 
 ```bash
-python3 scripts/validate_dual_host_packaging.py
 for plugin in agile-* deep-refactor project-review session-audit; do
   claude plugin validate "$plugin"
 done
 ```
 
-See `docs/CODEX_COMPATIBILITY.md` for the host runtime matrix and clean-host smoke test.
+See `docs/CODEX_COMPATIBILITY.md` for the host runtime matrix, Markdown conventions, and clean-host smoke test.
 
 Confirm that every marketplace entry names a root package, both marketplaces expose the same package set, and every manifest name matches its package.

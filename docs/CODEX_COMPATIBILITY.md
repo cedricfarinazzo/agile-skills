@@ -25,12 +25,15 @@ Before a skill performs a write, transition, push, merge, or CI wait, verify onl
 4. Confirm an Artifact tool before an Artifact-only step; when absent, skip it and record that Confluence is complete.
 5. On Codex, normalize unsupported named-agent/session dispatch to the documented inline mode before running.
 
+## Markdown conventions
+
+Each skill that differs by host places `## Host execution` before `## Purpose`. That section states both contracts explicitly: Claude Code retains its existing named-agent/concurrency behavior; Codex runs inline and does not claim agent or subagent dispatch.
+
 ## Release verification
 
-Run this from the repository root before release:
+Run the Claude checks from the repository root before release:
 
 ```bash
-python3 scripts/validate_dual_host_packaging.py
 claude plugin validate .
 for plugin in agile-* deep-refactor project-review session-audit; do
   claude plugin validate "$plugin"
