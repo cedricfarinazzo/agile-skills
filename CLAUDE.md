@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this repo is
 
-A Claude Code marketplace shipping **eight focused plugins** — six split by cycle phase so users load only what they run, plus two out-of-cycle review/cleanup plugins:
+A Claude Code marketplace shipping **nine focused plugins** — six split by cycle phase so users load only what they run, plus three out-of-cycle review/cleanup plugins:
 
 - **`agile-product`** — discovery: Vision Doc, PRD, Design Brief / Specs UI, ADR (Confluence).
 - **`agile-planning`** — Roadmap (+ its published Artifact), Epics, Stories, Refinement, Sprint Planning (Confluence + Jira).
@@ -14,6 +14,7 @@ A Claude Code marketplace shipping **eight focused plugins** — six split by cy
 - **`agile-sprint-drain`** — outer loop alternating `agile-10-implement` ⇄ `agile-11-merge-train` to a fixed point (actionable-work guard → STUCK/DRAINED). Invokes both **inline via the Skill tool** by default; `dispatch=session` runs each in its own session agent (see dispatch nesting, below). Requires both plugins installed.
 - **`deep-refactor`** — out-of-cycle cleanup, three skills sharing one audit → report → ticket → drain loop, each freezing a different side of the repo: `deep-refactor` (code changes, tests frozen), `test-refactor` (tests change, production frozen), `doc-refactor` (markdown changes, source frozen). Ships no agents. Tracker-agnostic; needs `gh`.
 - **`project-review`** — out-of-cycle, read-only deep technical assessment of an arbitrary software or IT project. Produces an evidence-backed Markdown report and does not require Jira, Confluence, or `gh`.
+- **`session-audit`** — out-of-cycle, read-only cost audit of sessions that ran these skills: per-skill and per-subagent spend from transcripts, a before/after delta normalised by merged PRs and added lines, ranked improvements. Bundles an offline `session_usage.py`; `gh` optional.
 
 `agile-10-implement` clears the **build** queue (`To Do` → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`). User-facing skills keep global cycle numbering (`agile-1` … `agile-15`); composed sub-skills (`implement-*`, `merge-*`) are **unnumbered** because users don't call them. Namespace = plugin name: `/agile-planning:agile-5-roadmap`.
 
@@ -29,7 +30,7 @@ README.md                                 # root README — OVERVIEW only (plugi
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
-<plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
+<plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13, session-audit) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
 There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).

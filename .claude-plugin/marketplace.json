@@ -101,6 +101,19 @@
         "security",
         "code-quality"
       ]
+    },
+    {
+      "name": "session-audit",
+      "source": "./session-audit",
+      "description": "Out-of-cycle read-only session audit — per-skill and per-subagent cost from transcripts, a before/after delta normalised by work shipped, and ranked efficiency improvements.",
+      "category": "development",
+      "tags": [
+        "audit",
+        "cost",
+        "efficiency",
+        "subagents",
+        "transcripts"
+      ]
     }
   ]
 }

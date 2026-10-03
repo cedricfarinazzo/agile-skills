@@ -16,6 +16,7 @@ Raw idea → sprint retro, wired into **Confluence** and **Jira**. Seven focused
 | <img src="agile-sprint-drain/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
 | <img src="deep-refactor/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
 | <img src="project-review/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**project-review**](project-review/README.md) | Project assessment (out-of-cycle, read-only) | Deep IT Project Review — evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains | None |
+| <img src="session-audit/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**session-audit**](session-audit/README.md) | Session cost audit (out-of-cycle, read-only) | Session Audit — per-skill and per-subagent spend from transcripts, before/after delta per merged PR and per line, ranked improvements | `gh` (optional) |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
 
@@ -103,6 +104,7 @@ Each skill reads from what the previous skill wrote (Confluence pages, Jira issu
 /plugin install agile-sprint-drain@agile-skills   # needs execution + merge-review
 /plugin install deep-refactor@agile-skills        # out-of-cycle: deep-refactor + test-refactor + doc-refactor
 /plugin install project-review@agile-skills       # out-of-cycle: read-only technical project assessment
+/plugin install session-audit@agile-skills        # out-of-cycle: read-only session cost and efficiency audit
 /reload-plugins
 ```
 
