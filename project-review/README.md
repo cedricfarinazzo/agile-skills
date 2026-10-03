@@ -1,8 +1,8 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> project-review
 
-Read-only, out-of-cycle project assessment. It reads and analyzes every review-relevant repository file across every applicable review domain, traces source code and cross-file behavior, and writes an evidence-backed Markdown report with an auditable file-coverage ledger.
+Read-only, out-of-cycle project assessment. By default it reads and analyzes every review-relevant repository file across every applicable review domain, traces source code and cross-file behavior, and writes an evidence-backed Markdown report with an auditable file-coverage ledger. Scoped `quick`, `standard`, focus, and branch profiles disclose deliberate omissions rather than claiming exhaustive coverage.
 
-The review may stop only after the complete file inventory is read and analyzed, the ledger is reconciled, and the final report is generated.
+In `deep` mode, the review may stop only after the complete file inventory is read and analyzed, the ledger is reconciled, and the final report is generated. A scoped profile may stop only after its declared scope is complete and its omissions are explicit.
 
 The review never modifies project source, configuration, tests, existing documentation, infrastructure, or remote systems. Its only permitted project-file write is the final report (`PROJECT_REVIEW.md`, or a non-conflicting timestamped name).
 
@@ -24,7 +24,7 @@ codex plugin add project-review@agile-skills
 
 | Skill | Purpose | Triggers |
 |---|---|---|
-| `deep-it-project-review` | Deep, evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains | “deep IT project review”, “technical project review”, “architecture audit”, “assess this codebase” |
+| `deep-it-project-review` | Evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains; `deep` is exhaustive while scoped profiles disclose coverage limits | “deep IT project review”, “technical project review”, “architecture audit”, “assess this codebase” |
 
 Invoke it directly as `/project-review:deep-it-project-review` in Claude Code or `$deep-it-project-review` in Codex.
 
