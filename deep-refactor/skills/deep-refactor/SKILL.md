@@ -77,19 +77,17 @@ Every ticket is executable with no audit-session context. State the preserved be
 - Merge only on a green CI run you verified yourself; sequential merges; rebase the next branch when file sets intersect.
 - **Two identical CI failures are not a flake.** Diagnose from the actual logs and artifacts (a cancelled job means a hang — find what hung); fix on the branch with the diagnosis in the PR; announce any cross-PR interaction (e.g. a guard that must change once a sibling merges) in both PR bodies, then actually apply it.
 
-## Work discovered mid-phase — do it, or ticket it properly
+## Work discovered mid-phase — fix it in the ticket; a new ticket is the exception
 
-Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
+Every phase discovers work its ticket did not plan for. A new ticket costs a refinement slot, a review, a merge and a cold re-read, and discovered work almost always belongs to the ticket that found it.
 
-**1. Do it now, or file it?**
-- **Trivial and inside the current scope** → do it here. A one-line correction or a stale comment beside code you are already editing does not need its own ticket; filing one costs more than the fix.
-- **Anything else** → a follow-up ticket: non-trivial, carrying risk, needing its own review, or reaching into files this work does not own. Never silently widen the diff to absorb it, and never let it survive only as prose in a PR body.
+**1. Default: do it here.** Anything that makes this change correct, complete or consistent with the code it touches goes into this ticket's diff, even when that makes the PR larger: adjacent tests and docs, a missed call site, a flaky test the change exposes, cleanup beside edited code. The ticket's points absorb it. Never split a ticket's own remainder into follow-ups.
 
-**2. Which backlog does it enter?**
-- **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
-- **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
+**2. File a ticket only when** the user asked for one, or a critical defect (runtime error, data corruption, security, migration drift) cannot ship inside this change, including because this skill's scope forbids touching it. Create one ticket per defect, never several small ones.
 
-**Point it at creation.** A ticket minted mid-phase never passes back through the refinement skill, so if it is not sized here it is never sized at all, and the sprint's velocity figure silently stops describing the work delivered. Use the project's normal estimation scale; if it truly cannot be sized yet, label it `unsized` with a one-line reason rather than leaving the field empty by default.
+**3. Everything else is an observation**: one line in the PR body or the report for a human to promote. Never a ticket, and never a comment-only TODO in the code.
+
+**When you do file:** the product backlog is the default; the current sprint only if the defect blocks the sprint goal or a human asked. **Point it at creation** — a ticket minted mid-phase never returns through refinement, so unpointed here is unpointed forever; `unsized` + a one-line reason is a recorded decision, an empty field is not.
 
 ## Definition of done
 

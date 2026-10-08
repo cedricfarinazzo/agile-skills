@@ -19,7 +19,7 @@ Fix every issue from a PR review, commit, re-examine, repeat until satisfied. Th
 
 **Verification mode (0 issues) is valid usage, not a smell.** When the caller passes "0 issues", still run and still emit the verdict — never refuse with "nothing to do". Phase 1 becomes *opportunistic cleanup*: while re-reading the changed files, fix anything genuinely ugly you find.
 
-**Cleanup threshold — obvious and low-risk only.** In scope: an unused import, a dead branch, a misleading name, copy-paste worth extracting (≥3 lines), a comment the code contradicts, a magic number that wants a named constant, an f-string SQL that wants bound params. Out of scope (file a follow-up ticket instead): a restructured class hierarchy, a new abstraction layer, splitting a module, renaming a public API, or touching any file the PR did not already modify. Unsure whether it is an improvement → leave it. The cleanup belongs in the PR being merged, not sprawled into adjacent code.
+**Cleanup threshold — obvious and low-risk only.** In scope: an unused import, a dead branch, a misleading name, copy-paste worth extracting (≥3 lines), a comment the code contradicts, a magic number that wants a named constant, an f-string SQL that wants bound params. Out of scope (leave it and name it in the postmortem; no ticket): a restructured class hierarchy, a new abstraction layer, splitting a module, renaming a public API, or touching any file the PR did not already modify. Unsure whether it is an improvement → leave it. The cleanup belongs in the PR being merged, not sprawled into adjacent code.
 
 ## Phase 1 — Fix
 
@@ -32,7 +32,7 @@ No review issues and nothing ugly spotted → skip to Phase 3. Otherwise, per is
 
 **Under a round budget (`round=` from the caller, e.g. `agile-11-merge-train`):** this is the only fix push before a final delta review. Fix only the findings named, with the smallest change that resolves each. No opportunistic cleanup, in verification mode too, and no analogous-site sweep beyond files the fix touches; every extra edit is new surface for that review.
 
-**"Fix all" means fix all, including every Minor.** Minor is a severity, not permission to punt. The only acceptable skip is a fix that would expand the diff into files the PR did not already touch — file a follow-up inline and note it in the postmortem. Never declare Satisfied with unaddressed Minor findings on the report.
+**"Fix all" means fix all, including every Minor.** Minor is a severity, not permission to punt. The only acceptable skip is a fix that would expand the diff into files the PR did not already touch — name it in the postmortem as an observation; no ticket. Never declare Satisfied with unaddressed Minor findings on the report.
 
 If a fix reveals a deeper problem, escalate and explain before proceeding.
 
