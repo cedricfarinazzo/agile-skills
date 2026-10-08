@@ -77,15 +77,15 @@ Every ticket is executable with no audit-session context. State the preserved be
 - Merge only on a green CI run you verified yourself; sequential merges; rebase the next branch when file sets intersect.
 - **Two identical CI failures are not a flake.** Diagnose from the actual logs and artifacts (a cancelled job means a hang — find what hung); fix on the branch with the diagnosis in the PR; announce any cross-PR interaction (e.g. a guard that must change once a sibling merges) in both PR bodies, then actually apply it.
 
-## Work discovered mid-phase — do it, or ticket it properly
+## Work discovered mid-phase — finish this ticket's own work; file what is separate
 
 Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
 
-**1. Do it now, or file it?**
-- **Trivial and inside the current scope** → do it here. A one-line correction or a stale comment beside code you are already editing does not need its own ticket; filing one costs more than the fix.
-- **Anything else** → a follow-up ticket: non-trivial, carrying risk, needing its own review, or reaching into files this work does not own. Never silently widen the diff to absorb it, and never let it survive only as prose in a PR body.
+**1. Does it belong to this ticket?** It does when the change is incomplete, incorrect or inconsistent without it: the ACs, tests and docs for what it changes, a missed call site, a defect or flake its own change exposes, cleanup beside code it edits. Do it here, even when the PR grows. **Filing a follow-up to avoid work is not an option**; "it is more work" and "it touches more files" are not reasons. Test: would a reviewer accept this ticket as done without it? If not, it is this ticket's work.
 
-**2. Which backlog does it enter?**
+**2. Otherwise file it.** Separate work (its own design decision or risk, a different area, independent value) gets a ticket. One ticket per separate piece; never split this ticket's own remainder into several small ones.
+
+**Which backlog?**
 - **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
 - **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
 
