@@ -105,3 +105,17 @@ export function pushDenial(command: string, branch: string | undefined): string 
   }
   return undefined
 }
+
+/** A call a guard refused, kept for the console's Guards tab. */
+export type Refusal = { at: number; rule: 'grant' | '3f' | 'push'; text: string; agent?: string }
+
+export const MAX_REFUSALS = 20
+
+export const keepRefusal = (list: Refusal[], refusal: Refusal): Refusal[] => [...list, refusal].slice(-MAX_REFUSALS)
+
+/** Which guard wrote a refusal, read from its text. */
+export function ruleOf(text: string): Refusal['rule'] {
+  if (/never pushes to|never force-pushes/.test(text)) return 'push'
+  if (/--match-head-commit|expectedHeadSha|CI run|CI read|reviewed sha|unreviewed code|pinned head/.test(text)) return '3f'
+  return 'grant'
+}

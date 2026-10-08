@@ -118,10 +118,10 @@
     {
       "name": "agile-mods",
       "source": "./agile-mods",
-      "description": "Claude Mods (function hooks, early access) — /agile-board sprint board and panes, guards (tool grants, pinned reviewed head + fresh CI at merge, no push to main), /receipts, retro counts, and authoring checks for this repo.",
+      "description": "Claude Mods — the agile console pane (board with burndown, ticket and PR flow, drain passes with cost, guards, links), a status-line entry, guards (tool grants, pinned reviewed head + fresh CI at merge, no push to main), /receipts and retro counts. Needs Claude Code 2.1.287 or later.",
       "category": "development",
       "tags": [
-        "hooks",
+        "mods",
         "guards",
         "agile"
       ]

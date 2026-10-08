@@ -2,7 +2,7 @@
 
 [← agile-mods](../README.md)
 
-No command · always active · code: `hooks/guards.ts`, checks in `hooks/state/guards.ts`
+Shown on the console's Guards tab (`/agile-board guards`) · always active · code: `hooks/guards.ts`, checks in `hooks/state/guards.ts`
 
 Rules the skills state in prose, enforced on the call that would break them. A refused call returns an error to the model that names the rule and what to do instead, so the loop corrects itself rather than stalling.
 
@@ -18,6 +18,10 @@ Rules the skills state in prose, enforced on the call that would break them. A r
 **Why the head is pinned.** The pin moves the "is this still the reviewed head?" check to GitHub, at the moment of the merge, where nothing can move in between.
 
 **Inline reviews and `dispatch=session`.** When the train runs `merge-review-pr` inline (`concurrency=0`, or inside an `agile-sprint-drain` `merge-session` agent), no receipt comes back: the review's `Reviewed sha:` line is in one of the model's responses. A `turn.step` hook reads each response of the loop that started the review, so the sha is known before the 3f merge, in the main loop and in a session agent alike. The per-phase tool-grant checks do not apply inside a session agent: it runs every phase, and CLAUDE.md gives it their combined grant.
+
+## Seeing refusals
+
+Each refusal is also kept for the session and shown on the Guards tab of the [agile console](console.md): when it happened, which rule (`grant`, `3f`, `push`), the text, and the agent that made the call, with a count of allowed calls beside it. A toast shows it as it happens, so a refusal is visible while the pane is closed. The log is in memory: a reload or `/agile-board reset` clears it.
 
 ## What a refusal looks like
 

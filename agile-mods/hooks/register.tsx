@@ -1,29 +1,32 @@
 /* @jsx h */
-import type { EngineInterface, Register } from 'claude-code'
-import { EMPTY, LANES, POINTS_FIELD, pointsFieldOf, buildLines, burnLine, drainLine, laneRows, linksOf, loadBoard, mergeLines, observeAnswer, observeReview, observeStart, observeTool, parkedOf, passRows, sampled, stallsOf, type Board, type Cell } from './state/board.ts'
+import type { EngineInterface, Register, RenderNode } from 'claude-code'
+import { EMPTY, POINTS_FIELD, pointsFieldOf, loadBoard, observeAnswer, observeReview, observeStart, observeTool, parkedOf, sampled, stallsOf, stampCosts, type Board } from './state/board.ts'
+import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, rasterCells, statusText, tabOf, type Row, type Tab } from './state/console.ts'
+import { keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
-import { VERIFY_COMMAND, authoringAfter, authoringBefore, authoringStart, authoringTurn, invariants } from './authoring.ts'
-import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewDone, inlineReviewOf } from './guards.ts'
+import { agentTypeOf, guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewDone, inlineReviewOf } from './guards.ts'
 import { argsOf, type Finished, type Host } from './host.ts'
-import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsStart } from './receipts.ts'
+import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsStart } from './receipts.ts'
 
-// The plugin's one hooks module. /agile-board draws the sprint above the prompt: a build queue
-// (tickets by agile:phase marker) and a merge queue (PRs by merge-train step), folded from the
-// loop's own tool calls and the drain's closing banner, kept in $.store. The same calls feed the
-// retro counts that ride agile-15-retro's Skill call as context, and three panes: links, the PR
-// swimlanes (/agile-board prs) and the drain timeline (/agile-board drain).
-// The guards (guards.ts), /receipts (receipts.ts) and the authoring checks (authoring.ts) share
-// these hooks: each event is registered once, and `$` reaches them only as the Host bound here.
+// The plugin's one hooks module. The board is folded from the loop's own tool calls and the drain's
+// closing banner, kept in $.store, and drawn three ways: a one-line status entry, an alert row above
+// the prompt when something needs a person, and the agile console pane (/agile-board) with a tab each
+// for the board, the PR and ticket flow, the drain passes, the guards and the links. The same calls
+// feed the retro counts that ride agile-15-retro's Skill call as context.
+// The guards (guards.ts) and /receipts (receipts.ts) share these hooks: each event is registered
+// once, and `$` reaches them only as the Host bound here.
 
 const STORE_KEY = 'board'
 const RETRO_KEY = 'retro'
-const LINKS_PANE = 'agile-links'
-const PRS_PANE = 'agile-prs'
-const DRAIN_PANE = 'agile-drain'
+const PANE = 'agile-console'
 let board: Board = EMPTY
 let retro: Retro = EMPTY_RETRO
 let shown = true
+let tab: Tab = 'board'
+let autoOpen = true
 let pointsField = POINTS_FIELD
+let refusals: Refusal[] = []
+let allowed = 0
 
 function hostOf($: EngineInterface): Host {
   return {
@@ -38,23 +41,29 @@ function hostOf($: EngineInterface): Host {
   }
 }
 
+/** Takes the session's cost at each drain pass boundary that has none yet. */
+function stamp($: EngineInterface) {
+  void $.session.usage().then(u => {
+    if (u.cost === undefined) return
+    const next = stampCosts(board, u.cost.usd)
+    if (next !== board) save($, next)
+  }).catch(() => undefined)
+}
+
 function save($: EngineInterface, next: Board) {
   if (next === board) return
-  const before = board.drain?.outcome
+  const before = board
   const known = new Set([...stallsOf(board), ...parkedOf(board)])
   board = next
   const fresh = [...stallsOf(board).map(s => `looping: ${s}`), ...parkedOf(board).map(s => `parked: ${s}`)].filter(s => !known.has(s.replace(/^\w+: /, '')))
   if (fresh.length) $.ui.toast(`agile: ${fresh.join(' · ')}`, { timeoutMs: 10000 })
   void $.store.set(STORE_KEY, board).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
+  $.ui.status(shown ? statusText(board) : undefined)
   $.ui.invalidate('ui.render')
-  if (board.drain && board.drain.outcome !== 'running' && before !== board.drain.outcome) {
-    const text = drainLine(board) ?? ''
-    $.ui.toast(`agile: ${text}`, { timeoutMs: 10000 })
-    // a drain runs unattended: its end also reaches the desktop, where a notifier exists
-    void $.process.run(['notify-send', 'agile-skills', text], { timeoutMs: 5000 })
-      .then(run => { if (run.exitCode !== 0) throw new Error('notify-send failed') })
-      .catch(() => $.process.run(['osascript', '-e', `display notification ${JSON.stringify(text)} with title "agile-skills"`], { timeoutMs: 5000 }))
-      .catch(() => undefined)
+  if (board.passes !== before.passes) stamp($)
+  if (autoOpen && board.drain?.outcome === 'running' && before.drain?.outcome !== 'running') {
+    // opened unasked, so it waits for a wide terminal and never takes the keyboard
+    void $.ui.open({ id: PANE, title: 'agile console' }).catch(() => undefined)
   }
 }
 
@@ -65,7 +74,25 @@ function saveRetro($: EngineInterface, next: Retro) {
   void $.store.set(RETRO_KEY, retro).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
 }
 
-export const register: Register = on => {
+const COLORS: Record<string, string> = { c: 'cyan', m: 'magenta', g: 'green', y: 'yellow', r: 'red', bl: 'blue' }
+const BADGES: Record<string, string> = { bgr: 'red', bgg: 'green', bgy: 'yellow' }
+
+/** Text props for a segment's style tags. */
+function styleOf(tags?: string): Record<string, unknown> {
+  const props: Record<string, unknown> = {}
+  for (const t of (tags ?? '').split(' ')) {
+    if (t === 'd') props.dimColor = true
+    else if (t === 'b') props.bold = true
+    else if (t === 'u') props.underline = true
+    else if (COLORS[t]) props.color = COLORS[t]
+    else if (BADGES[t]) Object.assign(props, { backgroundColor: BADGES[t], color: 'black' })
+  }
+  return props
+}
+
+export const register: Register = (on, options) => {
+  autoOpen = options?.autoOpen !== false
+
   on('session.start', async ($, e, next) => {
     const r = await next(e)
     const host = hostOf($)
@@ -85,14 +112,16 @@ export const register: Register = on => {
     await receiptsStart(host)
     await $.command.register({
       name: 'agile-board',
-      description: 'Sprint board above the prompt: show, hide, prs, drain, links, retro, reset (agile-mods)',
-      argumentHint: '[show | hide | prs | drain | links | retro | reset]',
+      description: 'Agile console: board, flow, drain, guards and links tabs, plus show, hide, retro, reset (agile-mods)',
+      argumentHint: '[board | flow | drain | guards | links | show | hide | retro | reset]',
       immediate: true,
     }).catch(err => $.ui.log(`agile-mods: /agile-board not registered: ${err}`))
     await $.command.register(RECEIPTS_COMMAND).catch(err => $.ui.log(`agile-mods: /receipts not registered: ${err}`))
-    if (await authoringStart(host, r.cwd)) {
-      await $.command.register(VERIFY_COMMAND).catch(err => $.ui.log(`agile-mods: /agile-verify not registered: ${err}`))
-    }
+    $.ui.status(shown ? statusText(board) : undefined)
+    // elapsed times move while a loop runs; the redraw is throttled by the engine
+    $.clock.every(5000, () => {
+      if (board.loop && board.drain?.outcome !== 'STUCK' && board.drain?.outcome !== 'DRAINED') $.ui.invalidate('ui.render')
+    })
     return r
   })
 
@@ -102,36 +131,39 @@ export const register: Register = on => {
       save($, EMPTY)
       saveRetro($, EMPTY_RETRO)
       guardsReset()
+      refusals = []
+      allowed = 0
       return { text: 'agile board and retro counts cleared' }
     }
     if (arg === 'retro') return { text: retroText(retro, await $.clock.now()) ?? 'no loop data recorded yet' }
-    if (arg === 'prs' || arg === 'drain') {
-      if (arg === 'prs' ? !board.prOrder.length : !board.passes?.length) return { text: arg === 'prs' ? 'no PRs on the board yet' : 'no drain passes recorded yet' }
-      await $.ui.open({ id: arg === 'prs' ? PRS_PANE : DRAIN_PANE, title: arg === 'prs' ? 'agile PR pipeline' : 'agile drain timeline', closeOnEscape: true, focus: true })
-      return {}
+    if (arg === 'hide' || arg === 'show') {
+      shown = arg === 'show'
+      $.ui.status(shown ? statusText(board) : undefined)
+      $.ui.invalidate('ui.render')
+      return { text: shown ? 'agile status and alerts shown' : 'agile status and alerts hidden' }
     }
-    if (arg === 'links') {
-      if (!linksOf(board).length) return { text: 'no links yet: they appear once a Jira or PR result names its site' }
-      await $.ui.open({ id: LINKS_PANE, title: 'agile links', closeOnEscape: true, focus: true })
-      return {}
-    }
-    shown = arg !== 'hide'
+    const wanted = arg ? tabOf(arg) : tab
+    if (!wanted) return { text: `unknown tab "${arg}": board, flow, drain, guards, links, or show, hide, retro, reset` }
+    tab = wanted
+    const pane = await $.ui.open({ id: PANE, title: 'agile console', focus: true, closeOnEscape: true })
     $.ui.invalidate('ui.render')
-    return { text: shown ? 'agile board shown' : 'agile board hidden' }
+    return pane.isPlaced ? {} : { text: `the agile console needs a wider terminal (${pane.reason}); widen it and run /agile-board again` }
   })
 
   on('command.run', { command: 'receipts' }, async ($, e) => ({ text: await receiptsCommand(hostOf($), e.args.trim().toLowerCase()) }))
 
-  on('command.run', { command: 'agile-verify' }, async ($, e, next) => {
-    const drift = await invariants(hostOf($))
-    return { text: drift || 'invariants hold: agents ↔ dispatch, mid-phase block, Confluence tree, frontmatter' }
-  })
-
   on('tool.call', async ($, e, next) => {
     const host = hostOf($)
     const args = argsOf(e)
-    const deny = (await guardsBefore(host, board, e.tool, args, e.agentId)) ?? (await authoringBefore(host, e.tool, args))
-    if (deny) return { deny }
+    const deny = await guardsBefore(host, board, e.tool, args, e.agentId)
+    if (deny) {
+      const type = e.agentId ? await agentTypeOf(host, e.agentId) : undefined
+      refusals = keepRefusal(refusals, { at: await $.clock.now(), rule: ruleOf(deny), text: deny, ...(type && { agent: type.split(':').at(-1) }) })
+      $.ui.toast(deny.replace(/^agile-mods:\s*/, 'agile guard: '), { timeoutMs: 8000 })
+      $.ui.invalidate('ui.render')
+      return { deny }
+    }
+    allowed += 1
 
     const now = await $.clock.now()
     save($, observeStart(board, e.tool, args, now))
@@ -145,13 +177,13 @@ export const register: Register = on => {
     save($, sampled(observeTool(board, e.tool, args, done.text, pointsField), await $.clock.now()))
     saveRetro($, retroEnd(retro, e.tool, args, done.text))
     await receiptsAfter(host, e.tool, args, done)
+    $.ui.invalidate('ui.render')
 
-    const extra = await authoringAfter(host, e.tool, args, done)
     if (e.tool === 'Skill' && done.text !== undefined && /(^|:)agile-15-retro$/.test(String(args.skill))) {
       const data = retroText(retro, await $.clock.now())
-      if (data) extra.push(data)
+      if (data && r.deny === undefined && !r.isError) return { ...r, context: [...(r.context ?? []), data] }
     }
-    return extra.length && r.deny === undefined && !r.isError ? { ...r, context: [...(r.context ?? []), ...extra] } : r
+    return r
   })
 
   // an inline merge-review-pr names its reviewed sha in a response of the loop that ran it: the
@@ -176,78 +208,84 @@ export const register: Register = on => {
     const now = await $.clock.now()
     save($, sampled(observeAnswer(board, r.text ?? '', now), now))
     saveRetro($, retro)
-    await authoringTurn(hostOf($))
+    stamp($)
     return r
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const idle = !board.loop && board.order.length === 0 && board.prOrder.length === 0
-    if (!shown || idle || e.props.hasSurvey || e.surface !== 'terminal') return next(e)
-    const { Box, Text } = await $.ui.resolve(e)
-    const drain = drainLine(board)
-    const burn = burnLine(board)
-    const flags = [...parkedOf(board).map(s => `⏸ ${s}`), ...stallsOf(board).map(s => `⟳ ${s}`)].join('  ')
-    const color = board.drain?.outcome === 'STUCK' ? 'red' : board.drain?.outcome === 'DRAINED' ? 'green' : undefined
-    // header, drain, burn and flag lines, two section titles, and a row for whatever else draws in the band
-    const rows = Math.max(2, Math.min(12, e.props.maxRows - 5 - (burn ? 1 : 0) - (flags ? 1 : 0)))
-    const build = buildLines(board, Math.ceil(rows / 2))
-    const merge = mergeLines(board, rows - build.length)
+    if (!shown || e.props.hasSurvey) return next(e)
+    const row = alertRow(board, { now: await $.clock.now(), refusals, allowed, receipts: receiptsNow() }, e.props.bodyColumns)
+    if (!row) return next(e)
+    const ui = await $.ui.resolve(e)
+    const { Box } = ui
     return (
       <Box flexDirection="column">
-        <Text dimColor wrap="truncate">{`agile · ${board.loop ?? 'idle'} · /agile-board links · hide`}</Text>
-        {drain ? <Text color={color} bold wrap="truncate">{drain}</Text> : null}
-        {burn ? <Text wrap="truncate">{burn}</Text> : null}
-        {flags ? <Text color="yellow" wrap="truncate">{flags}</Text> : null}
-        {build.length ? <Text bold={board.stage === 'build'} dimColor={board.stage !== 'build'}>build queue</Text> : null}
-        {build.map(line => <Text key={`b:${line.slice(0, 10)}`} wrap="truncate">{line}</Text>)}
-        {merge.length ? <Text bold={board.stage === 'merge'} dimColor={board.stage !== 'merge'}>merge queue</Text> : null}
-        {merge.map(line => <Text key={`m:${line.slice(0, 7)}`} wrap="truncate">{line}</Text>)}
+        {renderRow(ui, row, 'alert')}
         {await next(e)}
       </Box>
     )
   })
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
-    if (e.requestId === PRS_PANE) {
-      const { Box, Text } = await $.ui.resolve(e)
-      const mark: Record<Cell, [string, string | undefined]> = { done: ['✔', 'green'], now: ['●', 'yellow'], todo: ['·', undefined], fail: ['✖', 'red'] }
-      return (
-        <Box flexDirection="column">
-          <Text bold>{`${'PR'.padEnd(7)}${'ticket'.padEnd(11)}${LANES.map(l => l.padEnd(4)).join('')}`}</Text>
-          {laneRows(board).map(row => (
-            <Box key={`p:${row.pr}`} flexDirection="row">
-              <Text>{`#${String(row.pr).padEnd(6)}${row.key.padEnd(11)}`}</Text>
-              {row.cells.map((c, i) => <Text key={`c:${row.pr}:${LANES[i]}`} color={mark[c][1]} bold={c === 'now'}>{mark[c][0].padEnd(4)}</Text>)}
-              <Text dimColor>{` ${row.ci}${row.reviewed ? `  reviewed ${row.reviewed}` : ''}`}</Text>
-            </Box>
-          ))}
-        </Box>
-      )
-    }
-    if (e.requestId === DRAIN_PANE) {
-      const { Box, Text } = await $.ui.resolve(e)
-      const rows = passRows(board, await $.clock.now())
-      return (
-        <Box flexDirection="column">
-          {rows.map(r => (
-            <Box key={`d:${r.pass}`} flexDirection="row">
-              <Text>{`pass ${String(r.pass).padEnd(3)}`}</Text>
-              <Text color="cyan">{'█'.repeat(r.build)}</Text>
-              <Text color="magenta">{'█'.repeat(r.merge)}</Text>
-              <Text dimColor>{`  ${r.text}`}</Text>
-            </Box>
-          ))}
-          <Text dimColor>{'build ' }<Text color="cyan">█</Text>{'  merge '}<Text color="magenta">█</Text>{board.drain ? `  · ${board.drain.outcome}` : ''}</Text>
-        </Box>
-      )
-    }
-    if (e.requestId !== LINKS_PANE) return next(e)
-    const { Box, Text, Link } = await $.ui.resolve(e)
-    const links = linksOf(board)
+    if (e.requestId !== PANE) return next(e)
+    const ui = await $.ui.resolve(e)
+    const { Box, Text, Button } = ui
+    const usage = await $.session.usage().catch(() => undefined)
+    const ctx = { now: await $.clock.now(), usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow() }
+    const w = Math.max(30, e.props.bodyColumns - 2)
     return (
       <Box flexDirection="column">
-        {links.length ? links.map(l => <Link key={`l:${l.href}`} href={l.href} label={l.label} />) : <Text dimColor>no links yet</Text>}
+        <Box flexDirection="row" columnGap={2}>
+          {TABS.map(t => (
+            <Button key={`tab-${t.id}`} label={t.label} hotkey={t.hotkey} plain dimColor={tab !== t.id} onPress={() => {
+              tab = t.id
+              $.ui.invalidate('ui.render')
+            }} />
+          ))}
+        </Box>
+        <Text>{' '}</Text>
+        {consoleRows(tab, board, ctx, w).map((row, i) => renderRow(ui, row, `r${i}`))}
       </Box>
     )
   })
+}
+
+type Elements = Awaited<ReturnType<EngineInterface['ui']['resolve']>>
+
+/** One row as elements: styled text in a line, bordered tiles, the burndown, or a link. */
+function renderRow(ui: Elements, row: Row, key: string): RenderNode {
+  const { Box, Text, Link } = ui
+  if (row.kind === 'link') return <Link key={key} href={row.href} label={row.label} />
+  if (row.kind === 'tiles') {
+    return (
+      <Box key={key} flexDirection="row" columnGap={1}>
+        {row.tiles.map(t => (
+          <Box key={`${key}:${t.label}`} borderStyle="round" flexGrow={1} flexDirection="column" paddingX={1}>
+            <Text dimColor>{t.label}</Text>
+            <Text bold {...styleOf(t.tone)}>{t.value}</Text>
+            <Text dimColor wrap="truncate">{t.sub}</Text>
+          </Box>
+        ))}
+      </Box>
+    )
+  }
+  if (row.kind === 'chart') {
+    const { Raster } = ui as { Raster?: (props: Record<string, unknown>) => RenderNode }
+    // a Raster draws in the terminal only; elsewhere the same data is text
+    if (Raster) return Raster({ key, columns: row.chart.cols, rows: row.chart.rows, cells: rasterCells(chartCells(row.chart)) })
+    return (
+      <Box key={key} flexDirection="column">
+        {chartGlyphs(row.chart).map((segs, i) => (
+          <Box key={`${key}:${i}`} flexDirection="row">
+            {segs.map((s, j) => <Text key={`g${j}`} {...styleOf(s.c)}>{s.t}</Text>)}
+          </Box>
+        ))}
+      </Box>
+    )
+  }
+  return (
+    <Box key={key} flexDirection="row">
+      {row.segs.filter(s => s.t).map((s, i) => <Text key={`s${i}`} {...styleOf(s.c)} wrap="truncate">{s.t}</Text>)}
+    </Box>
+  )
 }

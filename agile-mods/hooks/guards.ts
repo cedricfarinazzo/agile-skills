@@ -16,7 +16,7 @@ let drainActive = false
 const inlineReviews = new Map<string, number>()
 const agentTypes = new Map<string, string>()
 
-async function agentTypeOf(host: Host, id: string): Promise<string | undefined> {
+export async function agentTypeOf(host: Host, id: string): Promise<string | undefined> {
   if (!agentTypes.has(id)) {
     for (const a of await host.agents().catch(() => [])) agentTypes.set(a.id, a.type)
   }

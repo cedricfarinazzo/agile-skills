@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { authoringAfter, authoringBefore, authoringStart, authoringTurn } from '../hooks/authoring.ts'
 import { guardsBefore, guardsReset, guardsStart, guardsTurn, inlineReviewDone, inlineReviewOf } from '../hooks/guards.ts'
 import { receiptsAfter, receiptsCommand, receiptsStart } from '../hooks/receipts.ts'
 import { EMPTY, observeReview, observeTool, type Board } from '../hooks/state/board.ts'
@@ -148,61 +147,5 @@ describe('receipts hook', () => {
     store.set('receipts', [{ agent: 'agile-execution:pr-publisher', at: 1, issues: ['preamble'] }])
     await receiptsStart(host)
     expect(await receiptsCommand(host, '')).toContain('preamble')
-  })
-})
-
-describe('authoring hook', () => {
-  const root = '/repo'
-  const skillPath = `${root}/agile-x/skills/agile-1-y/SKILL.md`
-  const SKILL = '---\nname: agile-1-y\ndescription: "Does y. Triggers: make y, build y."\n---\n'
-  const manifest = JSON.stringify({ name: 'agile-skills', plugins: [{ name: 'agile-x' }, { name: 'agile-z' }] })
-
-  test('is off outside the agile-skills repo', async () => {
-    const { host } = fakeHost({ files: { '/other/.claude-plugin/marketplace.json': '{"name":"other"}' } })
-    expect(await authoringStart(host, '/other')).toBe(false)
-  })
-
-  test('refuses an edit that drops a trigger, allows a reword', async () => {
-    const { host } = fakeHost({
-      files: { [`${root}/.claude-plugin/marketplace.json`]: manifest, [skillPath]: SKILL },
-      runs: { 'git show HEAD:agile-x/skills/agile-1-y/SKILL.md': { exitCode: 0, stdout: SKILL } },
-    })
-    expect(await authoringStart(host, root)).toBe(true)
-    const drop = { file_path: skillPath, old_string: 'make y, build y', new_string: 'make y' }
-    expect(await authoringBefore(host, 'Edit', drop)).toContain('"build y"')
-    const reword = { file_path: skillPath, old_string: 'Does y.', new_string: 'Builds the y.' }
-    expect(await authoringBefore(host, 'Edit', reword)).toBeUndefined()
-    expect(await authoringBefore(host, 'Write', { file_path: skillPath, content: SKILL.replace('make y, ', '') })).toContain('"make y"')
-  })
-
-  test('refuses a commit that touches a plugin without a version line; -a and --all read HEAD', async () => {
-    const { host, calls } = fakeHost({
-      files: { [`${root}/.claude-plugin/marketplace.json`]: manifest },
-      runs: {
-        'git diff --cached --name-only': { exitCode: 0, stdout: 'agile-x/README.md\n' },
-        'git diff HEAD --name-only': { exitCode: 0, stdout: 'agile-z/README.md\n' },
-        'git diff': { exitCode: 0, stdout: '' },
-      },
-    })
-    await authoringStart(host, root)
-    expect(await authoringBefore(host, 'Bash', { command: 'git commit -m "docs -data"' })).toContain('agile-x')
-    expect(await authoringBefore(host, 'Bash', { command: 'git commit --all -m x' })).toContain('agile-z')
-    expect(calls.some(c => c.startsWith('git diff HEAD'))).toBe(true)
-    expect(await authoringBefore(host, 'Bash', { command: 'git status' })).toBeUndefined()
-  })
-
-  test('reminds about a new bare MCP name, and runs the invariants after an edit turn', async () => {
-    const md = `${root}/agile-x/README.md`
-    const { host, toasts } = fakeHost({
-      files: { [`${root}/.claude-plugin/marketplace.json`]: manifest, [md]: 'Call `getJiraIssue` here.\n' },
-      runs: { 'git show': { exitCode: 0, stdout: '' }, 'bash -c': { exitCode: 0, stdout: 'Confluence tree: 2 variants\n' } },
-    })
-    await authoringStart(host, root)
-    const [reminder] = await authoringAfter(host, 'Edit', { file_path: md }, done('ok'))
-    expect(reminder).toContain('getJiraIssue (line 1)')
-    await authoringTurn(host)
-    expect(toasts).toEqual(['agile-verify: 1 invariant(s) drifted · /agile-verify'])
-    await authoringTurn(host)
-    expect(toasts.length).toBe(1)
   })
 })

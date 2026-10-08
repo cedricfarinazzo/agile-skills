@@ -29,7 +29,8 @@ export type Pr = {
 /** A CI run as `gh run view/list --json` reported it, keyed by the sha it ran on. */
 export type Run = { id?: number; status: string; conclusion?: string; reads: number }
 
-export type Pass = { start: number; merge?: number; end?: number; built: number; merged: number }
+/** `cost0` and `cost1` are the session's cost in USD when the pass started and ended. */
+export type Pass = { start: number; merge?: number; end?: number; built: number; merged: number; cost0?: number; cost1?: number }
 
 export type Board = {
   loop?: Loop
@@ -473,4 +474,21 @@ export function passRows(board: Board, now: number, width = 30): { pass: number;
     const mins = Math.max(1, Math.round((end - p.start) / 60_000))
     return { pass: i + 1, build, merge, text: `${moved} · ${mins} min` }
   })
+}
+
+/** Records the session's cost on each pass boundary that has none yet; the same board when nothing is new. */
+export function stampCosts(board: Board, usd: number): Board {
+  const passes = board.passes ?? []
+  const next = passes.map(p => {
+    const cost0 = p.cost0 ?? usd
+    const cost1 = p.end !== undefined ? (p.cost1 ?? usd) : p.cost1
+    return cost0 === p.cost0 && cost1 === p.cost1 ? p : { ...p, cost0, cost1 }
+  })
+  return next.every((p, i) => p === passes[i]) ? board : { ...board, passes: next }
+}
+
+/** What one pass cost in USD: until its end, or until `usd` while it runs; undefined before it was stamped. */
+export const passCost = (p: Pass, usd?: number): number | undefined => {
+  const end = p.cost1 ?? (p.end === undefined ? usd : undefined)
+  return p.cost0 === undefined || end === undefined ? undefined : Math.max(0, end - p.cost0)
 }

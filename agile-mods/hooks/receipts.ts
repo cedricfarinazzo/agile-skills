@@ -16,6 +16,9 @@ export const RECEIPTS_COMMAND = {
   immediate: true,
 } as const
 
+/** The receipts checked so far, for the console's Guards tab. */
+export const receiptsNow = () => receipts
+
 export async function receiptsStart(host: Host) {
   const stored = await host.storeGet(STORE_KEY).catch(() => undefined)
   if (Array.isArray(stored)) receipts = stored as Receipt[]
