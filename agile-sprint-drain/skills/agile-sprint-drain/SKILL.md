@@ -56,7 +56,7 @@ Why: merges are sequential and each moves the base, so every open PR pays a reba
 - **Resolve once, hand down.** Read `## Skill configuration` once per invocation and write the resolved values plus any standing rule every session needs (repo constraints, operator exceptions) to `<state-dir>/context.md` (`## State on disk`). A dispatch prompt carries that path, the exact keys / PR numbers, and the handoff if any — never the rules restated. Sessions never re-discover config, re-list the sprint, or read tickets they were not given.
 - **`build-session` ends at `In Review`**: it opens the PR and returns without waiting on CI.
 - **Dispatch `merge-session` only for PRs actionable now** (CI finished, review to address, conflict to rebase), passing those PR numbers and `max PRs` = their count. While every PR is still in CI, arm one background `gh run watch <run-id> --exit-status` per run here instead.
-- **Sessions never wait on CI** (`## Waiting on CI`). On a `waiting` handoff, watch that run here, do other work, then dispatch a fresh session of the same kind with the handoff and the result.
+- **Sessions never wait on CI** (`## Waiting on CI`). On a `waiting` handoff, watch that run here (for `waiting: ci-on <sha> <branch>`, resolve the run id inside the same background command), do other work, then dispatch a fresh session of the same kind with the handoff and the result.
 - **A failed run is diagnosed in a session, not here.** Pass `ci: <run id> failure <head sha>` to a fresh `merge-session`; read no job list or log in this context.
 - **Fresh merge context.** `merge-session` never saw the authoring and is the independent reviewer; the build-side `implement-review` is a self-check. The train's review step is never skipped or folded into the build session.
 - **Sessions are never reused or resumed**, and build and merge are never the same agent.
@@ -210,12 +210,17 @@ Print only pass banners and per-item outcome lines — no command output, diffs,
 
 Background completions wake only the top-level session. A dispatched agent (or a skill inline inside one) ends when its turn ends, so nothing can wake it.
 
-- **Top level:** one Bash `run_in_background: true` wait per run id, with `timeout` above the run's usual duration (not the 600 s foreground cap); keep working until notified. One wake per run: no `sleep` loop, no short wait re-issued on expiry, and read the result in the same call as the next action.
+- **Top level:** one Bash `run_in_background: true` wait per run id, with `timeout` above the run's usual duration (not the 600 s foreground cap); keep working until notified. One wake per run: no `sleep` loop, no short wait re-issued on expiry. Have the command print everything the next step needs (conclusion, head sha, names of failed jobs), so the notification is read once, inside the call that acts on it, never in a standalone `cat` of the output file. Right after a push the run may not exist yet: resolve the id inside the same background command, never in a foreground poll.
 
   ```bash
-  gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; gh run view <run-id> --json status,conclusion,headSha
+  V='{status,conclusion,headSha,failed:[.jobs[]|select(.conclusion=="failure")|.name]}'
+  # known run id
+  gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; gh run view <run-id> --json status,conclusion,headSha,jobs --jq "$V"
+  # right after a push: find the run for the head sha, then watch it
+  for i in $(seq 60); do ID=$(gh run list --branch <branch> --json databaseId,headSha --jq '.[]|select(.headSha=="<sha>")|.databaseId' | head -1); [ -n "$ID" ] && break; sleep 5; done; [ -n "$ID" ] || { echo "no run for <sha>"; exit 1; }
+  gh run watch "$ID" --exit-status --interval 30 >/dev/null 2>&1; gh run view "$ID" --json status,conclusion,headSha,jobs --jq "$V"
   ```
-- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Do what does not need the result, then end with a handoff: `waiting: <run id>`, `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
+- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Right after a push there may be no run id yet: do not `sleep` and re-list, hand off `waiting: ci-on <head sha> <branch>` and let the top level resolve it. Do what does not need the result, then end with a handoff: `waiting: <run id>` (or `ci-on`), `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
 - **Fallback, no background notifications or no dispatch (e.g. Codex):** one bounded foreground wait, re-issued on timeout. Stay under the 600 s Bash cap (a capped call moves to the background and keeps polling) and the 5-minute cache:
 
   ```bash
