@@ -236,7 +236,7 @@ Remove **only** worktrees whose branch is merged (an unmerged one is live work).
 
 Rework processed this run: [tickets + what changed]
 Worktrees removed / kept: [removed N merged; kept <path> — unmerged / uncommitted]
-Follow-ups (critical defects that cannot ship in their ticket's diff, or ones the user asked for; each filed with its points or `unsized` + reason): [list / none]
+Follow-up tickets to file (CRITICAL only, each with its points or `unsized` + reason): [list / none]
 
 👉 Next: agile-11-merge-train to review + merge the open PRs, then skill 14 (QA Validation).
 ```

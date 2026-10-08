@@ -125,7 +125,7 @@ A bare pass, a short Files-read list, a missing cascade disposition (`N/A` or th
 
 Dispatch to `agile-merge-review:fix-until-satisfied` even when 3b reported 0 issues: it is the satisfaction gate that re-examines the files, runs the local gate, and returns the "Satisfied. No remaining issues." verdict authorising 3e. A 0-issue review without that verdict is incomplete.
 
-- **Every finding gets fixed — Critical AND Minor**, until the review-round budget (3f) is spent. The only acceptable skip is an out-of-scope finding that would expand the diff into untouched files — list it as an observation in the postmortem and the report; no ticket.
+- **Every finding gets fixed — Critical AND Minor**, until the review-round budget (3f) is spent. The only acceptable skip is an out-of-scope finding that would expand the diff into untouched files — list it as a follow-up in the postmortem and the report.
 - **It does not poll CI.** It names the pre-push run id + pushed sha and returns; waiting is 3e's job. Verify the pushed sha is the branch tip.
 - **Whenever 3c pushes, expect a delta re-review** via 3f's reviewed-sha gate — its own re-examination is not an independent review. Normal flow.
 
@@ -186,7 +186,7 @@ Top-level: run it with Bash `run_in_background: true`. Inside a dispatched conte
 
 - **Delta rounds judge the delta only** — lines or behaviour the delta changed. Code an earlier round passed is not re-opened; the reviewer lists anything there as `out-of-delta` notes, not findings.
 - **3c after a full review with findings is the only fix push, so keep it minimal:** fix only the named findings with the smallest change; no opportunistic cleanup.
-- **After the delta review, stop pushing.** Clean → merge its sha. An open Critical → 3d (blocked, ticket stays put, human decides). Only Minors left → do not fix them: list them in the postmortem and the report as observations (no ticket), then merge the last sha that was both reviewed and green — that is the reviewed sha for 3f.
+- **After the delta review, stop pushing.** Clean → merge its sha. An open Critical → 3d (blocked, ticket stays put, human decides). Only Minors left → do not fix them: list them in the postmortem and the report as one warranted follow-up (reported, not created), then merge the last sha that was both reviewed and green — that is the reviewed sha for 3f.
 
 Then `gh pr merge <N> --squash --match-head-commit <reviewed sha>` — the pin makes GitHub refuse the merge if the head moved. **No `--delete-branch`** (it also deletes the local branch, which fails when a worktree holds it, *after* the merge happened). **A non-zero exit is not proof the merge failed:** read `gh pr view <N> --json state,mergedAt` — `mergedAt` set means it merged; never retry a successful merge. Only an unset `mergedAt` is a genuine failure. Branch deletion waits for Phase 4b.
 
@@ -203,7 +203,7 @@ Dispatch to `agile-merge-review:jira-postmortem` — mandatory even at 0 issues.
 
   Duplicates return success, so it is safe to call even if the link exists. Then append a one-line confirmation to the postmortem on **each** side (`Jira link created: relates to ABC-2.`), or the failure reason if the call failed.
 - **Verify the receipt:** the posted comment id + a `done`-category status via `mcp__atlassian__getJiraIssue`, and the `collisions recorded:` echo matching what you passed. An entry with collisions whose receipt echoes `none` → re-dispatch.
-- A critical defect that cannot ship in the PR goes in the report as a proposed follow-up — do not auto-create.
+- A warranted follow-up ticket goes in the report — do not auto-create.
 
 ## Phase 4 — Reconcile the collision links
 

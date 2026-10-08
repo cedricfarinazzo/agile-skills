@@ -60,7 +60,7 @@ Why: merges are sequential and each moves the base, so every open PR pays a reba
 - **A failed run is diagnosed in a session, not here.** Pass `ci: <run id> failure <head sha>` to a fresh `merge-session`; read no job list or log in this context.
 - **Fresh merge context.** `merge-session` never saw the authoring and is the independent reviewer; the build-side `implement-review` is a self-check. The train's review step is never skipped or folded into the build session.
 - **Sessions are never reused or resumed**, and build and merge are never the same agent.
-- **Receipts:** one line per item, folded into the LEDGER and dropped, never forwarded to the next session. A `followup:` is judged here against `## Work discovered mid-phase`: file it only if it qualifies, otherwise drop it into the final report as an observation. Verify them like phase receipts: a marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
+- **Receipts:** one line per item, folded into the LEDGER and dropped, never forwarded to the next session. Verify them like phase receipts: a marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
 - **Codex** does not discover any plugin-local agents: normalize every `dispatch` value and `concurrency` value to full inline execution (`concurrency=0`), then state that normalization in the final report. Do not claim any phase agent, `build-session`, or `merge-session` ran.
 
 ## The loop
@@ -168,17 +168,19 @@ Counters measure status, not evidence: a `Done` ticket with a merged PR may have
 
 Missing either → **not drained**. Per ticket: **backfill** it, labelled retroactive, naming the PR and why it is late; or **record a deliberate exception** with the reason. Never leave it. Report `audit trail: N/N complete` over every done sprint ticket, or the exceptions. Work a human directed inline mid-drain still owes a ticket and a trail.
 
-## Work discovered mid-phase — fix it in the ticket; a new ticket is the exception
+## Work discovered mid-phase — finish this ticket's own work; file what is separate
 
-Every phase discovers work its ticket did not plan for. A new ticket costs a refinement slot, a review, a merge and a cold re-read, and discovered work almost always belongs to the ticket that found it.
+Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
 
-**1. Default: do it here.** Anything that makes this change correct, complete or consistent with the code it touches goes into this ticket's diff, even when that makes the PR larger: adjacent tests and docs, a missed call site, a flaky test the change exposes, cleanup beside edited code. The ticket's points absorb it. Never split a ticket's own remainder into follow-ups.
+**1. Does it belong to this ticket?** It does when the change is incomplete, incorrect or inconsistent without it: the ACs, tests and docs for what it changes, a missed call site, a defect or flake its own change exposes, cleanup beside code it edits. Do it here, even when the PR grows. **Filing a follow-up to avoid work is not an option**; "it is more work" and "it touches more files" are not reasons. Test: would a reviewer accept this ticket as done without it? If not, it is this ticket's work.
 
-**2. File a ticket only when** the user asked for one, or a critical defect (runtime error, data corruption, security, migration drift) cannot ship inside this change, including because this skill's scope forbids touching it. Create one ticket per defect, never several small ones.
+**2. Otherwise file it.** Separate work (its own design decision or risk, a different area, independent value) gets a ticket. One ticket per separate piece; never split this ticket's own remainder into several small ones.
 
-**3. Everything else is an observation**: one line in the PR body or the report for a human to promote. Never a ticket, and never a comment-only TODO in the code.
+**Which backlog?**
+- **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
+- **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
 
-**When you do file:** the product backlog is the default; the current sprint only if the defect blocks the sprint goal or a human asked. **Point it at creation** — a ticket minted mid-phase never returns through refinement, so unpointed here is unpointed forever; `unsized` + a one-line reason is a recorded decision, an empty field is not.
+**Point it at creation.** A ticket minted mid-phase never passes back through the refinement skill, so if it is not sized here it is never sized at all, and the sprint's velocity figure silently stops describing the work delivered. Use the project's normal estimation scale; if it truly cannot be sized yet, label it `unsized` with a one-line reason rather than leaving the field empty by default.
 
 ## Scope
 
