@@ -5,6 +5,14 @@ description: "Autonomously build the active sprint/board in Jira dependency orde
 
 # agile_10_implement
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+When loaded by Codex, run every phase inline in this context with `concurrency=0`. Never spawn, request, or claim a named agent or subagent; preserve every phase gate, marker, and receipt yourself.
+
+## Purpose
+
 Clears the **build** queue: every eligible `To Do` Story on the active board becomes an open, self-reviewed PR at `In Review`, in Jira dependency order, unattended. `agile-11-merge-train` then clears the **merge** queue (open PR → `main`). An ambiguous ticket goes back as Needs Info; never guess its spec.
 
 **Non-goals:** merging to `main` (`agile-11-merge-train`); transitioning to `Done` (skill 14); scope not in the Story; backlog or future-sprint tickets.
@@ -239,8 +247,17 @@ Follow-up tickets to file (CRITICAL only, each with its points or `unsized` + re
 
 Background completions wake only the top-level session. A dispatched agent (or a skill inline inside one) ends when its turn ends, so nothing can wake it.
 
-- **Top level:** one Bash `run_in_background: true` wait per run id; keep working until notified.
-- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Do what does not need the result, then end with a handoff: `waiting: <run id>`, `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
+- **Top level:** one Bash `run_in_background: true` wait per run id, with `timeout` above the run's usual duration (not the 600 s foreground cap); keep working until notified. One wake per run: no `sleep` loop, no short wait re-issued on expiry. Have the command print everything the next step needs (conclusion, head sha, names of failed jobs), so the notification is read once, inside the call that acts on it, never in a standalone `cat` of the output file. Right after a push the run may not exist yet: resolve the id inside the same background command, never in a foreground poll.
+
+  ```bash
+  V='{status,conclusion,headSha,failed:[.jobs[]|select(.conclusion=="failure")|.name]}'
+  # known run id
+  gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; gh run view <run-id> --json status,conclusion,headSha,jobs --jq "$V"
+  # right after a push: find the run for the head sha, then watch it
+  for i in $(seq 60); do ID=$(gh run list --branch <branch> --json databaseId,headSha --jq '.[]|select(.headSha=="<sha>")|.databaseId' | head -1); [ -n "$ID" ] && break; sleep 5; done; [ -n "$ID" ] || { echo "no run for <sha>"; exit 1; }
+  gh run watch "$ID" --exit-status --interval 30 >/dev/null 2>&1; gh run view "$ID" --json status,conclusion,headSha,jobs --jq "$V"
+  ```
+- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Right after a push there may be no run id yet: do not `sleep` and re-list, hand off `waiting: ci-on <head sha> <branch>` and let the top level resolve it. Do what does not need the result, then end with a handoff: `waiting: <run id>` (or `ci-on`), `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
 - **Fallback, no background notifications or no dispatch (e.g. Codex):** one bounded foreground wait, re-issued on timeout. Stay under the 600 s Bash cap (a capped call moves to the background and keeps polling) and the 5-minute cache:
 
   ```bash

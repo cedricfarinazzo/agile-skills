@@ -16,6 +16,7 @@ Raw idea → sprint retro, wired into **Confluence** and **Jira**. Focused plugi
 | <img src="agile-sprint-drain/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
 | <img src="deep-refactor/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
 | <img src="project-review/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**project-review**](project-review/README.md) | Project assessment (out-of-cycle, read-only) | Deep IT Project Review — evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains | None |
+| <img src="session-audit/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**session-audit**](session-audit/README.md) | Session cost audit (out-of-cycle, read-only) | Session Audit — per-skill and per-subagent spend from transcripts, before/after delta per merged PR and per line, ranked improvements | `gh` (optional) |
 | <img src="agile-mods/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-mods**](agile-mods/README.md) | Enforcement + visibility (Claude Mods, early access) | No skills — `/agile-board` sprint board with burndown, PR pipeline and drain timeline panes, guards on the loop's rules (tool grants, pinned reviewed head + fresh CI at merge, no push to main), `/receipts`, retro counts, authoring checks | `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` |
 
 **Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
@@ -104,6 +105,7 @@ Each skill reads from what the previous skill wrote (Confluence pages, Jira issu
 /plugin install agile-sprint-drain@agile-skills   # needs execution + merge-review
 /plugin install deep-refactor@agile-skills        # out-of-cycle: deep-refactor + test-refactor + doc-refactor
 /plugin install project-review@agile-skills       # out-of-cycle: read-only technical project assessment
+/plugin install session-audit@agile-skills        # out-of-cycle: read-only session cost and efficiency audit
 /reload-plugins
 ```
 
@@ -127,7 +129,9 @@ codex plugin add agile-planning@agile-skills
 # install any other phase by the same name
 ```
 
-Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Its execution and merge workflows run inline because installed plugins do not register plugin-local named agents.
+Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Invoke skills as `$skill-name`. Codex is locked to full inline execution: no plugin-local agent or subagent dispatch, every workflow phase uses `concurrency=0`, and every sprint-drain `dispatch` value normalizes to inline execution. Claude-only Artifact publication is optional: Confluence remains the source of truth when no Artifact tool is available.
+
+See [Claude Code and Codex compatibility](docs/CODEX_COMPATIBILITY.md) for the runtime matrix, preflight requirements, and release smoke-test procedure.
 
 ### GitHub Copilot CLI
 

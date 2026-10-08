@@ -8,20 +8,22 @@ Read and follow [CLAUDE.md](CLAUDE.md) for the shared workflow and invariants. T
 
 - Canonical packages are the root-level plugin directories. Codex manifests live in `<plugin>/.codex-plugin/plugin.json`; keep their identity, version, and skill source aligned with the matching Claude manifests.
 - The Codex marketplace is `.agents/plugins/marketplace.json`. Its entries must match package directories and manifest names.
-- Installed Codex plugins do not discover plugin-local named phase agents. Execution and merge workflows run their phase chains inline (`concurrency=0`) on Codex, and `agile-sprint-drain` treats `dispatch=session` as `dispatch=phase`. With no background notifications, CI waits use the bounded foreground `timeout 270 gh run watch` fallback in each skill's `## Waiting on CI`.
+- Codex is locked to full inline execution: installed plugins never discover, request, or claim plugin-local named agents or subagents. Execution, merge, and sprint-drain run every phase with `concurrency=0`; all `dispatch` values normalize to inline execution. With no background notifications, CI waits use the bounded foreground `timeout 270 gh run watch` fallback in each skill's `## Waiting on CI`.
 - On Codex, invoke skills as `$skill-name`; Claude Code uses its Skill tool and plugin namespace.
 - Prefer the consumer repository's `AGENTS.md` for `## Skill configuration`; retain `CLAUDE.md` as a compatibility fallback.
-- Resolve bundled scripts relative to the loaded `SKILL.md` on Codex. `${CLAUDE_PLUGIN_ROOT}` applies only to Claude Code.
+- Resolve bundled scripts relative to the loaded `SKILL.md` on Codex. Codex currently supplies `${CLAUDE_PLUGIN_ROOT}` for compatibility, but relative resolution remains the portable fallback.
 - Keep the existing `.claude/worktrees/<ticket-key>` convention; do not use Codex's protected `.agents/` control path for ticket worktrees.
 
 ## Verify
 
-Run the existing Claude invariants, then validate each Codex manifest:
+Run the existing Claude invariants and every Claude manifest:
 
 ```bash
-for plugin in agile-* deep-refactor project-review; do
-  python3 /home/sed/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py "$plugin"
+for plugin in agile-* deep-refactor project-review session-audit; do
+  claude plugin validate "$plugin"
 done
 ```
 
-Confirm that all eight marketplace entries name a root package and every manifest name matches its package.
+See `docs/CODEX_COMPATIBILITY.md` for the host runtime matrix, Markdown conventions, and clean-host smoke test.
+
+Confirm that every marketplace entry names a root package, both marketplaces expose the same package set, and every manifest name matches its package.

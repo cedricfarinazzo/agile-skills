@@ -1,0 +1,1 @@
+Reconcile the cleanup train before its next car. Ticket DR-04's duplicated helper was removed by an earlier PR. Ticket DR-05 describes an authorization fallback that was fixed last month but is now present again on a new path. Continue the autonomous train.

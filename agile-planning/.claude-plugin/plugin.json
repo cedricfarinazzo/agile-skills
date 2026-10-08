@@ -2,7 +2,7 @@
   "name": "agile-planning",
   "displayName": "Agile Planning",
   "description": "Planning skills for Claude Code — Roadmap (short index + MVP/Iteration pages), Epics, Stories, Refinement (with bundled shared-file audit), and Sprint Planning, across Confluence + Jira.",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"

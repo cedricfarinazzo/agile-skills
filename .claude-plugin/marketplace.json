@@ -103,6 +103,19 @@
       ]
     },
     {
+      "name": "session-audit",
+      "source": "./session-audit",
+      "description": "Out-of-cycle read-only session audit — per-skill and per-subagent cost from transcripts, a before/after delta normalised by work shipped, and ranked efficiency improvements.",
+      "category": "development",
+      "tags": [
+        "audit",
+        "cost",
+        "efficiency",
+        "subagents",
+        "transcripts"
+      ]
+    },
+    {
       "name": "agile-mods",
       "source": "./agile-mods",
       "description": "Claude Mods (function hooks, early access) — /agile-board sprint board and panes, guards (tool grants, pinned reviewed head + fresh CI at merge, no push to main), /receipts, retro counts, and authoring checks for this repo.",

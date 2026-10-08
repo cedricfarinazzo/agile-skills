@@ -6,6 +6,14 @@ user-invocable: false
 
 # implement_validate
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+On Codex this sub-skill runs inline under `agile-10-implement` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
+
+## Purpose
+
 Per-ticket gate for `agile-10-implement`: decides whether one Story may enter the build pipeline. Returns exactly one verdict and posts the `🤖 agile:phase=validate` marker. It never asks the user — `critical-park` hands the question up to the orchestrator.
 
 ## Repo-scope check first (hard gate)

@@ -5,6 +5,14 @@ description: "Process every open PR sequentially: rebase → deep review → fix
 
 # agile_11_merge_train
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+When loaded by Codex, run every PR phase inline in this context with `concurrency=0`. Never spawn, request, or claim a named agent or subagent; preserve every phase gate, reviewed-sha check, and receipt yourself.
+
+## Purpose
+
 Clears the open-PR queue **safely**. Composes `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem` and adds the multi-PR layer: ordering, cross-PR conflict detection, Jira state, and the final report.
 
 **Goal:** every PR that lands on `main` was deeply read by a reviewer, rebased onto the current tip, re-verified by a **fresh** CI run, and matched against its Jira ACs. The 3b receipt gate — Files-read equal to the diff set — enforces that.
@@ -162,6 +170,7 @@ Top-level: run it with Bash `run_in_background: true`. Inside a dispatched conte
   2. **Does the PR add test files the runner collects before the failing one?** Order-dependent contamination (`sys.modules` pollution, env leaks, module-level state) is invisible locally. Run `<runner> <new test file> <failing test file>` — a repro is a real bug.
   3. **Reachability beats repeat count.** If the source subtree the test exercises is byte-identical to a base branch where it is green, the diff cannot be the cause however often it repeats — classify it environmental and look at load/timing. Only a *reachable* identical repeat means a real failure.
   4. **Retry timing-sensitive failures on an uncontended runner**; under contention the same timeout reproduces and reads as a real defect.
+  5. **A pass on retry while the base branch is red on the same signature is a flake, not a green.** Merge only with the base-branch run ids and the signature in the `post_merge` comment (`merged on retry; <base> red on <signature>`), and link or file one flake ticket per signature, not per PR. Count these in the report so a rising base red-rate is visible.
 - **Diagnose by WHERE it failed.** A job that dies *before any test runs* — image build, dependency install, stack bring-up, registry `connection reset` / `timeout` / `TLS`, an OOM or disk-full runner — is almost always transient infra; read the failing step's name.
 - **`CANCELLED` is not automatically preemption.** A hung test exhausting wall-clock, or a canceling concurrency group, also reports CANCELLED with downstream jobs SKIPPED. Read the log for `timeout` / `exceeded` / `waiting for` before rerunning.
 
@@ -224,7 +233,7 @@ Then one Markdown report, in normal English (report sections, postmortem bodies,
 - **Summary** — N processed / M merged / K blocked, runtime, tests passing on `main` after all merges.
 - **Per-PR outcome** — table of `PR | Ticket | Outcome | Notes`.
 - **Conflict map** — rendered from `conflict_map`, one line per collision, noting whether 3g recorded it and whether the link was created: `<file>: PR A (KEY-1) + PR B (KEY-2), same-lines → resolved in B by rebasing onto A · postmortem: recorded · Jira link: created`. List the no-collision PRs too.
-- **Remaining work** — PRs still open and why; tickets not moved to Done and why; flaky tests observed (informational — no ticket unless the flake recurs across trains).
+- **Remaining work** — PRs still open and why; tickets not moved to Done and why; flaky tests observed (informational — no ticket unless the flake recurs across trains), and PRs merged on a retry with the base branch red on the same signature.
 - **Follow-up tickets to file — CRITICAL only.** A discovered defect that could cause a runtime error, data corruption, a security issue, or autogenerate drift; an architecture-invariant violation that landed because fixing it would have expanded the merged PR's scope; a latent bug class confirmed during the train; a test/CI infrastructure failure that blocked the train. **Not** style nits, "we could refactor X someday", or subjective preferences.
 - **Lessons / new conventions discovered** — e.g. "cleanup fixtures must exclude `alembic_version` — codified in the test-suite `CLAUDE.md`".
 
@@ -232,8 +241,17 @@ Then one Markdown report, in normal English (report sections, postmortem bodies,
 
 Background completions wake only the top-level session. A dispatched agent (or a skill inline inside one) ends when its turn ends, so nothing can wake it.
 
-- **Top level:** one Bash `run_in_background: true` wait per run id; keep working until notified.
-- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Do what does not need the result, then end with a handoff: `waiting: <run id>`, `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
+- **Top level:** one Bash `run_in_background: true` wait per run id, with `timeout` above the run's usual duration (not the 600 s foreground cap); keep working until notified. One wake per run: no `sleep` loop, no short wait re-issued on expiry. Have the command print everything the next step needs (conclusion, head sha, names of failed jobs), so the notification is read once, inside the call that acts on it, never in a standalone `cat` of the output file. Right after a push the run may not exist yet: resolve the id inside the same background command, never in a foreground poll.
+
+  ```bash
+  V='{status,conclusion,headSha,failed:[.jobs[]|select(.conclusion=="failure")|.name]}'
+  # known run id
+  gh run watch <run-id> --exit-status --interval 30 >/dev/null 2>&1; gh run view <run-id> --json status,conclusion,headSha,jobs --jq "$V"
+  # right after a push: find the run for the head sha, then watch it
+  for i in $(seq 60); do ID=$(gh run list --branch <branch> --json databaseId,headSha --jq '.[]|select(.headSha=="<sha>")|.databaseId' | head -1); [ -n "$ID" ] && break; sleep 5; done; [ -n "$ID" ] || { echo "no run for <sha>"; exit 1; }
+  gh run watch "$ID" --exit-status --interval 30 >/dev/null 2>&1; gh run view "$ID" --json status,conclusion,headSha,jobs --jq "$V"
+  ```
+- **Dispatched:** never background a wait, `sleep N; cat <output>`, or loop on another wait's output. Right after a push there may be no run id yet: do not `sleep` and re-list, hand off `waiting: ci-on <head sha> <branch>` and let the top level resolve it. Do what does not need the result, then end with a handoff: `waiting: <run id>` (or `ci-on`), `resume_at: <step>`, and the state later steps need (PR, branch, worktree path, reviewed sha, round, unposted findings). The top level watches the run, then dispatches a **fresh** agent with the handoff and `ci: <run id> <conclusion> <head sha>`; it starts at `resume_at`, trusts earlier steps' markers and receipts, and reads only what remaining steps use. Never resume the paused agent: subagent caches last 5 minutes, so resuming re-writes its whole context.
 - **Fallback, no background notifications or no dispatch (e.g. Codex):** one bounded foreground wait, re-issued on timeout. Stay under the 600 s Bash cap (a capped call moves to the background and keeps polling) and the 5-minute cache:
 
   ```bash

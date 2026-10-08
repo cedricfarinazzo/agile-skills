@@ -1,0 +1,24 @@
+{
+  "name": "session-audit",
+  "version":"0.1.1",
+  "description": "Out-of-cycle, read-only cost and efficiency audit of Claude Code sessions that ran agile-skills: per-skill and per-subagent spend, a before/after delta normalised by work shipped, and ranked improvements.",
+  "author": {
+    "name": "cedricfarinazzo",
+    "email": "cedricfarinazzo@gmail.com",
+    "url": "https://github.com/cedricfarinazzo"
+  },
+  "homepage": "https://github.com/cedricfarinazzo/agile-skills",
+  "repository": "https://github.com/cedricfarinazzo/agile-skills",
+  "license": "MIT",
+  "keywords": ["audit", "cost", "efficiency", "subagents", "transcripts"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Session Audit",
+    "shortDescription": "Measure what a session cost and what it shipped.",
+    "longDescription": "Profile Claude Code session transcripts per skill and subagent, compare two runs normalised by work shipped, and rank the edits that would cut spend.",
+    "developerName": "cedricfarinazzo",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": ["Audit the cost of my last session."]
+  }
+}

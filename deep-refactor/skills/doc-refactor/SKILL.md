@@ -6,11 +6,23 @@ user-invocable: true
 
 # doc-refactor
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
+
+## Purpose
+
 The third sibling, with the contract inverted once more. `deep-refactor` freezes the test suite; `test-refactor` freezes production code; here **the source is frozen entirely** and the markdown is the object of change. A doc fix that "needs" a code change is out of scope — a doc that disagrees with the code is a finding, the audit says which side is wrong, and if it's the code that's wrong it becomes its own separately-ticketed PR, never smuggled into a doc PR.
 
 **The goal is documentation that is true, findable, DRY and cheap to read.** The failure mode is not ugliness, it is **a confident false statement**: a doc that lies costs more than no doc at all, because a reader acts on it and then debugs the wrong thing. So the proof here is neither a suite nor a coverage number — it is **verification**. Every claim that survives the audit has been executed or resolved against the repo, and an unchecked sentence is a hypothesis wearing the voice of documentation.
 
 **Some markdown is executable.** `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, skill and agent frontmatter — these are loaded into an agent's context and change what it does. Treat them as code with no test suite: a dropped trigger phrase or a deleted rule is a silent behavioral regression that nothing will catch, and they are paid in **tokens on every session, forever**, which makes their size a deliverable and not a matter of taste.
+
+### `rules` — standing-instruction hygiene
+
+When invoked with `rules`, audit the whole standing-rule corpus in addition to the normal markdown inventory: root and nested `AGENTS.md`/`CLAUDE.md`, agent and skill instructions, conventions, and binding ADR constraints. A rule is a directive that changes behavior across tasks, not a bounded work-status note; extract any durable directive buried in a status log instead of retaining the log wholesale. For each rule, state its neutral behavioral impact and its continuing context cost, then flag only evidenced problems: `Redundant`, `Stale / superseded`, `Misfiled`, `Low-yield ritual`, `Not actionable`, `Brittle`, or `Conflicts`. A healthy rule has no manufactured critique. Compare the corpus with installed skills and current ADRs before calling a rule duplicate, and preserve intentionally replicated invariants with their existing sync proof.
 
 Four phases: **audit → report → ticket → drain**.
 
@@ -18,7 +30,7 @@ Four phases: **audit → report → ticket → drain**.
 
 **Inventory before you judge.** Every `.md` in the repo, each tagged with its audience and its **load path** — human-browsed on the forge, rendered by a docs site, or auto-loaded into an agent's context. That tag decides every later call: a README optimizes for a newcomer's first ten minutes, a `docs/` page for a reader who already arrived and knows what they want, an instruction file for a machine that will follow it literally and bill you per token.
 
-Then fan out **parallel read-only agents over disjoint slices** (root docs, the `docs/` tree, per-package READMEs, `.github/` templates, agent-instruction files), plus one pass over the docs *toolchain* — site config, nav/sidebar, link checker, generator markers. **Loop until dry**: a second pass over "already read" docs routinely finds a stale command the first pass skimmed past because it looked plausible. The exit condition is a pass that comes back empty.
+On Claude Code, fan out **parallel read-only agents over disjoint slices** (root docs, the `docs/` tree, per-package READMEs, `.github/` templates, agent-instruction files), plus one pass over the docs *toolchain* — site config, nav/sidebar, link checker, generator markers. On Codex, cover those slices and the toolchain in order inline. **Loop until dry**: a second pass over "already read" docs routinely finds a stale command the first pass skimmed past because it looked plausible. The exit condition is a pass that comes back empty.
 
 Classify every file — no doc is skipped because it reads well:
 
@@ -42,6 +54,10 @@ Classify every file — no doc is skipped because it reads well:
 
 One synthesized document: falsehoods (each with the check that caught it), stale sections, the **duplication map** naming the chosen home for every repeated fact, replicated invariants with their sync rule, generated files with their generators, compression candidates with measured sizes, the gap list, and any **code defects the audit uncovered** — reported, not fixed. Three baselines attached: total doc bytes, the per-file token cost of everything auto-loaded into an agent's context, and the link/anchor/command checks as a pass table. Publish where the team can act on it; the report is the contract for everything after.
 
+### Cleanup train ledger
+
+The report carries one durable row per candidate: `ID`, surviving claim or reader behavior, evidence, canonical home, pins, frozen source boundary, validation command, dependency, and status. Status is exactly `Proposed`, `Approved`, `In progress`, `Blocked`, `Superseded`, `Done`, or `Rejected` (with a one-line reason). A change whose truth cannot be established from the repository is `Blocked — verification required`; do not invent its replacement. A replicated invariant or instruction that is deliberately load-bearing is `Deliberate — do not fix`, not duplication to collapse.
+
 ## Phase 3 — Ticket
 
 One ticket = one PR, sequenced:
@@ -54,10 +70,13 @@ One ticket = one PR, sequenced:
 
 Every ticket lists its own out-of-scope items. Source diff in every PR is **empty**, verified mechanically (diff the non-doc paths — zero lines); the only non-markdown files a doc PR may touch are docs-toolchain config (site nav, link-checker config), named in the ticket in advance.
 
+Every ticket is executable with no audit-session context. State the surviving reader behavior, exact in-scope and tempting-but-out-of-scope paths, canonical post-change home, frozen source boundary, pins, repository-native commands with expected results, and specific STOP conditions (drift, a new pin, a required source edit, or a failed claim verification). End with a **prevention decision**: `Guard added`, `Ownership recorded`, or `No guard justified`. Add a guard only when it is the cheapest independent proof; never add a brittle link/source grep or permanent instruction merely to make the ticket look complete.
+
 ## Phase 4 — Drain
 
 - One branch per ticket off current main; isolated worktrees when parallel. Markdown looks conflict-free and isn't — every ticket in this train rewrites the same handful of READMEs.
 - **Re-verify at the merged state, not at authoring time.** Each merged car moves the paths and headings the next car's ticket cites: locate every target by content, never by line number, and re-run the link, anchor and command checks against the branch's own tree rather than trusting the report. A claim that no longer holds is a finding to report, never a silent skip or a blind apply.
+- **Reconcile the ledger before every car.** Re-check every ready candidate against current main. Mark independently fixed work `Superseded`; refresh drifted evidence and scope before it can run; retain a reintroduced resolved problem as `Possible regression`, not a duplicate; and leave an evidence-backed `Rejected` or `Deliberate — do not fix` row visible so the next audit does not relitigate it. Drain all remaining `Approved` work without pausing for a checkpoint.
 - **Do not hand-roll the drain.** Each ticket goes through the project's normal implement → review → merge pipeline (`agile-10-implement` / `agile-11-merge-train` where installed), so every car carries the same validation, phase markers, review receipts and post-merge postmortem as any other ticket. An audit train is a *source of tickets*, never a parallel process with weaker evidence: a car that merges with no marker trail leaves the board unable to say how the change was reviewed, and that gap is invisible precisely because the change shipped fine.
 - **Render before you merge.** Markdown is compiled by renderers you don't control — the forge, the docs site, and a model reading the raw text disagree about nested lists, tables, inline HTML, relative links and admonitions. Check the actual rendered page for anything structural; a relative link that resolves on disk can still 404 on the published site.
 - **Prove the compression kept its operative tokens.** The per-file before/after diff of commands, flags and keys goes in the PR as output, not as a sentence in the description claiming it was done.
@@ -65,15 +84,15 @@ Every ticket lists its own out-of-scope items. Source diff in every PR is **empt
 - **An instruction-file PR states its behavioral delta** — what an agent will now do differently, and which triggers or rules were reworded versus removed. A diff summary that describes bytes and not behavior has not reviewed the change.
 - Merge only on a green CI run you verified yourself; sequential merges; rebase the next branch when file sets intersect. Two identical CI failures are a diagnosis, not a rerun. **Most repos have no doc CI at all** — where nothing checks links or commands, the PR carries the check output itself; "no gate failed" is not evidence when there is no gate.
 
-## Work discovered mid-phase — do it, or ticket it properly
+## Work discovered mid-phase — finish this ticket's own work; file what is separate
 
 Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
 
-**1. Do it now, or file it?**
-- **Trivial and inside the current scope** → do it here. A one-line correction or a stale comment beside code you are already editing does not need its own ticket; filing one costs more than the fix.
-- **Anything else** → a follow-up ticket: non-trivial, carrying risk, needing its own review, or reaching into files this work does not own. Never silently widen the diff to absorb it, and never let it survive only as prose in a PR body.
+**1. Does it belong to this ticket?** It does when the change is incomplete, incorrect or inconsistent without it: the ACs, tests and docs for what it changes, a missed call site, a defect or flake its own change exposes, cleanup beside code it edits. Do it here, even when the PR grows. **Filing a follow-up to avoid work is not an option**; "it is more work" and "it touches more files" are not reasons. Test: would a reviewer accept this ticket as done without it? If not, it is this ticket's work.
 
-**2. Which backlog does it enter?**
+**2. Otherwise file it.** Separate work (its own design decision or risk, a different area, independent value) gets a ticket. One ticket per separate piece; never split this ticket's own remainder into several small ones.
+
+**Which backlog?**
 - **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
 - **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
 

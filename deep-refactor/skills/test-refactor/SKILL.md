@@ -1,10 +1,18 @@
 ---
 name: test-refactor
-description: "Audit one test suite at a time for dead weight, duplication, parallel-unsafety and runtime cost, then ticket and ship the cleanup as a PR train — with production code frozen and good coverage kept, proven per module rather than assumed. Triggers: test refactor, clean the tests, refactor the tests, test suite audit, DRY the tests, parallelize the test suite, speed up the tests."
+description: "Audit one test suite at a time for dead weight, duplication, parallel-unsafety and runtime cost, or characterize behavior before a risky refactor — with production code frozen and good coverage kept, proven per module rather than assumed. Triggers: test refactor, characterize before refactor, characterization tests, clean the tests, refactor the tests, test suite audit, DRY the tests, parallelize the test suite, speed up the tests."
 user-invocable: true
 ---
 
 # test-refactor
+
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
+
+## Purpose
 
 The sibling of `deep-refactor`, with the contract inverted. There, the test suite is the frozen proof that a refactor preserved behavior. Here the tests **are** the object of change — so the frozen side is **production code** (a test refactor that "needs" a production edit is out of scope; a real defect a test uncovers is reported and ticketed separately, never smuggled into a test PR), and the proof that rigor survived is **measured**: per-module coverage parity plus a demonstration that every touched test can still fail.
 
@@ -12,11 +20,17 @@ The sibling of `deep-refactor`, with the contract inverted. There, the test suit
 
 **One suite at a time.** The user names the scope (e.g. "backend unit tests", "frontend component tests", "integration"). Everything outside it is untouchable this run; cross-suite findings go in the report as follow-ups.
 
+### `characterize <scope>` — establish a frozen contract first
+
+When invoked with `characterize`, do not run a deletion campaign. Production code stays frozen and the sole goal is to add the smallest owner-boundary tests that expose the behavior a later `deep-refactor` ticket must preserve. Start with a named risky flow, public contract, failure mode, or compatibility path; never characterize internal call shape merely because it is easy to assert. Each new test answers: (1) what observable behavior or invariant it protects, (2) what credible regression makes it fail, (3) why existing coverage misses that regression, and (4) whether it demands a production seam no production caller needs. If the fourth answer is yes, move the test to the real boundary instead.
+
+For a reported bug, prove the test fails on the pre-fix behavior when feasible. One owner-boundary regression covers one defect; do not replay it at every crossed layer. Report the established contract, its owning test, targeted validation, and the precise `deep-refactor` candidate it unblocks. Then return to the normal audit → report → ticket → drain flow; characterization is a ticket in that flow, not a new approval gate.
+
 Four phases: **audit → report → ticket → drain**.
 
 ## Phase 1 — Audit
 
-Fan out parallel read-only agents over disjoint slices of the suite, plus one pass over the harness itself (fixtures, conftest/setup files, CI test job, coverage config). **Loop until dry**: after acting on a pass, run another with fresh eyes; the exit condition is a pass that comes back empty.
+On Claude Code, fan out parallel read-only agents over disjoint slices of the suite, plus one pass over the harness itself (fixtures, conftest/setup files, CI test job, coverage config). On Codex, cover those slices and the harness in order inline. **Loop until dry**: after acting on a pass, run another with fresh eyes; the exit condition is a pass that comes back empty.
 
 Classify every test — no test is skipped because it looks fine:
 
@@ -27,6 +41,8 @@ Classify every test — no test is skipped because it looks fine:
 5. **Unreadable or WET — refactor.** Copy-paste setup becomes shared fixtures, factories, builders. But **locality beats indirection**: a reader must see what a test asserts without chasing five fixtures, and a test must contain **no logic** — a loop or conditional that computes the expected value re-implements the subject and inherits its bugs. Explicit expected values, self-describing names, one assertion story per test.
 6. **Expensive — profile, then cheapen.** Profile the suite: the slowest tests, the costliest fixtures, and peak memory per worker — measured, not guessed. The usual culprits: real sleeps and timeouts where a condition wait or fake clock belongs; expensive state rebuilt per test that one wider-scoped, read-only fixture could serve (widen scope **only** for state no test mutates — a shared mutable fixture trades speed for coupling and parallel-unsafety); oversized fixture data where a minimal case proves the same thing; unmocked network/disk on paths the test doesn't assert; subprocess or container spawns per test that can be pooled per worker; giant parametrize grids where a boundary-value subset has identical failure-detection power (prove it: the dropped cases catch no mutation the kept ones miss). A speedup must never be bought with coverage — that's what the parity gate below is for.
 
+**Retention bar before deletion.** An odd-looking test stays unless the audit records its exact name/location, the regression it can detect, non-test callers of any production or support seam it covers, stronger surviving owner-boundary proof (or why none is needed), the reason/history it exists where available, the deletion it unlocks, risk, and a focused validation command. Source inspection can be an independent guard only when it protects an externally meaningful key, byte, path, or architecture contract and survives an identifier-only refactor. A test that merely resembles implementation is suspect, not disposable.
+
 **Hermeticity is part of the audit.** A unit test that opens a real network connection is broken even while green: on a dev machine a local service may silently answer (the test then has side effects on a live system), and on CI nothing answers — each swallowed best-effort call burns a connect-retry budget, and in the wrong network mode hangs the suite outright. The diagnosis signature is CI durations quantized at identical values (±0.2 s) across unrelated tests: that is a timeout constant, never compute. Audit for unpatched I/O seams (publishes, queue sends, best-effort telemetry) and treat local wall-clock as inadmissible evidence about CI — a suite that is fast locally can be 10× slower on CI for reasons only CI can show you.
 
 **Pins run the other way here.** Enumerate what depends on the tests before moving them: coverage detectors keyed on static test imports, CI selection globs and naming conventions, per-file coverage-omit rules, meta-tests that scan test source, docs referencing test names. A rename or move ships with that inventory or it doesn't ship.
@@ -36,6 +52,10 @@ Classify every test — no test is skipped because it looks fine:
 ## Phase 2 — Report
 
 One synthesized document: deletions (each with category + evidence), merges, harness findings, parallel-unsafety inventory, critical-path depth gaps, the load-bearing list, and any production defects the audit uncovered (reported, not fixed). Three baselines attached — per-module coverage, suite wall-clock (same parallelism as CI), and peak memory per worker — **each recorded with the command and the commit that produced it**. Publish where the team can act on it.
+
+### Cleanup train ledger
+
+The report carries one durable row per candidate: `ID`, protected behavior, evidence, test owner, production/test pins, frozen side, validation command, dependency, and status. Status is exactly `Proposed`, `Approved`, `In progress`, `Blocked`, `Superseded`, `Done`, or `Rejected` (with a one-line reason). Work that cannot be judged because the behavior lacks a trustworthy owner-boundary test is `Blocked — characterization required`; add that proof with production frozen before any code refactor depends on it. A test that is odd-looking but independently protects a real contract is `Deliberate — do not fix`, not cleanup fuel.
 
 **The Phase-2 baselines are a starting measurement, not a fixed yardstick.** This train's whole purpose is to change the suite those numbers describe, so by car 4 the Phase-2 figures describe a tree that no longer exists — test counts, file counts and wall-clock have all moved, and moved *because the earlier cars worked*. Each car therefore re-derives its own baseline at its branch point and reports its delta against that; a car measured against the Phase-2 snapshot is reporting its predecessors' work as its own, or failing a gate for their changes. Likewise every count in a ticket — call sites, spec files, collected tests — is re-derived before planning it, never carried over from the report — see Phase 4.
 
@@ -51,10 +71,13 @@ One ticket = one PR, sequenced:
 
 Every ticket lists its own out-of-scope items. Production-code diff in every PR is **empty**, verified mechanically (diff the production paths — zero lines), except a separately-ticketed defect fix that is its own PR.
 
+Every ticket is executable with no audit-session context. State protected behavior, exact in-scope and tempting-but-out-of-scope paths, the retained test owner, frozen production boundary, pins, repository-native commands with expected results, and specific STOP conditions (drift, a new pin, a required production edit, or a failed characterization). End with a **prevention decision**: `Guard added`, `Ownership recorded`, or `No guard justified`. A guard must be the cheapest independent proof, never a brittle implementation grep or a permanent instruction added for ceremony.
+
 ## Phase 4 — Drain
 
 - One branch per ticket off current main; isolated worktrees when parallel.
 - **Re-verify at the merged state, not at authoring time.** Each merged car changes the suite the next car's ticket describes: locate every target by content rather than by line number, and re-derive every count and baseline against the branch's own tree rather than trusting the report. A claim that no longer holds is a finding to report before implementing, never a silent skip or a blind apply.
+- **Reconcile the ledger before every car.** Re-check every ready candidate against current main. Mark independently fixed work `Superseded`; refresh drifted evidence and scope before it can run; retain a reintroduced resolved problem as `Possible regression`, not a duplicate; and leave an evidence-backed `Rejected` or `Deliberate — do not fix` row visible so the next audit does not relitigate it. Drain all remaining `Approved` work without pausing for a checkpoint.
 - **Do not hand-roll the drain.** Each ticket goes through the project's normal implement → review → merge pipeline (`agile-10-implement` / `agile-11-merge-train` where installed), so every car carries the same validation, phase markers, review receipts and post-merge postmortem as any other ticket. An audit train is a *source of tickets*, never a parallel process with weaker evidence: a car that merges with no marker trail leaves the board unable to say how the change was reviewed, and that gap is invisible precisely because the code shipped fine.
 - **The single-parallel-run invariant.** The whole suite runs in **one parallel invocation in the CI test job**. Never solve a parallelism conflict by splitting the run, serializing a subset, quarantining a file, or adding retries — fix the test's isolation instead: unique temp dirs, ports, database schemas/transactions per worker; no shared mutable globals; no fixed resource names; condition-based waits, never sleeps. Prove order-independence by running with randomized order and full parallelism locally before pushing. A test that only passes serially, in a fixed order, or on retry is a defect with a diagnosis, not an inconvenience with a workaround.
 - **Make hermeticity structural, not aspirational.** Block real network connects at the test-harness level (a socket-level guard that raises instantly, allowing only what the runner itself needs) and patch every seam it exposes. One trap decides the design: a best-effort seam that swallows exceptions swallows the guard's error too and stays green — so pair the blocker with an opt-in trace audit that logs every blocked connect per test, and assert zero residue. Lock the guard itself with tests that prove it raises instantly against an unroutable address.
@@ -66,15 +89,15 @@ Every ticket lists its own out-of-scope items. Production-code diff in every PR 
 - Cost gate per PR: wall-clock and peak memory at or below the baseline (measured the same way, same parallelism). A cleanup that makes the suite slower or heavier explains itself in the PR or doesn't merge; a perf win is stated with its numbers, not adjectives. **A measured win far below the ticket's estimate is a finding worth stating plainly** — say so in the PR rather than quoting the estimate; the audit's projection was a hypothesis and the benchmark is the result. **Never quote a wall-clock number measured under concurrent load**: a machine also building sibling cars produces a spread wider than the effect, and any figure drawn from it is noise wearing a decimal point.
 - Merge only on a green CI run you verified yourself; sequential merges; rebase the next branch when file sets intersect. Two identical CI failures are a diagnosis, not a rerun.
 
-## Work discovered mid-phase — do it, or ticket it properly
+## Work discovered mid-phase — finish this ticket's own work; file what is separate
 
 Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
 
-**1. Do it now, or file it?**
-- **Trivial and inside the current scope** → do it here. A one-line correction or a stale comment beside code you are already editing does not need its own ticket; filing one costs more than the fix.
-- **Anything else** → a follow-up ticket: non-trivial, carrying risk, needing its own review, or reaching into files this work does not own. Never silently widen the diff to absorb it, and never let it survive only as prose in a PR body.
+**1. Does it belong to this ticket?** It does when the change is incomplete, incorrect or inconsistent without it: the ACs, tests and docs for what it changes, a missed call site, a defect or flake its own change exposes, cleanup beside code it edits. Do it here, even when the PR grows. **Filing a follow-up to avoid work is not an option**; "it is more work" and "it touches more files" are not reasons. Test: would a reviewer accept this ticket as done without it? If not, it is this ticket's work.
 
-**2. Which backlog does it enter?**
+**2. Otherwise file it.** Separate work (its own design decision or risk, a different area, independent value) gets a ticket. One ticket per separate piece; never split this ticket's own remainder into several small ones.
+
+**Which backlog?**
 - **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
 - **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
 

@@ -6,6 +6,14 @@ user-invocable: true
 
 # deep-refactor
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
+
+## Purpose
+
 **The goal is code that is clean, DRY and easy to understand.** The existing test suite is the proof that behavior didn't move — which means **editing a test to make a refactor pass is cheating**: it silently rewrites the contract you're claiming to preserve. Treat every test edit as a red flag to design around (aliases, facades, injection), not a convenience. The rare edit that is genuinely warranted — a fixture that encodes a bug, a guard whose shape must follow a file split — is done in the open: enumerated in advance, justified per file, concentrated in one ticket.
 
 Four phases: **audit → report → ticket → drain**. The discipline that makes it safe at scale: nothing is proposed until it has been vetted against the codebase's *change constraints*, and nothing is claimed until it has been measured or executed.
@@ -14,7 +22,11 @@ Four phases: **audit → report → ticket → drain**. The discipline that make
 
 **Question the global architecture first.** Before hunting local smells, render a verdict on the big shapes — service boundaries, sync/async splits, dependency direction, layering — with evidence. "The architecture is sound; the debt is duplication and god-files" is a finding; so is the opposite. Either way the verdict scopes everything below, and a structural problem found here outranks every cleanup.
 
-Then fan out **parallel read-only agents over disjoint areas** (one per subsystem: domain core, workers/jobs, API surface, build/dependency/config hygiene). Run a mechanical scanner (dead code / duplication / complexity) alongside for signal, not verdicts.
+### AI cleanup taxonomy
+
+Audit for the residue high-volume implementation agents commonly leave behind: duplicated business rules that have drifted; one-implementation abstractions and forwarding wrappers; obsolete flags, aliases, and compatibility paths; broad catches, silent fallbacks, and inconsistent error boundaries; dead exports or unreachable branches; and tests that forced production-only seams. A pattern is not a finding because it looks generated: name its concrete cost, `path:line` evidence, the behavior that must survive, and the canonical owner after cleanup. If that behavior lacks trustworthy proof, block the refactor for `test-refactor characterize <scope>` rather than changing code on faith.
+
+On Claude Code, fan out **parallel read-only agents over disjoint areas** (one per subsystem: domain core, workers/jobs, API surface, build/dependency/config hygiene). On Codex, cover those areas in that order inline. Run a mechanical scanner (dead code / duplication / complexity) alongside for signal, not verdicts.
 
 **Loop until dry.** One sweep is never exhaustive: after acting on a pass, run another with fresh eyes on the areas the first pass only skimmed — a second pass over "already audited" code routinely surfaces defects the first missed. The exit condition is a pass that comes back empty, not a list that looks long enough.
 
@@ -27,6 +39,10 @@ Every agent follows three rules:
 ## Phase 2 — Report
 
 One synthesized report: defects, perf, dependency/image wins, safe backlog, blocked list — each item with exact `file:line`, its pin inventory, evidence, and effort. Publish it where the team can act on it. The report is the contract for everything after.
+
+### Cleanup train ledger
+
+The report carries one durable row per candidate: `ID`, preserved behavior, evidence, canonical owner, pins, frozen side, validation command, dependency, and status. Status is exactly `Proposed`, `Approved`, `In progress`, `Blocked`, `Superseded`, `Done`, or `Rejected` (with a one-line reason). A candidate that needs behavior proof before code can safely move is `Blocked — characterization required`; hand it to `test-refactor` with production frozen, then return to this train once that test is established. A weak, duplicate, by-design, or uneconomic candidate is `Rejected` or `Deliberate — do not fix`, never a ticket padded into the train.
 
 **Every count in the report is a measurement with a date, not a fact.** A report is a snapshot of a tree the train is about to change, so record each count *with the command that produced it and the commit it was taken at* — "47 call sites (`grep -rc …` at `abc1234`)", never a bare "47". The command is what makes the number re-derivable by whoever builds the car three merges later; the bare number is what silently goes wrong.
 
@@ -42,6 +58,8 @@ Slice into a sequenced train, one ticket = one PR:
 
 Every ticket links the report and lists its own out-of-scope items so nothing gets sneaked in.
 
+Every ticket is executable with no audit-session context. State the preserved behavior, exact in-scope and tempting-but-out-of-scope paths, canonical post-change owner, frozen side, pins, repository-native commands with expected results, and specific STOP conditions (drift, a new pin, a required out-of-scope edit, or a failed characterization). End with a **prevention decision**: `Guard added`, `Ownership recorded`, or `No guard justified`. Add a guard only when it is the cheapest independent proof; never add a brittle source grep or permanent instruction merely to make the ticket look complete.
+
 **A ticket states the property and the command that derives its count — never a frozen literal.** Write "every site that calls `foo()` without a timeout (`rg -c …`)", not "the 47 sites". A literal count is correct only at the instant it was measured, has to be maintained by whoever moves the code, and is silently wrong until someone re-runs it — which, in a sequenced train, is guaranteed to be the person building the last car. The same applies to the effort figure: a saving is quoted as the benchmark that produced it, or it is quoted as an unknown.
 
 ## Phase 4 — Drain
@@ -54,19 +72,20 @@ Every ticket links the report and lists its own out-of-scope items so nothing ge
   - **Re-derive every count, enumeration and baseline on the car's own branch point before planning it**, using the command the report recorded. Expect the number to have moved in either direction: an earlier car may have already fixed some sites, or introduced a second code path that widened the set. Quote deltas against the re-derived figure, never against the report's snapshot.
 
   A claim that no longer holds — the symbol is pinned after all, the file was already fixed, the set is now larger than the ticket says — is a *finding to report*, never a silent skip or a blind apply. Report it on the ticket before implementing, so the reviewer reads the corrected reading rather than the stale one.
+- **Reconcile the ledger before every car.** Re-check every ready candidate against current main. Mark independently fixed work `Superseded`; refresh drifted evidence and scope before it can run; retain a reintroduced resolved problem as `Possible regression`, not a duplicate; and leave an evidence-backed `Rejected` or `Deliberate — do not fix` row visible so the next audit does not relitigate it. Drain all remaining `Approved` work without pausing for a checkpoint.
 - **Do not hand-roll the drain.** Each ticket goes through the project's normal implement → review → merge pipeline (`agile-10-implement` / `agile-11-merge-train` where installed), so every car carries the same validation, phase markers, review receipts and post-merge postmortem as any other ticket. An audit train is a *source of tickets*, never a parallel process with weaker evidence: a car that merges with no marker trail leaves the board unable to say how the change was reviewed, and that gap is invisible precisely because the code shipped fine.
 - Merge only on a green CI run you verified yourself; sequential merges; rebase the next branch when file sets intersect.
 - **Two identical CI failures are not a flake.** Diagnose from the actual logs and artifacts (a cancelled job means a hang — find what hung); fix on the branch with the diagnosis in the PR; announce any cross-PR interaction (e.g. a guard that must change once a sibling merges) in both PR bodies, then actually apply it.
 
-## Work discovered mid-phase — do it, or ticket it properly
+## Work discovered mid-phase — finish this ticket's own work; file what is separate
 
 Every phase discovers work its ticket did not plan for. Two decisions, in order, and neither of them is "leave it in a comment":
 
-**1. Do it now, or file it?**
-- **Trivial and inside the current scope** → do it here. A one-line correction or a stale comment beside code you are already editing does not need its own ticket; filing one costs more than the fix.
-- **Anything else** → a follow-up ticket: non-trivial, carrying risk, needing its own review, or reaching into files this work does not own. Never silently widen the diff to absorb it, and never let it survive only as prose in a PR body.
+**1. Does it belong to this ticket?** It does when the change is incomplete, incorrect or inconsistent without it: the ACs, tests and docs for what it changes, a missed call site, a defect or flake its own change exposes, cleanup beside code it edits. Do it here, even when the PR grows. **Filing a follow-up to avoid work is not an option**; "it is more work" and "it touches more files" are not reasons. Test: would a reviewer accept this ticket as done without it? If not, it is this ticket's work.
 
-**2. Which backlog does it enter?**
+**2. Otherwise file it.** Separate work (its own design decision or risk, a different area, independent value) gets a ticket. One ticket per separate piece; never split this ticket's own remainder into several small ones.
+
+**Which backlog?**
 - **The current sprint** — it blocks the sprint goal, it is a must-have, or a human asked for it.
 - **The product backlog** — everything else, and this is the default. Pulling work into a running sprint is a scope change, not a convenience.
 

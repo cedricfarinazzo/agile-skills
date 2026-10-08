@@ -5,6 +5,14 @@ description: "Fix every PR review issue, commit, push, re-check until satisfied.
 
 # merge-fix-until-satisfied
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+On Codex this sub-skill runs inline under `agile-11-merge-train` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
+
+## Purpose
+
 Fix every issue from a PR review, commit, re-examine, repeat until satisfied. The `"Satisfied. No remaining issues."` verdict is the contract callers (`agile-11-merge-train` 3c) gate on.
 
 **Input:** the issues from the current session (`merge-review-pr` output or an inline review). No review yet → run `merge-review-pr` first.
@@ -24,7 +32,7 @@ No review issues and nothing ugly spotted → skip to Phase 3. Otherwise, per is
 
 **Under a round budget (`round=` from the caller, e.g. `agile-11-merge-train`):** this is the only fix push before a final delta review. Fix only the findings named, with the smallest change that resolves each. No opportunistic cleanup, in verification mode too, and no analogous-site sweep beyond files the fix touches; every extra edit is new surface for that review.
 
-**"Fix all" means fix all, including every Minor.** Minor is a severity, not permission to punt. The only acceptable skip is a fix that would expand the diff into files the PR did not already touch — file a follow-up inline and note it in the postmortem. Never declare Satisfied with unaddressed Minor findings on the report.
+**"Fix all" means fix all, including every Minor.** Minor is a severity, not permission to punt. The only acceptable skip is genuinely separate work in files the PR did not already touch, never one that is merely more effort — file a follow-up inline and note it in the postmortem. Never declare Satisfied with unaddressed Minor findings on the report.
 
 If a fix reveals a deeper problem, escalate and explain before proceeding.
 

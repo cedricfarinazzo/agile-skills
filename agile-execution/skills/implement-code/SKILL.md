@@ -6,6 +6,14 @@ user-invocable: false
 
 # implement_code
 
+## Host execution
+
+**Claude Code:** retain the agent-dispatch and concurrency behavior defined below. **Codex:** use only the inline behavior stated here.
+
+On Codex this sub-skill runs inline under `agile-10-implement` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
+
+## Purpose
+
 Build phase for `agile-10-implement`. Invoked with a planned ticket — and, on a fix pass, the numbered review findings. Posts the `🤖 agile:phase=implement` marker. **Does not open the PR**; `implement-pr` does that after this phase returns.
 
 **Build mode** — the orchestrator passes `mode=sequential | concurrent` (default `sequential`):
@@ -52,7 +60,7 @@ Not done until all of these hold on the latest pushed commit. If any applicable 
 
 ## Fix pass (re-invoked after `implement-review`)
 
-Fix **every** numbered finding — Critical *and* Minor; Minor is a severity, not a deferral. The only acceptable unfixed finding is one that would expand the diff into unrelated files: file a follow-up ticket inline and note it in the PR. **Point that ticket at creation** on the project's normal estimation scale — it never passes back through refinement, so unpointed here is unpointed forever; if it genuinely cannot be sized yet, label it `unsized` with a one-line reason rather than leaving the field empty. Re-read the changed files afterwards (fixes introduce bugs), then re-run the mode's gate green.
+Fix **every** numbered finding — Critical *and* Minor; Minor is a severity, not a deferral. The only acceptable unfixed finding is genuinely separate work (see the mid-phase test: would a reviewer accept the ticket as done without it?), never one that is merely more effort or touches more files: file a follow-up ticket inline and note it in the PR. **Point that ticket at creation** on the project's normal estimation scale — it never passes back through refinement, so unpointed here is unpointed forever; if it genuinely cannot be sized yet, label it `unsized` with a one-line reason rather than leaving the field empty. Re-read the changed files afterwards (fixes introduce bugs), then re-run the mode's gate green.
 
 ## Commit and push
 

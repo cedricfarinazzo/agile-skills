@@ -14,7 +14,7 @@ The review must be broad enough to catch architectural, implementation, security
 operational, reliability, delivery, documentation, governance, and lifecycle risks,
 while remaining project-aware: do not apply irrelevant checks mechanically.
 
-**Exhaustive project review is mandatory.** The reviewer MUST read the contents of
+**Exhaustive project review is mandatory in the default `deep` mode.** The reviewer MUST read the contents of
 every review-relevant file in the repository before writing the report. This includes
 source, tests, build and dependency metadata, CI/CD, infrastructure, deployment,
 configuration, scripts, schemas, API definitions, and documentation. The reviewer
@@ -35,7 +35,7 @@ The reviewer must inspect the project, infer its technology and operating model,
 determine which review domains are applicable, investigate each applicable domain
 deeply, and produce a prioritized review report with concrete evidence.
 
-**Terminal condition:** The agent may stop only after every review-relevant file has
+**Terminal condition in `deep` mode:** The agent may stop only after every review-relevant file has
 been read in full, every file has been analyzed against all applicable review domains,
 the file-coverage ledger has been reconciled with the final inventory, and the complete
 Markdown report has been generated. It must continue working until all four conditions
@@ -49,6 +49,10 @@ Markdown file in the review workspace. The default filename is:
 If that filename would overwrite an existing project file, use a non-conflicting name
 such as `PROJECT_REVIEW_<timestamp>.md` in an external or designated output directory.
 The review report is the only file the reviewer is permitted to create or modify.
+
+## Review profiles
+
+`deep` is the default and retains the exhaustive whole-repository ledger and all applicable domains. `standard` covers the mapped critical paths, all deployment/configuration/CI evidence, and the highest-risk package in every architectural layer. `quick` covers recon plus the highest-risk reachable paths only. A focus argument (`security`, `tests`, `performance`, `architecture`, and similar) runs recon then that domain and its direct dependencies. `branch` covers a caller-supplied changed-path list and their direct callers/importers; do not obtain that list with Git, because this skill never executes Git commands. Any mode other than `deep` is a scoped assessment: identify the omitted paths/domains in the report, never claim exhaustive coverage, and include a ledger for every path actually reviewed or excluded from the declared scope.
 
 ---
 
@@ -227,16 +231,14 @@ Create a concise **Project Profile** before detailed review.
 
 # Phase 0.5 — Mandatory deep source-code reconnaissance
 
-This phase is REQUIRED before domain scoring or conclusions. Complete the file
+This phase is REQUIRED before domain scoring or conclusions in `deep` mode. In another profile, complete the same ledger only for the declared scope and label it scoped. Complete the file
 coverage ledger below before starting Phase 1. Do not sample. Do not replace direct
 reading with a risk-ranked subset. Risk ranking determines the order and depth of
 follow-up tracing, never whether an in-scope file is read.
 
 ## File coverage ledger — completion gate
 
-1. Create a complete recursive inventory before review. Include hidden files and
-   files outside conventional source directories; exclude only `.git` and the report
-   output path from discovery.
+1. In `deep` mode, create a complete recursive inventory before review. In a scoped profile, inventory the declared paths plus the direct callers, importers, and configuration or deployment files needed to assess them; state that boundary in the report. Include hidden files within scope and exclude only `.git` and the report output path from discovery.
 2. Classify every discovered file as `reviewed` or `excluded`. Read every `reviewed`
    file in full. For unusually large text files, read it in ordered chunks until EOF;
    do not infer omitted content from a search result or surrounding lines.
@@ -250,9 +252,7 @@ follow-up tracing, never whether an in-scope file is read.
 4. For every excluded file or glob, record the rationale and matched-file count.
    Review the rule, manifest, or source that causes an excluded generated artifact to
    exist when that evidence is present.
-5. Reconcile the ledger against a fresh recursive inventory after review. The count
-   of discovered files must equal `reviewed + excluded + report output`; every
-   discovered path must occur exactly once. Resolve any discrepancy before Phase 5.
+5. Reconcile the ledger against a fresh inventory after review. In `deep` mode, the count of discovered files must equal `reviewed + excluded + report output`; every discovered path must occur exactly once. In a scoped profile, apply that reconciliation to the declared scope and list omitted path groups separately. Resolve any discrepancy before Phase 5.
 6. Add the completed ledger (or a compact, lossless appendix/table when large) to the
    report. A totals-only claim is insufficient: the report must let a reader identify
    each reviewed or excluded file.
@@ -1249,6 +1249,12 @@ Examples:
 
 These systemic findings are often more important than isolated lint issues.
 
+## Finding vetting and calibration
+
+Before a finding reaches the final table, re-read every cited location and confirm its path, line range, current behavior, and domain attribution. Merge duplicates into one primary finding, cross-reference affected domains, and record material candidates rejected as by-design, stale, duplicate, or not worth the remediation risk so future reviews do not rediscover them. A decision recorded in an ADR suppresses a finding only when the implementation still matches it; code/decision drift is a finding.
+
+For security findings, add **Attack path / Preconditions:** the first untrusted actor, exposed or internal boundary, required privileges/configuration, affected asset, and whether the claim is `Observed`, `Reproduced safely`, `Conditional`, or `Unable to reproduce`. Do not inflate severity for a test-only, sample-only, debug-only, unreachable, or drifted location; mark it conditional or non-production instead. A changed or missing cited location requires re-validation, never automatic dismissal as a duplicate.
+
 ---
 
 # Finding model
@@ -1263,6 +1269,7 @@ this order, so findings remain comparable and actionable:
 - **Observation:** the established fact; distinguish source-level proof from an
   inference or unverified runtime behavior.
 - **Risk:** why the observation matters and affected boundary or user.
+- **Attack path / Preconditions:** required for security findings; otherwise omit.
 - **Recommendation:** a concrete, proportionate remediation.
 - **Validation to add:** a test, check, measurement, or review artifact that proves
   the remediation. State `Not applicable` only when justified.
@@ -1443,8 +1450,7 @@ List:
 
 Include a `### File coverage reconciliation` subsection before other checks. Provide
 the inventory method, totals, exclusions grouped by rationale, and a complete ledger
-or an appendix reference. State that every review-relevant file was read in full, or
-list the exact inaccessible paths and why that prevented this claim.
+or an appendix reference. In `deep` mode, state that every review-relevant file was read in full; in a scoped profile, state that every in-scope file was read in full and name the omitted path groups. List exact inaccessible paths and why they prevented the applicable claim.
 
 ---
 
@@ -1469,6 +1475,8 @@ For each action include:
 - owner type
 - effort
 - dependency on other fixes
+
+For selected P0/P1 actions, add a compact **Implementation handoff**: in-scope and explicit out-of-scope paths, current-state evidence/excerpt, project convention to match, ordered steps, repository-native verification commands with expected results, tests to add or retain, and STOP conditions for drift, a required out-of-scope change, or a falsified assumption. It must be executable by an implementer with no access to this review session.
 
 Owner types may include:
 
@@ -1519,7 +1527,7 @@ Recommend targeted reviews only where justified, for example:
 
 ## Appendix A. File Coverage Ledger
 
-Include one lossless entry for every discovered file other than the report output:
+In `deep` mode, include one lossless entry for every discovered file other than the report output. In a scoped profile, include one lossless entry for every file discovered within the declared scope and list the omitted path groups separately:
 
 | Path | Status | Role | Domain assessment | Review/Exclusion rationale |
 |---|---|---|---|---|
@@ -1555,10 +1563,7 @@ The reviewer must:
 
 # Depth requirements
 
-A review is not complete merely because all categories were mentioned, a subset of
-critical files was traced, or automated checks passed. Before conclusion, all
-review-relevant files must have been read and analyzed for every applicable domain
-through the coverage ledger.
+A `deep` review is not complete merely because all categories were mentioned, a subset of critical files was traced, or automated checks passed. Before conclusion, all review-relevant files must have been read and analyzed for every applicable domain through the coverage ledger. A scoped review instead completes its declared scope and reports the remainder as omitted, not reviewed.
 
 The reviewer MUST inspect:
 
@@ -1604,6 +1609,8 @@ Requirements:
 - include any commands intentionally skipped because they could mutate project files
 - include inaccessible paths and domains that are partial or unable to assess
 - include the complete file coverage ledger and its final reconciliation
+- state the review profile, declared scope, and omitted paths/domains; for `deep`, state that scope is the complete review-relevant repository
+- record a read-only review basis: timestamp, supplied revision identifier if available, and an inventory fingerprint computed without Git when practical
 
 The report file is the only persistent project-review artifact that may be created.
 
@@ -1620,8 +1627,7 @@ The agent may stop only when all of the following are true:
 
 1. project discovery is complete enough to understand the system;
 2. all 20 domains have an applicability classification;
-3. every review-relevant discovered file has been read in full, each has a ledger
-   entry, and exclusions/inaccessible paths are documented with counts and rationale;
+3. every review-relevant discovered file in `deep` mode, or every file in the declared scope for another profile, has been read in full, each has a ledger entry, and exclusions/inaccessible paths are documented with counts and rationale;
 4. each applicable domain has been investigated against all ledger entries marked
    applicable to it;
 5. critical/high findings have been validated as far as available evidence permits;
@@ -1633,7 +1639,7 @@ The agent may stop only when all of the following are true:
 11. no project source/config/test/documentation file was changed;
 12. no Git operation was performed.
 
-Project size is never a reason to stop early. If a file is inaccessible, keep working
+Project size is never a reason to stop early in `deep` mode. If a file is inaccessible, keep working
 through every accessible file, record the exact path and blocking condition, and mark
 only the affected domains `Partial` or `Unable to Assess`. Do not call the review
 complete while an accessible review-relevant file remains unread.
