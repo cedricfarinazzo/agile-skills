@@ -130,6 +130,15 @@ describe('reviewed sha and CI', () => {
     b = bash(b, 'gh run view 7 --json status,conclusion', '{"status":"completed","conclusion":"success"}')
     expect(runOf(b, SHA)?.reads).toBe(2)
   })
+
+  test('the background wait output (gh run view --jq with headSha and failed jobs) counts as a read', () => {
+    const wait = 'gh run watch 7 --exit-status --interval 30 >/dev/null 2>&1; gh run view 7 --json status,conclusion,headSha,jobs --jq "$V"'
+    const out = JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA, failed: [] })
+    let b = bash(EMPTY, wait, out)
+    expect(runOf(b, SHA)).toEqual({ status: 'completed', conclusion: 'success', reads: 1 })
+    b = bash(b, 'gh run view 7 --json status,conclusion,headSha', JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA }))
+    expect(runOf(b, SHA)?.reads).toBe(2)
+  })
 })
 
 describe('parked and stalls', () => {

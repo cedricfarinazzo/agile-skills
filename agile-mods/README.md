@@ -11,6 +11,8 @@
 
 Without it the plugin installs and does nothing.
 
+Install: `/plugin marketplace add cedricfarinazzo/agile-skills`, then `/plugin install agile-mods@agile-skills`.
+
 Each mod has its own page:
 
 | Mod | Command | Active |
