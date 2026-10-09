@@ -36,7 +36,7 @@ describe('console rows', () => {
     expect(out).toContain('DRAIN pass 2 · merge')
     expect(out).toContain('10m 00s')
     expect(out).toContain('5 / 10 pts left')
-    expect(out).toContain('built:2:of 3 tickets')
+    expect(out).toContain('built:2:of 3')
     expect(out).toContain('merged:1:of 2 PRs')
     expect(out).toContain('parked:1:1 looping')
     expect(out).toContain('chart 46x5')

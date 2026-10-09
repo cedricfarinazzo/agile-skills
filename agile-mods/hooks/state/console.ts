@@ -167,7 +167,7 @@ function boardRows(board: Board, ctx: Ctx, w: number): Row[] {
   rows.push({
     kind: 'tiles',
     tiles: [
-      { label: 'built', value: String(built), sub: `of ${board.order.length} tickets`, tone: 'c' },
+      { label: 'built', value: String(built), sub: `of ${board.order.length}`, tone: 'c' },
       { label: 'merged', value: String(mergedPrs(board)), sub: `of ${board.prOrder.length} PRs`, tone: 'm' },
       { label: stuck ? 'blocked' : 'parked', value: String(parked), sub: looping ? `${looping} looping` : parked ? 'needs you' : 'none', tone: parked || looping ? (stuck ? 'r' : 'y') : 'd' },
     ],
