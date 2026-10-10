@@ -48,7 +48,7 @@ jobs:
 
   mods-test:
     runs-on: ubuntu-latest
-    name: agile-mods (bun test)
+    name: agile-mods (bun test + claude plugin test)
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -56,6 +56,10 @@ jobs:
       - name: bun test
         working-directory: agile-mods
         run: bun test
+      # tests/engine loads the hooks module in the engine itself, with gh, git and Jira stubbed; no login needed
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: claude plugin test
+        run: claude plugin test ./agile-mods
 
   skills-ref:
     runs-on: ubuntu-latest

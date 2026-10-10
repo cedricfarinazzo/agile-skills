@@ -19,9 +19,34 @@ Every hook calls `next`. The console, receipts and retro only observe. The guard
 
 One option, set in `/plugin configure agile-mods@agile-skills`: `autoOpen` (default on) opens the console, unfocused, when an `agile-sprint-drain` starts, in a terminal of 144 columns or more.
 
-## Where the data comes from
+The board needs `gh` logged in for the repo. For its Jira side, the repo's `## Skill configuration` names `cloudId` (as `agile-10-implement` already requires) and the session allows the read-only `mcp__<server>__searchJiraIssuesUsingJql` in `/permissions`; without either, the board shows gh data and says what is missing.
 
-The mods make no Jira or GitHub call of their own. They read the calls the loop already makes, with their arguments and results: Jira comments and searches, `gh pr` and `gh run` output, agent dispatches and receipts. So the board shows what this session saw. A ticket the loop has not touched, or a status changed by hand in Jira, does not appear. The only command a mod runs itself is `git rev-parse` (push guard). The one extra read is `$.session.usage()`, for the cost per drain pass.
+## What the mods read, run and send
+
+The board and the guards take their data from GitHub, git and Jira, read by the mod itself, never from what the model says it did. Nothing goes to any other host, and there is no telemetry. State stays in the plugin's local store (`$.store`), one entry per repo.
+
+**Programs run** (each written out argument by argument in `hooks/register.tsx`; the only computed arguments are a PR number and a commit sha, each checked against its pattern first, and the directory a push names):
+
+| Command | Why | When |
+|---|---|---|
+| `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard: the branch a `git push` that names none would send | Before such a push, inside a loop |
+| `gh pr list --state all --limit 100 --json …` | Board: PRs, their heads, merged or not | Every 15 s while a loop runs or the pane is open, 3 s after a GitHub write, when `/agile-board` opens |
+| `gh run list --limit 100 --json …` | Board: CI per sha | Same |
+| `gh pr view <n> --json headRefOid,state` | 3f gate: the PR's live head | At a merge call |
+| `gh run list --commit <sha> --json …` | 3f gate: every CI run on that head | At a merge call |
+| `gh api repos/{owner}/{repo}/pulls/<n>/files` | 3f gate: the files a review must have read | At a merge call |
+| `gh api repos/{owner}/{repo}/compare/<sha>...<head>` | 3f gate: which files changed since an earlier review | At a merge call, for each earlier reviewed sha |
+
+`gh` talks to GitHub with the user's own `gh` login; the mod reads its output and keeps it local.
+
+**MCP call:** `searchJiraIssuesUsingJql` on the session's connected Atlassian server (`$.mcp.call`), read-only: the sprint's tickets (`summary`, `status`, `labels`, the story-points field) and, a few tickets at a time, their comments for the `agile:phase` markers. It sends Atlassian a JQL query naming the repo's Jira projects and ticket keys, and the `cloudId`. It runs only when that tool is already allowed in the session's permissions (checked first with `$.tool.check`, which opens no dialog), every 60 s while a loop runs or the pane is open.
+
+**Read:**
+- The loop's tool calls (`tool.call`): which orchestrator or train step was dispatched, which agent type made a call, the `git show <sha>:<path>` commands a reviewer ran, a merge or push command about to run, the ticket keys and `cloudId` a Jira call names. Agent receipts are read only for the `/receipts` contract check.
+- Two files at session start: `AGENTS.md` and `CLAUDE.md` in the working directory, for `story-points-field` and `cloudId`.
+- `$.session.usage()`, for the cost of each drain pass. `turn.complete` on the main loop, to judge a drain STUCK when the session goes idle; the answer text is not read.
+
+**Send:** nothing to any host but GitHub through `gh` and Atlassian through the session's MCP server, as above. Two things go back into the session: a guard's refusal, which the model reads as the tool's error, and the retro counts, added as context to the `agile-15-retro` Skill call.
 
 ## Layout
 
@@ -31,9 +56,10 @@ hooks/register.tsx        # every hook; binds $ into a Host for the modules belo
 hooks/host.ts             # the Host type
 hooks/guards.ts           # guards: grant backstop, 3f merge gates, push guard
 hooks/receipts.ts         # /receipts
-hooks/state/*.ts          # pure logic: board, console views, guards, receipts, retro
+hooks/state/*.ts          # pure logic: board, console views, guards, review coverage, receipts, retro
 docs/*.md                 # one page per mod
-tests/*.test.ts           # bun test over hooks/state, and over the hook modules through tests/fake-host.ts 
+tests/unit/*.spec.ts      # bun test over hooks/state, and over the hook modules through tests/unit/fake-host.ts
+tests/engine/*.test.ts    # claude plugin test: register.tsx loaded in the engine
 ```
 
 The engine allows one hooks module per plugin, one unmatched hook per event, and `$` only in that module's own top-level functions: `register.tsx` owns the hooks and hands the other modules a `Host` of bound calls, as the built-in `diff` mod does.
@@ -41,7 +67,8 @@ The engine allows one hooks module per plugin, one unmatched hook per event, and
 ## Develop
 
 ```bash
-cd agile-mods && bun test
+cd agile-mods && bun test        # unit: tests/unit, pure state and the hook modules over a fake host
+claude plugin test ./agile-mods  # engine: tests/engine, register.tsx in the engine with gh, git and Jira stubbed
 claude plugin validate ./agile-mods
 claude --plugin-dir ./agile-mods
 ```
