@@ -326,6 +326,12 @@ describe('fix-round cap', () => {
     expect(await guardsBefore(host, 'mcp__ci__dispatch_event', {}, 'f1')).toContain('with git push')
     // a write the endpoint reader cannot place is refused
     expect(await guardsBefore(host, 'Bash', { command: 'X=$(gh api -X POST)' }, 'f1')).toContain('through the API only')
+    // each call read on its own: a write after an allowed call, a write method given with =
+    expect(await guardsBefore(host, 'Bash', { command: 'gh api repos/o/r/pulls/1/comments && gh api -X PUT repos/o/r/contents/a -f x=1' }, 'f1')).toContain('through the API only')
+    expect(await guardsBefore(host, 'Bash', { command: 'gh api --method=DELETE repos/o/r/git/refs/heads/x' }, 'f1')).toContain('through the API only')
+    expect(await guardsBefore(host, 'Bash', { command: 'gh api repos/o/r/pulls/1 && gh api -X PUT repos/o/r/pulls/7/merge' }, undefined)).toContain('gh pr merge')
+    expect(await guardsBefore(host, 'Bash', { command: 'gh api -fx=1 repos/o/r/git/refs' }, 'f1')).toContain('through the API only')
+    expect(await guardsBefore(host, 'Bash', { command: 'gh api repos/o/r/pulls/1/files && gh api -X POST repos/o/r/issues/1/comments -f body=x' }, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'Bash', { command: 'echo $(gh api -X POST repos/o/r/git/refs -f ref=x)' }, 'f1')).toContain('through the API only')
     expect(await guardsBefore(host, 'mcp__atlassian__createJiraIssue', {}, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'mcp__github__pull_request_read', {}, 'f1')).toBeUndefined()

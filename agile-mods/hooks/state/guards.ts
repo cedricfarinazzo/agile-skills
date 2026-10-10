@@ -36,7 +36,7 @@ const mcpName = (tool: string) => tool.match(/^mcp__.+?__(.+)$/)?.[1] ?? ''
 const unquoted = (command: string) => command.replace(/'[^']*'/g, "''").replace(/"(?:[^"\\]|\\.)*"/g, '""')
 
 /**
- * A line split as the shell splits it: segments at `;` `|` `&` `(` `)` `{` `}` backticks and
+ * A line split as the shell splits it: segments at `;` `|` `&` `(` `)`, a lone `{` or `}`, backticks and
  * newlines, words at blanks, with quotes and backslashes resolved (`"git"`, `gi''t`, `g\\it` and
  * `$'git'` are all `git`; a quoted commit message stays one word).
  */
@@ -46,7 +46,11 @@ function shellWords(command: string): string[][] {
   let word = ''
   let open = false
   const endWord = () => {
-    if (open) words.push(word)
+    // a lone { or } is a brace group's edge, not a word; {owner} inside a word stays
+    if (open && (word === '{' || word === '}')) {
+      if (words.length) segments.push(words)
+      words = []
+    } else if (open) words.push(word)
     word = ''
     open = false
   }
@@ -76,7 +80,7 @@ function shellWords(command: string): string[][] {
       i = j
       open = true
     } else if (/\s/.test(c) && c !== '\n') endWord()
-    else if (/[;|&(){}`\n]/.test(c)) endSegment()
+    else if (/[;|&()`\n]/.test(c)) endSegment()
     else {
       word += c
       open = true
@@ -342,17 +346,33 @@ const GH_API_WRITE_OK = /^\/?repos\/[^/\s]+\/[^/\s]+\/(issues\/\d+\/(comments|la
 // gh api options that take a value, so the endpoint is the first word that is neither an option nor a value
 const GH_API_VALUED = /^(-X|--method|-f|-F|--field|--raw-field|-H|--header|--input|-q|--jq|-t|--template|--hostname|-p|--preview|--cache)$/
 
-/** The endpoint of each `gh api` call in a line: its first argument that is not an option or an option's value. */
-function ghApiEndpoints(command: string): string[] {
+/**
+ * Each `gh api` call in a line, read from its own words: its endpoint (the first argument that is
+ * not an option or an option's value; '' when none) and whether it writes (a method other than GET,
+ * or fields with no method). Inside $(...) and backticks too, since the words split there.
+ */
+function ghApiCalls(command: string): { endpoint: string; writes: boolean }[] {
   return shellWords(command).flatMap(words => {
-    const at = words.findIndex((w, i) => /(^|\/)gh$/.test(w) && words[i + 1] === 'api')
-    if (at < 0) return []
-    for (let i = at + 2; i < words.length; i++) {
-      const w = words[i]!
-      if (GH_API_VALUED.test(w)) i++
-      else if (!w.startsWith('-')) return [w]
-    }
-    return ['']
+    const calls: { endpoint: string; writes: boolean }[] = []
+    words.forEach((w, at) => {
+      if (!/(^|\/)gh$/.test(w) || words[at + 1] !== 'api') return
+      let endpoint = ''
+      let method: string | undefined
+      let fields = false
+      for (let i = at + 2; i < words.length; i++) {
+        const x = words[i]!
+        const eq = x.match(/^(--method|-X)=?(.*)$/)
+        if (eq) method = eq[2] || words[++i]
+        else if (/^(-f|-F|--field|--raw-field|--input)(=.*)?$/.test(x)) {
+          fields = true
+          if (!x.includes('=')) i++
+        } else if (/^(-f|-F)\S/.test(x)) fields = true
+        else if (GH_API_VALUED.test(x)) i++
+        else if (!x.startsWith('-') && !endpoint) endpoint = x
+      }
+      calls.push({ endpoint, writes: method ? method.toUpperCase() !== 'GET' : fields })
+    })
+    return calls
   })
 }
 const GRAPHQL_WRITE_OK = /^(addPullRequestReviewThreadReply|addPullRequestReviewComment|addPullRequestReview|submitPullRequestReview|addComment|updateIssueComment|resolveReviewThread|unresolveReviewThread|addLabelsToLabelable|removeLabelsFromLabelable)$/
@@ -391,15 +411,15 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
   }
   const command = tool === 'Bash' ? str(args.command) : ''
   if (!command) return undefined
-  if (/\/pulls\/\d+\/merge\b/.test(command) && ghApiWrites(command)) {
+  if (ghApiCalls(command).some(c => c.writes && /\/pulls\/\d+\/merge$/.test(c.endpoint))) {
     return 'the loop merges with gh pr merge <n> --squash --match-head-commit <reviewed sha>, where the 3f gates read it, not through the API.'
   }
-  const endpoints = ghApiEndpoints(command)
-  // the two readings must agree: a write whose endpoint cannot be found is refused
-  if (ghApiWrites(command) && (!endpoints.length || endpoints.some(e => e !== 'graphql' && !GH_API_WRITE_OK.test(e)))) {
+  const calls = ghApiCalls(command)
+  // a call that writes: its own endpoint must be listed; a write the reader cannot place, or a gh api word the words do not show, is refused
+  if (calls.some(c => c.writes && c.endpoint !== 'graphql' && !GH_API_WRITE_OK.test(c.endpoint)) || (!calls.length && ghApiWrites(command))) {
     return 'the loop writes to GitHub through the API only for comments, replies, reviews and labels; branches change with git push, where the guards read it.'
   }
-  if (endpoints.includes('graphql')) {
+  if (calls.some(c => c.endpoint === 'graphql')) {
     const graphql = 'the loop writes to GitHub through GraphQL only for comments, replies, reviews and labels, with the query written out; branches change with git push, where the guards read it.'
     // a query the line does not show (a variable, a file, stdin) cannot be read
     if (/\$|@|--input/.test(command.replace(/\$\w+\s*:/g, ''))) return graphql
@@ -435,7 +455,7 @@ const PAST_BUDGET = /^agile-merge-review:|:merge-session$|^(Explore|Plan|claude-
 export const isBuildWork = (tool: string, args: Record<string, unknown>) =>
   (tool === 'Skill' && /(^|:)(agile-10-implement|implement-[a-z]+)$/.test(str(args.skill))) ||
   (tool === 'Agent' && !PAST_BUDGET.test(str(args.subagent_type))) ||
-  (tool === 'Bash' && (/\bgh\s+pr\s+create\b/.test(str(args.command)) || (ghApiWrites(str(args.command)) && /\brepos\/\S+\/pulls(\s|$|\?|["'])/.test(str(args.command))))) ||
+  (tool === 'Bash' && (/\bgh\s+pr\s+create\b/.test(str(args.command)) || ghApiCalls(str(args.command)).some(c => c.writes && /^\/?repos\/[^/]+\/[^/]+\/pulls$/.test(c.endpoint)))) ||
   mcpName(tool) === 'create_pull_request'
 
 /**
