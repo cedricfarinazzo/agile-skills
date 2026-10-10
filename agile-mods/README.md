@@ -21,22 +21,11 @@ Two options, set in `/plugin configure agile-mods@agile-skills`: `autoOpen` (def
 
 The board needs `gh` logged in for the repo. For its Jira side, the repo's `## Skill configuration` names `cloudId` (as `agile-10-implement` already requires) and the session allows the read-only `mcp__<server>__searchJiraIssuesUsingJql` in `/permissions`; without either, the board shows gh data and says what is missing.
 
-## Directory review
-
-The plugin directory's scan raises four warnings for this mod. Each describes something the mod does on purpose; here is what, why, and how to limit it.
-
-| Warning | What triggers it | Why the mod needs it | Limits and how to turn it off |
-|---|---|---|---|
-| `MOD_RUNS_PROCESS` | `$.process.run` in `hooks/register.tsx` runs `gh` and `git` | The board and the merge gate read PRs, CI runs and commits from GitHub and git themselves, so nothing the model writes can turn a gate green | Ten commands, all read-only, each listed with why and when under [Programs run](#what-the-mods-read-run-and-send). No other program is run. Disable the plugin in `/plugin` to stop all of them |
-| `MOD_PROCESS_COMMAND_COMPUTED` | Some arguments come from data: a PR number, a commit sha, a branch name, a directory | A check reads the PR, commit or branch the loop is acting on | Every fixed argument is written out literally. A PR number, sha or branch is checked against a strict pattern before the call (`^\d{1,9}$`, `^[0-9a-f]{7,40}$`, a branch name that cannot start with `-`); the directory is only ever the value of `git -C`, which git reads as a path. Every argument is one argv entry, never passed through a shell |
-| `MOD_LOCAL_DATA_LEAVES` | `gh` sends requests to GitHub; the Jira search sends a JQL query to Atlassian | To read the repo's PRs and CI, and the sprint's tickets | Only to GitHub, through the user's own `gh` login, and to the Atlassian server the session already connects to. The Jira query carries the repo's project keys, ticket keys and `cloudId`, and runs only once `searchJiraIssuesUsingJql` is allowed in `/permissions`. Nothing goes to any other host; no telemetry; no credential is read from the environment or from files |
-| `MOD_SESSION_DATA_LEAVES` | The hooks read the session: tool calls, request token counts, cost, the agent list | The guards check the calls the loop makes; the console shows spend and cache use | Session data stays on the machine, in the plugin's local store (`$.store`, one entry per repo), and is not sent anywhere. Two things go back into the session: a guard's refusal, which the model reads as the tool's error, and the retro counts, added to the `agile-15-retro` Skill call. `/agile-board reset` clears the store |
-
 ## What the mods read, run and send
 
-The board and the guards take their data from GitHub, git and Jira, read by the mod itself, never from what the model says it did. Nothing goes to any other host, and there is no telemetry. State stays in the plugin's local store (`$.store`), one entry per repo.
+The board and the guards take their data from GitHub, git and Jira, read by the mod itself, never from what the model says it did. Nothing goes to any other host, there is no telemetry, and no credential is read from the environment or from files. State stays on the machine, in the plugin's local store (`$.store`), one entry per repo; `/agile-board reset` clears it, and disabling the plugin in `/plugin` stops everything below.
 
-**Programs run** (each written out argument by argument in `hooks/register.tsx`; the only computed arguments are a PR number, a commit sha and a branch name, each checked against its pattern first, and the directory a push names):
+**Programs run.** Only `gh` and `git`, and only to read. Each command is written out argument by argument in `hooks/register.tsx` and passed as a list of arguments, never through a shell. The only arguments that come from data are a PR number, a commit sha and a branch name, each checked against a strict pattern first, and a directory, which is only ever the value of `git -C`.
 
 | Command | Why | When |
 |---|---|---|
