@@ -330,6 +330,10 @@ describe('fix-round cap', () => {
     expect(await guardsBefore(host, 'Bash', { command: 'gh api repos/o/r/pulls/1/comments && gh api -X PUT repos/o/r/contents/a -f x=1' }, 'f1')).toContain('through the API only')
     expect(await guardsBefore(host, 'Bash', { command: 'gh api --method=DELETE repos/o/r/git/refs/heads/x' }, 'f1')).toContain('through the API only')
     expect(await guardsBefore(host, 'Bash', { command: 'gh api repos/o/r/pulls/1 && gh api -X PUT repos/o/r/pulls/7/merge' }, undefined)).toContain('gh pr merge')
+    // gh's options before api, and endpoints the narrower merge and PR patterns miss, are still refused
+    for (const command of ['gh --repo=o/r api -X PUT repos/o/r/contents/a -f x=1', 'gh -R o/r api -X PUT repos/o/r/git/refs/heads/x', 'gh api -X PUT repos/o/r/pulls/7/merge?x=1', 'gh api -X POST /repos/o/r/pulls?draft=1 -f head=x']) {
+      expect(await guardsBefore(host, 'Bash', { command }, undefined)).toMatch(/^agile-mods: /)
+    }
     expect(await guardsBefore(host, 'Bash', { command: 'gh api -fx=1 repos/o/r/git/refs' }, 'f1')).toContain('through the API only')
     expect(await guardsBefore(host, 'Bash', { command: 'gh api repos/o/r/pulls/1/files && gh api -X POST repos/o/r/issues/1/comments -f body=x' }, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'Bash', { command: 'echo $(gh api -X POST repos/o/r/git/refs -f ref=x)' }, 'f1')).toContain('through the API only')

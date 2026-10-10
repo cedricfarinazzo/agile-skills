@@ -354,8 +354,13 @@ const GH_API_VALUED = /^(-X|--method|-f|-F|--field|--raw-field|-H|--header|--inp
 function ghApiCalls(command: string): { endpoint: string; writes: boolean }[] {
   return shellWords(command).flatMap(words => {
     const calls: { endpoint: string; writes: boolean }[] = []
-    words.forEach((w, at) => {
-      if (!/(^|\/)gh$/.test(w) || words[at + 1] !== 'api') return
+    words.forEach((w, g) => {
+      if (!/(^|\/)gh$/.test(w)) return
+      // gh's own options may come before the subcommand (`gh -R o/r api`, `gh --repo=o/r api`)
+      let at = g + 1
+      while (at < words.length && words[at]!.startsWith('-')) at += /^(-R|--repo|--hostname)$/.test(words[at]!) ? 2 : 1
+      if (words[at] !== 'api') return
+      at -= 1
       let endpoint = ''
       let method: string | undefined
       let fields = false
