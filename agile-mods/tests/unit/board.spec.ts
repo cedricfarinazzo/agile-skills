@@ -143,11 +143,19 @@ describe('burndown and drain outcome', () => {
 
   test('work left counts Jira done and merged PRs as done, in points when every ticket has them', () => {
     let b = sprint(['VC-1', 'VC-2'], ['VC-3'])
-    expect(leftOf(b)).toEqual({ left: 4, total: 7, unit: 'points' })
+    expect(leftOf(b)).toEqual({ left: 4, done: 3, total: 7, unit: 'points' })
     b = applyPrs(b, [{ number: 8, title: 'VC-1', state: 'MERGED', mergedAt: at(1) }], T0)
     expect(leftOf(b).left).toBe(2)
     b = sampled(sampled(b, 1), 2)
-    expect(b.burn).toEqual([{ at: 1, left: 2, total: 7 }])
+    expect(b.burn).toEqual([{ at: 1, left: 2, total: 7, done: 5 }])
+  })
+
+  test('parked work is in the total and neither left nor done', () => {
+    const b = sprint(['VC-1', 'VC-2'], ['VC-3'])
+    const parked = { ...b, tickets: { ...b.tickets, 'VC-1': { ...b.tickets['VC-1']!, parked: 'needs-info' as const } } }
+    const { left, done, total } = leftOf(parked)
+    expect(left + done).toBeLessThan(total)
+    expect(done).toBe(leftOf(b).done)
   })
 
   test('DRAINED once Jira answered and nothing is actionable; never from answer text', () => {

@@ -11,6 +11,12 @@ export type Answers = {
   prView?: Record<number, { headRefOid: string; state: string }>
   runsOn?: Record<string, RunRow[]>
   prFiles?: Record<number, string[]>
+  /** `gh pr list --head <branch>`: the open PR, null for none; a branch left out fails. */
+  prOfBranch?: Record<string, { number: number; headRefOid: string; baseRefName?: string } | null>
+  /** `git rev-parse @{push}` per directory. */
+  pushBranch?: Record<string, string>
+  /** `git rev-list --no-merges <base>..<ref>` is empty, by `<base>..<ref>`; left out: commits. */
+  onlyMerges?: Record<string, boolean>
   compare?: Record<string, Compare>
   jira?: unknown
   agents?: { id: string; type: string }[]
@@ -38,6 +44,13 @@ export function fakeHost(opts: Answers = {}) {
     runs: async () => (calls.push('gh run list'), opts.runList),
     prView: async pr => (calls.push(`gh pr view ${pr}`), opts.prView?.[pr]),
     runsOn: async sha => (calls.push(`gh run list --commit ${sha.slice(0, 7)}`), opts.runsOn?.[sha]),
+    pushBranch: async dir => (calls.push(`git -C ${dir} rev-parse @{push}`), opts.pushBranch?.[dir]),
+    onlyMerges: async (dir, head, ref, baseRef) => (calls.push(`git -C ${dir} rev-list --no-merges ${head.slice(0, 7)}..${ref} ^origin/${baseRef}`), opts.onlyMerges?.[`${head}..${ref}`] ?? false),
+    prOfBranch: async branch => {
+      calls.push(`gh pr list --head ${branch}`)
+      const pr = opts.prOfBranch?.[branch]
+      return pr ? { baseRefName: 'main', ...pr } : pr
+    },
     prFiles: async pr => (calls.push(`gh api pulls/${pr}/files`), opts.prFiles?.[pr]),
     compare: async (base, head) => (calls.push(`gh api compare/${base.slice(0, 7)}...${head.slice(0, 7)}`), opts.compare?.[`${base}...${head}`]),
     jira: async () => {

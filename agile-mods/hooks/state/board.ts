@@ -78,13 +78,16 @@ export type Board = {
   /** Runs by the sha they ran on. */
   runs?: Record<string, Run[]>
   /** Work left (not done, no merged PR, not parked) over time, one sample per change, in one unit. */
-  burn?: { at: number; left: number; total: number }[]
+  burn?: { at: number; left: number; total: number; done?: number }[]
   burnUnit?: 'points' | 'tickets'
   passes?: Pass[]
-  /** The repo's merged PRs in gh's latest 100: when each merged, and how long it was open. */
+  /**
+   * The repo's merged PRs in gh's latest 100: when each one naming a ticket merged (the forecast's
+   * throughput, in tickets), and how long every one was open (the aging percentiles).
+   */
   history?: { merges: number[]; cycles: number[] }
-  /** USD the session spent while a loop ran; `last` is the ledger reading it counted up to. */
-  spend?: { usd: number; last?: number }
+  /** USD spent since the loop run began at `since`; `last` is the ledger reading it counted up to. */
+  spend?: { usd: number; since: number; last?: number }
   /** Model requests by stage over the whole loop. */
   tokens?: Partial<Record<Stage, Tokens>>
   gh?: Sync
@@ -224,9 +227,11 @@ export function applyPrs(prior: Board, rows: PrRow[], now: number): Board {
   const merged = rows.flatMap(r => {
     const at = time(r.mergedAt)
     const created = time(r.createdAt)
-    return r.state === 'MERGED' && at !== undefined && created !== undefined ? [[at, at - created] as const] : []
+    const ticket = TICKET_KEY.test(str(r.headRefName) + ' ' + str(r.title))
+    return r.state === 'MERGED' && at !== undefined && created !== undefined ? [{ at, open: Math.max(0, at - created), ticket }] : []
   })
-  let board: Board = { ...prior, gh: { at: now }, history: { merges: merged.map(m => m[0]), cycles: merged.map(m => Math.max(0, m[1])) } }
+  const history = { merges: merged.filter(m => m.ticket).map(m => m.at), cycles: merged.map(m => m.open) }
+  let board: Board = { ...prior, gh: { at: now }, history }
   for (const row of rows) {
     if (typeof row.number !== 'number') continue
     const key = (str(row.headRefName) + ' ' + str(row.title)).match(TICKET_KEY)?.[0]
@@ -372,24 +377,26 @@ const isDone = (board: Board, key: string) => {
 }
 
 /**
- * Work not yet done, merged or parked, out of every ticket the board knows: in story points when
- * every ticket's points are known, else in tickets (a mixed sum would mean neither).
+ * Work not yet done, merged or parked, and work done (a done status or a merged PR), out of every
+ * ticket the board knows: in story points when every ticket's points are known, else in tickets (a
+ * mixed sum would mean neither). Parked work is in the total and in neither of the two.
  */
-export function leftOf(board: Board): { left: number; total: number; unit: 'points' | 'tickets' } {
+export function leftOf(board: Board): { left: number; done: number; total: number; unit: 'points' | 'tickets' } {
   const unit = board.order.length && board.order.every(k => typeof board.tickets[k]?.points === 'number') ? 'points' : 'tickets'
   const weight = (k: string) => (unit === 'points' ? board.tickets[k]!.points! : 1)
   const sum = (keys: string[]) => keys.reduce((s, k) => s + weight(k), 0)
   const left = board.order.filter(k => !board.tickets[k]!.parked && !isDone(board, k))
-  return { left: sum(left), total: sum(board.order), unit }
+  const done = board.order.filter(k => isDone(board, k))
+  return { left: sum(left), done: sum(done), total: sum(board.order), unit }
 }
 
-/** Adds a burndown sample when the counts changed since the last one; a unit change restarts the line. */
+/** Adds a burnup sample when the counts changed since the last one; a unit change restarts the line. */
 export function sampled(board: Board, now: number): Board {
-  const { left, total, unit } = leftOf(board)
+  const { left, done, total, unit } = leftOf(board)
   const samples = board.burnUnit === unit ? (board.burn ?? []) : []
   const last = samples.at(-1)
-  if (!total || (last && last.left === left && last.total === total)) return board
-  return { ...board, burnUnit: unit, burn: [...samples, { at: now, left, total }].slice(-MAX_SAMPLES) }
+  if (!total || (last && last.left === left && last.total === total && (last.done ?? last.total - last.left) === done)) return board
+  return { ...board, burnUnit: unit, burn: [...samples, { at: now, left, total, done }].slice(-MAX_SAMPLES) }
 }
 
 /** What a drain can still act on: tickets neither done, merged nor parked, and the board's open ticket PRs. */

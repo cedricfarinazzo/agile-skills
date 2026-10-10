@@ -25,7 +25,7 @@
     "budgetUsd": {
       "type": "number",
       "title": "Loop budget in USD",
-      "description": "Once a loop has spent this much in a session, no new build work starts: open PRs still merge, then the loop stops and reports BUDGET. 0 is no budget.",
+      "description": "Once a loop run has spent this much, the guards refuse build work: open PRs still merge, then the loop stops and reports BUDGET. 0 is no budget.",
       "default": 0
     }
   }

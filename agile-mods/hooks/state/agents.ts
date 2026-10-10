@@ -21,7 +21,9 @@ const MAX_AGENTS = 50
 
 const touch = (stats: Stats, id: string, now: number, patch: Partial<AgentStat>): Stats => {
   const known = stats[id]
-  const next = { ...stats, [id]: { ...known, ...patch, firstAt: known?.firstAt ?? now, lastAt: now } }
+  // re-inserted, so the most recently active agents sort last and survive the cap
+  const { [id]: _, ...rest } = stats
+  const next: Stats = { ...rest, [id]: { ...known, ...patch, firstAt: known?.firstAt ?? now, lastAt: now } }
   const ids = Object.keys(next)
   return ids.length > MAX_AGENTS ? Object.fromEntries(ids.slice(-MAX_AGENTS).map(k => [k, next[k]!])) : next
 }

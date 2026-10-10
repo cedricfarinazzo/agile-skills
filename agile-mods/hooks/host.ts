@@ -24,6 +24,15 @@ export type Host = {
   runs: () => Promise<RunRow[] | undefined>
   /** One PR's live head and state (`gh pr view <n>`). */
   prView: (pr: number) => Promise<{ headRefOid: string; state: string } | undefined>
+  /** Where a bare `git push` in `dir` sends the checked-out branch (`git rev-parse @{push}`), without the remote. */
+  pushBranch: (dir: string) => Promise<string | undefined>
+  /**
+   * Whether `ref` adds nothing on top of `head` but merges and commits `origin/<baseRef>` already has
+   * (`git rev-list --no-merges <head>..<ref> ^origin/<baseRef>` is empty): an update from the base.
+   */
+  onlyMerges: (dir: string, head: string, ref: string, baseRef: string) => Promise<boolean | undefined>
+  /** The open PR whose head is `branch` (`gh pr list --head <branch>`): null when there is none. */
+  prOfBranch: (branch: string) => Promise<{ number: number; headRefOid: string; baseRefName: string } | null | undefined>
   /** Every workflow run on one commit (`gh run list --commit <sha>`). */
   runsOn: (sha: string) => Promise<RunRow[] | undefined>
   /** The PR's files present at its head (`gh api .../pulls/<n>/files`, removed files left out). */

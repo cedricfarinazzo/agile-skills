@@ -17,7 +17,7 @@ Each mod has its own page:
 
 Every hook calls `next`. The console, receipts and retro only observe. The guards can refuse a call (`deny`, which the model reads as the tool's error).
 
-Two options, set in `/plugin configure agile-mods@agile-skills`: `autoOpen` (default on) opens the console, unfocused, when an `agile-sprint-drain` starts, in a terminal of 144 columns or more; `budgetUsd` (default 0, none) stops new build work once a loop has spent that much.
+Two options, set in `/plugin configure agile-mods@agile-skills`: `autoOpen` (default on) opens the console, unfocused, when an `agile-sprint-drain` starts, in a terminal of 144 columns or more; `budgetUsd` (default 0, none) stops build work once a loop run has spent that much; open PRs still merge.
 
 The board needs `gh` logged in for the repo. For its Jira side, the repo's `## Skill configuration` names `cloudId` (as `agile-10-implement` already requires) and the session allows the read-only `mcp__<server>__searchJiraIssuesUsingJql` in `/permissions`; without either, the board shows gh data and says what is missing.
 
@@ -25,7 +25,7 @@ The board needs `gh` logged in for the repo. For its Jira side, the repo's `## S
 
 The board and the guards take their data from GitHub, git and Jira, read by the mod itself, never from what the model says it did. Nothing goes to any other host, and there is no telemetry. State stays in the plugin's local store (`$.store`), one entry per repo.
 
-**Programs run** (each written out argument by argument in `hooks/register.tsx`; the only computed arguments are a PR number and a commit sha, each checked against its pattern first, and the directory a push names):
+**Programs run** (each written out argument by argument in `hooks/register.tsx`; the only computed arguments are a PR number, a commit sha and a branch name, each checked against its pattern first, and the directory a push names):
 
 | Command | Why | When |
 |---|---|---|
@@ -33,7 +33,10 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 | `gh pr list --state all --limit 100 --json …` | Board: PRs, their heads, merged or not; merge history for aging and the forecast | 3 s after the loop's GitHub writes, CI waits and dispatches, when the main loop goes idle, when `/agile-board` opens, and every 5 minutes while a loop runs or the pane is open |
 | `gh run list --limit 100 --json …` | Board: CI per sha | Same |
 | `gh api --paginate repos/{owner}/{repo}/pulls/<n>/files` | Board: each open PR's files, for the overlap map | With the PR list, once per PR head |
-| `gh pr view <n> --json headRefOid,state` | 3f gate and fix-round cap: the PR's live head | At a merge call and a 3c dispatch |
+| `gh pr view <n> --json headRefOid,state` | 3f gate: the PR's live head | At a merge call |
+| `git -C <dir> rev-parse --abbrev-ref --symbolic-full-name @{push}` | Fix-round cap: where a bare `git push` sends the branch | Before such a push, inside a loop |
+| `gh pr list --head <branch> --state open --json number,headRefOid,baseRefName` | Fix-round cap: the open PR a push sends to, and its head | Before a push, inside a loop |
+| `git -C <dir> rev-list --no-merges <head>..<ref> ^origin/<base>` | Fix-round cap: whether a push to a PR is an update (merges and the base's own commits only) | Before a push to an open PR's branch |
 | `gh run list --commit <sha> --json …` | 3f gate: every CI run on that head | At a merge call |
 | `gh api repos/{owner}/{repo}/pulls/<n>/files` | 3f gate: the files a review must have read | At a merge call |
 | `gh api repos/{owner}/{repo}/compare/<sha>...<head>` | 3f gate: which files changed since an earlier review | At a merge call, for each earlier reviewed sha |

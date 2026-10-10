@@ -188,7 +188,7 @@ Never bypasses an orchestrator's pause (a parked ticket is human-blocked here; t
 
 ## Reports
 
-**BUDGET** — agile-mods refused new build work (`agile-mods: budget:`): the loop spent its `budgetUsd`. Run the merge train once more on what is open, then stop. Report what merged, what is left, and the spend the refusal names.
+**BUDGET** — agile-mods refused build work (`agile-mods: budget:`): the loop spent its `budgetUsd`. Run the merge train once more on what is open, then stop. Report what merged, what is left, and the spend the refusal names.
 
 **PAUSED** — `max-merges` reached with actionable items left. One line: merged this invocation, items remaining, `re-invoke to continue`. Not a healthy stop and not a failure.
 

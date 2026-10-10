@@ -157,7 +157,7 @@ describe('wip and drain tabs', () => {
   test('drain: cache by stage per pass, spend rate, and the agents lane', () => {
     const passes = [{ start: 0, merge: 120_000, end: 300_000, cost0: 0, cost1: 1.5, tokens: { build: { input: 10, read: 900, write: 90, output: 5 } } }, { start: 300_000, cost0: 1.5 }]
     const lanes = [{ id: 'a', name: 'merge-session', work: 'PR #42', status: 'running', age: 300_000, idle: 10_000, tokens: 1_500_000, hit: 0.92, wait: 'run 77' }]
-    const out = plain(consoleRows('drain', sample({ since: 0, spend: { usd: 2 }, passes }), ctx({ lanes, budget: 10 }), 120))
+    const out = plain(consoleRows('drain', sample({ spend: { usd: 2, since: 0 }, passes }), ctx({ lanes, budget: 10 }), 120))
     expect(out).toContain('cache build 90%')
     expect(out).toContain('$12.00/h')
     expect(out).toContain('$2.00 of $10.00')
@@ -212,7 +212,7 @@ describe('alert row and status', () => {
     const HOUR = 3_600_000
     const now = 2 * HOUR
     const merges = Array.from({ length: 20 }, (_, d) => now - d * 86_400_000 - 1_000)
-    const b = sample({ since: 0, spend: { usd: 6 }, history: { merges, cycles: [] }, prs: { ...sample().prs, 40: { ...sample().prs[40]!, mergedAt: HOUR } } })
+    const b = sample({ spend: { usd: 6, since: 0 }, history: { merges, cycles: [] }, prs: { ...sample().prs, 40: { ...sample().prs[40]!, mergedAt: HOUR } } })
     // 1 ticket left (VC-3 merged, VC-9 parked), one merge a day: 1 day in every trial
     expect(statusText(b, now)).toBe('agile ▸ drain p2 merge · 5/10 pts · 1 merged · $3.00/h $6.00/PR · 85% by ' + ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(now + 86_400_000).getDay()])
     expect(statusText(b, now, 20)).toContain('$6.00/$20')
@@ -220,7 +220,7 @@ describe('alert row and status', () => {
 
   test('a spent budget and a PR past the 85th percentile need you', () => {
     const text = (row: Row | undefined) => (row?.kind === 'line' ? row.segs.map(s => s.t).join('') : '')
-    const b = sample({ spend: { usd: 21 }, history: { merges: [], cycles: [1, 1, 1, 1, 1].map(x => x * 60_000) } })
+    const b = sample({ spend: { usd: 21, since: 0 }, history: { merges: [], cycles: [1, 1, 1, 1, 1].map(x => x * 60_000) } })
     const row = text(alertRow(b, ctx({ budget: 20 }), 200))
     expect(row).toContain('4 need you')
     expect(row).toContain('VC-9 Needs Info · PR #42 3b review ×3')

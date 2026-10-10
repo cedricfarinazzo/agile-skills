@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { laneOf, noteCall, noteTokens } from '../../hooks/state/agents.ts'
 import { applyJira, applyPrs, EMPTY, type Board } from '../../hooks/state/board.ts'
-import { agingFlags, agingOf, cacheFlags, dayName, filesTargets, forecastOf, hitRate, overlapOf, percentile, rateOf, span, withFiles, withSpend, withTokens, withoutLedger } from '../../hooks/state/flow.ts'
+import { agingFlags, agingOf, cacheFlags, dayName, filesTargets, forecastOf, hitRate, overlapOf, percentile, rateOf, span, withFiles, withRun, withSpend, withTokens, withoutLedger } from '../../hooks/state/flow.ts'
 
 const HOUR = 3_600_000
 const DAY = 86_400_000
@@ -10,8 +10,8 @@ const iso = (t: number) => new Date(t).toISOString()
 const usage = (input: number, read: number, write: number) => ({ input_tokens: input, cache_read_input_tokens: read, cache_creation_input_tokens: write, output_tokens: 10 })
 
 /** gh pr list rows: one merged PR a day for `days` days, each open `hours` hours. */
-const mergedRows = (days: number, hours = 6) =>
-  Array.from({ length: days }, (_, d) => ({ number: 100 + d, title: `chore ${d}`, state: 'MERGED', createdAt: iso(NOW - d * DAY - 1_000 - hours * HOUR), mergedAt: iso(NOW - d * DAY - 1_000) }))
+const mergedRows = (days: number, hours = 6, title = (d: number) => `VC-${d} fix`) =>
+  Array.from({ length: days }, (_, d) => ({ number: 100 + d, title: title(d), state: 'MERGED', createdAt: iso(NOW - d * DAY - 1_000 - hours * HOUR), mergedAt: iso(NOW - d * DAY - 1_000) }))
 
 describe('history from gh', () => {
   test('applyPrs keeps every merged PR of the list as history, on the board or not', () => {
@@ -21,6 +21,12 @@ describe('history from gh', () => {
     expect(b.prOrder).toEqual([9])
   })
 
+  test('only PRs that name a ticket count as merges for the forecast; every one counts for aging', () => {
+    const b = applyPrs(EMPTY, mergedRows(4, 2, d => (d % 2 ? `chore: bump deps ${d}` : `VC-${d} fix`)), NOW)
+    expect(b.history!.merges).toHaveLength(2)
+    expect(b.history!.cycles).toHaveLength(4)
+  })
+
   test('applyJira keeps when a ticket entered its status category', () => {
     const answer = { issues: { nodes: [{ key: 'VC-1', fields: { status: { name: 'In Progress', statusCategory: { key: 'indeterminate' } }, statuscategorychangedate: '2026-10-09T12:00:00.000+0000' } }] } }
     expect(applyJira(EMPTY, answer, 'customfield_10016', NOW).tickets['VC-1']!.since).toBe(NOW - DAY)
@@ -28,29 +34,30 @@ describe('history from gh', () => {
 })
 
 describe('spend', () => {
-  const loop: Board = { ...EMPTY, loop: 'drain', since: NOW - 2 * HOUR }
+  const run = withRun({ ...EMPTY, loop: 'drain' }, NOW - 2 * HOUR)
 
-  test('counts the ledger only while a loop runs, from the first reading', () => {
+  test('counts the ledger only inside a run, from the first reading', () => {
     expect(withSpend(EMPTY, 5)).toBe(EMPTY)
-    let b = withSpend(loop, 5)
-    expect(b.spend).toEqual({ usd: 0, last: 5 })
+    let b = withSpend(run, 5)
+    expect(b.spend).toEqual({ usd: 0, since: NOW - 2 * HOUR, last: 5 })
     b = withSpend(b, 7.5)
     expect(b.spend!.usd).toBe(2.5)
     expect(withSpend(b, 7.5)).toBe(b)
   })
 
-  test('a lower reading is a new session; a reload starts a new baseline', () => {
-    let b = withSpend(withSpend(loop, 5), 6)
+  test('a lower reading is a new session; a reload starts a new baseline; a new run starts from 0', () => {
+    let b = withSpend(withSpend(run, 5), 6)
     b = withSpend(b, 0.5)
     expect(b.spend!.usd).toBe(1.5)
     b = withSpend(withoutLedger(b), 3)
-    expect(b.spend).toEqual({ usd: 1.5, last: 3 })
+    expect(b.spend).toEqual({ usd: 1.5, since: NOW - 2 * HOUR, last: 3 })
+    expect(withRun(b, NOW).spend).toEqual({ usd: 0, since: NOW })
   })
 
-  test('rate per hour since the loop started, and per PR merged since', () => {
-    const b: Board = { ...loop, spend: { usd: 8 }, prOrder: [1, 2], prs: { 1: { number: 1, merged: true, mergedAt: NOW - HOUR }, 2: { number: 2, merged: true, mergedAt: NOW - 3 * HOUR } } }
+  test('rate per hour since the run began, and per PR merged since', () => {
+    const b: Board = { ...run, spend: { usd: 8, since: NOW - 2 * HOUR }, prOrder: [1, 2], prs: { 1: { number: 1, merged: true, mergedAt: NOW - HOUR }, 2: { number: 2, merged: true, mergedAt: NOW - 3 * HOUR } } }
     expect(rateOf(b, NOW)).toEqual({ spent: 8, merged: 1, perHour: 4, perPr: 8 })
-    expect(rateOf({ ...b, since: NOW - 60_000 }, NOW).perHour).toBeUndefined()
+    expect(rateOf({ ...b, spend: { usd: 8, since: NOW - 60_000 } }, NOW).perHour).toBeUndefined()
   })
 })
 

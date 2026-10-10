@@ -2,8 +2,8 @@
 import type { EngineInterface, ProcessRunResult, Register, RenderNode } from 'claude-code'
 import { EMPTY, POINTS_FIELD, applyJira, markerTargets, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, rasterCells, statusText, tabOf, type Row, type Tab } from './state/console.ts'
-import { budgetDenial, isNewBuild, keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
-import { filesTargets, withFiles, withSpend, withTokens, withoutLedger } from './state/flow.ts'
+import { budgetDenial, isBuildWork, keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
+import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
 import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { agentTypeOf, guardedCall, guardsAfter, guardsBefore, guardsReset, guardsStart, loopRunning } from './guards.ts'
@@ -46,6 +46,7 @@ let refusals: Refusal[] = []
 let allowed = 0
 let paneAt = 0
 let soonQueued = false
+let persistQueued = false
 const busy = { gh: false, jira: false }
 let ghError: string | undefined
 let budget = 0
@@ -55,6 +56,7 @@ let scope = ''
 
 const PR_NUMBER = /^\d{1,9}$/
 const SHA = /^[0-9a-f]{7,40}$/
+const BRANCH = /^(?!-)[A-Za-z0-9._/-]{1,200}$/
 const GH_TIMEOUT = { timeoutMs: 15_000 }
 
 /** A gh answer: stdout when it exited 0, else undefined with the first stderr line kept for the board. */
@@ -84,8 +86,8 @@ async function jiraSearchTool($: EngineInterface): Promise<string | undefined> {
 }
 
 // Every program the mods run is written out here, argument by argument. The only computed
-// arguments are a PR number and a commit sha, each checked against its pattern before the call,
-// and the directory a push names. No output leaves the machine.
+// arguments are a PR number, a commit sha and a branch name, each checked against its pattern
+// before the call, and the directory a push names. No output leaves the machine.
 function hostOf($: EngineInterface): Host {
   return {
     now: () => $.clock.now(),
@@ -95,6 +97,18 @@ function hostOf($: EngineInterface): Host {
     runs: async () => parsed<RunRow[]>(await gh($.process.run(['gh', 'run', 'list', '--limit', '100', '--json', 'databaseId,headSha,status,conclusion,workflowName,createdAt'], GH_TIMEOUT))),
     prView: async pr => (PR_NUMBER.test(String(pr)) ? parsed(await gh($.process.run(['gh', 'pr', 'view', String(pr), '--json', 'headRefOid,state'], GH_TIMEOUT))) : undefined),
     runsOn: async sha => (SHA.test(sha) ? parsed<RunRow[]>(await gh($.process.run(['gh', 'run', 'list', '--commit', sha, '--limit', '50', '--json', 'databaseId,headSha,status,conclusion,workflowName,createdAt'], GH_TIMEOUT))) : undefined),
+    pushBranch: dir => $.process.run(['git', '-C', dir, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{push}'], { timeoutMs: 5_000 })
+      .then(r => (r.exitCode === 0 ? r.stdout.trim().replace(/^[^/]+\//, '') : undefined), () => undefined),
+    onlyMerges: async (dir, head, ref, baseRef) => {
+      if (!SHA.test(head) || !(ref === 'HEAD' || BRANCH.test(ref)) || !BRANCH.test(baseRef)) return undefined
+      const r = await $.process.run(['git', '-C', dir, 'rev-list', '--no-merges', `${head}..${ref}`, `^origin/${baseRef}`], { timeoutMs: 5_000 }).catch(() => undefined)
+      return r?.exitCode === 0 ? r.stdout.trim() === '' : undefined
+    },
+    prOfBranch: async branch => {
+      if (!BRANCH.test(branch)) return undefined
+      const rows = parsed<{ number: number; headRefOid: string; baseRefName: string }[]>(await gh($.process.run(['gh', 'pr', 'list', '--head', branch, '--state', 'open', '--json', 'number,headRefOid,baseRefName'], GH_TIMEOUT)))
+      return rows && (rows[0] ?? null)
+    },
     prFiles: async pr => {
       if (!PR_NUMBER.test(String(pr))) return undefined
       const out = await gh($.process.run(['gh', 'api', '--paginate', `repos/{owner}/{repo}/pulls/${pr}/files`, '--jq', '.[] | select(.status != "removed") | .filename'], GH_TIMEOUT))
@@ -197,6 +211,7 @@ function soon($: EngineInterface) {
   })
 }
 
+const ORCHESTRATOR = /(^|:)(agile-10-implement|agile-11-merge-train|agile-sprint-drain)$/
 const WRITES = /\b(gh\s+(pr|run|api)\b|git\s+push\b)/
 const writes = (tool: string, args: Record<string, unknown>) =>
   (tool === 'Bash' && WRITES.test(String(args.command ?? ''))) || /^mcp__.+__(transitionJiraIssue|editJiraIssue|addCommentToJiraIssue|createJiraIssue|create_pull_request|merge_pull_request|update_pull_request)$/.test(tool)
@@ -224,12 +239,23 @@ function save($: EngineInterface, next: Board) {
   void $.store.set(scope + STORE_KEY, board).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
   showStatus($)
   $.ui.invalidate('ui.render')
-  if (board.passes?.length !== before.passes?.length) void meter($)
+  // a pass opened or ended: stamp the ledger at that boundary
+  if (board.passes?.length !== before.passes?.length || board.passes?.at(-1)?.end !== before.passes?.at(-1)?.end) void meter($)
   if (board.drain?.outcome !== before.drain?.outcome) saveRetro($, retro)
   if (autoOpen && board.drain?.outcome === 'running' && before.drain?.outcome !== 'running') {
     // opened unasked, so it waits for a wide terminal and never takes the keyboard
     void $.ui.open({ id: PANE, title: 'agile console' }).catch(() => undefined)
   }
+}
+
+/** Writes the board to the store once, 10 s from now, for changes too frequent to write each time. */
+function persistLater($: EngineInterface) {
+  if (persistQueued) return
+  persistQueued = true
+  $.clock.after(10_000, () => {
+    persistQueued = false
+    void $.store.set(scope + STORE_KEY, board).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
+  })
 }
 
 function saveRetro($: EngineInterface, next: Retro) {
@@ -325,8 +351,17 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     const host = hostOf($)
     const args = argsOf(e)
-    if (budget && isNewBuild(e.tool, args)) await meter($)
-    const deny = budgetDenial(board.spend?.usd ?? 0, budget, e.tool, args) ?? await guardsBefore(host, e.tool, args, e.agentId)
+    // a new run's spend, so a budget counts from it: a session's first loop call while no drain runs (a
+    // resumed drain keeps counting). Nothing the model can call inside a session resets it; a new
+    // session or /agile-board reset starts over
+    const skill = e.tool === 'Skill' ? String(args.skill ?? '') : ''
+    if (ORCHESTRATOR.test(skill) && !loopRunning() && board.drain?.outcome !== 'running') {
+      save($, withRun(board, await $.clock.now()))
+      await meter($)
+    } else if (budget && isBuildWork(e.tool, args)) await meter($)
+    // the budget holds once a loop ran in this session, until /agile-board reset
+    const spent = loopRunning() ? (board.spend?.usd ?? 0) : 0
+    const deny = budgetDenial(spent, budget, e.tool, args) ?? await guardsBefore(host, e.tool, args, e.agentId)
     if (deny) {
       const type = e.agentId ? await agentTypeOf(host, e.agentId) : undefined
       refusals = keepRefusal(refusals, { at: await $.clock.now(), rule: ruleOf(deny), text: deny, ...(type && { agent: type.split(':').at(-1) }) })
@@ -387,7 +422,11 @@ export const register: Register = (on, options) => {
       const stage = type ? stageOf(type) : e.agentId ? undefined : board.stage
       const now = await $.clock.now()
       if (e.agentId) agentStats = noteTokens(agentStats, e.agentId, r.usage, now)
-      if (stage) save($, withTokens(board, stage, r.usage))
+      // counted in memory on every request, written to the store at most every 10 s
+      if (stage) {
+        board = withTokens(board, stage, r.usage)
+        persistLater($)
+      }
     } catch {
       // the next request counts again
     }
@@ -441,7 +480,7 @@ const stageOf = (type: string) =>
 
 type Elements = Awaited<ReturnType<EngineInterface['ui']['resolve']>>
 
-/** One row as elements: styled text in a line, bordered tiles, the burndown, or a link. */
+/** One row as elements: styled text in a line, bordered tiles, the burnup, or a link. */
 function renderRow(ui: Elements, row: Row, key: string): RenderNode {
   const { Box, Text, Link } = ui
   if (row.kind === 'link') return <Link key={key} href={row.href} label={row.label} />

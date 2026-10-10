@@ -141,7 +141,8 @@ function chartOf(board: Board, ctx: Ctx, cols: number): { chart: Chart; max: num
     return [...samples].reverse().find(s => s.at <= t) ?? samples[0]!
   }
   const px = (v: number) => (v > 0 ? Math.max(1, Math.round((v / max) * pixels)) : 0)
-  const done = Array.from({ length: cols }, (_, c) => px(at(c).total - at(c).left))
+  // a sample from before `done` was kept counts parked work as done
+  const done = Array.from({ length: cols }, (_, c) => px(at(c).done ?? at(c).total - at(c).left))
   const scope = Array.from({ length: cols }, (_, c) => px(at(c).total))
   return { chart: { cols, rows, done, scope, tone: board.drain?.outcome === 'DRAINED' ? 'g' : 'c' }, max, span: t1 - t0 }
 }
@@ -203,9 +204,8 @@ export function sourcesRow(board: Board, now: number): Row {
 
 function boardRows(board: Board, ctx: Ctx, w: number): Row[] {
   const rows: Row[] = [headerRow(board, ctx, w), sourcesRow(board, ctx.now), blank]
-  const { left, total, unit } = leftOf(board)
+  const { left, done, total, unit } = leftOf(board)
   if (total) {
-    const done = total - left
     rows.push(spread(text([String(left), 'b'], [` / ${total} ${unitName(unit)} left`, 'd']), text([`${Math.round((done / total) * 100)}% done`, left ? 'd' : 'g']), w))
     rows.push({ kind: 'line', segs: barSegs(done / total, Math.max(8, w), left ? 'c' : 'g') })
   } else {

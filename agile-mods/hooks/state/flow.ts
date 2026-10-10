@@ -55,22 +55,28 @@ export function cacheFlags(board: Board): string[] {
 
 export const pct = (x: number) => `${Math.round(x * 100)}%`
 
-/** Counts the ledger up to `usd` while a loop runs; a lower reading is a new session, counted from 0. */
+/**
+ * A new loop run: a drain starting, or the first orchestrator call of a session outside a running
+ * drain. Its spend counts from 0, from the next ledger reading.
+ */
+export const withRun = (board: Board, now: number): Board => ({ ...board, spend: { usd: 0, since: now } })
+
+/** Counts the ledger up to `usd` for the run; a lower reading is a new session, counted from 0. */
 export function withSpend(board: Board, usd: number): Board {
-  if (!board.loop) return board
-  const spend = board.spend ?? { usd: 0 }
-  if (spend.last === undefined) return { ...board, spend: { usd: spend.usd, last: usd } }
+  const spend = board.spend
+  if (!spend) return board
+  if (spend.last === undefined) return { ...board, spend: { ...spend, last: usd } }
   const delta = usd >= spend.last ? usd - spend.last : usd
-  return delta === 0 && usd === spend.last ? board : { ...board, spend: { usd: spend.usd + delta, last: usd } }
+  return delta === 0 ? board : { ...board, spend: { ...spend, usd: spend.usd + delta, last: usd } }
 }
 
 /** After a reload the ledger restarts with the session: the next reading is a new baseline. */
-export const withoutLedger = (board: Board): Board => (board.spend?.last === undefined ? board : { ...board, spend: { usd: board.spend.usd } })
+export const withoutLedger = (board: Board): Board => (board.spend?.last === undefined ? board : { ...board, spend: { usd: board.spend.usd, since: board.spend.since } })
 
-/** What the loop spent, per hour since it started and per PR merged since. */
+/** What the run spent, per hour since it began and per PR merged since. */
 export function rateOf(board: Board, now: number): { spent: number; perHour?: number; perPr?: number; merged: number } {
   const spent = board.spend?.usd ?? 0
-  const since = board.since
+  const since = board.spend?.since
   const merged = since === undefined ? 0 : board.prOrder.filter(n => (board.prs[n]!.mergedAt ?? -1) >= since).length
   const hours = since === undefined ? 0 : (now - since) / HOUR
   return { spent, merged, ...(hours >= 0.1 && spent > 0 && { perHour: spent / hours }), ...(merged && spent > 0 && { perPr: spent / merged }) }

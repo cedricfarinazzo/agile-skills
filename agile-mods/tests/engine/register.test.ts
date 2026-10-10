@@ -155,8 +155,20 @@ describe('loop limits through the engine', () => {
     // the first reading is the baseline
     expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toBe('ok')
     usd.now = 7
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toContain('the loop spent $6.00 of its $5.00 budget')
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toMatch(/^agile-mods: budget: the loop spent \$6\.00 of its \$5\.00 budget/)
     expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never))).toBe('ok')
+  })
+
+  test('inside a running drain, re-invoking a skill never resets the budget; a session agent is refused too', { options: { budgetUsd: 5 } }, async ($, on) => {
+    const usd = { now: 1 }
+    world(on, { usd })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
+    usd.now = 7
+    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never)
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toContain('budget')
+    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-sprint-drain:build-session', description: 'build' } as never))).toContain('budget')
   })
 
   test('no budget set: nothing is refused for spend', async ($, on) => {
@@ -168,19 +180,23 @@ describe('loop limits through the engine', () => {
     expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toBe('ok')
   })
 
-  test('a fourth fix round on a PR is refused, counted from the heads gh reports', async ($, on) => {
-    const view = { stdout: '' }
-    const w = world(on, { gh: { 'gh pr view 7': view } })
+  test('a fourth fix round pushing to a PR is refused: the PR from the branch, the round from the agent', async ($, on) => {
+    const pr = { stdout: '' }
+    const fixers = [1, 2, 3, 4].map(n => ({ id: `f${n}`, type: 'agile-merge-review:fix-until-satisfied' }))
+    const w = world(on, { agents: fixers, gh: { 'gh pr list --head VC-7': pr } })
     await start($)
     await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never)
-    const fix = { tool: 'Agent', subagent_type: 'agile-merge-review:fix-until-satisfied', description: 'fix PR #7', prompt: 'PR #7' } as never
-    for (const head of ['1', '2', '3']) {
-      view.stdout = JSON.stringify({ headRefOid: head.repeat(40), state: 'OPEN' })
-      expect(said(await $.tool.call(fix))).toBe('ok')
+    const push = (agentId: string) => $.tool.call({ tool: 'Bash', command: 'git push origin VC-7', agentId } as never)
+    for (const n of [1, 2, 3]) {
+      pr.stdout = JSON.stringify([{ number: 7, headRefOid: String(n).repeat(40), baseRefName: 'main' }])
+      expect(said(await push(`f${n}`))).toBe('ok')
     }
-    view.stdout = JSON.stringify({ headRefOid: '4'.repeat(40), state: 'OPEN' })
-    expect(said(await $.tool.call(fix))).toContain('3 fix rounds already')
-    expect(w.tools.filter(t => t === 'Agent')).toHaveLength(3)
+    pr.stdout = JSON.stringify([{ number: 7, headRefOid: '4'.repeat(40) }])
+    expect(said(await push('f4'))).toContain('3 fix rounds already pushed')
+    expect(w.ran).toContain('gh pr list --head VC-7 --state open --json number,headRefOid,baseRefName')
+    expect(w.tools.filter(t => t.startsWith('git push'))).toHaveLength(3)
+    // what a push adds is read against the PR head, less what the base already has
+    expect(w.ran).toContain(`git -C /repo rev-list --no-merges ${'1'.repeat(40)}..VC-7 ^origin/main`)
   })
 
   test('/agile-board reads the files of each open PR once per head, for the overlap map', async ($, on) => {
@@ -218,6 +234,8 @@ describe('usage through the engine', () => {
     expect((await step()).usage?.input_tokens).toBe(100)
     await step('m1')
     await step('m1')
+    // counted in memory, written within 10 s
+    await w.clock.advance(10_000)
     const board = w.stored.get('/repo:board') as Board
     expect(board.tokens).toEqual({ build: { input: 100, read: 900, write: 0, output: 5 }, merge: { input: 200, read: 1800, write: 0, output: 10 } })
     expect(board.passes!.at(-1)!.tokens!.merge!.read).toBe(1800)
