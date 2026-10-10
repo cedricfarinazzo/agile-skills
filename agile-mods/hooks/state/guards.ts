@@ -347,6 +347,10 @@ const GIT_COMMANDS = new Set(('add am annotate apply archive bisect blame branch
   'show-ref sparse-checkout stash status submodule switch symbolic-ref tag update-index update-ref var verify-commit verify-tag version ' +
   'whatchanged worktree write-tree').split(' '))
 
+// gh's own commands: inside the loop, any other word after gh is an alias or an extension
+const GH_COMMANDS = new Set(('agent-task alias api attestation auth browse cache co codespace completion config copilot extension gist gpg-key ' +
+  'issue label org pr preview project release repo ruleset run search secret ssh-key status variable workflow help version').split(' '))
+
 /**
  * A write to GitHub the loop must make with git or gh pr, where the guards read it: a branch written
  * through the API or a GitHub MCP tool, a merge through the API, or a git alias or config override
@@ -363,6 +367,13 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
   }
   if (/\bGIT_CONFIG_(COUNT|KEY_|VALUE_|PARAMETERS|GLOBAL|SYSTEM)/.test(command)) return 'the loop does not override git config through the environment.'
   if (shellWords(command).some(w => w[0] === 'gh' && w[1] === 'repo' && w[2] === 'sync')) return 'the loop writes to a branch with git push, where the guards read it, not through gh repo sync.'
+  for (const words of shellWords(command)) {
+    const at = words.findIndex(w => /(^|\/)gh$/.test(w))
+    const sub = at < 0 ? undefined : words.slice(at + 1).find(w => !w.startsWith('-'))
+    if (sub === undefined) continue
+    if (!GH_COMMANDS.has(sub)) return `the loop runs gh's own commands by name: "gh ${sub}" is not one (an alias or extension could hide a push).`
+    if ((sub === 'alias' && words.includes('set')) || sub === 'extension') return 'the loop does not add gh aliases or run gh extensions: either could hide a push.'
+  }
   const alias = gitCommandsOf(command).find(c => !GIT_COMMANDS.has(c))
   if (alias === '?') return 'the loop runs git\'s own commands by name: a computed git subcommand could hide a push.'
   if (alias) return `the loop runs git's own commands by name: "git ${alias}" is not one (an alias could hide a push).`

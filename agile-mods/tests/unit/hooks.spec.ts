@@ -303,6 +303,10 @@ describe('fix-round cap', () => {
     // an alias however it was set: config, -c, the environment
     expect(await guardsBefore(host, 'Bash', { command: 'git -C /w up origin VC-7' }, 'f1')).toContain('"git up" is not one')
     expect(await guardsBefore(host, 'Bash', { command: 'git -c alias.up=push up origin VC-7' }, 'f1')).toContain('"git up" is not one')
+    expect(await guardsBefore(host, 'Bash', { command: 'gh p' }, 'f1')).toContain('"gh p" is not one')
+    expect(await guardsBefore(host, 'Bash', { command: "gh alias set p 'pr view'" }, 'f1')).toContain('gh aliases')
+    expect(await guardsBefore(host, 'Bash', { command: 'gh extension exec x' }, 'f1')).toContain('gh extensions')
+    expect(await guardsBefore(host, 'Bash', { command: 'gh pr view 7 --json files && gh run list -L 1' }, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'Bash', { command: 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.up GIT_CONFIG_VALUE_0=push git status' }, 'f1')).toContain('environment')
     // git's own commands, and git named inside quoted text or a path, go on
     expect(await guardsBefore(host, 'Bash', { command: 'git -C /w log --oneline -3 && git rev-parse HEAD' }, 'f1')).toBeUndefined()
