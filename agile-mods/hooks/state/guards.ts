@@ -337,14 +337,32 @@ function ghApiWrites(command: string): boolean {
   return method ? method.toUpperCase() !== 'GET' : /\s(-f|-F|--field|--raw-field|--input)[=\s]/.test(call)
 }
 // the API writes the loop makes: comments, replies, reviews and labels on issues and PRs (an allowlist: any other write is refused)
-const GH_API_WRITE_OK = /\brepos\/\S+?\/(issues\/\d+\/(comments|labels)|issues\/comments\/\d+|pulls\/\d+\/(comments(\/\d+\/replies)?|reviews(\/\d+(\/events)?)?|requested_reviewers)|pulls\/comments\/\d+(\/replies)?)(\s|$|\?|["'])/
+const GH_API_WRITE_OK = /^\/?repos\/[^/\s]+\/[^/\s]+\/(issues\/\d+\/(comments|labels)|issues\/comments\/\d+|pulls\/\d+\/(comments(\/\d+\/replies)?|reviews(\/\d+(\/events)?)?|requested_reviewers)|pulls\/comments\/\d+(\/replies)?)$/
+
+// gh api options that take a value, so the endpoint is the first word that is neither an option nor a value
+const GH_API_VALUED = /^(-X|--method|-f|-F|--field|--raw-field|-H|--header|--input|-q|--jq|-t|--template|--hostname|-p|--preview|--cache)$/
+
+/** The endpoint of each `gh api` call in a line: its first argument that is not an option or an option's value. */
+function ghApiEndpoints(command: string): string[] {
+  return shellWords(command).flatMap(words => {
+    const at = words.findIndex((w, i) => /(^|\/)gh$/.test(w) && words[i + 1] === 'api')
+    if (at < 0) return []
+    for (let i = at + 2; i < words.length; i++) {
+      const w = words[i]!
+      if (GH_API_VALUED.test(w)) i++
+      else if (!w.startsWith('-')) return [w]
+    }
+    return ['']
+  })
+}
 const GRAPHQL_WRITE_OK = /^(addPullRequestReviewThreadReply|addPullRequestReviewComment|addPullRequestReview|submitPullRequestReview|addComment|updateIssueComment|resolveReviewThread|unresolveReviewThread|addLabelsToLabelable|removeLabelsFromLabelable)$/
 
 // the GitHub MCP writes the loop may make: comments, reviews, PR edits; merge and create are gated by 3f and the budget
 const GITHUB_MCP_WRITE_OK = new Set(['add_issue_comment', 'add_comment_to_pending_review', 'add_reply_to_pull_request_comment', 'pull_request_review_write',
   'update_pull_request', 'create_pull_request', 'merge_pull_request', 'issue_write', 'sub_issue_write', 'update_issue_comment', 'request_copilot_review'])
-const isGithubServer = (tool: string) => /^mcp__[^_]*github[^_]*__/i.test(tool) || /^mcp__.+_github__/i.test(tool)
 const isReadTool = (name: string) => /^(get|list|search)_|_read$/.test(name)
+// a snake_case tool that writes, on any server: GitHub-style tools, whatever the server is named (Atlassian's are camelCase)
+const isSnakeWrite = (name: string) => /^(create|update|delete|push|merge|fork|add|remove|rename|transfer|archive|set)_|_write$/.test(name)
 
 // git's own commands: inside the loop, any other word after git is an alias, which could hide a push
 const GIT_COMMANDS = new Set(('add am annotate apply archive bisect blame branch bundle cat-file check-attr check-ignore check-ref-format ' +
@@ -366,7 +384,7 @@ const GH_COMMANDS = new Set(('agent-task alias api attestation auth browse cache
  */
 export function sideDoorDenial(tool: string, args: Record<string, unknown>): string | undefined {
   const name = mcpName(tool)
-  if (GITHUB_BRANCH_WRITES.has(name) || (isGithubServer(tool) && !isReadTool(name) && !GITHUB_MCP_WRITE_OK.has(name))) {
+  if (GITHUB_BRANCH_WRITES.has(name) || (/^mcp__/.test(tool) && isSnakeWrite(name) && !isReadTool(name) && !GITHUB_MCP_WRITE_OK.has(name))) {
     return 'the loop writes to a branch with git push, where the guards read it, not through the GitHub API.'
   }
   const command = tool === 'Bash' ? str(args.command) : ''
@@ -374,13 +392,17 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
   if (/\/pulls\/\d+\/merge\b/.test(command) && ghApiWrites(command)) {
     return 'the loop merges with gh pr merge <n> --squash --match-head-commit <reviewed sha>, where the 3f gates read it, not through the API.'
   }
-  if (ghApiWrites(command) && !/\bgh\s+api\s+(\S+\s+)*graphql\b/.test(command) && !GH_API_WRITE_OK.test(command)) {
+  const endpoints = ghApiEndpoints(command)
+  if (ghApiWrites(command) && endpoints.some(e => e !== 'graphql' && !GH_API_WRITE_OK.test(e))) {
     return 'the loop writes to GitHub through the API only for comments, replies, reviews and labels; branches change with git push, where the guards read it.'
   }
-  if (/\bgh\s+api\s+(\S+\s+)*graphql\b/.test(command) && /\bmutation\b/.test(command)) {
-    const fields = [...command.matchAll(/\bmutation\b[^{]*\{\s*(\w+)/g), ...command.matchAll(/[{,]\s*(\w+)\s*\(\s*input\s*:/g)].map(m => m[1]!)
-    if (!fields.length || fields.some(f => !GRAPHQL_WRITE_OK.test(f))) {
-      return 'the loop writes to GitHub through GraphQL only for comments, replies, reviews and labels; branches change with git push, where the guards read it.'
+  if (endpoints.includes('graphql')) {
+    const graphql = 'the loop writes to GitHub through GraphQL only for comments, replies, reviews and labels, with the query written out; branches change with git push, where the guards read it.'
+    // a query the line does not show (a variable, a file, stdin) cannot be read
+    if (/\$|@|--input/.test(command.replace(/\$\w+\s*:/g, ''))) return graphql
+    if (/\bmutation\b/.test(command)) {
+      const fields = [...command.matchAll(/(?:\w+\s*:\s*)?(\w+)\s*\(\s*input\s*:/g)].map(m => m[1]!)
+      if (!fields.length || fields.some(f => !GRAPHQL_WRITE_OK.test(f))) return graphql
     }
   }
   if (/\bGIT_CONFIG_(COUNT|KEY_|VALUE_|PARAMETERS|GLOBAL|SYSTEM)/.test(command)) return 'the loop does not override git config through the environment.'

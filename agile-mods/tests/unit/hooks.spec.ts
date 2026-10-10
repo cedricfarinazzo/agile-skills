@@ -305,7 +305,11 @@ describe('fix-round cap', () => {
     expect(await guardsBefore(host, 'Bash', { command: 'git -c alias.up=push up origin VC-7' }, 'f1')).toContain('"git up" is not one')
     // API and MCP writes: an allowlist, so an endpoint or tool nobody listed is refused
     for (const command of ['gh api -X POST repos/o/r/git/blobs -f content=x', 'gh api -X PATCH repos/o/r/branches/x/protection -F x=1', 'gh api -X POST repos/o/r/dispatches -f event_type=x', 'gh api -X PUT repos/o/r/pulls/7/update-branch',
-      `gh api graphql -f query='mutation { createCommitOnBranch(input: {}) { commit { oid } } }'`, `gh api graphql -f query='mutation { x: mergePullRequest(input: {}) { clientMutationId } }'`]) {
+      `gh api graphql -f query='mutation { createCommitOnBranch(input: {}) { commit { oid } } }'`, `gh api graphql -f query='mutation { x: mergePullRequest(input: {}) { clientMutationId } }'`,
+      // an allowed path in a field value does not unlock the endpoint; a second mutation is read; a query the line does not show is refused
+      'gh api -X POST repos/o/r/git/refs -f ref=refs/heads/x -f note=repos/o/r/issues/1/comments',
+      `gh api graphql -f query='mutation { addComment(input: {}) { x } createCommitOnBranch(input: {}) { x } }'`,
+      'gh api graphql -F query=@q.graphql', 'gh api graphql -f query="$Q"']) {
       expect(await guardsBefore(host, 'Bash', { command }, 'f1')).toMatch(/through the API only|through GraphQL only|with git push|gh pr merge/)
     }
     for (const command of ['gh api repos/o/r/pulls/7/comments/9/replies -f body=x', 'gh api -X POST repos/o/r/issues/7/comments -f body=x', 'gh api -X POST repos/o/r/pulls/7/reviews -f event=COMMENT',
@@ -314,6 +318,8 @@ describe('fix-round cap', () => {
     }
     expect(await guardsBefore(host, 'mcp__github__fork_repository', {}, 'f1')).toContain('with git push')
     expect(await guardsBefore(host, 'mcp__claude_ai_github__some_new_write', {}, 'f1')).toContain('with git push')
+    expect(await guardsBefore(host, 'mcp__gh__create_or_update_ref', {}, 'f1')).toContain('with git push')
+    expect(await guardsBefore(host, 'mcp__atlassian__createJiraIssue', {}, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'mcp__github__pull_request_read', {}, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'mcp__github__add_issue_comment', {}, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'Bash', { command: 'gh p' }, 'f1')).toContain('"gh p" is not one')
