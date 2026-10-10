@@ -271,6 +271,17 @@ describe('pass costs', () => {
   })
 })
 
+describe('refusal labels', () => {
+  test('each guard\'s refusal is labelled with its rule', () => {
+    expect(ruleOf('agile-mods: the loop writes to a branch with git push, where the guards read it, not through the GitHub API.')).toBe('side')
+    expect(ruleOf('agile-mods: the loop merges with gh pr merge <n> --squash --match-head-commit <reviewed sha>, where the 3f gates read it, not through the API.')).toBe('side')
+    expect(ruleOf('agile-mods: the loop runs git\'s own commands by name: "git up" is not one (an alias could hide a push).')).toBe('side')
+    expect(ruleOf('agile-mods: the loop does not override git config through the environment.')).toBe('side')
+    expect(ruleOf('agile-mods: the loop never pushes to main: work lands through a PR and gh pr merge.')).toBe('push')
+    expect(ruleOf('agile-mods: PR #7: CI on abc is red (ci failure). Fix it (3c), re-enter 3e, then merge.')).toBe('3f')
+  })
+})
+
 describe('refusals', () => {
   test('rules are told apart by their text', () => {
     expect(ruleOf('agile-mods: the loop never pushes to main: work lands through a PR')).toBe('push')

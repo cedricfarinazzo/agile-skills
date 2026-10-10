@@ -29,7 +29,7 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 
 | Command | Why | When |
 |---|---|---|
-| `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard: the branch a `git push` that names none would send | Before such a push, inside a loop |
+| `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard and fix-round cap: the branch a push that names none, or names `HEAD`, sends | Before such a push, inside a loop |
 | `gh pr list --state all --limit 100 --json …` | Board: PRs, their heads, merged or not; merge history for aging and the forecast | 3 s after the loop's GitHub writes, CI waits and dispatches, when the main loop goes idle, when `/agile-board` opens, and every 5 minutes while a loop runs or the pane is open |
 | `gh run list --limit 100 --json …` | Board: CI per sha | Same |
 | `gh api --paginate repos/{owner}/{repo}/pulls/<n>/files` | Board: each open PR's files, for the overlap map. 3f gate: the files a review must have read | With the PR list, once per PR head; at a merge call |
@@ -61,7 +61,8 @@ hooks/guards.ts           # guards: grant backstop, 3f merge gates, push guard, 
 hooks/receipts.ts         # /receipts
 hooks/state/*.ts          # pure logic: board, flow metrics, agents lane, console views, guards, review coverage, receipts, retro
 docs/*.md                 # one page per mod
-tests/unit/*.spec.ts      # bun test over hooks/state, and over the hook modules through tests/unit/fake-host.ts
+tests/unit/*.spec.ts      # bun test over hooks/state, and over the hook modules through tests/unit/fake-host.ts;
+                          # skills.spec.ts runs every git and gh command the skills write through the guards
 tests/engine/*.test.ts    # claude plugin test: register.tsx in the engine, hooks and the pane and alert row mounted per surface
 tests/engine/world.ts     # the stubbed machine beneath: gh, git, Jira, store, clock, model, the prompt's own drawing
 ```

@@ -115,13 +115,13 @@ describe('push guard', () => {
 })
 
 describe('fix-round cap', () => {
-  const rounds = { ids: ['agent:f1', 'inline::4', 'head:' + '3'.repeat(40)], heads: ['1'.repeat(40), '2'.repeat(40), '3'.repeat(40)] }
+  const rounds = { ids: ['agent:f1', 'loop::4', 'loop:s1:9'], heads: ['1'.repeat(40), '2'.repeat(40), '3'.repeat(40)] }
 
   test('a new round passes under the cap; a counted round pushes again freely', () => {
     expect(FIX_ROUNDS).toBe(3)
     expect(fixDenial(7, undefined, 'agent:x')).toBeUndefined()
     expect(fixDenial(7, { ids: rounds.ids.slice(0, 2), heads: rounds.heads.slice(0, 2) }, 'agent:x')).toBeUndefined()
-    expect(fixDenial(7, rounds, 'inline::4')).toBeUndefined()
+    expect(fixDenial(7, rounds, 'loop::4')).toBeUndefined()
   })
 
   test('a fourth round is refused and sent to 3d', () => {
@@ -149,6 +149,8 @@ describe('fix-round cap', () => {
     expect(pushPlanOf('git push -o ci.skip origin a')).toEqual({ error: 'the push option -o is not read' })
     expect(pushPlanOf('git push --all origin')).toEqual({ error: 'the push option --all is not read' })
     expect(pushPlanOf('cd w; git push')).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf('git push origin --delete feat/x')).toEqual({ refs: [{ src: 'feat/x', dst: 'feat/x' }], delete: true })
+    expect(pushPlanOf('GIT_TRACE=1 git push origin a')).toEqual({ error: 'a push in the loop runs git directly, with no prefix' })
   })
 })
 

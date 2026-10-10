@@ -251,8 +251,37 @@ describe('fix-round cap', () => {
       // a step before the push could move what it sends after the cap read it
       'git checkout VC-7 && git push', 'git branch -u origin/VC-7 && git push', 'git commit -m "fix; tidy" && git push origin VC-7',
     ]
-    for (const command of commands) expect(await guardsBefore(gh().host, 'Bash', { command }, 'f1')).toMatch(/fix-round cap reads every push|computed push target|never/)
+    for (const command of commands) expect(await guardsBefore(gh().host, 'Bash', { command }, 'f1')).toContain('the fix-round cap reads every push in the loop')
     expect(await guardsBefore(gh().host, 'Bash', { command: 'cd /w && git push -u origin VC-7' }, 'f1')).toBeUndefined()
+    // a push hidden in a shell script is read too
+    expect(await guardsBefore(gh().host, 'Bash', { command: `bash -c 'git push origin VC-7'` }, 'f1')).toContain('the fix-round cap reads every push in the loop')
+  })
+
+  test('git named as an argument is not a push or an alias; a delete sends no commit', async () => {
+    await loop()
+    for (const command of ['grep -rn git src/', 'rg "git push" agile-*/skills', 'echo git push origin main > notes.txt', 'git log --grep push --oneline', 'git --version', 'git -C /w', 'git commit -m "docs: the git push form"', 'gh pr create --title x --body "run git push first"']) {
+      expect(await guardsBefore(fakeHost({ agents }).host, 'Bash', { command }, 'f1')).toBeUndefined()
+    }
+    // however a push is wrapped or hidden, it is read as one, and one the cap cannot read is refused
+    const hidden = [
+      'timeout 60 git push origin main', 'nice git push origin VC-7', 'sudo -u x git push origin VC-7', 'env -i git push origin VC-7', '/usr/bin/env git push origin VC-7',
+      '{ git push origin VC-7; }', 'if true; then git push origin VC-7; fi', '! git push origin VC-7', 'bash -lc "git push origin VC-7"', 'sh -ec "git push origin VC-7"',
+      '"git" push origin main', 'git $(echo push) origin VC-7', 'timeout 60 git up origin VC-7', 'grep x f; git push origin VC-7', 'git -P push origin VC-7', 'git --no-pager -C /w push origin VC-7 extra:main',
+      // quoting, escapes, expansions, text run by something else
+      'g\\it push origin VC-7', "$'git' push origin VC-7", 'G=git && $G push origin VC-7', '${X:-git} push origin VC-7', 'echo push origin VC-7 | xargs git',
+      "man -P 'git push origin main' ls", 'echo "$(git push origin VC-7)"', 'bash <<< "git push origin VC-7"', 'echo "git push origin VC-7" | bash', 'bash -l -c "git push origin VC-7"',
+      'python3 -c "import os; os.system(\'git push origin VC-7\')"', 'gh repo sync --branch main --force',
+    ]
+    for (const command of hidden) expect(await guardsBefore(gh().host, 'Bash', { command }, 'f1')).toMatch(/^agile-mods: /)
+    expect(await guardsBefore(gh().host, 'Bash', { command: '"git" push origin main' }, 'f1')).toContain('never pushes to main')
+    for (const n of [1, 2, 3]) await guardsBefore(gh(sha(n)).host, 'Bash', push, `f${n}`)
+    // past the cap, deleting the branch is not a fix round
+    expect(await guardsBefore(gh(OTHER).host, 'Bash', { command: 'git push origin --delete VC-7' }, 'f4')).toBeUndefined()
+    expect(await guardsBefore(gh(OTHER).host, 'Bash', { command: 'git push origin :VC-7' }, 'f4')).toBeUndefined()
+    // a delete beside a push still counts the push
+    expect(await guardsBefore(gh(OTHER).host, 'Bash', { command: 'git push origin :old VC-7' }, 'f4')).toContain('fix rounds already')
+    // but deleting main is still a push to main
+    expect(await guardsBefore(gh(OTHER).host, 'Bash', { command: 'git push origin --delete main' }, 'f4')).toContain('never pushes to main')
   })
 
   test('a dispatch text naming only a PR with spent rounds is refused before the work', async () => {
@@ -274,7 +303,13 @@ describe('fix-round cap', () => {
     expect(await guardsBefore(host, 'Bash', { command: 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.up GIT_CONFIG_VALUE_0=push git status' }, 'f1')).toContain('environment')
     // git's own commands, and git named inside quoted text or a path, go on
     expect(await guardsBefore(host, 'Bash', { command: 'git -C /w log --oneline -3 && git rev-parse HEAD' }, 'f1')).toBeUndefined()
+    expect(await guardsBefore(host, 'Bash', { command: 'cat .git/config' }, 'f1')).toBeUndefined()
+    expect(await guardsBefore(host, 'Bash', { command: 'echo "git up is an alias"' }, 'f1')).toBeUndefined()
+    // unsure is not exempt: a git word in a compound line is read as a command, quotes or not
+    // words are read as the shell reads them: a quoted message is text, a quoted program name is not
     expect(await guardsBefore(host, 'Bash', { command: 'cat .git/config && echo "git up is an alias"' }, 'f1')).toBeUndefined()
+    expect(await guardsBefore(host, 'Bash', { command: 'cat x && "git" up origin VC-7' }, 'f1')).toContain('"git up" is not one')
+    expect(await guardsBefore(host, 'Bash', { command: 'git $(echo up) origin VC-7' }, 'f1')).toMatch(/computed git subcommand|fix-round cap reads every push/)
     expect(await guardsBefore(host, 'Bash', { command: 'gh api -X GET repos/o/r/git/refs -F per_page=100' }, 'f1')).toBeUndefined()
     // reads and comment replies through the API go on
     expect(await guardsBefore(host, 'Bash', { command: 'gh api repos/o/r/pulls/7/files' }, 'f1')).toBeUndefined()
@@ -309,11 +344,29 @@ describe('fix-round cap', () => {
 
   test('the count survives a restart, and reset clears it', async () => {
     await loop()
-    const { host, store } = gh()
-    await guardsBefore(host, 'Bash', push, 'f1')
-    expect(store.get('fixes')).toEqual({ 7: { ids: ['agent:f1'], heads: [SHA] } })
-    guardsReset(host)
-    expect(store.get('fixes')).toEqual({})
+    const hosts = [1, 2, 3].map(n => gh(sha(n)))
+    for (const [i, h] of hosts.entries()) await guardsBefore(h.host, 'Bash', push, `f${i + 1}`)
+    // the last write holds every round
+    const saved = hosts[2]!
+    expect(saved.store.get('fixes')).toEqual({ 7: { ids: ['agent:f1', 'agent:f2', 'agent:f3'], heads: [sha(1), sha(2), sha(3)] } })
+    // a new session: memory empty, the store read back
+    guardsReset()
+    const next = gh(OTHER)
+    next.store.set('fixes', saved.store.get('fixes'))
+    await guardsStart(next.host, '/repo')
+    await loop()
+    expect(await guardsBefore(next.host, 'Bash', push, 'f4')).toContain('3 fix rounds already pushed')
+    guardsReset(next.host)
+    expect(next.store.get('fixes')).toEqual({})
+  })
+
+  test('an older store entry (heads per PR, not rounds) is not read as rounds', async () => {
+    const old = gh(OTHER)
+    old.store.set('fixes', { 7: [sha(1), sha(2), sha(3)] })
+    guardsReset()
+    await guardsStart(old.host, '/repo')
+    await loop()
+    expect(await guardsBefore(old.host, 'Bash', push, 'f1')).toBeUndefined()
   })
 })
 

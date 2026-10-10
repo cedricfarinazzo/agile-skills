@@ -1,6 +1,6 @@
 import type { Host } from './host.ts'
 import { ciOf, applyRuns, dispatchText, EMPTY, PR_REF } from './state/board.ts'
-import { FIX_ROUNDS, PUSH_FORM, fixDenial, grantDenial, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushPlanOf, sideDoorDenial, type Rounds } from './state/guards.ts'
+import { FIX_ROUNDS, PUSH_FORM, fixDenial, grantDenial, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushesIn, pushPlanOf, sideDoorDenial, type Rounds } from './state/guards.ts'
 import { earlierShas, sameSha, unreadFiles, withReads, type Reads } from './state/review.ts'
 
 // Guards: the rules the skills state in prose, enforced on the call that would break them.
@@ -71,9 +71,12 @@ function roundOf(type: string, agentId: string | undefined): string {
 async function fixPush(host: Host, command: string, type: string, agentId: string | undefined): Promise<string | undefined> {
   const plan = pushPlanOf(command)
   if ('error' in plan) return `the fix-round cap reads every push in the loop, and ${plan.error}: ${PUSH_FORM}.`
+  if (plan.delete) return undefined
   const dir = plan.dir ?? cwd ?? '.'
   const refs = plan.refs.length ? plan.refs : [{ src: 'HEAD', dst: (await host.pushBranch(dir)) ?? (await host.branch(dir)) ?? '' }]
   for (const ref of refs) {
+    // a ref that deletes sends no commit
+    if (ref.src === '') continue
     const dst = ref.dst === 'HEAD' ? await host.branch(dir) : ref.dst
     if (!dst) return `the fix-round cap could not tell which branch this push sends (git rev-parse failed in ${dir}): ${PUSH_FORM}.`
     const pr = await host.prOfBranch(dst)
@@ -145,7 +148,7 @@ export async function guardsBefore(host: Host, tool: string, args: Record<string
   if (side) return `agile-mods: ${side}`
 
   const command = tool === 'Bash' && typeof args.command === 'string' ? args.command : ''
-  if (inLoop && /\bgit\b.*\bpush\b/.test(command)) {
+  if (inLoop && pushesIn(command)) {
     const refspec = /\bpush\b(\s+-\S+)*\s+\S+\s+\S+/.test(command)
     const deny = pushDenial(command, refspec && !/\bHEAD\b/.test(command) ? undefined : await branchOf(host, command))
     if (deny) return `agile-mods: ${deny}`

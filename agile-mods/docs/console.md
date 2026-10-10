@@ -8,7 +8,7 @@ A live view of the agile loop. It answers "where is the loop, is it stuck, what 
 
 | Where | Shows |
 |---|---|
-| Status line | `agile ▸ drain p3 merge · 13/21 pts · 4 merged · $3.10/h $1.40/PR · 85% by Thu` (with a budget set, `$12.40/$20` too); cleared when the loop is idle |
+| Status line | `agile ▸ drain p3 merge · 13/21 pts · 4 merged · $3.10/h $1.40/PR · 85% by Thu` (with a budget set, `$12.40/$20` too); shown once the board has a loop, a ticket or a PR, and cleared by `/agile-board hide` or `reset` |
 | One row above the prompt | Only when something needs a person or just ended: parked tickets, looping work, a spent budget, a PR open past the repo's 85th percentile, a stage whose cache hit rate dropped (yellow), `STUCK` (red), `DRAINED` (green). Nothing otherwise, so the band stays free for other mods |
 | The console pane | Six tabs, below |
 

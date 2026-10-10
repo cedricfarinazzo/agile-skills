@@ -33,6 +33,114 @@ const POSTING_MCP = new Set([
 
 const mcpName = (tool: string) => tool.match(/^mcp__.+?__(.+)$/)?.[1] ?? ''
 
+const unquoted = (command: string) => command.replace(/'[^']*'/g, "''").replace(/"(?:[^"\\]|\\.)*"/g, '""')
+
+/**
+ * A line split as the shell splits it: segments at `;` `|` `&` `(` `)` `{` `}` backticks and
+ * newlines, words at blanks, with quotes and backslashes resolved (`"git"`, `gi''t`, `g\\it` and
+ * `$'git'` are all `git`; a quoted commit message stays one word).
+ */
+function shellWords(command: string): string[][] {
+  const segments: string[][] = []
+  let words: string[] = []
+  let word = ''
+  let open = false
+  const endWord = () => {
+    if (open) words.push(word)
+    word = ''
+    open = false
+  }
+  const endSegment = () => {
+    endWord()
+    if (words.length) segments.push(words)
+    words = []
+  }
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i]!
+    if (c === '\\') {
+      word += command[++i] ?? ''
+      open = true
+    } else if (c === "'" || (c === '$' && command[i + 1] === "'")) {
+      if (c === '$') i++
+      const end = command.indexOf("'", i + 1)
+      word += command.slice(i + 1, end < 0 ? undefined : end)
+      i = end < 0 ? command.length : end
+      open = true
+    } else if (c === '"') {
+      let j = i + 1
+      while (j < command.length && command[j] !== '"') {
+        if (command[j] === '\\') j++
+        word += command[j] ?? ''
+        j++
+      }
+      i = j
+      open = true
+    } else if (/\s/.test(c) && c !== '\n') endWord()
+    else if (/[;|&(){}`\n]/.test(c)) endSegment()
+    else {
+      word += c
+      open = true
+    }
+  }
+  endSegment()
+  return segments
+}
+
+// programs that print or search and run nothing else: a git word in their arguments is text
+const READ_ONLY = /^(grep|egrep|fgrep|rg|echo|printf|cat|head|tail|wc|ls)$/
+
+/**
+ * Whether the whole line is one command of a program that runs nothing else, with nothing the shell
+ * expands or runs: then a git word in it is an argument (`grep -rn git src/`). Unsure is not exempt.
+ */
+function textOnly(command: string): boolean {
+  const segments = shellWords(command)
+  return segments.length === 1 && !/[$`\\]/.test(command) && READ_ONLY.test(segments[0]![0] ?? '') && !segments[0]!.includes('--pre')
+}
+
+// programs that run text as commands: a shell, an interpreter, eval, source, xargs
+const RUNNER = /^(\S*\/)?((ba|z|da|k)?sh|python[\d.]*|node|perl|ruby|eval|source|\.|xargs|env|man|less|more)$/
+
+/**
+ * The git subcommands a line could run: after every `git` word, wherever it stands (behind a wrapper,
+ * a keyword, in a brace group), options skipped (`-C` and `-c` take a value), the next word. `?`
+ * marks one that is unknown, read as the worst case: a computed subcommand (`git $(...)`), an
+ * expansion on a line that pushes (`$G push`), or a line that hands text to a shell, an interpreter,
+ * eval, source or xargs while naming git push. The text of `$(...)` and backticks is read as a line
+ * of its own.
+ */
+export function gitCommandsOf(command: string, depth = 0): string[] {
+  if (textOnly(command)) return []
+  const found: string[] = []
+  const segments = shellWords(command)
+  for (const words of segments) {
+    words.forEach((w, i) => {
+      if (!/(^|\/)git$/.test(w)) return
+      let j = i + 1
+      while (j < words.length && words[j]!.startsWith('-')) j += /^-[Cc]$/.test(words[j]!) ? 2 : 1
+      const sub = words[j]
+      if (sub !== undefined) found.push(/^[A-Za-z][\w.-]*$/.test(sub) ? sub : '?')
+    })
+  }
+  if (depth < 3) for (const m of command.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) found.push(...gitCommandsOf(m[1] ?? m[2]!, depth + 1))
+  return found
+}
+
+/**
+ * A push the words cannot show: a command reached through an expansion on a line with a push word
+ * (`$G push`), or text naming git push handed to something that runs text (a shell, an interpreter,
+ * eval, source, xargs, `man -P`).
+ */
+function hiddenPush(command: string): boolean {
+  if (textOnly(command)) return false
+  const all = shellWords(command).flat()
+  if (all.some(w => w.includes('$')) && all.includes('push') && !all.some((w, i) => /(^|\/)git$/.test(w) && all[i + 1] === 'push')) return true
+  const text = all.join(' ')
+  return /\bgit\b/.test(text) && /\bpush\b/.test(text) && all.some(w => RUNNER.test(w))
+}
+
+export const pushesIn = (command: string) => gitCommandsOf(command).some(c => c === 'push' || c === '?') || hiddenPush(command)
+
 const POSTING_BASH = /\b(gh\s+(pr\s+(comment|review|merge|edit|close|ready)|issue\s+(comment|edit|close|create))|gh\s+api\b[^|;&]*(-X|--method)\s*(POST|PATCH|PUT|DELETE)|git\s+push)\b/
 
 /**
@@ -113,7 +221,7 @@ const BASE = /^(main|master)$/
  * @param branch the branch checked out where the push runs, for a push that names no refspec
  */
 export function pushDenial(command: string, branch: string | undefined): string | undefined {
-  for (const push of command.split(/&&|\|\||;|\|/).filter(c => /\bgit\b.*\bpush\b/.test(c))) {
+  for (const push of command.split(/&&|\|\||;|\|/).filter(pushesIn)) {
     const words = push.trim().split(/\s+/).slice(push.trim().split(/\s+/).indexOf('push') + 1)
     const flags = words.filter(w => w.startsWith('-'))
     if (flags.some(f => f === '--force' || f === '--mirror' || /^-[a-zA-Z]*f/.test(f))) {
@@ -150,10 +258,10 @@ export function fixDenial(pr: number, rounds: Rounds | undefined, round: string)
   return `PR #${pr}: ${rounds.ids.length} fix rounds already pushed (onto ${rounds.heads.map(h => h.slice(0, 7)).join(', ')}). The fixes are not converging: take 3d (blocked postmortem, PR left open) and let a human decide.`
 }
 
-/** What a push sends where, read from the command: the directory it runs in, and each `src:dst`. */
-export type PushPlan = { dir?: string; refs: { src: string; dst: string }[] }
+/** What a push sends where, read from the command: the directory it runs in, each `src:dst`, and whether it deletes. */
+export type PushPlan = { dir?: string; refs: { src: string; dst: string }[]; delete?: boolean }
 
-const PUSH_FLAGS = /^(-u|--set-upstream|--force-with-lease(=\S+)?|--no-verify|-q|--quiet|-v|--verbose|--porcelain|-f|--force)$/
+const PUSH_FLAGS = /^(-u|--set-upstream|--force-with-lease(=\S+)?|--no-verify|-q|--quiet|-v|--verbose|--porcelain|-f|--force|-d|--delete)$/
 const unquote = (w: string) => w.replace(/^"([^"]*)"$|^'([^']*)'$/, '$1$2')
 
 /**
@@ -166,7 +274,7 @@ export function pushPlanOf(command: string): PushPlan | { error: string } {
   const bare = command.replace(/'[^']*'/g, "''").replace(/"[^"$`\\]*"/g, '""')
   if (/[;|`$<>()\n\\]|(?<!&)&(?!&)/.test(bare.replace(/&&/g, ''))) return { error: 'a push in the loop is one plain command' }
   const segments = command.split('&&').map(c => c.trim())
-  const pushes = segments.filter(c => /^git\b.*\bpush\b/.test(c))
+  const pushes = segments.filter(pushesIn)
   if (pushes.length !== 1) return { error: 'a command pushes once' }
   // a step before the push could move the branch or what it holds after the cap read it: only cd may
   let dir: string | undefined
@@ -176,6 +284,7 @@ export function pushPlanOf(command: string): PushPlan | { error: string } {
     dir = unquote(cd[1]!)
   }
   const words = pushes[0]!.split(/\s+/).map(unquote)
+  if (!/(^|\/)git$/.test(words[0]!)) return { error: 'a push in the loop runs git directly, with no prefix' }
   let i = 1
   if (words[i] === '-C') {
     dir = words[i + 1]
@@ -191,7 +300,9 @@ export function pushPlanOf(command: string): PushPlan | { error: string } {
     const clean = (r: string) => r.replace(/^refs\/heads\//, '')
     return { src: clean(src!), dst: clean(dst ?? src!) }
   })
-  return { ...(dir && { dir }), refs }
+  // a delete (`--delete`, or `:<branch>` for every ref) sends no commit
+  const deletes = args.some(a => a === '-d' || a === '--delete') || (refs.length > 0 && refs.every(r => r.src === ''))
+  return { ...(dir && { dir }), refs, ...(deletes && { delete: true }) }
 }
 
 const GITHUB_BRANCH_WRITES = new Set(['push_files', 'create_or_update_file', 'delete_file', 'create_branch', 'update_pull_request_branch'])
@@ -213,11 +324,6 @@ const GIT_COMMANDS = new Set(('add am annotate apply archive bisect blame branch
   'show-ref sparse-checkout stash status submodule switch symbolic-ref tag update-index update-ref var verify-commit verify-tag version ' +
   'whatchanged worktree write-tree').split(' '))
 
-/** Each git subcommand a command runs, quoted text left out: the word after `git` and its options. */
-export const gitCommandsOf = (command: string): string[] =>
-  [...command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""')
-    .matchAll(/(?:^|[\s;&|(`/])git((?:\s+(?:-C\s+\S+|-c\s+\S+|--?[a-z][\w-]*(?:=\S+)?))*)\s+([A-Za-z][\w.-]*)/g)].map(m => m[2]!)
-
 /**
  * A write to GitHub the loop must make with git or gh pr, where the guards read it: a branch written
  * through the API or a GitHub MCP tool, a merge through the API, or a git alias or config override
@@ -233,7 +339,9 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
       : 'the loop writes to a branch with git push, where the guards read it, not through the GitHub API.'
   }
   if (/\bGIT_CONFIG_(COUNT|KEY_|VALUE_|PARAMETERS|GLOBAL|SYSTEM)/.test(command)) return 'the loop does not override git config through the environment.'
+  if (shellWords(command).some(w => w[0] === 'gh' && w[1] === 'repo' && w[2] === 'sync')) return 'the loop writes to a branch with git push, where the guards read it, not through gh repo sync.'
   const alias = gitCommandsOf(command).find(c => !GIT_COMMANDS.has(c))
+  if (alias === '?') return 'the loop runs git\'s own commands by name: a computed git subcommand could hide a push.'
   if (alias) return `the loop runs git's own commands by name: "git ${alias}" is not one (an alias could hide a push).`
   return undefined
 }
@@ -265,7 +373,7 @@ export function budgetDenial(spent: number, budget: number, tool: string, args: 
 }
 
 /** A call a guard refused, kept for the console's Guards tab. */
-export type Refusal = { at: number; rule: 'grant' | '3f' | 'push' | 'fix' | 'budget'; text: string; agent?: string }
+export type Refusal = { at: number; rule: 'grant' | '3f' | 'push' | 'fix' | 'budget' | 'side'; text: string; agent?: string }
 
 export const MAX_REFUSALS = 20
 
@@ -273,6 +381,7 @@ export const keepRefusal = (list: Refusal[], refusal: Refusal): Refusal[] => [..
 
 /** Which guard wrote a refusal, read from its text. */
 export function ruleOf(text: string): Refusal['rule'] {
+  if (/where the guards read it|where the 3f gates read it|git's own commands|override git config/.test(text)) return 'side'
   if (/never pushes to|never force-pushes|names the branch it pushes/.test(text)) return 'push'
   if (/^(agile-mods: )?budget:/.test(text)) return 'budget'
   if (/fix rounds already|fix-round cap/.test(text)) return 'fix'

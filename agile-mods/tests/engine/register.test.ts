@@ -124,7 +124,7 @@ describe('loop limits through the engine', () => {
       pr.stdout = JSON.stringify([{ number: 7, headRefOid: String(n).repeat(40), baseRefName: 'main' }])
       expect(said(await push(`f${n}`))).toBe('ok')
     }
-    pr.stdout = JSON.stringify([{ number: 7, headRefOid: '4'.repeat(40) }])
+    pr.stdout = JSON.stringify([{ number: 7, headRefOid: '4'.repeat(40), baseRefName: 'main' }])
     expect(said(await push('f4'))).toContain('3 fix rounds already pushed')
     expect(w.ran).toContain('gh pr list --head VC-7 --state open --json number,headRefOid,baseRefName')
     expect(w.tools.filter(t => t.startsWith('git push'))).toHaveLength(3)

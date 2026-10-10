@@ -392,7 +392,7 @@ function agentRows(ctx: Ctx, w: number): Row[] {
   return rows
 }
 
-const RULE_LABEL: Record<Refusal['rule'], string> = { grant: 'grant', '3f': '3f', push: 'push', fix: 'fix', budget: 'budget' }
+const RULE_LABEL: Record<Refusal['rule'], string> = { grant: 'grant', '3f': '3f', push: 'push', fix: 'fix', budget: 'budget', side: 'side' }
 
 function guardRows(ctx: Ctx, w: number): Row[] {
   const rows: Row[] = [
