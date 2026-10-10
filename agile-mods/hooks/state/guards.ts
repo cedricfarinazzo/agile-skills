@@ -361,8 +361,10 @@ const GRAPHQL_WRITE_OK = /^(addPullRequestReviewThreadReply|addPullRequestReview
 const GITHUB_MCP_WRITE_OK = new Set(['add_issue_comment', 'add_comment_to_pending_review', 'add_reply_to_pull_request_comment', 'pull_request_review_write',
   'update_pull_request', 'create_pull_request', 'merge_pull_request', 'issue_write', 'sub_issue_write', 'update_issue_comment', 'request_copilot_review'])
 const isReadTool = (name: string) => /^(get|list|search)_|_read$/.test(name)
-// a snake_case tool that writes, on any server: GitHub-style tools, whatever the server is named (Atlassian's are camelCase)
-const isSnakeWrite = (name: string) => /^(create|update|delete|push|merge|fork|add|remove|rename|transfer|archive|set)_|_write$/.test(name)
+// a server named for GitHub: default-deny, only its read tools and the listed writes pass
+const isGithubServer = (tool: string) => /^mcp__[^_]*github[^_]*__/i.test(tool) || /^mcp__.+_github__/i.test(tool)
+// on any other server, a snake_case tool that writes (GitHub-style tools under another name; Atlassian's are camelCase)
+const isSnakeWrite = (name: string) => /^(create|update|delete|push|merge|fork|add|remove|rename|transfer|archive|set|assign|run|rerun|dispatch|cancel|trigger|enable|disable)_|_write$/.test(name)
 
 // git's own commands: inside the loop, any other word after git is an alias, which could hide a push
 const GIT_COMMANDS = new Set(('add am annotate apply archive bisect blame branch bundle cat-file check-attr check-ignore check-ref-format ' +
@@ -384,7 +386,7 @@ const GH_COMMANDS = new Set(('agent-task alias api attestation auth browse cache
  */
 export function sideDoorDenial(tool: string, args: Record<string, unknown>): string | undefined {
   const name = mcpName(tool)
-  if (GITHUB_BRANCH_WRITES.has(name) || (/^mcp__/.test(tool) && isSnakeWrite(name) && !isReadTool(name) && !GITHUB_MCP_WRITE_OK.has(name))) {
+  if (GITHUB_BRANCH_WRITES.has(name) || (!isReadTool(name) && !GITHUB_MCP_WRITE_OK.has(name) && (isGithubServer(tool) || (/^mcp__/.test(tool) && isSnakeWrite(name))))) {
     return 'the loop writes to a branch with git push, where the guards read it, not through the GitHub API.'
   }
   const command = tool === 'Bash' ? str(args.command) : ''
@@ -393,7 +395,8 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
     return 'the loop merges with gh pr merge <n> --squash --match-head-commit <reviewed sha>, where the 3f gates read it, not through the API.'
   }
   const endpoints = ghApiEndpoints(command)
-  if (ghApiWrites(command) && endpoints.some(e => e !== 'graphql' && !GH_API_WRITE_OK.test(e))) {
+  // the two readings must agree: a write whose endpoint cannot be found is refused
+  if (ghApiWrites(command) && (!endpoints.length || endpoints.some(e => e !== 'graphql' && !GH_API_WRITE_OK.test(e)))) {
     return 'the loop writes to GitHub through the API only for comments, replies, reviews and labels; branches change with git push, where the guards read it.'
   }
   if (endpoints.includes('graphql')) {

@@ -319,6 +319,14 @@ describe('fix-round cap', () => {
     expect(await guardsBefore(host, 'mcp__github__fork_repository', {}, 'f1')).toContain('with git push')
     expect(await guardsBefore(host, 'mcp__claude_ai_github__some_new_write', {}, 'f1')).toContain('with git push')
     expect(await guardsBefore(host, 'mcp__gh__create_or_update_ref', {}, 'f1')).toContain('with git push')
+    // a GitHub server is default-deny, whatever the verb; elsewhere the write verbs count
+    expect(await guardsBefore(host, 'mcp__github__assign_copilot_to_issue', {}, 'f1')).toContain('with git push')
+    expect(await guardsBefore(host, 'mcp__claude_ai_github__star_repository', {}, 'f1')).toContain('with git push')
+    expect(await guardsBefore(host, 'mcp__ci__run_workflow', {}, 'f1')).toContain('with git push')
+    expect(await guardsBefore(host, 'mcp__ci__dispatch_event', {}, 'f1')).toContain('with git push')
+    // a write the endpoint reader cannot place is refused
+    expect(await guardsBefore(host, 'Bash', { command: 'X=$(gh api -X POST)' }, 'f1')).toContain('through the API only')
+    expect(await guardsBefore(host, 'Bash', { command: 'echo $(gh api -X POST repos/o/r/git/refs -f ref=x)' }, 'f1')).toContain('through the API only')
     expect(await guardsBefore(host, 'mcp__atlassian__createJiraIssue', {}, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'mcp__github__pull_request_read', {}, 'f1')).toBeUndefined()
     expect(await guardsBefore(host, 'mcp__github__add_issue_comment', {}, 'f1')).toBeUndefined()
