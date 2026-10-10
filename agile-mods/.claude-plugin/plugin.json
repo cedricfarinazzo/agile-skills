@@ -1,7 +1,7 @@
 {
   "name": "agile-mods",
-  "version": "0.5.1",
-  "description": "Claude Mods for the agile-skills loop: /agile-board opens the agile console pane (board with burndown, ticket and PR flow, drain passes with cost, guards and receipts, links), with a status-line entry and an alert row above the prompt; guards that enforce agent tool grants, the 3f merge gates (pinned reviewed head, fresh green CI) and no push to main or force push inside the loop; /receipts checks agent receipts against the contract; retro counts for agile-15. Needs Claude Code 2.1.287 or later.",
+  "version": "0.6.0",
+  "description": "Claude Mods for the agile-skills loop: /agile-board opens the agile console pane (board with burndown, ticket and PR flow, drain passes with cost, guards and receipts, links), read live from gh and the Jira MCP rather than from the model's answers, with a status-line entry and an alert row above the prompt; guards that check GitHub at merge time (pinned live head, green CI on it, every file read by a reviewer), enforce agent tool grants, and refuse pushes to main and force pushes inside the loop; /receipts checks agent receipts against the contract; retro counts for agile-15. Needs Claude Code 2.1.287 or later.",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"

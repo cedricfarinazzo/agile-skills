@@ -17,7 +17,7 @@ Flags: `no receipt`, `preamble`, `summary/praise section`, `blocked: …`, `unap
 | `summary/praise section` | A `Summary`, `Overview` or `Praise` heading, which the contract forbids |
 | `blocked: …` | The agent stopped; the orchestrator must act on the named blocker |
 | `unapplied_mutations: …` | A side effect (transition, comment, push) the agent could not apply |
-| `no reviewed sha` | A `pr-reviewer` receipt without its `Reviewed sha:` line, which 3f needs |
+| `no reviewed sha` | A `pr-reviewer` receipt without its `Reviewed sha:` line, which the contract asks for (the 3f guard does not read it: it checks the reviewer's own `git show` reads) |
 | `agent errored` | The dispatch itself failed |
 
 Example:

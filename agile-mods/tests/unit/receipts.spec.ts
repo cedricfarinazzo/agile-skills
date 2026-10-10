@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { MAX_RECEIPTS, isContractAgent, keepReceipt, receiptIssues, receiptsText, type Receipt } from '../hooks/state/receipts.ts'
+import { MAX_RECEIPTS, isContractAgent, keepReceipt, receiptIssues, receiptsText, type Receipt } from '../../hooks/state/receipts.ts'
 
 describe('receipts', () => {
   test('a clean strict receipt has no issues', () => {

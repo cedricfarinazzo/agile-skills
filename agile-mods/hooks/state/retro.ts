@@ -1,23 +1,23 @@
 // Pure retro data: what the loop did, counted as it happened, so agile-15-retro reads numbers
-// instead of reconstructing them from Jira comments.
+// instead of reconstructing them. Train steps and merge attempts are counted from the calls that
+// dispatch them; tickets' phase markers and reworks come from the board's Jira sync.
 
-import { PR_REF, stepOf } from './board.ts'
+import { PR_REF, stepOf, type Board } from './board.ts'
 
 export type Retro = {
   since?: number
-  tickets: Record<string, { markers: number; reworks: number }>
   prs: Record<string, { reviews: number; fixes: number; updates: number; merges: number }>
   blocked: number
   drainPasses: number
   drainOutcome?: string
 }
 
-export const EMPTY_RETRO: Retro = { tickets: {}, prs: {}, blocked: 0, drainPasses: 0 }
+export const EMPTY_RETRO: Retro = { prs: {}, blocked: 0, drainPasses: 0 }
 
 const str = (value: unknown) => (typeof value === 'string' ? value : '')
 
 export function loadRetro(value: unknown): Retro | undefined {
-  if (typeof value !== 'object' || value === null || typeof (value as Retro).tickets !== 'object') return undefined
+  if (typeof value !== 'object' || value === null || typeof (value as Retro).prs !== 'object') return undefined
   return { ...EMPTY_RETRO, ...(value as Partial<Retro>) }
 }
 
@@ -38,21 +38,13 @@ export function retroStart(r: Retro, tool: string, args: Record<string, unknown>
   }
   const merge = tool === 'Bash' ? str(args.command).match(/\bgh pr merge\s+(\d+)/) : null
   if (merge) return bumpPr({ ...r, since }, Number(merge[1]), 'merges')
-  if (tool === 'mcp__github__merge_pull_request' && typeof args.pullNumber === 'number') return bumpPr({ ...r, since }, args.pullNumber, 'merges')
+  if (tool.endsWith('__merge_pull_request') && typeof args.pullNumber === 'number') return bumpPr({ ...r, since }, args.pullNumber, 'merges')
   return r
 }
 
-/** Folds a finished call: phase markers per ticket, and blocked receipts. */
-export function retroEnd(r: Retro, tool: string, args: Record<string, unknown>, text: string | undefined): Retro {
+/** Folds a finished agent call: a receipt whose `blocked` field is set. */
+export function retroEnd(r: Retro, tool: string, text: string | undefined): Retro {
   if (text === undefined) return r
-  if (tool === 'mcp__atlassian__addCommentToJiraIssue') {
-    const key = str(args.issueIdOrKey)
-    const phases = [...str(args.commentBody).matchAll(/agile:phase=([a-z_]+)/g)].map(m => m[1])
-    if (!phases.length || !key) return r
-    const known = r.tickets[key] ?? { markers: 0, reworks: 0 }
-    const reworks = phases.filter(p => p === 'rework').length
-    return { ...r, tickets: { ...r.tickets, [key]: { markers: known.markers + phases.length, reworks: known.reworks + reworks } } }
-  }
   if (tool === 'Agent' && /^\W*blocked\W*[:=]\s*(?!(?:none|no|false|null|-|—|\[\])\s*$)\S/im.test(text)) return { ...r, blocked: r.blocked + 1 }
   return r
 }
@@ -61,20 +53,20 @@ export const retroDrain = (r: Retro, pass: number, outcome: string | undefined):
   pass === r.drainPasses && outcome === r.drainOutcome ? r : { ...r, drainPasses: pass, drainOutcome: outcome }
 
 /** The retro block: plain lines agile-15-retro can quote, or undefined when nothing was recorded. */
-export function retroText(r: Retro, now: number): string | undefined {
-  const tickets = Object.entries(r.tickets)
+export function retroText(r: Retro, board: Board, now: number): string | undefined {
+  const tickets = board.order.filter(k => board.tickets[k]!.phase).map(k => [k, board.tickets[k]!] as const)
   const prs = Object.entries(r.prs)
   if (!tickets.length && !prs.length && !r.drainPasses) return undefined
   const days = r.since !== undefined ? Math.max(0, Math.round((now - r.since) / 86_400_000)) : 0
-  const reworked = tickets.filter(([, t]) => t.reworks > 0)
+  const reworked = tickets.filter(([, t]) => (t.reworks ?? 0) > 0)
   const refixed = prs.filter(([, p]) => p.fixes > 1 || p.reviews > 1)
   const retried = prs.filter(([, p]) => p.merges > 1)
   return [
     `agile-mods loop data (recorded by the mod over ${days} day(s); counts, not judgements):`,
-    `- tickets with phase markers: ${tickets.length}; with rework cycles: ${reworked.length}${reworked.length ? ` (${reworked.map(([k, t]) => `${k}×${t.reworks}`).join(', ')})` : ''}`,
+    `- tickets with phase markers (Jira): ${tickets.length}; with rework cycles: ${reworked.length}${reworked.length ? ` (${reworked.map(([k, t]) => `${k}×${t.reworks}`).join(', ')})` : ''}`,
     `- PRs through the merge train: ${prs.length}; re-reviewed or re-fixed: ${refixed.length}${refixed.length ? ` (${refixed.map(([n, p]) => `#${n} review×${p.reviews} fix×${p.fixes}`).join(', ')})` : ''}`,
     `- merge attempts retried: ${retried.length}${retried.length ? ` (${retried.map(([n, p]) => `#${n}×${p.merges}`).join(', ')})` : ''}`,
-    `- blocked agent receipts: ${r.blocked}`,
+    `- agent receipts that reported blocked: ${r.blocked}`,
     r.drainPasses ? `- sprint drain: ${r.drainPasses} pass(es), ${r.drainOutcome ?? 'running'}` : '- sprint drain: not run',
   ].join('\n')
 }
