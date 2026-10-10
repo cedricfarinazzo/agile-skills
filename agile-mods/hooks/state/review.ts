@@ -7,7 +7,8 @@ export type Reads = Record<string, string[]>
 const MAX_SHAS = 60
 const MAX_PATHS = 2000
 const SHOW = /^git\s+(?:-C\s+\S+\s+)?(?:--no-pager\s+)?(?:show|cat-file\s+-p)\s+(.+)$/
-const SPEC = /^([0-9a-f]{7,40}):(.+)$/
+// a full sha only: an abbreviated one could name an object another repository was made to match
+const SPEC = /^([0-9a-f]{40}):(.+)$/
 /** A pipe into anything but these drops part of the file, so the read does not count. */
 const WHOLE = /^(cat(\s+-n)?|nl|tee\s+\S+)$/
 
@@ -43,8 +44,17 @@ export function readsOf(command: string): { sha: string; path: string }[] {
   return out
 }
 
-/** Adds what one finished command read; the same object when it read nothing new. */
-export function withReads(reads: Reads, command: string): Reads {
+/** Output past the Bash tool's limit reaches the model as a short preview, so nothing in it was read in full. */
+export const MAX_OUTPUT = 30_000
+const PERSISTED = /<persisted-output>|Output too large/
+
+/**
+ * Adds what one finished command read; the same object when it read nothing new.
+ *
+ * @param output the text the model got back; a read whose output was cut or persisted counts nothing
+ */
+export function withReads(reads: Reads, command: string, output: string): Reads {
+  if (output.length > MAX_OUTPUT || PERSISTED.test(output)) return reads
   let next = reads
   for (const { sha, path } of readsOf(command)) {
     const known = next[sha] ?? []

@@ -88,11 +88,11 @@ export async function guardsBefore(host: Host, tool: string, args: Record<string
 }
 
 /** After a successful tool call: a reviewer's `git show <sha>:<path>` reads count toward 3f. */
-export async function guardsAfter(host: Host, tool: string, args: Record<string, unknown>, agentId: string | undefined, ok: boolean) {
-  if (!ok || tool !== 'Bash' || typeof args.command !== 'string') return
+export async function guardsAfter(host: Host, tool: string, args: Record<string, unknown>, agentId: string | undefined, output: string | undefined) {
+  if (output === undefined || tool !== 'Bash' || typeof args.command !== 'string') return
   const type = agentId ? await agentTypeOf(host, agentId) : undefined
   if (!/(^|:)pr-reviewer$/.test(type ?? '') && !inlineReviews.has(agentId ?? '')) return
-  const next = withReads(reads, args.command)
+  const next = withReads(reads, args.command, output)
   if (next === reads) return
   reads = next
   void host.storeSet(READS_KEY, reads).catch(err => host.log(`agile-mods: store write failed: ${err}`))

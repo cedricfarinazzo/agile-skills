@@ -24,7 +24,7 @@ function github(over: Partial<Answers> = {}): Answers {
 }
 
 /** A reviewer agent's successful shell call. */
-const read = (host: Parameters<typeof guardsAfter>[0], command: string, agent = 'r1') => guardsAfter(host, 'Bash', { command }, agent, true)
+const read = (host: Parameters<typeof guardsAfter>[0], command: string, agent = 'r1', output = 'file text') => guardsAfter(host, 'Bash', { command }, agent, output)
 
 describe('merge guard', () => {
   beforeEach(async () => {
@@ -67,7 +67,9 @@ describe('merge guard', () => {
     await read(host, `git show ${SHA}:src/a.ts`, 'f1')
     await read(host, `git show ${SHA}:src/a.ts | head -50`)
     await read(host, `for f in a b; do git show ${SHA}:src/$f.ts; done`)
-    await guardsAfter(host, 'Bash', { command: `git show ${SHA}:src/b.ts` }, 'r1', false)
+    await guardsAfter(host, 'Bash', { command: `git show ${SHA}:src/b.ts` }, 'r1', undefined)
+    await read(host, `git show ${SHA}:src/b.ts`, 'r1', '<persisted-output>\nOutput too large (146.5KB).')
+    await read(host, `git show ${SHA}:src/b.ts`, 'r1', 'x'.repeat(30_001))
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('src/a.ts, src/b.ts')
   })
 

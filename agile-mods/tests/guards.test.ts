@@ -51,20 +51,21 @@ describe('review coverage', () => {
       `git show --stat ${SHA}:a.ts`,
       `git show ${SHA}:a.ts ${SHA}:b.ts --name-only`,
       `${show} | wc -l`,
+      `git show ${SHA.slice(0, 12)}:a.ts`,
     ]) expect(readsOf(command)).toEqual([])
     expect(readsOf(`${show} && git show ${SHA}:b.ts | nl`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
   })
 
   test('a file is read when shown at the head, or at an ancestor with no change since', () => {
-    const reads = withReads(withReads({}, `git show ${SHA}:a.ts ${SHA}:b.ts`), `git show ${OTHER.slice(0, 7)}:b.ts`)
+    const reads = withReads(withReads({}, `git show ${SHA}:a.ts ${SHA}:b.ts`, ''), `git show ${OTHER}:b.ts`, '')
     expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: ['b.ts'] })).toEqual([])
     expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: ['a.ts', 'b.ts'] })).toEqual(['a.ts'])
     expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: undefined })).toEqual(['a.ts'])
   })
 
   test('the same read twice keeps one entry', () => {
-    const once = withReads({}, `git show ${SHA}:a.ts`)
-    expect(withReads(once, `git show ${SHA}:a.ts`)).toBe(once)
+    const once = withReads({}, `git show ${SHA}:a.ts`, '')
+    expect(withReads(once, `git show ${SHA}:a.ts`, '')).toBe(once)
   })
 })
 

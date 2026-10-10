@@ -320,7 +320,7 @@ export const register: Register = (on, options) => {
       isError: r.isError === true,
       text: r.deny !== undefined || r.isError ? undefined : r.text,
     }
-    await guardsAfter(host, e.tool, args, e.agentId, done.text !== undefined)
+    await guardsAfter(host, e.tool, args, e.agentId, done.text)
     if (writes(e.tool, args) || (e.tool === 'Skill' && loopRunning())) soon($)
     saveRetro($, retroEnd(retro, e.tool, done.text))
     await receiptsAfter(host, e.tool, args, done)
