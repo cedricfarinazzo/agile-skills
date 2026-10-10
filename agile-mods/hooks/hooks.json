@@ -1,0 +1,6 @@
+{
+  "description": "The agile loop's mods: the agile console pane (board, flow, drain, guards, links), a status entry and alert row, and retro counts; guards on tool grants, the 3f merge gates (pinned reviewed head, fresh green CI) and pushes to main; /receipts",
+  "modules": [
+    "./register.tsx"
+  ]
+}

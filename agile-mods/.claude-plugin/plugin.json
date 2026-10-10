@@ -1,0 +1,26 @@
+{
+  "name": "agile-mods",
+  "version": "0.5.1",
+  "description": "Claude Mods for the agile-skills loop: /agile-board opens the agile console pane (board with burndown, ticket and PR flow, drain passes with cost, guards and receipts, links), with a status-line entry and an alert row above the prompt; guards that enforce agent tool grants, the 3f merge gates (pinned reviewed head, fresh green CI) and no push to main or force push inside the loop; /receipts checks agent receipts against the contract; retro counts for agile-15. Needs Claude Code 2.1.287 or later.",
+  "author": {
+    "name": "cedricfarinazzo",
+    "email": "cedric.farinazzo@gmail.com"
+  },
+  "homepage": "https://github.com/cedricfarinazzo/agile-skills",
+  "repository": "https://github.com/cedricfarinazzo/agile-skills",
+  "license": "MIT",
+  "keywords": [
+    "agile",
+    "jira",
+    "sprint",
+    "mods"
+  ],
+  "userConfig": {
+    "autoOpen": {
+      "type": "boolean",
+      "title": "Open the console when a drain starts",
+      "description": "Opens the agile console pane, unfocused, when agile-sprint-drain starts. It appears only in a terminal at least 144 columns wide; /agile-board opens it at any width.",
+      "default": true
+    }
+  }
+}
