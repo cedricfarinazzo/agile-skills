@@ -95,11 +95,29 @@ const READ_ONLY = /^(grep|egrep|fgrep|rg|echo|printf|cat|head|tail|wc|ls)$/
  */
 function textOnly(command: string): boolean {
   const segments = shellWords(command)
-  return segments.length === 1 && !/[$`\\]/.test(command) && READ_ONLY.test(segments[0]![0] ?? '') && !segments[0]!.includes('--pre')
+  return segments.length === 1 && !/[$`\\]/.test(command) && safeSegment(segments[0]!, READ_ONLY)
 }
 
 // programs that run text as commands: a shell, an interpreter, eval, source, xargs
-const RUNNER = /^(\S*\/)?((ba|z|da|k)?sh|python[\d.]*|node|perl|ruby|eval|source|\.|xargs|env|man|less|more)$/
+// commands a line may run beside a git word that names push and still be read: git and gh themselves, cd, and the print/search programs
+const SAFE_PROGRAM = /^(\S*\/)?(git|gh|cd|grep|egrep|fgrep|rg|echo|printf|cat|head|tail|wc|ls)$/
+
+/** The program a segment runs: its first word after env assignments. */
+const programOf = (words: string[]) => words.find(w => !/^\w+=/.test(w)) ?? ''
+
+/** A segment whose program is on the list, and is not rg running a preprocessor (`--pre`, `--pre=`, `--pre-glob`). */
+function safeSegment(words: string[], list: RegExp): boolean {
+  const program = programOf(words)
+  return list.test(program) && !(/(^|\/)rg$/.test(program) && words.some(w => w.startsWith('--pre')))
+}
+
+// where git and gh take message text: a word here that names git push is a message, not a command
+const MESSAGE_FLAG = /^(-m|--message|-b|--body|-t|--title|--notes|--subject)$/
+const isMessage = (words: string[], k: number) =>
+  /^(\S*\/)?(git|gh)$/.test(words[0] ?? '') && (MESSAGE_FLAG.test(words[k - 1] ?? '') || /^--(message|body|title|notes|subject)=/.test(words[k]!))
+
+/** A heredoc's body is data for the command that reads it: left out of the words, kept for the text checks. */
+const withoutHeredocs = (command: string) => command.replace(/<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\s*\2[ \t]*(?=\n|$)/g, '')
 
 /**
  * The git subcommands a line could run: after every `git` word, wherever it stands (behind a wrapper,
@@ -112,7 +130,7 @@ const RUNNER = /^(\S*\/)?((ba|z|da|k)?sh|python[\d.]*|node|perl|ruby|eval|source
 export function gitCommandsOf(command: string, depth = 0): string[] {
   if (textOnly(command)) return []
   const found: string[] = []
-  const segments = shellWords(command)
+  const segments = shellWords(withoutHeredocs(command))
   for (const words of segments) {
     words.forEach((w, i) => {
       if (!/(^|\/)git$/.test(w)) return
@@ -122,21 +140,26 @@ export function gitCommandsOf(command: string, depth = 0): string[] {
       if (sub !== undefined) found.push(/^[A-Za-z][\w.-]*$/.test(sub) ? sub : '?')
     })
   }
-  if (depth < 3) for (const m of command.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) found.push(...gitCommandsOf(m[1] ?? m[2]!, depth + 1))
+  if (depth < 3) for (const m of withoutHeredocs(command).matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) found.push(...gitCommandsOf(m[1] ?? m[2]!, depth + 1))
   return found
 }
 
 /**
- * A push the words cannot show: a command reached through an expansion on a line with a push word
- * (`$G push`), or text naming git push handed to something that runs text (a shell, an interpreter,
- * eval, source, xargs, `man -P`).
+ * A push the words cannot show, read as the worst case: a command reached through an expansion on a
+ * line with a push word (`$G push`); a quoted word naming git push anywhere but in a git or gh
+ * message (`awk 'BEGIN{system("git push")}'`, `ssh host 'git push'`); or git and push named on a
+ * line that runs any program but git, gh, cd and the print/search ones. An allowlist, not a list of
+ * runners: a program not on it is assumed able to run text.
  */
 function hiddenPush(command: string): boolean {
   if (textOnly(command)) return false
-  const all = shellWords(command).flat()
+  const segments = shellWords(withoutHeredocs(command))
+  const all = segments.flat()
   if (all.some(w => w.includes('$')) && all.includes('push') && !all.some((w, i) => /(^|\/)git$/.test(w) && all[i + 1] === 'push')) return true
-  const text = all.join(' ')
-  return /\bgit\b/.test(text) && /\bpush\b/.test(text) && all.some(w => RUNNER.test(w))
+  const names = (t: string) => /\bgit\b/.test(t) && /\bpush\b/.test(t)
+  if (segments.some(words => words.some((w, k) => /\s/.test(w) && names(w) && !isMessage(words, k)))) return true
+  // git and push named on a line (heredoc bodies included) that also runs anything but git, gh, cd or a print/search program
+  return names(command.replace(/["'\\]/g, '')) && segments.some(words => !safeSegment(words, SAFE_PROGRAM))
 }
 
 export const pushesIn = (command: string) => gitCommandsOf(command).some(c => c === 'push' || c === '?') || hiddenPush(command)

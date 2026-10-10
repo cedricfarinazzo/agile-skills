@@ -259,7 +259,8 @@ describe('fix-round cap', () => {
 
   test('git named as an argument is not a push or an alias; a delete sends no commit', async () => {
     await loop()
-    for (const command of ['grep -rn git src/', 'rg "git push" agile-*/skills', 'echo git push origin main > notes.txt', 'git log --grep push --oneline', 'git --version', 'git -C /w', 'git commit -m "docs: the git push form"', 'gh pr create --title x --body "run git push first"']) {
+    for (const command of ['grep -rn git src/', 'rg "git push" agile-*/skills', 'echo git push origin main > notes.txt', 'git log --grep push --oneline', 'git --version', 'git -C /w', 'git commit -m "docs: the git push form"', 'gh pr create --title x --body "run git push first"',
+      `git commit -m "$(cat <<'EOF'\ndocs: run git push origin x yourself\nEOF\n)"`, `gh pr comment 7 --body-file - <<'EOF'\nthen git push\nEOF`]) {
       expect(await guardsBefore(fakeHost({ agents }).host, 'Bash', { command }, 'f1')).toBeUndefined()
     }
     // however a push is wrapped or hidden, it is read as one, and one the cap cannot read is refused
@@ -271,6 +272,8 @@ describe('fix-round cap', () => {
       'g\\it push origin VC-7', "$'git' push origin VC-7", 'G=git && $G push origin VC-7', '${X:-git} push origin VC-7', 'echo push origin VC-7 | xargs git',
       "man -P 'git push origin main' ls", 'echo "$(git push origin VC-7)"', 'bash <<< "git push origin VC-7"', 'echo "git push origin VC-7" | bash', 'bash -l -c "git push origin VC-7"',
       'python3 -c "import os; os.system(\'git push origin VC-7\')"', 'gh repo sync --branch main --force',
+      `awk 'BEGIN{system("git push origin VC-7")}'`, `find . -maxdepth 0 -exec git push origin VC-7 \\;`, `ssh host 'git push origin VC-7'`, `make push GIT='git push origin VC-7'`,
+      'man git push', 'timeout 60 bash -c true && git push origin VC-7 2>&1', 'rg --pre=./run x && echo git push', "rg --pre-glob '*' --pre 'git push origin VC-7' x", '{git,} push origin VC-7', 'GIT_PAGER="git push origin VC-7" git log', 'bash <<EOF\ngit push origin VC-7\nEOF',
     ]
     for (const command of hidden) expect(await guardsBefore(gh().host, 'Bash', { command }, 'f1')).toMatch(/^agile-mods: /)
     expect(await guardsBefore(gh().host, 'Bash', { command: '"git" push origin main' }, 'f1')).toContain('never pushes to main')
