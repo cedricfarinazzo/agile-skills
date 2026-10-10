@@ -255,6 +255,8 @@ export function ciOf(runs: Run[] | undefined): { state: 'green' | 'red' | 'pendi
   if (red) return { state: 'red', detail: `${red.workflow} ${red.conclusion ?? 'failed'}` }
   const pending = runs.find(r => r.status !== 'completed')
   if (pending) return { state: 'pending', detail: `${pending.workflow} ${pending.status}` }
+  // skipped and neutral runs pass alongside a success, never alone
+  if (!runs.some(r => r.conclusion === 'success')) return { state: 'none' }
   return { state: 'green' }
 }
 

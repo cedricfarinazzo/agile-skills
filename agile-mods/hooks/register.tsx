@@ -4,7 +4,7 @@ import { EMPTY, POINTS_FIELD, applyJira, markerTargets, nextPageOf, applyPrs, ap
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, rasterCells, statusText, tabOf, type Row, type Tab } from './state/console.ts'
 import { keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
-import { agentTypeOf, guardsAfter, guardsBefore, guardsReset, guardsStart, loopRunning } from './guards.ts'
+import { agentTypeOf, guardedCall, guardsAfter, guardsBefore, guardsReset, guardsStart, loopRunning } from './guards.ts'
 import { argsOf, type Compare, type Finished, type Host, type PrRow, type RunRow } from './host.ts'
 import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsStart } from './receipts.ts'
 
@@ -331,6 +331,11 @@ export const register: Register = (on, options) => {
       if (data && r.deny === undefined && !r.isError) return { ...r, context: [...(r.context ?? []), data] }
     }
     return r
+  }).catch(($, e, next) => {
+    // the hook threw, timed out, or was skipped on re-entry: a call a guard covers is refused rather
+    // than let through unchecked; any other call goes on
+    if (next.called) return next(e)
+    return guardedCall(e.tool, argsOf(e)) ? { deny: 'agile-mods: the guard could not check this call, so it refuses it. Retry it.' } : next(e)
   })
 
   // the main loop went idle: a drain with work left whose pass moved nothing is STUCK

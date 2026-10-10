@@ -98,6 +98,10 @@ export async function guardsAfter(host: Host, tool: string, args: Record<string,
   void host.storeSet(READS_KEY, reads).catch(err => host.log(`agile-mods: store write failed: ${err}`))
 }
 
+/** Whether a guard covers this call (a merge, a push, an edit or post): checked from the call alone, for a hook that could not run. */
+export const guardedCall = (tool: string, args: Record<string, unknown>) =>
+  !!mergeTargetOf(tool, args) || (tool === 'Bash' && /\bgit\b.*\bpush\b|\bgh\s+(pr|issue|api)\b/.test(String(args.command ?? ''))) || ['Write', 'Edit', 'NotebookEdit'].includes(tool) || /^mcp__.+__(add|create|update|edit|transition|merge|push|issue_write|pull_request_review_write)/.test(tool)
+
 /** Whether a loop has started in this session, for the board's refresh. */
 export const loopRunning = () => loopActive
 

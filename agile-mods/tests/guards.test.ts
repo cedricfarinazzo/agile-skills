@@ -35,6 +35,26 @@ describe('review coverage', () => {
     expect(readsOf(`cat src/a.ts`)).toEqual([])
   })
 
+  test('counts nothing the shell could run differently from the parser', () => {
+    const show = `git show ${SHA}:a.ts`
+    for (const command of [
+      `${show} > /dev/null`,
+      `${show} 2>/dev/null`,
+      `echo "x && ${show}"`,
+      `false || ${show}`,
+      `true; ${show}`,
+      `false\n${show}`,
+      `${show} &`,
+      `(${show})`,
+      `x=$(${show})`,
+      `# ${show}`,
+      `git show --stat ${SHA}:a.ts`,
+      `git show ${SHA}:a.ts ${SHA}:b.ts --name-only`,
+      `${show} | wc -l`,
+    ]) expect(readsOf(command)).toEqual([])
+    expect(readsOf(`${show} && git show ${SHA}:b.ts | nl`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
+  })
+
   test('a file is read when shown at the head, or at an ancestor with no change since', () => {
     const reads = withReads(withReads({}, `git show ${SHA}:a.ts ${SHA}:b.ts`), `git show ${OTHER.slice(0, 7)}:b.ts`)
     expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: ['b.ts'] })).toEqual([])
