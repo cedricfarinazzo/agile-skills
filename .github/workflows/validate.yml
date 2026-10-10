@@ -16,6 +16,10 @@ jobs:
       plugins: ${{ steps.list.outputs.plugins }}
     steps:
       - uses: actions/checkout@v4
+      - name: Check Claude and Codex package parity
+        run: |
+          python3 .github/scripts/check-parity.py
+          python3 -m unittest discover -s .github/scripts -p 'test_*.py'
       - uses: actions/setup-node@v4
         with:
           node-version: 22

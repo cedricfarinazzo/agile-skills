@@ -22,6 +22,8 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP.
 | 8 | `agile-8-refinement` | Points + ACs + DoD; `refined` / `not-ready` labels | "run refinement", "estimate stories", "story points" |
 | 9 | `agile-9-sprint-planning` | A launched Jira sprint, capacity-fit, dependency-ordered | "plan the sprint", "start sprint", "assemble sprint" |
 
+Consumer configuration references support `CLAUDE.md/AGENTS.md`, with Claude listed first.
+
 **Codex:** install with `codex plugin add agile-planning@agile-skills` and invoke a user-facing skill as `$<skill-name>`. Artifact publication is optional; record its absence and keep Confluence as the complete result. See [the compatibility guide](../docs/CODEX_COMPATIBILITY.md).
 
 ## The short-index Roadmap (core model)

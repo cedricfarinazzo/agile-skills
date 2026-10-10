@@ -11,7 +11,7 @@ It edits nothing. Its output is a report.
 /plugin install session-audit@agile-skills
 ```
 
-For Codex:
+For Codex (audits supplied Claude Code transcripts only; native Codex sessions are not supported):
 
 ```text
 codex plugin marketplace add cedricfarinazzo/agile-skills

@@ -33,10 +33,10 @@ Outer scheduler that removes the human from the implement ↔ merge alternation.
     free_slots = max(0, N - (inflight_count + merge_count))
 
 - Admit at most `free_slots` new `To Do` tickets per pass; `0` → no build call, merge work only. A slot frees when the PR **merges** or the ticket exits (Needs Info, retired human-blocked), not when the PR opens.
-- Always pass the admitted tickets as explicit `keys=` to `agile-10-implement`, with `concurrency=min(N, keys)`. Its `concurrency` caps only build fan-out; this skill owns the chain cap.
+- Always pass the admitted tickets as explicit `keys=` to `agile-10-implement`. Claude phase dispatch uses `concurrency=min(N, keys)`; Claude session dispatch and Codex use `concurrency=0`. The child parameter controls execution only; this skill owns the positive WIP cap `N`.
 - Retired items keep their slot; if retired items hold every slot → STUCK.
 - Starting over the limit (open PRs from an earlier run) admits nothing until `wip < N`; say so in the banner.
-- Absent → `max-build-concurrency`, else `1`. State `N` in the first banner.
+- Resolve the admission limit `N` before normalizing child execution: a positive requested `concurrency=N`, else a positive `max-build-concurrency`, else `1`. An explicit `concurrency=0` selects inline execution with that configured/default positive admission limit. Never use zero as the WIP cap. State both `N` and the execution mode in the first banner.
 
 Why: merges are sequential and each moves the base, so every open PR pays a rebase and a **fresh** CI run per merge ahead of it — O(P²) for P open PRs, shipping nothing sooner. Skip a rebase you can prove unnecessary (merged file set disjoint from the PR's, or the exercised subtree byte-identical between the verified base and the new tip).
 
@@ -61,7 +61,7 @@ Why: merges are sequential and each moves the base, so every open PR pays a reba
 - **Fresh merge context.** `merge-session` never saw the authoring and is the independent reviewer; the build-side `implement-review` is a self-check. The train's review step is never skipped or folded into the build session.
 - **Sessions are never reused or resumed**, and build and merge are never the same agent.
 - **Receipts:** one line per item, folded into the LEDGER and dropped, never forwarded to the next session. Verify them like phase receipts: a marker the receipt names but Jira lacks is an unapplied mutation — re-run that ticket next pass.
-- **Codex** does not discover any plugin-local agents: normalize every `dispatch` value and `concurrency` value to full inline execution (`concurrency=0`), then state that normalization in the final report. Do not claim any phase agent, `build-session`, or `merge-session` ran.
+- **Codex** does not discover any plugin-local agents: normalize every `dispatch` value to full inline execution and pass `concurrency=0` to both child orchestrators, preserving the separately resolved positive admission limit `N`, then state that normalization in the final report. Do not claim any phase agent, `build-session`, or `merge-session` ran.
 
 ## The loop
 
@@ -91,7 +91,9 @@ Each iteration is one **pass**, computed from the live board, never from memory.
                        + first free_slots eligible To-Do tickets
                        MINUS anything retired HUMAN-BLOCKED in the LEDGER
          if non-empty:
-           call agile-10-implement keys=<build_torun> concurrency=min(N, |build_torun|)
+           call agile-10-implement keys=<build_torun>
+             concurrency=0 on Codex or inline/session execution
+             concurrency=min(N, |build_torun|) on Claude phase dispatch
              phase   → inline via the Skill tool
              session → dispatch build-session with ≤ session-batch of those keys
            # without keys agile-10 takes the whole To-Do queue; in-flight keys resume via markers

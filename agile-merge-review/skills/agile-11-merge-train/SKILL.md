@@ -47,7 +47,7 @@ Codex does not discover plugin-local named phase agents. When loaded by Codex, r
 
 ## Configuration
 
-From the consumer repo's `CLAUDE.md` / `AGENTS.md`: **`cloudId`** (required, for `mcp__atlassian__*`); **`ticket-prefix-regex`** (default `[A-Z]+-\d+`); **lint commands** per touched path family (see `merge-update-pr`).
+From the consumer repo's `CLAUDE.md/AGENTS.md`: **`cloudId`** (required, for `mcp__atlassian__*`); **`ticket-prefix-regex`** (default `[A-Z]+-\d+`); **lint commands** per touched path family (see `merge-update-pr`).
 
 ## Input
 
@@ -235,7 +235,7 @@ Then one Markdown report, in normal English (report sections, postmortem bodies,
 - **Conflict map** — rendered from `conflict_map`, one line per collision, noting whether 3g recorded it and whether the link was created: `<file>: PR A (KEY-1) + PR B (KEY-2), same-lines → resolved in B by rebasing onto A · postmortem: recorded · Jira link: created`. List the no-collision PRs too.
 - **Remaining work** — PRs still open and why; tickets not moved to Done and why; flaky tests observed (informational — no ticket unless the flake recurs across trains), and PRs merged on a retry with the base branch red on the same signature.
 - **Follow-up tickets to file — CRITICAL only.** A discovered defect that could cause a runtime error, data corruption, a security issue, or autogenerate drift; an architecture-invariant violation that landed because fixing it would have expanded the merged PR's scope; a latent bug class confirmed during the train; a test/CI infrastructure failure that blocked the train. **Not** style nits, "we could refactor X someday", or subjective preferences.
-- **Lessons / new conventions discovered** — e.g. "cleanup fixtures must exclude `alembic_version` — codified in the test-suite `CLAUDE.md`".
+- **Lessons / new conventions discovered** — e.g. "cleanup fixtures must exclude `alembic_version` — codified in the test-suite `CLAUDE.md/AGENTS.md`".
 
 ## Waiting on CI
 

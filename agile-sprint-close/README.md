@@ -21,7 +21,7 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 | 14 | `agile-14-qa-validation` | QA, confirm-after-merge (below) | "validate the story", "QA check", "confirm ACs" |
 | 15 | `agile-15-retro` | sprint retro in Confluence + Roadmap update (index, child page, and the published Roadmap Artifact — now carrying real delivered-vs-committed numbers); feeds the next iteration | "run retro", "sprint retrospective", "what did we learn" |
 
-**Codex:** install with `codex plugin add agile-sprint-close@agile-skills` and invoke a user-facing skill as `$<skill-name>`. Artifact publication is optional; record its absence and keep Confluence as the complete result. See [the compatibility guide](../docs/CODEX_COMPATIBILITY.md).
+**Codex:** all closeout phases and review lenses run sequentially inline, without subagents. Install with `codex plugin add agile-sprint-close@agile-skills` and invoke a user-facing skill as `$<skill-name>`. Artifact publication is optional; record its absence and keep Confluence as the complete result. See [the compatibility guide](../docs/CODEX_COMPATIBILITY.md).
 
 ## Sprint closeout — the third review layer
 

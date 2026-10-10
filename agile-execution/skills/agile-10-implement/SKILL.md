@@ -57,7 +57,7 @@ A receipt carries proof fields only — plus findings for `review` / `review-len
 Dispatch gotchas:
 
 - **A collapsed pipeline still owes every phase's Jira transition.** `validate → In Progress` belongs to `implement-validate` (normally inside `ticket-validator`); under `concurrency>1` if it runs inside a build subagent, that agent must be able to transition and be told to. Symptom: `🤖 validate` / `🤖 plan` markers, code committed, ticket still at `todo-status-name`. Verify status per ticket once its chain returns and apply any missing transition yourself; a marker is not proof its transition landed.
-- **A build subagent cannot discover the project's gate** — it does not inherit the consumer `CLAUDE.md` / `AGENTS.md` or the CI workflow. Paste the complete gate list verbatim into its prompt (every CI lint command, not just the formatter, plus the test tiers and repo validators) and require a real exit code per gate.
+- **A build subagent cannot discover the project's gate** — it does not inherit the consumer `CLAUDE.md/AGENTS.md` or the CI workflow. Paste the complete gate list verbatim into its prompt (every CI lint command, not just the formatter, plus the test tiers and repo validators) and require a real exit code per gate.
 - **A whole-ticket dispatch stops at push** (as `implement-code` should) — no PR, no transition. Enumerate the `pr` and `status_change` steps in that prompt, or run those phases yourself afterwards.
 
 ## Concurrency — `0` inline / `1` sequential / `N` worktrees
@@ -87,7 +87,7 @@ Codex does not discover plugin-local named phase agents. When loaded by Codex, r
 
 ## Configuration
 
-From the consumer repo's `CLAUDE.md` / `AGENTS.md` (`## Skill configuration`); the sub-skills read the same block. Fall back to lookups when absent.
+From the consumer repo's `CLAUDE.md/AGENTS.md` (`## Skill configuration`); the sub-skills read the same block. Fall back to lookups when absent.
 
 - **`cloudId`** — Atlassian cloud id for `mcp__atlassian__*`. Required.
 - **`ticket-prefix-regex`** — default `[A-Z]+-\d+`.

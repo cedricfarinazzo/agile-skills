@@ -22,7 +22,9 @@ Part of [agile-skills](../README.md). **Requires the `agile-execution` and `agil
 
 One user-invoked skill. Invoke `/agile-sprint-drain:agile-sprint-drain` in Claude Code or `$agile-sprint-drain` in Codex ("drain the sprint", "run the sprint to completion", "implement and merge until done", "clear the whole board", "ship the sprint").
 
-On Codex, plugin-local agent files are not registered. The entire workflow runs inline with `concurrency=0`; every `dispatch` value is normalized to inline execution, and no phase, `build-session`, or `merge-session` agent is dispatched.
+The admission limit `N` stays positive: use the positive requested concurrency, then positive `max-build-concurrency`, then `1`. An explicit `concurrency=0` selects inline execution without making admission zero. Child execution and admission are separate.
+
+On Codex, plugin-local agent files are not registered. The entire workflow runs inline, passing `concurrency=0` to both child orchestrators while preserving `N`; every `dispatch` value is normalized to inline execution, and no phase, `build-session`, or `merge-session` agent is dispatched.
 
 **Two agents, used only under `dispatch=session`.** By default (`dispatch=phase`) the drain invokes both orchestrators **inline via the Skill tool**, and every phase runs in its own named agent one layer down. Under `dispatch=session` each pass instead dispatches `build-session` (runs `agile-10-implement` with `concurrency=0`, at most `session-batch` tickets, returns at `In Review` without waiting on CI) and then a fresh `merge-session` (runs `agile-11-merge-train` with `concurrency=0`), dispatched only when a PR is actionable — while every PR is still in CI the drain watches each run in the background itself rather than paying a session to poll. A session that reaches a CI wait ends with a handoff (`waiting: <run id>`, `resume_at`), and the drain dispatches a fresh session from it once the run finishes; sessions are never resumed (subagent caches last 5 minutes). Dispatch depth stays 1: the session agents never dispatch.
 
@@ -79,7 +81,7 @@ At the top level, DRAINED, STUCK and BUDGET each send one push notification (Cla
 
 ## Configuration
 
-`session-batch` (optional, default `1`) — max tickets per `build-session` under `dispatch=session`. Run state (`context.md`, `ledger.md`) lives in `.git/agile-drain/`, never committed; for a long sprint, `/loop /agile-sprint-drain max-merges=N` runs each chunk in a fresh context. Otherwise reads nothing extra — it inherits both orchestrators' `## Skill configuration` from the consumer repo's `CLAUDE.md` / `AGENTS.md` (`cloudId`, status names, `base-branch`, repo / `repo-component-map`, lint/test commands, etc.).
+`session-batch` (optional, default `1`) — max tickets per `build-session` under `dispatch=session`. Run state (`context.md`, `ledger.md`) lives in `.git/agile-drain/`, never committed; for a long sprint, `/loop /agile-sprint-drain max-merges=N` runs each chunk in a fresh context. Otherwise reads nothing extra — it inherits both orchestrators' `## Skill configuration` from the consumer repo's `CLAUDE.md/AGENTS.md` (`cloudId`, status names, `base-branch`, repo / `repo-component-map`, lint/test commands, etc.).
 
 ## Where it fits
 

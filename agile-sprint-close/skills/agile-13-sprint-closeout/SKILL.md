@@ -5,6 +5,12 @@ description: "Mandatory end-of-sprint epic gate, 3 lenses: engineer (smoke + int
 
 # agile_13_sprint_closeout
 
+## Host execution
+
+**Claude Code:** retain the concurrent review phases below. **Codex:** run every phase and review lens sequentially inline; never spawn, request, or claim an agent or subagent. Preserve every gate and the full review coverage.
+
+## Purpose
+
 **Mandatory final step of every sprint** — after the last story merges to `main`, after `agile-12-tech-debt-sweep`, before `agile-15-retro`. The bug class it catches is *"all unit + integration tests pass and production is broken"*: every story-level AC met in isolation while the wired-together system carries a silent regression nobody exercised.
 
 Three lenses, each catching a class of failure invisible to the others. **A single Critical finding from any lens blocks closeout** — engineer-lens green is not enough.
@@ -13,17 +19,17 @@ Three lenses, each catching a class of failure invisible to the others. **A sing
 2. **Architect / PM** — does the delivered code match the documented intent? (Phase 3)
 3. **Tech Lead** — does it hold up under an impartial deep review? (Phase 4)
 
-Phases 3 and 4 are read-only and independent — run them concurrently, and alongside a stack rebuild already in progress; only Phases 5–6 need the stack to themselves.
+On Claude Code, Phases 3 and 4 are read-only and independent — run them concurrently, and alongside a stack rebuild already in progress; only Phases 5–6 need the stack to themselves.
 
 **This is the third and broadest review layer, by a different role than the per-PR reviews.** The author self-reviewed each change (`implement-review`) and an independent reviewer gated each PR (`merge-review-pr`) — both *per PR*. This pass asks whether the **whole sprint, wired together**, is aligned with the sprint/epic goal and the documented product and architecture intent. The per-PR reviews could not see system-level drift; do not assume they covered it.
 
 **Non-goals:** rubber-stamping tickets because their story-level ACs are ticked; trusting integration tests that bypass the broker; skipping the dev-stack smoke because CI was green; deferring to "the author probably had a reason". The skill is expected to take 30–60 minutes — that beats finding the bug, the silent product drift, or the load-bearing dead code a month later.
 
-**Prerequisite: `agile-12-tech-debt-sweep` must have run** and its approved fixes applied. Closeout's smoke replays the user flow described in `CLAUDE.md`, so `CLAUDE.md` must accurately reflect main — no stale tree comments, no useless CI workflows skewing the pipeline, no leaked personal tags — and any prebuild-image extractions must have landed before closeout exercises the new stack.
+**Prerequisite: `agile-12-tech-debt-sweep` must have run** and its approved fixes applied. Closeout's smoke replays the user flow described in `CLAUDE.md/AGENTS.md`, so `CLAUDE.md/AGENTS.md` must accurately reflect main — no stale tree comments, no useless CI workflows skewing the pipeline, no leaked personal tags — and any prebuild-image extractions must have landed before closeout exercises the new stack.
 
 ## Configuration
 
-From the consumer repo's `CLAUDE.md` / `AGENTS.md`: **`cloudId`** (required); **`confluence-project-root`** — page id or title of the folder holding Vision Doc / PRD / Design Brief / ADR / Roadmap / Retrospectives / Closeouts (required for Phases 3 and 7); **`done-status-name`** — the project-local terminal state ("Done", "Terminé(e)", "Closed"); **lint / unit / integration commands**, called as opaque commands; **dev-stack bring-up commands**, typically `docker compose down && docker compose up -d --build --wait` plus migration.
+From the consumer repo's `CLAUDE.md/AGENTS.md`: **`cloudId`** (required); **`confluence-project-root`** — page id or title of the folder holding Vision Doc / PRD / Design Brief / ADR / Roadmap / Retrospectives / Closeouts (required for Phases 3 and 7); **`done-status-name`** — the project-local terminal state ("Done", "Terminé(e)", "Closed"); **lint / unit / integration commands**, called as opaque commands; **dev-stack bring-up commands**, typically `docker compose down && docker compose up -d --build --wait` plus migration.
 
 **Input:** epic key from args (else inferred from sprint context, or ask). Optional `--skip product` (Phase 3 — greenfield repo with no Confluence specs) and `--skip techlead` (Phase 4 — a mid-sprint sanity check only; a real closeout never skips it). Use sparingly; the default is all lenses.
 
@@ -43,7 +49,7 @@ Failure modes worth hunting specifically: **cross-service dispatch** (service A 
 
 ## Phase 2 — Static cross-checks
 
-Lint exits 0 across all source paths. The unit suite passes with coverage at or above the configured threshold. **Doc drift:** every new test file appears in the test-suite `CLAUDE.md` tree, coverage table, and run-command section; every new service or convention is reflected in the relevant `CLAUDE.md`. **Schedule sanity:** scheduled tasks reference names that resolve in worker modules, each with any required gate (market-hour, business-day).
+Lint exits 0 across all source paths. The unit suite passes with coverage at or above the configured threshold. **Doc drift:** every new test file appears in the test-suite `CLAUDE.md/AGENTS.md` tree, coverage table, and run-command section; every new service or convention is reflected in the relevant `CLAUDE.md/AGENTS.md`. **Schedule sanity:** scheduled tasks reference names that resolve in worker modules, each with any required gate (market-hour, business-day).
 
 ## Phase 3 — Architecture + Product alignment (Architect / PM lens)
 
@@ -74,7 +80,7 @@ Flag every issue you would flag if a stranger wrote this code.
 **4.2 — Lenses, all of them:**
 - **Correctness** — logic errors, edge cases, null handling, type contracts, model ↔ migration ↔ test consistency.
 - **Security** — input validation at boundaries, hardcoded secrets, SQL injection via interpolation, auth gate placement, header-trust assumptions.
-- **Architecture invariants** — every invariant from the root and sub `CLAUDE.md` (data scoping, naming, async patterns, federation rules, no cross-service imports, append-only tables).
+- **Architecture invariants** — every invariant from the root and sub `CLAUDE.md/AGENTS.md` (data scoping, naming, async patterns, federation rules, no cross-service imports, append-only tables).
 - **Naming + conventions** — case style per language, explicit constraint names, file/function naming.
 - **Test coverage depth, not count** — does each test actually exercise its claimed AC? Reasonable mock placement? Negative paths? Order-dependence risk (`sys.modules` substring cleanup, module-level state, env leaks across tests)? Hardcoded forward calendar dates that will rot?
 - **Documentation drift** — file annotations, coverage tables, run-command sections, stale AC text.
@@ -108,7 +114,7 @@ Tear the testing stack down **with volumes** (a stale DB schema is the most comm
 
 1. **`docker compose down -v`** — cached state from prior runs is the most common silent-failure cause.
 2. **Rebuild from scratch** per the documented bring-up commands. **Rebuild the migration runner too, not just the app images.** A containerized migrate step run against a stale/cached runner applies whatever revisions were baked into that image — so a migration added this sprint silently no-ops, the runner reports success, and the freshly-built app then hits a schema missing the new objects. Force the runner to carry current code (`--build`), then **confirm the head actually advanced** by querying the migration-version table. Never trust a green migrate log alone.
-3. **Reach the stack via its documented DNS hostname, not `localhost`.** A `localhost:<port>` smoke bypasses Traefik routing, DNS resolution, and healthcheck propagation — exactly the layers most likely to be silently broken for every other operator on the LAN. If the repo's `CLAUDE.md` declares a `TRAEFIK_DOMAIN`, the smoke **must** use it:
+3. **Reach the stack via its documented DNS hostname, not `localhost`.** A `localhost:<port>` smoke bypasses Traefik routing, DNS resolution, and healthcheck propagation — exactly the layers most likely to be silently broken for every other operator on the LAN. If the repo's `CLAUDE.md/AGENTS.md` declares a `TRAEFIK_DOMAIN`, the smoke **must** use it:
    ```bash
    curl -fsS http://<DOMAIN>/health
    curl -fsS http://api.<DOMAIN>/health

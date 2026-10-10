@@ -129,9 +129,9 @@ codex plugin add agile-planning@agile-skills
 # install any other phase by the same name
 ```
 
-Codex reads consumer-repository `AGENTS.md` files first; `CLAUDE.md` remains a compatibility fallback. Invoke skills as `$skill-name`. Codex is locked to full inline execution: no plugin-local agent or subagent dispatch, every workflow phase uses `concurrency=0`, and every sprint-drain `dispatch` value normalizes to inline execution. Claude-only Artifact publication is optional: Confluence remains the source of truth when no Artifact tool is available.
+Claude Code is the primary host; Codex parity is best effort. Both consumer-repository `CLAUDE.md/AGENTS.md` files are supported, with conflicts resolved by the host's instruction precedence. Invoke skills as `$skill-name`. Codex is locked to full inline execution: no plugin-local agent or subagent dispatch, every workflow phase uses `concurrency=0`, and every sprint-drain `dispatch` value normalizes to inline execution. Claude-only Artifact publication is optional: Confluence remains the source of truth when no Artifact tool is available.
 
-See [Claude Code and Codex compatibility](docs/CODEX_COMPATIBILITY.md) for the runtime matrix, preflight requirements, and release smoke-test procedure.
+See [Claude Code and Codex compatibility](docs/CODEX_COMPATIBILITY.md) for the runtime matrix, preflight requirements, and release smoke-test procedure, and [known parity gaps](docs/KNOWN_PARITY_GAPS.md) for accepted differences.
 
 ### GitHub Copilot CLI
 
@@ -146,7 +146,7 @@ cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/
 
 All Confluence-using skills share one canonical folder layout with a **short-index Roadmap** (detail on `MVP` / `Iteration N` child pages) — see [agile-planning ▸ Confluence structure](agile-planning/README.md#confluence-structure).
 
-The dev-side plugins read project values (`cloudId`, status names, lint commands, board/branch settings) from the consumer repo's `CLAUDE.md` / `AGENTS.md` — see each plugin README ([execution](agile-execution/README.md#configuration), [merge-review](agile-merge-review/README.md#configuration)).
+The dev-side plugins read project values (`cloudId`, status names, lint commands, board/branch settings) from the consumer repo's `CLAUDE.md/AGENTS.md` — see each plugin README ([execution](agile-execution/README.md#configuration), [merge-review](agile-merge-review/README.md#configuration)).
 
 ## License
 
