@@ -28,6 +28,8 @@ export type Ticket = {
   named?: boolean
   /** When its comments were last read for markers. */
   markedAt?: number
+  /** When it entered its status category (Jira `statuscategorychangedate`): the start of its age in progress. */
+  since?: number
 }
 
 export type Pr = {
@@ -43,13 +45,19 @@ export type Pr = {
   step?: string
   /** How many times each train step was dispatched for this PR. */
   seen?: Record<string, number>
+  /** Its files at `filesHead` (`gh api .../pulls/<n>/files`), for the overlap map. */
+  files?: string[]
+  filesHead?: string
 }
 
 /** A workflow run on a sha, the latest per workflow. */
 export type Run = { id?: number; workflow: string; status: string; conclusion?: string; at?: number }
 
-/** `cost0` and `cost1` are the session's cost in USD when the pass started and ended. */
-export type Pass = { start: number; merge?: number; end?: number; cost0?: number; cost1?: number }
+/** Prompt tokens as the API counts them: uncached input, cache reads, cache writes, and output. */
+export type Tokens = { input: number; read: number; write: number; output: number }
+
+/** `cost0` and `cost1` are the session's cost in USD when the pass started and ended; `tokens` its model requests by stage. */
+export type Pass = { start: number; merge?: number; end?: number; cost0?: number; cost1?: number; tokens?: Partial<Record<Stage, Tokens>> }
 
 /** When a source last answered, and its error when the last try failed. */
 export type Sync = { at?: number; error?: string }
@@ -70,9 +78,18 @@ export type Board = {
   /** Runs by the sha they ran on. */
   runs?: Record<string, Run[]>
   /** Work left (not done, no merged PR, not parked) over time, one sample per change, in one unit. */
-  burn?: { at: number; left: number; total: number }[]
+  burn?: { at: number; left: number; total: number; done?: number }[]
   burnUnit?: 'points' | 'tickets'
   passes?: Pass[]
+  /**
+   * The repo's merged PRs in gh's latest 100: when each one naming a ticket merged (the forecast's
+   * throughput, in tickets), and how long every one was open (the aging percentiles).
+   */
+  history?: { merges: number[]; cycles: number[] }
+  /** USD spent since the loop run began at `since`; `last` is the ledger reading it counted up to. */
+  spend?: { usd: number; since: number; last?: number }
+  /** Model requests by stage over the whole loop. */
+  tokens?: Partial<Record<Stage, Tokens>>
   gh?: Sync
   jira?: Sync
 }
@@ -207,7 +224,14 @@ export const withKeys = (board: Board, keys: string[]): Board => keys.reduce((b,
  * ticket, or was created since the first loop started.
  */
 export function applyPrs(prior: Board, rows: PrRow[], now: number): Board {
-  let board: Board = { ...prior, gh: { at: now } }
+  const merged = rows.flatMap(r => {
+    const at = time(r.mergedAt)
+    const created = time(r.createdAt)
+    const ticket = TICKET_KEY.test(str(r.headRefName) + ' ' + str(r.title))
+    return r.state === 'MERGED' && at !== undefined && created !== undefined ? [{ at, open: Math.max(0, at - created), ticket }] : []
+  })
+  const history = { merges: merged.filter(m => m.ticket).map(m => m.at), cycles: merged.map(m => m.open) }
+  let board: Board = { ...prior, gh: { at: now }, history }
   for (const row of rows) {
     if (typeof row.number !== 'number') continue
     const key = (str(row.headRefName) + ' ' + str(row.title)).match(TICKET_KEY)?.[0]
@@ -297,6 +321,7 @@ export function applyJira(prior: Board, answer: unknown, field: string, now: num
     const site = str(issue.webUrl).match(/^(https:\/\/[^/]+)\/browse\//)?.[1]
     if (site && !board.site) board = { ...board, site }
     const parked = labels.includes('needs-info') || /needs?.?info/i.test(str(status?.name))
+    const since = time(f.statuscategorychangedate)
     board = withTicket(board, key, {
       ...(str(f.summary) && { summary: str(f.summary) }),
       ...(status && {
@@ -306,6 +331,7 @@ export function applyJira(prior: Board, answer: unknown, field: string, now: num
       }),
       ...(phases && { phase: phases.at(-1), reworks: phases.filter(p => p === 'rework').length, markedAt: now }),
       ...(typeof points === 'number' && { points }),
+      ...(since !== undefined && { since }),
     })
   }
   return board
@@ -351,24 +377,26 @@ const isDone = (board: Board, key: string) => {
 }
 
 /**
- * Work not yet done, merged or parked, out of every ticket the board knows: in story points when
- * every ticket's points are known, else in tickets (a mixed sum would mean neither).
+ * Work not yet done, merged or parked, and work done (a done status or a merged PR), out of every
+ * ticket the board knows: in story points when every ticket's points are known, else in tickets (a
+ * mixed sum would mean neither). Parked work is in the total and in neither of the two.
  */
-export function leftOf(board: Board): { left: number; total: number; unit: 'points' | 'tickets' } {
+export function leftOf(board: Board): { left: number; done: number; total: number; unit: 'points' | 'tickets' } {
   const unit = board.order.length && board.order.every(k => typeof board.tickets[k]?.points === 'number') ? 'points' : 'tickets'
   const weight = (k: string) => (unit === 'points' ? board.tickets[k]!.points! : 1)
   const sum = (keys: string[]) => keys.reduce((s, k) => s + weight(k), 0)
   const left = board.order.filter(k => !board.tickets[k]!.parked && !isDone(board, k))
-  return { left: sum(left), total: sum(board.order), unit }
+  const done = board.order.filter(k => isDone(board, k))
+  return { left: sum(left), done: sum(done), total: sum(board.order), unit }
 }
 
-/** Adds a burndown sample when the counts changed since the last one; a unit change restarts the line. */
+/** Adds a burnup sample when the counts changed since the last one; a unit change restarts the line. */
 export function sampled(board: Board, now: number): Board {
-  const { left, total, unit } = leftOf(board)
+  const { left, done, total, unit } = leftOf(board)
   const samples = board.burnUnit === unit ? (board.burn ?? []) : []
   const last = samples.at(-1)
-  if (!total || (last && last.left === left && last.total === total)) return board
-  return { ...board, burnUnit: unit, burn: [...samples, { at: now, left, total }].slice(-MAX_SAMPLES) }
+  if (!total || (last && last.left === left && last.total === total && (last.done ?? last.total - last.left) === done)) return board
+  return { ...board, burnUnit: unit, burn: [...samples, { at: now, left, total, done }].slice(-MAX_SAMPLES) }
 }
 
 /** What a drain can still act on: tickets neither done, merged nor parked, and the board's open ticket PRs. */
