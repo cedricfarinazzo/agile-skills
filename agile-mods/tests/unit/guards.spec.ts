@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { readsOf, unreadFiles, withReads } from '../hooks/state/review.ts'
-import { grantDenial, mergeDenial, mergeTargetOf, pushDenial } from '../hooks/state/guards.ts'
+import { readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
+import { grantDenial, mergeDenial, mergeTargetOf, pushDenial } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)

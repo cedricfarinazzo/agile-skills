@@ -1,0 +1,3 @@
+[test]
+# unit tests only: tests/engine runs under `claude plugin test`, against the engine itself
+root = "./tests/unit"

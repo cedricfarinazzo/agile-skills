@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { guardsAfter, guardsBefore, guardsReset, guardsStart } from '../hooks/guards.ts'
-import { receiptsAfter, receiptsCommand, receiptsStart } from '../hooks/receipts.ts'
+import { guardsAfter, guardsBefore, guardsReset, guardsStart } from '../../hooks/guards.ts'
+import { receiptsAfter, receiptsCommand, receiptsStart } from '../../hooks/receipts.ts'
 import { fakeHost, type Answers } from './fake-host.ts'
 
 const OLD = 'a'.repeat(40)

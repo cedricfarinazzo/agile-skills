@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { EMPTY, passCost, stampCosts, type Board } from '../hooks/state/board.ts'
-import { alertRow, chartCells, chartGlyphs, consoleRows, fmtAgo, fmtDur, rasterCells, statusText, tabOf, type Ctx, type Row } from '../hooks/state/console.ts'
-import { keepRefusal, MAX_REFUSALS, ruleOf } from '../hooks/state/guards.ts'
+import { EMPTY, passCost, stampCosts, type Board } from '../../hooks/state/board.ts'
+import { alertRow, chartCells, chartGlyphs, consoleRows, fmtAgo, fmtDur, rasterCells, statusText, tabOf, type Ctx, type Row } from '../../hooks/state/console.ts'
+import { keepRefusal, MAX_REFUSALS, ruleOf } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const ctx = (over: Partial<Ctx> = {}): Ctx => ({ now: 600_000, usd: 4, refusals: [], allowed: 12, receipts: [], ...over })

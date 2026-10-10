@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText } from '../hooks/state/retro.ts'
-import { EMPTY, applyJira, applyPrs, linksOf } from '../hooks/state/board.ts'
+import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText } from '../../hooks/state/retro.ts'
+import { EMPTY, applyJira, applyPrs, linksOf } from '../../hooks/state/board.ts'
 
 const DAY = 86_400_000
 const issue = (key: string, phases: string[]) => ({ key, webUrl: `https://acme.atlassian.net/browse/${key}`, fields: { status: { name: 'In Progress', statusCategory: { key: 'indeterminate' } }, comment: { comments: phases.map(p => ({ body: `🤖 <!-- agile:phase=${p} -->` })) } } })

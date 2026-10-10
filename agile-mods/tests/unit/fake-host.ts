@@ -1,4 +1,4 @@
-import type { Compare, Host, PrRow, RunRow } from '../hooks/host.ts'
+import type { Compare, Host, PrRow, RunRow } from '../../hooks/host.ts'
 
 type Run = { exitCode: number; stdout: string }
 
