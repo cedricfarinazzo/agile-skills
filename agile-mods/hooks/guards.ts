@@ -26,8 +26,7 @@ export async function agentTypeOf(host: Host, id: string): Promise<string | unde
 /** The branch checked out where a push runs: its `git -C <dir>` or leading `cd <dir> &&`, else the session's. */
 async function branchOf(host: Host, command: string): Promise<string | undefined> {
   const dir = command.match(/\bgit\s+-C\s+("[^"]+"|'[^']+'|\S+)/)?.[1] ?? command.match(/^\s*cd\s+("[^"]+"|'[^']+'|\S+)\s*&&/)?.[1]
-  const run = await host.run(['git', '-C', dir?.replace(/^["']|["']$/g, '') ?? cwd ?? '.', 'rev-parse', '--abbrev-ref', 'HEAD'], { timeoutMs: 5_000 }).catch(() => undefined)
-  return run?.exitCode === 0 ? run.stdout.trim() : undefined
+  return host.branch(dir?.replace(/^["']|["']$/g, '') ?? cwd ?? '.')
 }
 
 export const guardsStart = (sessionCwd: string) => {

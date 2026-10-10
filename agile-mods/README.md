@@ -19,9 +19,19 @@ Every hook calls `next`. The console, receipts and retro only observe. The guard
 
 One option, set in `/plugin configure agile-mods@agile-skills`: `autoOpen` (default on) opens the console, unfocused, when an `agile-sprint-drain` starts, in a terminal of 144 columns or more.
 
-## Where the data comes from
+## What the mods read, run and send
 
-The mods make no Jira or GitHub call of their own. They read the calls the loop already makes, with their arguments and results: Jira comments and searches, `gh pr` and `gh run` output, agent dispatches and receipts. So the board shows what this session saw. A ticket the loop has not touched, or a status changed by hand in Jira, does not appear. The only command a mod runs itself is `git rev-parse` (push guard). The one extra read is `$.session.usage()`, for the cost per drain pass.
+**Nothing leaves your machine.** The mods make no network call: no Jira, GitHub or other HTTP request, and no telemetry. What they collect stays in the plugin's local store (`$.store`) and is drawn in the terminal.
+
+**Read.**
+- The loop's own tool calls and their results (`tool.call`): Jira comments and searches, `gh pr` and `gh run` output, agent dispatches and receipts. The board shows what this session saw; a ticket the loop has not touched, or a status changed by hand in Jira, does not appear.
+- The model's answers (`turn.step`, `turn.complete`): the drain's closing banner, the final report of a merge train, and a review answered inline inside a `merge-session` agent. They update the board and the guards' state.
+- Two files at session start: `AGENTS.md` and `CLAUDE.md` in the session's working directory, for the `story-points-field` key `agile-10-implement` pins there.
+- `$.session.usage()`, for the cost of each drain pass.
+
+**Run.** One program: `git -C <dir> rev-parse --abbrev-ref HEAD`, with a 5-second timeout. The push guard runs it before a `git push` that names no branch, to learn which branch the push would send, and refuses the push when it is `main`. `<dir>` is the directory the push command names (`git -C <dir>` or a leading `cd <dir> &&`), else the session's working directory. Its output is the branch name, used only for that check.
+
+**Send.** Nothing to any host. Two things go back into the session itself: a guard's refusal, which the model reads as the tool's error, and the retro counts, added as context to the `agile-15-retro` Skill call. Both travel to the model with the rest of the conversation, as any tool result does.
 
 ## Layout
 

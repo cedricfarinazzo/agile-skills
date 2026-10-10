@@ -31,8 +31,9 @@ let allowed = 0
 function hostOf($: EngineInterface): Host {
   return {
     now: () => $.clock.now(),
-    run: (argv, init) => $.process.run(argv, init),
-    read: path => $.fs.read(path),
+    // the mods' only process: a fixed, local git command, whose output never leaves the machine
+    branch: dir => $.process.run(['git', '-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD'], { timeoutMs: 5_000 })
+      .then(r => (r.exitCode === 0 ? r.stdout.trim() : undefined), () => undefined),
     agents: () => $.agent.list(),
     storeGet: key => $.store.get(key),
     storeSet: (key, value) => $.store.set(key, value),

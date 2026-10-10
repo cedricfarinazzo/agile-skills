@@ -1,4 +1,4 @@
-import type { AgentInfo, ProcessRunInit, ProcessRunResult } from 'claude-code'
+import type { AgentInfo } from 'claude-code'
 
 /**
  * The engine calls the guard, receipt and authoring hooks make, bound from `$` in register.tsx
@@ -6,8 +6,8 @@ import type { AgentInfo, ProcessRunInit, ProcessRunResult } from 'claude-code'
  */
 export type Host = {
   now: () => Promise<number>
-  run: (argv: readonly string[], init?: ProcessRunInit) => Promise<ProcessRunResult>
-  read: (path: string) => Promise<string>
+  /** The branch checked out in `dir` (`git rev-parse --abbrev-ref HEAD`), or undefined when git fails. */
+  branch: (dir: string) => Promise<string | undefined>
   agents: () => Promise<AgentInfo[]>
   storeGet: (key: string) => Promise<unknown>
   storeSet: (key: string, value: unknown) => Promise<void>
