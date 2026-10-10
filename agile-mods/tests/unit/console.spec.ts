@@ -147,6 +147,22 @@ describe('wip and drain tabs', () => {
     expect(out).toMatch(/src\/ +#42 #43/)
   })
 
+  test('board: the forecast dates and a histogram of the trials, bucketed to the width', () => {
+    const now = 600_000
+    const merges = Array.from({ length: 30 }, (_, d) => now - d * 86_400_000 - 1_000).filter((_, d) => d % 3 === 0)
+    const tickets = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`VC-${i}`, { key: `VC-${i}` }]))
+    const b = { ...EMPTY, loop: 'drain' as const, order: Object.keys(tickets), tickets, history: { merges, cycles: [] } }
+    const rows = consoleRows('board', b, ctx({ now }), 40)
+    const at = rows.findIndex(r => r.kind === 'line' && r.segs.some(s => s.t.includes('85% by')))
+    expect(at).toBeGreaterThan(-1)
+    const hist = rows[at + 1]!
+    expect(hist.kind).toBe('line')
+    const segs = hist.kind === 'line' ? hist.segs : []
+    expect(segs.length).toBeLessThanOrEqual(40)
+    expect(segs.every(s => /^[ ▁▂▃▄▅▆▇█]$/.test(s.t))).toBe(true)
+    expect(segs.some(s => s.c === 'c') && segs.some(s => s.t === '█')).toBe(true)
+  })
+
   test('wip: no history yet, nothing in progress', () => {
     const out = plain(consoleRows('wip', EMPTY, ctx(), 60))
     expect(out).toContain('lines after 5 merged PRs, 0 so far')

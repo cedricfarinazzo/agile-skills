@@ -20,6 +20,8 @@ export type Answers = {
   compare?: Record<string, Compare>
   jira?: unknown
   agents?: { id: string; type: string }[]
+  /** Every store write fails, as a full disk would. */
+  storeFails?: boolean
 }
 
 /**
@@ -60,7 +62,10 @@ export function fakeHost(opts: Answers = {}) {
     },
     agents: async () => (opts.agents ?? []) as never,
     storeGet: async key => store.get(key),
-    storeSet: async (key, value) => void store.set(key, value),
+    storeSet: async (key, value) => {
+      if (opts.storeFails) throw new Error('disk full')
+      store.set(key, value)
+    },
     log: text => void logs.push(text),
     toast: text => void toasts.push(text),
   }

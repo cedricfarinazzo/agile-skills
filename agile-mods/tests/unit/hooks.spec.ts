@@ -290,6 +290,23 @@ describe('fix-round cap', () => {
     expect(await guardsBefore(fakeHost({ agents }).host, 'Bash', push, 'f1')).toContain('could not read the PR of VC-7')
   })
 
+  test('a failed store write is logged, and the guard still holds for the session', async () => {
+    await loop()
+    const failing = (head: string) => fakeHost({ agents, storeFails: true, prOfBranch: { 'VC-7': { number: 7, headRefOid: head } } })
+    for (const n of [1, 2, 3]) {
+      const { host, logs } = failing(sha(n))
+      await guardsBefore(host, 'Bash', push, `f${n}`)
+      await new Promise(r => setTimeout(r, 0))
+      expect(logs).toEqual(['agile-mods: store write failed: Error: disk full'])
+    }
+    expect(await guardsBefore(failing(OTHER).host, 'Bash', push, 'f4')).toContain('fix rounds already')
+    const reviewer = fakeHost({ agents: [REVIEWER], storeFails: true })
+    await guardsBefore(reviewer.host, ...skill('agile-11-merge-train'), undefined)
+    await read(reviewer.host, `git show ${SHA}:src/a.ts`)
+    await new Promise(r => setTimeout(r, 0))
+    expect(reviewer.logs).toEqual(['agile-mods: store write failed: Error: disk full'])
+  })
+
   test('the count survives a restart, and reset clears it', async () => {
     await loop()
     const { host, store } = gh()

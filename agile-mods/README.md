@@ -32,13 +32,12 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 | `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard: the branch a `git push` that names none would send | Before such a push, inside a loop |
 | `gh pr list --state all --limit 100 --json …` | Board: PRs, their heads, merged or not; merge history for aging and the forecast | 3 s after the loop's GitHub writes, CI waits and dispatches, when the main loop goes idle, when `/agile-board` opens, and every 5 minutes while a loop runs or the pane is open |
 | `gh run list --limit 100 --json …` | Board: CI per sha | Same |
-| `gh api --paginate repos/{owner}/{repo}/pulls/<n>/files` | Board: each open PR's files, for the overlap map | With the PR list, once per PR head |
+| `gh api --paginate repos/{owner}/{repo}/pulls/<n>/files` | Board: each open PR's files, for the overlap map. 3f gate: the files a review must have read | With the PR list, once per PR head; at a merge call |
 | `gh pr view <n> --json headRefOid,state` | 3f gate: the PR's live head | At a merge call |
 | `git -C <dir> rev-parse --abbrev-ref --symbolic-full-name @{push}` | Fix-round cap: where a bare `git push` sends the branch | Before such a push, inside a loop |
 | `gh pr list --head <branch> --state open --json number,headRefOid,baseRefName` | Fix-round cap: the open PR a push sends to, and its head | Before a push, inside a loop |
 | `git -C <dir> rev-list --no-merges <head>..<ref> ^origin/<base>` | Fix-round cap: whether a push to a PR is an update (merges and the base's own commits only) | Before a push to an open PR's branch |
 | `gh run list --commit <sha> --json …` | 3f gate: every CI run on that head | At a merge call |
-| `gh api repos/{owner}/{repo}/pulls/<n>/files` | 3f gate: the files a review must have read | At a merge call |
 | `gh api repos/{owner}/{repo}/compare/<sha>...<head>` | 3f gate: which files changed since an earlier review | At a merge call, for each earlier reviewed sha |
 
 `gh` talks to GitHub with the user's own `gh` login; the mod reads its output and keeps it local.
@@ -46,7 +45,7 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 **MCP call:** `searchJiraIssuesUsingJql` on the session's connected Atlassian server (`$.mcp.call`), read-only: the sprint's tickets (`summary`, `status`, `labels`, the story-points field) and, a few tickets at a time, their comments for the `agile:phase` markers. It sends Atlassian a JQL query naming the repo's Jira projects and ticket keys, and the `cloudId`. It runs only when that tool is already allowed in the session's permissions (checked first with `$.tool.check`, which opens no dialog), with the gh refresh (above).
 
 **Read:**
-- The loop's tool calls (`tool.call`): which orchestrator or train step was dispatched, which agent type made a call, the `git show <sha>:<path>` commands a reviewer ran, a merge or push command about to run, the ticket keys and `cloudId` a Jira call names. Agent receipts are read only for the `/receipts` contract check.
+- The loop's tool calls (`tool.call`): which orchestrator or train step was dispatched, which agent type made a call, the `git show <sha>:<path>` commands a reviewer ran, a merge or push command about to run, the git and `gh api` commands and GitHub MCP calls a loop makes (for the side doors the guards close), the ticket keys and `cloudId` a Jira call names. Agent receipts are read only for the `/receipts` contract check.
 - Two files at session start: `AGENTS.md` and `CLAUDE.md` in the working directory, for `story-points-field` and `cloudId`.
 - `$.session.usage()`, for the cost of each drain pass and the loop's spend. `turn.step`, for each model request's token counts (input, cache reads and writes, output); the request and its answer are not read. `turn.complete` on the main loop, to judge a drain STUCK when the session goes idle; the answer text is not read. `$.agent.list()`, for the type and status of the loop's agents.
 
@@ -63,7 +62,8 @@ hooks/receipts.ts         # /receipts
 hooks/state/*.ts          # pure logic: board, flow metrics, agents lane, console views, guards, review coverage, receipts, retro
 docs/*.md                 # one page per mod
 tests/unit/*.spec.ts      # bun test over hooks/state, and over the hook modules through tests/unit/fake-host.ts
-tests/engine/*.test.ts    # claude plugin test: register.tsx loaded in the engine
+tests/engine/*.test.ts    # claude plugin test: register.tsx in the engine, hooks and the pane and alert row mounted per surface
+tests/engine/world.ts     # the stubbed machine beneath: gh, git, Jira, store, clock, model, the prompt's own drawing
 ```
 
 The engine allows one hooks module per plugin, one unmatched hook per event, and `$` only in that module's own top-level functions: `register.tsx` owns the hooks and hands the other modules a `Host` of bound calls, as the built-in `diff` mod does.

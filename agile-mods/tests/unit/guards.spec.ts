@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
+import { guardedCall } from '../../hooks/guards.ts'
 import { budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
@@ -148,6 +149,19 @@ describe('fix-round cap', () => {
     expect(pushPlanOf('git push -o ci.skip origin a')).toEqual({ error: 'the push option -o is not read' })
     expect(pushPlanOf('git push --all origin')).toEqual({ error: 'the push option --all is not read' })
     expect(pushPlanOf('cd w; git push')).toEqual({ error: 'a push in the loop is one plain command' })
+  })
+})
+
+describe('fail closed', () => {
+  test('a call a guard covers is told apart from the call alone, for a hook that could not run', () => {
+    const covered: [string, Record<string, unknown>][] = [
+      ['Bash', { command: 'gh pr merge 7 --squash' }], ['Bash', { command: 'cd /w && git push origin x' }], ['Bash', { command: 'gh api -X PUT repos/o/r/contents/a' }],
+      ['Bash', { command: 'gh pr comment 7 -b x' }], ['Edit', {}], ['Write', {}], ['NotebookEdit', {}], ['mcp__github__merge_pull_request', { pullNumber: 7 }],
+      ['mcp__github__push_files', {}], ['mcp__atlassian__transitionJiraIssue', {}], ['mcp__atlassian__addCommentToJiraIssue', {}],
+    ]
+    for (const [tool, args] of covered) expect(guardedCall(tool, args)).toBe(true)
+    const free: [string, Record<string, unknown>][] = [['Read', {}], ['Bash', { command: 'git status' }], ['mcp__atlassian__getJiraIssue', {}], ['Skill', { skill: 'agile-10-implement' }]]
+    for (const [tool, args] of free) expect(guardedCall(tool, args)).toBe(false)
   })
 })
 
