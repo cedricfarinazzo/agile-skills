@@ -22,7 +22,7 @@ The same code is reviewed three times by three roles, and this is the first: `me
 
 **Non-goals:** being the authoritative pre-merge gate; merging; transitioning the Story (approval only labels it — QA closes it); style-bikeshedding that blocks a correct PR.
 
-**Config** (consumer repo `CLAUDE.md` / `AGENTS.md`): `cloudId` (required), `ticket-prefix-regex` (default `[A-Z]+-\d+`), `in-review-status-name` (default `In Review`).
+**Config** (consumer repo `CLAUDE.md/AGENTS.md`): `cloudId` (required), `ticket-prefix-regex` (default `[A-Z]+-\d+`), `in-review-status-name` (default `In Review`).
 
 **Input:** a PR (number/URL) and/or a Story key — derive the other from the PR title/branch or the Story's `🤖 agile:phase=pr` comment. For a large-PR review, the orchestrator may also provide the directly-dispatched `review-lens` receipts; validate and aggregate them before publishing the verdict.
 

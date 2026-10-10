@@ -67,7 +67,7 @@ One PR at a time — each merge changes `main`, so the next PR rebases on the ne
 
 ## Configuration
 
-Reads the consumer repo's `CLAUDE.md` / `AGENTS.md`: `cloudId` (required), `ticket-prefix-regex`, `done-status-name` (+ optional `done-transition-id` fast path), and lint commands per touched path family.
+Reads the consumer repo's `CLAUDE.md/AGENTS.md`: `cloudId` (required), `ticket-prefix-regex`, `done-status-name` (+ optional `done-transition-id` fast path), and lint commands per touched path family.
 
 ## Where it fits
 

@@ -84,7 +84,7 @@ Other per-ticket exits (skip one, keep the run): out-of-scope (wrong repo), unde
 
 ## Configuration
 
-Reads the consumer repo's `CLAUDE.md` / `AGENTS.md` (`## Skill configuration`):
+Reads the consumer repo's `CLAUDE.md/AGENTS.md` (`## Skill configuration`):
 
 - `cloudId` (required), `ticket-prefix-regex` (default `[A-Z]+-\d+`)
 - `repo` / `repo-component-map` — repo-scope gate

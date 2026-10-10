@@ -220,6 +220,10 @@ Cross-plugin references: skills call siblings by name. Most compose within one p
 
 ## Plugin + marketplace manifests
 
+**Claude Code is the primary host; Codex parity is best effort.** Keep consumer references as `CLAUDE.md/AGENTS.md` and inventory both `.claude/skills/` and `.agents/skills/`, Claude first. Preserve `${CLAUDE_PLUGIN_ROOT}` commands. See [known parity gaps](docs/KNOWN_PARITY_GAPS.md) for accepted differences.
+
+Every shared package must keep `name` and `version` identical across `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and root `plugin.json`. Both marketplaces list the same root packages except Claude-only `agile-mods`. CI enforces this with `python3 .github/scripts/check-parity.py`; run its regression tests with `python3 -m unittest discover -s .github/scripts -p 'test_*.py'`.
+
 Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill namespace prefix), `version`, author/homepage/repo/license. Skills and agents are auto-discovered from `skills/*/SKILL.md` and `agents/*.md`.
 
 `.claude-plugin/marketplace.json` (root) carries a top-level `description` and lists every plugin with a relative string source, `"source": "./<plugin>"`. It carries **no version key**; versions live only in `plugin.json`. Adding a plugin = new dir with a manifest + a new marketplace entry; keep the `name` fields in sync.

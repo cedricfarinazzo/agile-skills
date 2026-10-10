@@ -30,7 +30,7 @@ PR number from args; if absent, `gh pr list --state open` and ask.
 3. `gh pr diff <N>` for the full diff.
 4. For every file in the diff, read the **full file at the reviewed sha** — `git show <headRefOid>:<path>`, **never from the working tree**. The checkout may be on another branch and concurrent work uses worktrees, so a working-tree read is a statement about the wrong tree. State the sha in the receipt.
 5. Cross-reference against:
-   - the project `CLAUDE.md` / `AGENTS.md` and the relevant sub-directory equivalents;
+   - the project `CLAUDE.md/AGENTS.md` and the relevant sub-directory equivalents;
    - **the Jira ticket's ACs — the authoritative spec** (`mcp__atlassian__getJiraIssue` with the configured `cloudId`). The PR body's restatement may be stale; where they diverge, trust Jira and flag the divergence as Minor. **No Jira key and no PR-body ACs → Critical, block**: the PR has no spec to review against.
    - any `🤖 <!-- agile:spec-correction -->` comment on the ticket, read *with* the ACs and before the diff;
    - existing test files referencing changed code (field names, API contracts, ports).
@@ -45,7 +45,7 @@ PR number from args; if absent, `gh pr list --state open` and ask.
 
 **Security** — secrets hardcoded or logged; missing auth checks on endpoints; input unvalidated at system boundaries; SQL injection via f-string interpolation (require parameterised queries).
 
-**Naming & conventions** — casing per project standard (GraphQL field names especially); explicit constraint names on PK/FK/Unique; file/function/variable naming per `CLAUDE.md`.
+**Naming & conventions** — casing per project standard (GraphQL field names especially); explicit constraint names on PK/FK/Unique; file/function/variable naming per `CLAUDE.md/AGENTS.md`.
 
 **Test coverage**
 - **A negative / guard test must be proven to REACH the guard it names.** Mutation-grade (would it fail if the behaviour regressed?) is necessary but not sufficient: the input must not be rejected by an **earlier** layer — field length/precision, type coercion, nullability, referential integrity, a framework validator, an upstream schema check. A test asserting a storage constraint rejects a bad value, whose input already violates the column width, is rejected before the constraint ever evaluates. Require each negative assertion to state **which named guard it provably trips** and **why no earlier layer can reject the input first**. A test that passes for the wrong reason is the same defect as one that fails for the wrong reason — it just ships.
@@ -64,14 +64,14 @@ PR number from args; if absent, `gh pr list --state open` and ask.
 - **Check the correction itself.** It carries evidence (`path:line`, a command result, a grep hit); verify that evidence and that the corrected target is really what the AC meant. A correction is a claim about the spec and gets the same scrutiny as a claim about the diff — wrong or unevidenced → Critical.
 - **Report it either way:** each corrected AC's binding names the correction comment alongside its `file:line`, so the postmortem records that ticket text and delivered behaviour diverged. That is the signal refinement needs.
 
-**Documented invariants & conventions — a review axis, not a doc nit.** Review the diff against the ACs, the out-of-scope section, **and the invariants/conventions it touches** (root + subfolder `CLAUDE.md` / `AGENTS.md`, architecture docs). **A change that makes a documented invariant FALSE is a defect even when the code is correct.** Three shapes, all seen in one run:
+**Documented invariants & conventions — a review axis, not a doc nit.** Review the diff against the ACs, the out-of-scope section, **and the invariants/conventions it touches** (root + subfolder `CLAUDE.md/AGENTS.md`, architecture docs). **A change that makes a documented invariant FALSE is a defect even when the code is correct.** Three shapes, all seen in one run:
 - a **silently-widened invariant** — the diff widened the effective key of a documented invariant without updating the doc, so the stated invariant is now false;
 - a **limitation comment that outlived its limitation** — the ticket that removes a limitation must remove or rewrite the "KNOWN LIMITATION" comment naming it;
 - a **new domain concept with no conventions entry** though every sibling story's concept has one.
 
 Verify a documentation entry **accurate against the shipped code**, not merely present — a confidently-worded wrong entry is worse than none.
 
-**Documentation** — test-suite `CLAUDE.md` updated (structure tree, coverage table, run command); backend/frontend `CLAUDE.md` updated if a new convention was established; AC text not stale.
+**Documentation** — test-suite `CLAUDE.md/AGENTS.md` updated (structure tree, coverage table, run command); backend/frontend `CLAUDE.md/AGENTS.md` updated if a new convention was established; AC text not stale.
 
 **Migrations (where applicable)** — `server_default` uses `text()` not `func.literal()`; drop order is the reverse of create order; FK targets schema-qualified where multiple schemas exist; time-series/hypertable creation order vs the base table.
 
@@ -128,7 +128,7 @@ No issues found → state "Satisfied — ready to merge." and why. The Files-rea
 | Schema ↔ test field-name mismatch | Critical |
 | A documented invariant or convention the diff makes false | Critical |
 | Stale AC text | Minor |
-| Missing run command in the test-suite `CLAUDE.md` | Minor |
+| Missing run command in the test-suite `CLAUDE.md/AGENTS.md` | Minor |
 | Project-structure tree drift (new file, tree not updated — helpers too, not just tests) | Minor |
 
 **Cross-PR file overlap is a review signal, not a finding.** If the diff touches a file other open PRs also touch, report it as a `Cross-PR overlap:` field (the file + the other PR/ticket) so the postmortem can record the Jira-link recommendation.

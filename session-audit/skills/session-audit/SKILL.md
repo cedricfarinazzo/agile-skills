@@ -12,6 +12,8 @@ Read-only: it reads transcripts, the plugin source and the consumer repo's `gh` 
 
 **Input:** one run to profile, or two to compare (before / after). A run is a session title, a session id, or transcript paths; one run may span several transcripts. Ask once for whatever is missing.
 
+**Host scope:** this skill can run on either host, but its input is Claude Code transcripts only. On Codex, ask for a Claude transcript when the request identifies a native Codex session; do not report zero usage as a successful audit. Native Codex transcript parsing is intentionally unsupported. Keep `${CLAUDE_PLUGIN_ROOT}` in the bundled commands.
+
 ## 1. Locate the runs and what changed between them
 
 ```bash

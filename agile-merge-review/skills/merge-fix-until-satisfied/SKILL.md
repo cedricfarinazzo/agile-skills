@@ -54,7 +54,7 @@ Then `git push origin <branch>` where `<branch>` is whatever HEAD is on (`git re
 
 ## Phase 3 — Re-examine
 
-Re-read **every** file changed, in the original PR and in the fixes. Did a fix introduce something new (did every reference update)? Are there analogous issues in untouched files? Does the test-suite `CLAUDE.md` need updating?
+Re-read **every** file changed, in the original PR and in the fixes. Did a fix introduce something new (did every reference update)? Are there analogous issues in untouched files? Does the test-suite `CLAUDE.md/AGENTS.md` need updating?
 
 ## Phase 4 — Verdict
 

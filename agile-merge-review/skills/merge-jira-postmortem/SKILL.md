@@ -32,7 +32,7 @@ conflict_map entry:
 
 `collisions: []` is a real value meaning "checked, none" — not "not supplied". Every collision becomes a Cross-PR bullet **and** an entry in the `collisions recorded` receipt field. Never invent one the caller did not pass; never silently drop one it did. Invoked standalone with no entry, derive the collisions yourself and say so.
 
-**Config** (consumer repo `CLAUDE.md` / `AGENTS.md`): `cloudId` — required, no default. `ticket-prefix-regex` — default `[A-Z]+-\d+`.
+**Config** (consumer repo `CLAUDE.md/AGENTS.md`): `cloudId` — required, no default. `ticket-prefix-regex` — default `[A-Z]+-\d+`.
 
 ## Steps
 

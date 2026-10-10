@@ -36,7 +36,7 @@ Three skills sharing one discipline: audit deeply, prove every claim, ship as a 
 - **Verify, don't read**: commands run in a clean checkout, flags checked against `--help` or the parser, links fetched *and* anchor-checked, claims resolved against the code — never against the neighbouring doc that agrees.
 - Duplication is collapsed to one home, except **deliberate replication** — a block that must exist verbatim in many files because nothing includes it at read time. That ships with a sync rule and a command proving every copy identical.
 - Generated docs (docstring API refs, `--help` dumps, TOCs) are never hand-edited; fix the generator or declare the file hand-maintained.
-- **Some markdown is executable** — `CLAUDE.md`, `AGENTS.md`, skill/agent frontmatter. Trigger phrases are never subtracted, every removal states what it governed, and the per-session token cost of auto-loaded files is baselined and gated like `test-refactor` gates wall-clock.
+- **Some markdown is executable** — `CLAUDE.md/AGENTS.md`, skill/agent frontmatter. Trigger phrases are never subtracted, every removal states what it governed, and the per-session token cost of auto-loaded files is baselined and gated like `test-refactor` gates wall-clock.
 - Compression is proven by a **per-file** operative-token diff (commands, flags, config keys, MCP names) — a token surviving in another doc is not evidence this one kept it.
 - In `rules` mode, every standing directive earns its permanent context cost: its behavioral impact is recorded and only evidence-backed redundancy, staleness, brittleness, misfiling, conflict, or low-yield ritual is changed.
 

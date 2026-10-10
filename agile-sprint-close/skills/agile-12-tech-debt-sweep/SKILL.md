@@ -1,13 +1,13 @@
 ---
 name: agile-12-tech-debt-sweep
-description: "End-of-sprint housekeeping before closeout: audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/SKILL.md cruft, misplaced artifacts, dead code. Report before apply. Triggers: tech debt sweep, cleanup sweep, housekeeping, /tech-debt-sweep. Before agile-13-sprint-closeout."
+description: "End-of-sprint housekeeping before closeout: audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/AGENTS.md/SKILL.md cruft, misplaced artifacts, dead code. Report before apply. Triggers: tech debt sweep, cleanup sweep, housekeeping, /tech-debt-sweep. Before agile-13-sprint-closeout."
 ---
 
 # agile_12_tech_debt_sweep
 
 Audit the consumer repo for low-value drift accumulated during the sprint: report findings by category, get explicit approval, apply behaviour-preserving fixes, file cross-repo follow-ups.
 
-**Runs before `agile-13-sprint-closeout`** — closeout's smoke replays the user flow described in `CLAUDE.md`, so it needs a clean repo and an accurate `CLAUDE.md`. Sweeping *after* closeout would invalidate the closeout's signal.
+**Runs before `agile-13-sprint-closeout`** — closeout's smoke replays the user flow described in `CLAUDE.md/AGENTS.md`, so it needs a clean repo and an accurate `CLAUDE.md/AGENTS.md`. Sweeping *after* closeout would invalidate the closeout's signal.
 
 **Goal:** every finding is either fixed in place with no behaviour change, moved to its correct home repo, or filed as a tracked follow-up — so the sprint enters closeout with no obvious cruft, no CI workflows burning minutes for nothing, no personal tags leaked into project sources, and no Dockerfiles rebuilding stable content every run.
 
@@ -17,13 +17,13 @@ Audit the consumer repo for low-value drift accumulated during the sprint: repor
 
 ## Phase 0 — Inventory
 
-Read the repo end-to-end — root and sub-folder `CLAUDE.md` / `AGENTS.md`, `.github/workflows/`, `docker/**`, `docker-compose*.yml`, every `SKILL.md` under `.claude/skills/` — and build a one-line manifest per category so the report is grounded in actual files rather than assumptions.
+Read the repo end-to-end — root and sub-folder `CLAUDE.md/AGENTS.md`, `.github/workflows/`, `docker/**`, `docker-compose*.yml`, every `SKILL.md` under `.claude/skills/` and `.agents/skills/` — and build a one-line manifest per category so the report is grounded in actual files rather than assumptions.
 
 ## Phase 1 — Audit (six categories, all run by default)
 
 ### A — Cross-repo / personal leakage
 
-Tracked project files must not carry: **personal workflow tags** in TODOs (`TODO(<owner-handle>)`, `TODO(<persona-tag>)`); **personal style or compression modes** in `CLAUDE.md` ("always reply in `<style-name>` mode") — those are agent-side preferences, not project conventions; **personal skill names** (`agile-13-sprint-closeout`, custom slash-commands) that live in plugin repos and are not installed for every contributor; or **owner-specific URLs, cloudIds, tokens, and project keys** outside their natural homes.
+Tracked project files must not carry: **personal workflow tags** in TODOs (`TODO(<owner-handle>)`, `TODO(<persona-tag>)`); **personal style or compression modes** in `CLAUDE.md/AGENTS.md` ("always reply in `<style-name>` mode") — those are agent-side preferences, not project conventions; **personal skill names** (`agile-13-sprint-closeout`, custom slash-commands) that live in plugin repos and are not installed for every contributor; or **owner-specific URLs, cloudIds, tokens, and project keys** outside their natural homes.
 
 Build the tag list from the owner's actual agent/persona vocabulary before grepping:
 
@@ -36,7 +36,7 @@ grep -rni --include='*.md' --include='*.py' --include='*.ts' --include='*.tsx' \
 
 Fixes: `TODO(<owner-tag>): …` → `TODO: …`; a named style mode → the neutral behaviour it describes ("concise; drop articles, filler, hedging"); "run `<personal-skill>` before X" → the action it performs ("run the end-of-sprint closeout gate before retro").
 
-### B — `CLAUDE.md` / `SKILL.md` cruft
+### B — `CLAUDE.md/AGENTS.md` / `SKILL.md` cruft
 
 Read every one in full and flag: **stale tree comments** contradicting current code (an annotation says "stub" where the file is now the full implementation); **duplicate stack tables** where a sub-folder re-lists rows already in the root (collapse to sub-only deps plus a pointer); **per-test bash blocks enumerating the same env block** with one filename swapped (replace with one canonical block plus "swap the path for a single file" — every former command is still producible); **trivial subsections restating root invariants**; **verbose multi-line `description:` frontmatter** where siblings use one line (compress, keeping all triggers verbatim); and **dead refs** to deleted files, moved scripts, or retired tickets.
 
@@ -44,15 +44,15 @@ Read every one in full and flag: **stale tree comments** contradicting current c
 
 ### C — Useless CI workflows
 
-Workflows that cure consequences rather than causes, whose policy is already stated in `CLAUDE.md`. Symptoms: it only posts a comment or adds a label nothing downstream consumes; its rule is already in `CLAUDE.md` where the author, reviewer, and agent all read it at PR-creation time; it runs on every `synchronize` event burning runner minutes with no merge-blocking effect. *(Case study: a "doc-only PR touches generated artifact" warning workflow — the same rule is one bullet in root `CLAUDE.md`.)*
+Workflows that cure consequences rather than causes, whose policy is already stated in `CLAUDE.md/AGENTS.md`. Symptoms: it only posts a comment or adds a label nothing downstream consumes; its rule is already in `CLAUDE.md/AGENTS.md` where the author, reviewer, and agent all read it at PR-creation time; it runs on every `synchronize` event burning runner minutes with no merge-blocking effect. *(Case study: a "doc-only PR touches generated artifact" warning workflow — the same rule is one bullet in root `CLAUDE.md/AGENTS.md`.)*
 
-**Fix:** delete the workflow, strengthen the matching `CLAUDE.md` bullet with specifics (the file globs it covers, the 2–3 action options), and confirm no orphan labels or comments dangle (`gh label delete` where the workflow created one).
+**Fix:** delete the workflow, strengthen the matching `CLAUDE.md/AGENTS.md` bullet with specifics (the file globs it covers, the 2–3 action options), and confirm no orphan labels or comments dangle (`gh label delete` where the workflow created one).
 
 ### D — Heavy Docker rebuilds → prebuild candidates
 
 Read every `Dockerfile` and every compose `build:` block, looking for layers that compile or download stable third-party tools (a C library, a CLI binary, browser bundles, native bindings) on every CI run, take >20s, and are invalidated by source changes that have nothing to do with them.
 
-Each is a candidate for extraction into the org's shared docker-images repo: a new `<image-name>/` folder at that repo's root with a `Dockerfile` parameterised by axes and multi-arch via `TARGETARCH`, `versions.json`, `package.json`, `.releaserc.json`, `README.md`, and `.github/workflows/build-<image-name>.yml` — then registered in the root `package.json` workspaces, the README images table, and the `CLAUDE.md` layout. **Copy a working sibling image verbatim as the template and SHA-pin every `uses:`** rather than inventing a pattern.
+Each is a candidate for extraction into the org's shared docker-images repo: a new `<image-name>/` folder at that repo's root with a `Dockerfile` parameterised by axes and multi-arch via `TARGETARCH`, `versions.json`, `package.json`, `.releaserc.json`, `README.md`, and `.github/workflows/build-<image-name>.yml` — then registered in the root `package.json` workspaces, the README images table, and the `CLAUDE.md/AGENTS.md` layout. **Copy a working sibling image verbatim as the template and SHA-pin every `uses:`** rather than inventing a pattern.
 
 **Skip rule** — extraction is only worth it when the layer is genuinely stable (changes ≤ monthly), saves ≥20s per CI run, **and** is reusable by at least one other project. Otherwise it is complexity displacement.
 
@@ -80,7 +80,7 @@ One Markdown report across all six categories, each finding row carrying file pa
 # Tech debt sweep — report
 
 ## A — Cross-repo / personal leakage      | File:line | Issue | Fix |
-## B — CLAUDE.md / SKILL.md cruft         | File:line | Issue | Lines saved | Fix |
+## B — CLAUDE.md/AGENTS.md / SKILL.md cruft         | File:line | Issue | Lines saved | Fix |
 ## C — Useless CI workflows               | Workflow | Why useless | Replacement |
 ## D — Prebuild image candidates          | Layer | Rebuild cost per CI run | Target image | Notes |
 ## E — Misplaced artifacts                | Source | Target repo | Notes |
@@ -129,6 +129,6 @@ Every phase discovers work its ticket did not plan for. Two decisions, in order,
 
 ## When NOT to use
 
-A mid-sprint check-in (this runs after the last story merged and before closeout); a one-line `CLAUDE.md` tweak (just edit it); or a greenfield repo, where the categories do not yet apply.
+A mid-sprint check-in (this runs after the last story merged and before closeout); a one-line `CLAUDE.md/AGENTS.md` tweak (just edit it); or a greenfield repo, where the categories do not yet apply.
 
 **The report is read by humans and drives destructive actions, so its prose stays in normal English full sentences regardless of any session-level compression mode.**
