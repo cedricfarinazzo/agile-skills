@@ -11,7 +11,7 @@ Each mod has its own page:
 | Mod | Command | Active |
 |---|---|---|
 | [Agile console](docs/console.md) — status line with spend rate and an 85% date, alert row, and a six-tab pane: board with burnup and a Monte Carlo forecast, ticket and PR flow, aging WIP and PR overlap, drain passes with cost, cache hit rate and the loop's agents, guards and receipts, links | `/agile-board [board \| flow \| wip \| drain \| guards \| links \| show \| hide \| retro \| reset]` | always |
-| [Guards](docs/guards.md) — tool grants, 3f merge gates (pinned live head, green CI, every file reviewed), push guard, fix-round cap, budget stop; refusals logged on the Guards tab | — | always |
+| [Guards](docs/guards.md) — tool grants, 3f merge gates (pinned live head, green CI, every file reviewed), push guard, fix-round cap, budget stop, and the side doors around them (branch writes through the GitHub API or MCP, `gh repo sync`, git aliases); refusals logged on the Guards tab | — | always |
 | [Receipt inspector](docs/receipts.md) — agent receipts checked against the receipt contract | `/receipts [all \| clear]` | always |
 | [Retro data](docs/retro.md) — loop counts for `agile-15-retro` | `/agile-board retro` | always |
 
@@ -42,7 +42,7 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 
 `gh` talks to GitHub with the user's own `gh` login; the mod reads its output and keeps it local.
 
-**MCP call:** `searchJiraIssuesUsingJql` on the session's connected Atlassian server (`$.mcp.call`), read-only: the sprint's tickets (`summary`, `status`, `labels`, the story-points field) and, a few tickets at a time, their comments for the `agile:phase` markers. It sends Atlassian a JQL query naming the repo's Jira projects and ticket keys, and the `cloudId`. It runs only when that tool is already allowed in the session's permissions (checked first with `$.tool.check`, which opens no dialog), with the gh refresh (above).
+**MCP call:** `searchJiraIssuesUsingJql` on the session's connected Atlassian server (`$.mcp.call`), read-only: the sprint's tickets (`summary`, `status`, `labels`, `statuscategorychangedate`, the story-points field) and, a few tickets at a time, their comments for the `agile:phase` markers. It sends Atlassian a JQL query naming the repo's Jira projects and ticket keys, and the `cloudId`. It runs only when that tool is already allowed in the session's permissions (checked first with `$.tool.check`, which opens no dialog), on the same events as the gh refresh but at most every 30 s, and every 5 minutes as a fallback.
 
 **Read:**
 - The loop's tool calls (`tool.call`): which orchestrator or train step was dispatched, which agent type made a call, the `git show <sha>:<path>` commands a reviewer ran, a merge or push command about to run, the git and `gh api` commands and GitHub MCP calls a loop makes (for the side doors the guards close), the ticket keys and `cloudId` a Jira call names. Agent receipts are read only for the `/receipts` contract check.
@@ -57,7 +57,7 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 hooks/hooks.json          # names the one module
 hooks/register.tsx        # every hook; binds $ into a Host for the modules below
 hooks/host.ts             # the Host type
-hooks/guards.ts           # guards: grant backstop, 3f merge gates, push guard, fix-round cap
+hooks/guards.ts           # guards: grant backstop, 3f merge gates, push guard, fix-round cap, side doors (the budget check is in register.tsx)
 hooks/receipts.ts         # /receipts
 hooks/state/*.ts          # pure logic: board, flow metrics, agents lane, console views, guards, review coverage, receipts, retro
 docs/*.md                 # one page per mod
