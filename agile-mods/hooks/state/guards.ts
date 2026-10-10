@@ -1,33 +1,37 @@
 // Pure checks behind the guard mods: each rule here is written as prose in a skill or agent file,
 // and a hook refuses or annotates the call that breaks it.
 
-import { sameSha, type Run } from './board.ts'
+import type { ciOf } from './board.ts'
+import { sameSha } from './review.ts'
 
 const str = (value: unknown) => (typeof value === 'string' ? value : '')
 const short = (agentType: string) => agentType.split(':').at(-1) ?? agentType
 
 const EDITING = new Set(['Write', 'Edit', 'NotebookEdit'])
 
+// by tool name after the server prefix, so a server connected under another name is held the same
 const POSTING_MCP = new Set([
-  'mcp__github__add_issue_comment',
-  'mcp__github__add_comment_to_pending_review',
-  'mcp__github__add_reply_to_pull_request_comment',
-  'mcp__github__pull_request_review_write',
-  'mcp__github__update_pull_request',
-  'mcp__github__merge_pull_request',
-  'mcp__github__issue_write',
-  'mcp__github__create_or_update_file',
-  'mcp__github__push_files',
-  'mcp__atlassian__addCommentToJiraIssue',
-  'mcp__atlassian__transitionJiraIssue',
-  'mcp__atlassian__editJiraIssue',
-  'mcp__atlassian__createJiraIssue',
-  'mcp__atlassian__createIssueLink',
-  'mcp__atlassian__createConfluencePage',
-  'mcp__atlassian__updateConfluencePage',
-  'mcp__atlassian__createConfluenceFooterComment',
-  'mcp__atlassian__createConfluenceInlineComment',
+  'add_issue_comment',
+  'add_comment_to_pending_review',
+  'add_reply_to_pull_request_comment',
+  'pull_request_review_write',
+  'update_pull_request',
+  'merge_pull_request',
+  'issue_write',
+  'create_or_update_file',
+  'push_files',
+  'addCommentToJiraIssue',
+  'transitionJiraIssue',
+  'editJiraIssue',
+  'createJiraIssue',
+  'createIssueLink',
+  'createConfluencePage',
+  'updateConfluencePage',
+  'createConfluenceFooterComment',
+  'createConfluenceInlineComment',
 ])
+
+const mcpName = (tool: string) => tool.match(/^mcp__.+?__(.+)$/)?.[1] ?? ''
 
 const POSTING_BASH = /\b(gh\s+(pr\s+(comment|review|merge|edit|close|ready)|issue\s+(comment|edit|close|create))|gh\s+api\b[^|;&]*(-X|--method)\s*(POST|PATCH|PUT|DELETE)|git\s+push)\b/
 
@@ -39,12 +43,12 @@ const POSTING_BASH = /\b(gh\s+(pr\s+(comment|review|merge|edit|close|ready)|issu
  */
 export function grantDenial(agentType: string, tool: string, args: Record<string, unknown>): string | undefined {
   const agent = short(agentType)
-  if (agent === 'jira-postmortem' && tool === 'mcp__atlassian__createIssueLink') {
+  if (agent === 'jira-postmortem' && mcpName(tool) === 'createIssueLink') {
     return 'jira-postmortem may not create issue links: agile-11-merge-train links colliding tickets itself.'
   }
   if (agent !== 'review-lens' && agent !== 'pr-reviewer') return undefined
   if (EDITING.has(tool)) return `${agent} reviews and never edits files: report the finding instead.`
-  if (POSTING_MCP.has(tool) || (tool === 'Bash' && POSTING_BASH.test(str(args.command)))) {
+  if (POSTING_MCP.has(mcpName(tool)) || (tool === 'Bash' && POSTING_BASH.test(str(args.command)))) {
     const owner = agent === 'review-lens' ? 'self-reviewer publishes the verdict' : 'the jira-postmortem step posts to Jira'
     return `${agent} never posts to the PR, Jira or Confluence (${owner}): return it in the receipt.`
   }
@@ -56,7 +60,7 @@ export function grantDenial(agentType: string, tool: string, args: Record<string
 
 /** The PR a merge call targets, and the head it pins when the call pins one. */
 export function mergeTargetOf(tool: string, args: Record<string, unknown>): { pr: number; head?: string } | undefined {
-  if (tool === 'mcp__github__merge_pull_request' && typeof args.pullNumber === 'number') {
+  if (mcpName(tool) === 'merge_pull_request' && typeof args.pullNumber === 'number') {
     return { pr: args.pullNumber, head: str(args.expectedHeadSha) || undefined }
   }
   const command = tool === 'Bash' ? str(args.command) : ''
@@ -64,22 +68,39 @@ export function mergeTargetOf(tool: string, args: Record<string, unknown>): { pr
   return merge ? { pr: Number(merge[1]), head: command.match(/--match-head-commit[=\s]+([0-9a-f]{7,40})\b/)?.[1] } : undefined
 }
 
+/** What the merge guard read itself, at the moment of the merge call. */
+export type MergeFacts = {
+  /** `gh pr view`: the live head and state; undefined when gh failed. */
+  live?: { headRefOid: string; state: string }
+  /** Every workflow run on the live head (`gh run list --commit`); undefined when gh failed. */
+  ci?: ReturnType<typeof ciOf>
+  /** PR files no reviewer read in their landing form; undefined when the files could not be listed. */
+  unread?: string[]
+}
+
 /**
- * The 3f gates on a train merge: the head is pinned (GitHub then refuses a head that moved), the
- * pin is the reviewed sha when a pr-reviewer receipt named one, and CI on that sha is green on
- * two agreeing reads.
+ * The 3f gates on a train merge, checked against GitHub rather than the loop's account of it: the
+ * head is pinned and is the live head, every workflow run on it finished green, and every file of
+ * the PR was read by a reviewer (`git show <sha>:<path>`) at a sha where it already had its landing
+ * content. A gate that cannot read its source refuses: it fails closed.
  */
-export function mergeDenial(pr: number, head: string | undefined, reviewed: string | undefined, run: Run | undefined): string | undefined {
-  if (!head) return `pin the reviewed head: gh pr merge ${pr} --squash --match-head-commit <reviewed sha> (or expectedHeadSha), so GitHub refuses a head that moved after the review.`
-  if (reviewed && !sameSha(reviewed, head)) {
-    return `PR #${pr}: the pinned head ${head.slice(0, 12)} is not the reviewed sha ${reviewed.slice(0, 12)}: unreviewed code. Re-dispatch pr-reviewer on the delta (reviewed=${reviewed}) and re-enter 3e.`
+export function mergeDenial(pr: number, pin: string | undefined, facts: MergeFacts): string | undefined {
+  if (!pin) return `pin the reviewed head: gh pr merge ${pr} --squash --match-head-commit <reviewed sha> (or expectedHeadSha), so GitHub refuses a head that moved after the review.`
+  const { live, ci, unread } = facts
+  if (!live) return `PR #${pr}: the merge guard could not read the PR (gh pr view ${pr} failed), so it refuses rather than merge unchecked. Check gh auth and retry.`
+  if (live.state !== 'OPEN') return undefined
+  if (!sameSha(live.headRefOid, pin)) {
+    return `PR #${pr}: the pinned head ${pin.slice(0, 12)} is not the PR head ${live.headRefOid.slice(0, 12)}. Review the delta (git diff ${pin.slice(0, 12)}..${live.headRefOid.slice(0, 12)}), re-enter 3e on the new head, and pin it.`
   }
-  if (!run) return `PR #${pr}: no CI run seen on ${head.slice(0, 12)}. Read it by run id with gh run view <id> --json status,conclusion,headSha (3e) before merging.`
-  if (run.status !== 'completed' || run.conclusion !== 'success') {
-    const seen = `${run.status}${run.conclusion ? `/${run.conclusion}` : ''}`
-    return `PR #${pr}: the last read of CI run${run.id ? ` ${run.id}` : ''} on ${head.slice(0, 12)} was ${seen}, not completed/success. This guard only sees JSON from gh run view <id> that still names status, conclusion and headSha (a --jq filter that drops them, or gh pr checks, is not folded in): if the run has finished since, re-read it that way, twice, then merge.`
+  if (!ci) return `PR #${pr}: the merge guard could not read CI on ${pin.slice(0, 12)} (gh run list --commit failed), so it refuses. Retry once gh answers.`
+  if (ci.state === 'none') return `PR #${pr}: no CI run on ${pin.slice(0, 12)}. Wait for the run on this head (3e) before merging.`
+  if (ci.state === 'pending') return `PR #${pr}: CI on ${pin.slice(0, 12)} has not finished (${ci.detail}). Wait for it (3e), then merge.`
+  if (ci.state === 'red') return `PR #${pr}: CI on ${pin.slice(0, 12)} is red (${ci.detail}). Fix it (3c), re-enter 3e, then merge.`
+  if (!unread) return `PR #${pr}: the merge guard could not list the PR's files (gh api pulls/${pr}/files failed), so it cannot check the review covered them. Retry once gh answers.`
+  if (unread.length) {
+    const shown = unread.slice(0, 5).join(', ') + (unread.length > 5 ? ` and ${unread.length - 5} more` : '')
+    return `PR #${pr}: no review read ${unread.length} file(s) as they land at ${pin.slice(0, 12)}: ${shown}. A review reads each file in full with git show <sha>:<path> (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.`
   }
-  if (run.reads < 2) return `PR #${pr}: CI run${run.id ? ` ${run.id}` : ''} read green once. Re-read it (gh run view <id> --json status,conclusion,headSha): two agreeing reads, or the run is not finished.`
   return undefined
 }
 
@@ -98,7 +119,8 @@ export function pushDenial(command: string, branch: string | undefined): string 
     if (flags.some(f => f === '--force' || f === '--mirror' || /^-[a-zA-Z]*f/.test(f))) {
       return 'the loop never force-pushes without a lease: use --force-with-lease, and say so in the receipt.'
     }
-    const refs = words.filter(w => !w.startsWith('-')).slice(1)
+    const refs = words.filter(w => !w.startsWith('-')).map(w => w.replace(/^["']|["']$/g, '')).slice(1)
+    if (refs.some(r => /[$`]/.test(r))) return 'the loop names the branch it pushes: a computed push target ($VAR, $(...)) cannot be checked against main.'
     const targets = refs.map(r => r.replace(/^\+/, '').split(':').at(-1)!.replace(/^refs\/heads\//, '')).map(r => (r === 'HEAD' ? branch ?? r : r))
     const target = targets.find(t => BASE.test(t)) ?? (!refs.length && branch && BASE.test(branch) ? branch : undefined)
     if (target) return `the loop never pushes to ${target}: work lands through a PR and gh pr merge.`
@@ -115,7 +137,7 @@ export const keepRefusal = (list: Refusal[], refusal: Refusal): Refusal[] => [..
 
 /** Which guard wrote a refusal, read from its text. */
 export function ruleOf(text: string): Refusal['rule'] {
-  if (/never pushes to|never force-pushes/.test(text)) return 'push'
-  if (/--match-head-commit|expectedHeadSha|CI run|CI read|reviewed sha|unreviewed code|pinned head/.test(text)) return '3f'
+  if (/never pushes to|never force-pushes|names the branch it pushes/.test(text)) return 'push'
+  if (/--match-head-commit|expectedHeadSha|merge guard|CI |no review read|pinned head/.test(text)) return '3f'
   return 'grant'
 }

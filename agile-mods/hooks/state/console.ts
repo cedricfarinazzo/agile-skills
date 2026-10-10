@@ -2,7 +2,7 @@
 // the board (and a little context) and returns rows of styled text, so tests need no engine and
 // register.tsx only maps rows onto elements.
 
-import { laneRows, leftOf, linksOf, parkedOf, passCost, stallsOf, type Board, type Cell, type Pass } from './board.ts'
+import { laneRows, leftOf, linksOf, movesOf, parkedOf, passCost, stallsOf, type Board, type Cell, type Pass, type Sync } from './board.ts'
 import type { Refusal } from './guards.ts'
 import type { Receipt } from './receipts.ts'
 
@@ -149,8 +149,15 @@ export function chartCells(chart: Chart): [string, number][][] {
     }))
 }
 
+/** When gh and Jira last answered the board's own queries, or why the last query failed. */
+export function sourcesRow(board: Board, now: number): Row {
+  const one = (name: string, s: Sync | undefined): [string, string][] =>
+    !s ? [[`${name} not read yet`, 'd']] : s.error ? [[`${name} ✖ ${s.error.slice(0, 60)}`, 'r']] : [[`${name} ${fmtAgo(now - (s.at ?? now))}`, 'd']]
+  return line(['synced  ', 'd'], ...one('gh', board.gh), ['  ·  ', 'd'], ...one('jira', board.jira))
+}
+
 function boardRows(board: Board, ctx: Ctx, w: number): Row[] {
-  const rows: Row[] = [headerRow(board, ctx, w), blank]
+  const rows: Row[] = [headerRow(board, ctx, w), sourcesRow(board, ctx.now), blank]
   const { left, total, unit } = leftOf(board)
   if (total) {
     const done = total - left
@@ -202,16 +209,16 @@ const MAX_BUILD_ROWS = 12
 function flowRows(board: Board): Row[] {
   const rows: Row[] = []
   const open = board.order.filter(k => {
-    const pr = board.tickets[k]?.pr
-    return !(pr && board.prs[pr]?.merged)
+    const t = board.tickets[k]!
+    return t.category !== 'done' && !(t.pr && board.prs[t.pr]?.merged)
   })
-  rows.push(line(['BUILD', 'c b'], ['  tickets without a merged PR', 'd']))
+  rows.push(line(['BUILD', 'c b'], ['  open tickets, phase from Jira', 'd']))
   if (!open.length) rows.push(line(['none yet', 'd']))
   for (const key of open.slice(-MAX_BUILD_ROWS)) {
     const t = board.tickets[key]!
     const at = phaseIndex(t.phase)
     const dots = PHASES.map((_, i) => (t.parked ? seg('○', 'd') : i < at ? seg('●', 'g') : i === at ? seg('◐', 'y b') : seg('○', 'd')))
-    const label = t.parked ? (t.parked === 'needs-info' ? 'needs info' : 'parked') : (t.phase ?? '—')
+    const label = t.parked ? 'needs info' : (t.phase ?? t.status ?? '—')
     rows.push({ kind: 'line', segs: [seg(key.padEnd(10), t.parked ? 'y' : 'b'), ...dots, seg(`  ${label.padEnd(11)}`, t.parked ? 'y' : 'd'), seg(t.pr ? `PR #${t.pr}` : '', 'd')] })
   }
   if (open.length > MAX_BUILD_ROWS) rows.push(line([`… ${open.length - MAX_BUILD_ROWS} earlier`, 'd']))
@@ -222,7 +229,7 @@ function flowRows(board: Board): Row[] {
   else rows.push(line([`${'PR'.padEnd(6)}${'ticket'.padEnd(8)}3a 3b 3c 3e 3f 4   ci`, 'd']))
   for (const l of lanes) {
     const cells = l.cells.map(c => seg(`${CELL[c][0]}  `, CELL[c][1]))
-    rows.push({ kind: 'line', segs: [seg(`#${l.pr}`.padEnd(6), 'b'), seg(l.key.padEnd(8)), ...cells, seg(` ${l.ci || 'no run'}${l.reviewed ? `  ${l.reviewed}` : ''}`, 'd')] })
+    rows.push({ kind: 'line', segs: [seg(`#${l.pr}`.padEnd(6), 'b'), seg(l.key.padEnd(8)), ...cells, seg(` ${l.ci || 'no run'}`, 'd')] })
   }
   return rows
 }
@@ -262,9 +269,10 @@ function drainRows(board: Board, ctx: Ctx, w: number): Row[] {
         seg(cost === undefined ? '' : `  ${usd(cost)}`, 'd'),
       ],
     })
-    rows.push(line('     ', [p.built || p.merged ? `build ${p.built} → merge ${p.merged}${running ? ' so far' : ''}` : running ? 'running' : 'nothing moved', 'd']))
+    const m = movesOf(board, p, ctx.now)
+    rows.push(line('     ', [m.built || m.merged ? `build ${m.built} → merge ${m.merged}${running ? ' so far' : ''}` : running ? 'running' : 'nothing moved', 'd']))
   })
-  const merged = board.drain?.outcome === 'DRAINED' || passes.some(p => p.merged) ? passes.reduce((n, p) => n + p.merged, 0) : mergedPrs(board)
+  const merged = passes.reduce((n, p) => n + movesOf(board, p, ctx.now).merged, 0)
   rows.push(blank)
   rows.push(spread(text(['total ', 'd'], [`${passes.length} pass${passes.length === 1 ? '' : 'es'} · ${fmtDur(total)}`, 'b']), known ? text([usd(spent), 'b']) : [], w))
   if (known && merged > 0) rows.push(spread(text(['per merged PR', 'd']), text([usd(spent / merged), 'b']), w))
@@ -299,7 +307,7 @@ function guardRows(ctx: Ctx, w: number): Row[] {
 
 function linkRows(board: Board): Row[] {
   const links = linksOf(board)
-  if (!links.length) return [line(['no links yet · they appear as the loop reads', 'd'])]
+  if (!links.length) return [line(['no links yet · they come from gh and Jira', 'd'])]
   return links.map(l => ({ kind: 'link', label: l.label, href: l.href }))
 }
 

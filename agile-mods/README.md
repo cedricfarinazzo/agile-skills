@@ -19,19 +19,34 @@ Every hook calls `next`. The console, receipts and retro only observe. The guard
 
 One option, set in `/plugin configure agile-mods@agile-skills`: `autoOpen` (default on) opens the console, unfocused, when an `agile-sprint-drain` starts, in a terminal of 144 columns or more.
 
+The board needs `gh` logged in for the repo. For its Jira side, the repo's `## Skill configuration` names `cloudId` (as `agile-10-implement` already requires) and the session allows the read-only `mcp__<server>__searchJiraIssuesUsingJql` in `/permissions`; without either, the board shows gh data and says what is missing.
+
 ## What the mods read, run and send
 
-**Nothing leaves your machine.** The mods make no network call: no Jira, GitHub or other HTTP request, and no telemetry. What they collect stays in the plugin's local store (`$.store`) and is drawn in the terminal.
+The board and the guards take their data from GitHub, git and Jira, read by the mod itself, never from what the model says it did. Nothing goes to any other host, and there is no telemetry. State stays in the plugin's local store (`$.store`), one entry per repo.
 
-**Read.**
-- The loop's own tool calls and their results (`tool.call`): Jira comments and searches, `gh pr` and `gh run` output, agent dispatches and receipts. The board shows what this session saw; a ticket the loop has not touched, or a status changed by hand in Jira, does not appear.
-- The model's answers (`turn.step`, `turn.complete`): the drain's closing banner, the final report of a merge train, and a review answered inline inside a `merge-session` agent. They update the board and the guards' state.
-- Two files at session start: `AGENTS.md` and `CLAUDE.md` in the session's working directory, for the `story-points-field` key `agile-10-implement` pins there.
-- `$.session.usage()`, for the cost of each drain pass.
+**Programs run** (each written out argument by argument in `hooks/register.tsx`; the only computed arguments are a PR number and a commit sha, each checked against its pattern first, and the directory a push names):
 
-**Run.** One program: `git -C <dir> rev-parse --abbrev-ref HEAD`, with a 5-second timeout. The push guard runs it before a `git push` that names no branch, to learn which branch the push would send, and refuses the push when it is `main`. `<dir>` is the directory the push command names (`git -C <dir>` or a leading `cd <dir> &&`), else the session's working directory. Its output is the branch name, used only for that check.
+| Command | Why | When |
+|---|---|---|
+| `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard: the branch a `git push` that names none would send | Before such a push, inside a loop |
+| `gh pr list --state all --limit 100 --json …` | Board: PRs, their heads, merged or not | Every 15 s while a loop runs or the pane is open, 3 s after a GitHub write, when `/agile-board` opens |
+| `gh run list --limit 100 --json …` | Board: CI per sha | Same |
+| `gh pr view <n> --json headRefOid,state` | 3f gate: the PR's live head | At a merge call |
+| `gh run list --commit <sha> --json …` | 3f gate: every CI run on that head | At a merge call |
+| `gh api repos/{owner}/{repo}/pulls/<n>/files` | 3f gate: the files a review must have read | At a merge call |
+| `gh api repos/{owner}/{repo}/compare/<sha>...<head>` | 3f gate: which files changed since an earlier review | At a merge call, for each earlier reviewed sha |
 
-**Send.** Nothing to any host. Two things go back into the session itself: a guard's refusal, which the model reads as the tool's error, and the retro counts, added as context to the `agile-15-retro` Skill call. Both travel to the model with the rest of the conversation, as any tool result does.
+`gh` talks to GitHub with the user's own `gh` login; the mod reads its output and keeps it local.
+
+**MCP call:** `searchJiraIssuesUsingJql` on the session's connected Atlassian server (`$.mcp.call`), read-only: the sprint's tickets (`summary`, `status`, `labels`, the story-points field) and, a few tickets at a time, their comments for the `agile:phase` markers. It sends Atlassian a JQL query naming the repo's Jira projects and ticket keys, and the `cloudId`. It runs only when that tool is already allowed in the session's permissions (checked first with `$.tool.check`, which opens no dialog), every 60 s while a loop runs or the pane is open.
+
+**Read:**
+- The loop's tool calls (`tool.call`): which orchestrator or train step was dispatched, which agent type made a call, the `git show <sha>:<path>` commands a reviewer ran, a merge or push command about to run, the ticket keys and `cloudId` a Jira call names. Agent receipts are read only for the `/receipts` contract check.
+- Two files at session start: `AGENTS.md` and `CLAUDE.md` in the working directory, for `story-points-field` and `cloudId`.
+- `$.session.usage()`, for the cost of each drain pass. `turn.complete` on the main loop, to judge a drain STUCK when the session goes idle; the answer text is not read.
+
+**Send:** nothing to any host but GitHub through `gh` and Atlassian through the session's MCP server, as above. Two things go back into the session: a guard's refusal, which the model reads as the tool's error, and the retro counts, added as context to the `agile-15-retro` Skill call.
 
 ## Layout
 
@@ -41,7 +56,7 @@ hooks/register.tsx        # every hook; binds $ into a Host for the modules belo
 hooks/host.ts             # the Host type
 hooks/guards.ts           # guards: grant backstop, 3f merge gates, push guard
 hooks/receipts.ts         # /receipts
-hooks/state/*.ts          # pure logic: board, console views, guards, receipts, retro
+hooks/state/*.ts          # pure logic: board, console views, guards, review coverage, receipts, retro
 docs/*.md                 # one page per mod
 tests/*.test.ts           # bun test over hooks/state, and over the hook modules through tests/fake-host.ts 
 ```

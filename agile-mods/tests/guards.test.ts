@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { reviewedOf } from '../hooks/state/board.ts'
+import { readsOf, unreadFiles, withReads } from '../hooks/state/review.ts'
 import { grantDenial, mergeDenial, mergeTargetOf, pushDenial } from '../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
@@ -26,30 +26,49 @@ describe('grant backstop', () => {
   })
 })
 
-describe('reviewed-sha gate', () => {
-  test('reads the reviewed sha, the new one of a delta review', () => {
-    expect(reviewedOf({ description: 'review PR #12' }, `## PR #12 Review — x\n\nReviewed sha: ${SHA}\n`)).toEqual({ pr: 12, sha: SHA })
-    expect(reviewedOf({ prompt: 'PR 12' }, `Reviewed sha: ${OTHER}   (delta-review only: reviewed \`${SHA.slice(0, 7)}..${OTHER}\`)`)).toEqual({ pr: 12, sha: OTHER })
-    expect(reviewedOf({ prompt: 'PR 12' }, 'no sha here')).toBeUndefined()
+describe('review coverage', () => {
+  test('counts whole git show and cat-file reads, not partial or computed ones', () => {
+    expect(readsOf(`git show ${SHA}:src/a.ts && git -C /w show ${SHA}:./b.ts | cat -n`)).toEqual([{ sha: SHA, path: 'src/a.ts' }, { sha: SHA, path: 'b.ts' }])
+    expect(readsOf(`git cat-file -p ${SHA}:c.ts`)).toEqual([{ sha: SHA, path: 'c.ts' }])
+    expect(readsOf(`git show ${SHA}:a.ts | head -40`)).toEqual([])
+    expect(readsOf(`git show $SHA:a.ts; git show ${SHA}:$f`)).toEqual([])
+    expect(readsOf(`cat src/a.ts`)).toEqual([])
   })
 
-  test('targets gh and MCP merges', () => {
+  test('a file is read when shown at the head, or at an ancestor with no change since', () => {
+    const reads = withReads(withReads({}, `git show ${SHA}:a.ts ${SHA}:b.ts`), `git show ${OTHER.slice(0, 7)}:b.ts`)
+    expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: ['b.ts'] })).toEqual([])
+    expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: ['a.ts', 'b.ts'] })).toEqual(['a.ts'])
+    expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: undefined })).toEqual(['a.ts'])
+  })
+
+  test('the same read twice keeps one entry', () => {
+    const once = withReads({}, `git show ${SHA}:a.ts`)
+    expect(withReads(once, `git show ${SHA}:a.ts`)).toBe(once)
+  })
+})
+
+describe('3f merge gates', () => {
+  test('targets gh and MCP merges, on any server name', () => {
     expect(mergeTargetOf('Bash', { command: 'gh pr merge 12 --squash' })).toEqual({ pr: 12 })
     expect(mergeTargetOf('Bash', { command: `gh pr merge 12 --squash --match-head-commit ${SHA}` })).toEqual({ pr: 12, head: SHA })
     expect(mergeTargetOf('mcp__github__merge_pull_request', { pullNumber: 12, expectedHeadSha: SHA })).toEqual({ pr: 12, head: SHA })
+    expect(mergeTargetOf('mcp__gh2__merge_pull_request', { pullNumber: 12 })).toEqual({ pr: 12 })
     expect(mergeTargetOf('Bash', { command: 'gh pr view 12' })).toBeUndefined()
   })
 
-  test('a train merge needs a pinned head, the reviewed sha when known, and CI green twice', () => {
-    const green = { id: 7, status: 'completed', conclusion: 'success', reads: 2 }
-    expect(mergeDenial(12, undefined, SHA, green)).toContain('--match-head-commit')
-    expect(mergeDenial(12, OTHER, SHA, green)).toContain('unreviewed code')
-    expect(mergeDenial(12, SHA, undefined, undefined)).toContain('no CI run')
-    expect(mergeDenial(12, SHA, SHA, { ...green, conclusion: 'failure' })).toContain('not completed/success')
-    expect(mergeDenial(12, SHA, SHA, { ...green, status: 'in_progress', conclusion: undefined })).toContain('in_progress')
-    expect(mergeDenial(12, SHA, SHA, { ...green, reads: 1 })).toContain('read green once')
-    expect(mergeDenial(12, SHA.slice(0, 12), SHA, green)).toBeUndefined()
-    expect(mergeDenial(12, SHA, undefined, green)).toBeUndefined()
+  test('a merge needs a pin on the live head, green CI on it, and every file read', () => {
+    const live = { headRefOid: SHA, state: 'OPEN' }
+    const ci = { state: 'green' as const }
+    expect(mergeDenial(12, undefined, {})).toContain('--match-head-commit')
+    expect(mergeDenial(12, SHA, {})).toContain('could not read the PR')
+    expect(mergeDenial(12, OTHER, { live })).toContain('is not the PR head')
+    expect(mergeDenial(12, SHA, { live, ci: { state: 'none' } })).toContain('no CI run')
+    expect(mergeDenial(12, SHA, { live, ci: { state: 'red', detail: 'ci failure' } })).toContain('red (ci failure)')
+    expect(mergeDenial(12, SHA, { live, ci })).toContain("could not list the PR's files")
+    expect(mergeDenial(12, SHA, { live, ci, unread: ['a', 'b', 'c', 'd', 'e', 'f'] })).toContain('a, b, c, d, e and 1 more')
+    expect(mergeDenial(12, SHA.slice(0, 12), { live, ci, unread: [] })).toBeUndefined()
+    expect(mergeDenial(12, SHA, { live: { headRefOid: OTHER, state: 'MERGED' } })).toBeUndefined()
   })
 })
 

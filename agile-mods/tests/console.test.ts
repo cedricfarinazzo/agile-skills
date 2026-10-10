@@ -16,16 +16,17 @@ function sample(over: Partial<Board> = {}): Board {
     stage: 'merge',
     drain: { pass: 2, outcome: 'running' },
     order: ['VC-3', 'VC-7', 'VC-9'],
-    tickets: { 'VC-3': { key: 'VC-3', phase: 'pr', pr: 40 }, 'VC-7': { key: 'VC-7', phase: 'review', pr: 42 }, 'VC-9': { key: 'VC-9', phase: 'plan', parked: 'needs-info' } },
+    tickets: { 'VC-3': { key: 'VC-3', phase: 'pr', pr: 40, points: 3 }, 'VC-7': { key: 'VC-7', phase: 'review', pr: 42, points: 5 }, 'VC-9': { key: 'VC-9', phase: 'plan', parked: 'needs-info', points: 2 } },
     prOrder: [40, 42],
     prs: {
-      40: { number: 40, key: 'VC-3', merged: true, step: '4 postmortem' },
-      42: { number: 42, key: 'VC-7', step: '3b review', seen: { '3a update': 1, '3b review': 3 }, head: SHA, reviewed: SHA },
+      40: { number: 40, key: 'VC-3', state: 'MERGED', merged: true, step: '4 postmortem', createdAt: 60_000, mergedAt: 200_000 },
+      42: { number: 42, key: 'VC-7', state: 'OPEN', step: '3b review', seen: { '3a update': 1, '3b review': 3 }, head: SHA, createdAt: 100_000 },
     },
-    points: { 'VC-3': 3, 'VC-7': 5, 'VC-9': 2 },
     burn: [{ at: 0, left: 10, total: 10 }, { at: 120_000, left: 7, total: 10 }, { at: 300_000, left: 2, total: 10 }],
     burnUnit: 'points',
-    passes: [{ start: 0, merge: 120_000, end: 300_000, built: 2, merged: 1, cost0: 0, cost1: 1.5 }, { start: 300_000, built: 1, merged: 0, cost0: 1.5 }],
+    passes: [{ start: 0, merge: 120_000, end: 300_000, cost0: 0, cost1: 1.5 }, { start: 300_000, cost0: 1.5 }],
+    gh: { at: 590_000 },
+    jira: { at: 540_000 },
     ...over,
   }
 }
@@ -74,13 +75,20 @@ describe('console rows', () => {
     expect(out).toContain('per merged PR')
   })
 
+  test('the sources row says when gh and Jira last answered, or why they failed', () => {
+    expect(plain(consoleRows('board', sample(), ctx(), 48))).toContain('synced  gh 10s ago  ·  jira 1m ago')
+    const failed = plain(consoleRows('board', sample({ jira: { at: 1, error: 'no Atlassian MCP server connected' } }), ctx(), 48))
+    expect(failed).toContain('jira ✖ no Atlassian MCP server connected')
+    expect(plain(consoleRows('board', EMPTY, ctx(), 48))).toContain('gh not read yet')
+  })
+
   test('a clock behind the pass start draws a zero-length bar, not an error', () => {
     expect(() => consoleRows('drain', sample(), ctx({ now: 0 }), 48)).not.toThrow()
     expect(() => consoleRows('board', sample(), ctx({ now: 0 }), 4)).not.toThrow()
   })
 
   test('drain tab without costs shows no money', () => {
-    const b = sample({ passes: [{ start: 0, end: 60_000, built: 1, merged: 1 }] })
+    const b = sample({ passes: [{ start: 0, end: 60_000 }] })
     expect(plain(consoleRows('drain', b, ctx({ usd: undefined }), 48))).not.toContain('$')
     expect(plain(consoleRows('drain', EMPTY, ctx(), 48))).toContain('no drain passes')
   })

@@ -1,291 +1,186 @@
 import { describe, expect, test } from 'bun:test'
-import { EMPTY, buildLines, burnLine, drainLine, laneRows, loadBoard, mergeLines, observeAnswer, observeReview, observeStart, observeTool, parkedOf, passRows, pointsFieldOf, runOf, sampled, stallsOf, type Board } from '../hooks/state/board.ts'
-
-const comment = (key: string, phase: string) => ({ issueIdOrKey: key, commentBody: `🤖 <!-- agile:phase=${phase} --> **Plan**` })
-const skill = (b: Board, name: string, args = '') => observeStart(b, 'Skill', { skill: name, args })
-const bash = (b: Board, command: string, text: string) => observeTool(observeStart(b, 'Bash', { command }), 'Bash', { command }, text)
-const LIST = 'gh pr list --state open --json number,title,headRefName,mergeable --limit 50'
-
-describe('build queue', () => {
-  test('a Jira marker comment sets the ticket phase, the latest wins', () => {
-    let b = observeTool(EMPTY, 'mcp__atlassian__addCommentToJiraIssue', comment('VC-1', 'plan'), 'ok')
-    b = observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment('VC-1', 'implement'), 'ok')
-    expect(b.order).toEqual(['VC-1'])
-    expect(b.tickets['VC-1']?.phase).toBe('implement')
-  })
-
-  test('a failed comment call changes nothing', () => {
-    expect(observeTool(EMPTY, 'mcp__atlassian__addCommentToJiraIssue', comment('VC-1', 'plan'), undefined)).toBe(EMPTY)
-  })
-
-  test('a PR created by gh or MCP lands on its ticket and in the merge queue', () => {
-    let b = bash(EMPTY, 'gh pr create --title "VC-7: login" --head vc-7', 'https://github.com/o/r/pull/42\n')
-    b = observeTool(b, 'mcp__github__create_pull_request', { head: 'feat/VC-9-x', title: 'x' }, '{"html_url":"https://github.com/o/r/pull/5"}')
-    expect(b.tickets['VC-7']?.pr).toBe(42)
-    expect(b.prs[5]).toEqual({ number: 5, key: 'VC-9' })
-  })
-
-  test('ticket lines keep the newest rows and drop merged tickets', () => {
-    let b = EMPTY
-    for (const k of ['AB-1', 'AB-2', 'AB-3']) b = observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment(k, 'pr'), 'ok')
-    expect(buildLines(b, 2).map(l => l.split(' ')[0])).toEqual(['AB-2', 'AB-3'])
-    expect(buildLines(b, 0)).toEqual([])
-    expect(mergeLines(b, 0)).toEqual([])
-    b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-3', title: '' }, '/pull/9')
-    b = observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 9 }, 'merged')
-    expect(buildLines(b, 5).map(l => l.split(' ')[0])).toEqual(['AB-1', 'AB-2'])
-  })
-})
-
-describe('merge queue', () => {
-  test('the train listing fills the queue with keys from branch or title', () => {
-    const b = bash(EMPTY, LIST, JSON.stringify([
-      { number: 11, title: 'Login form', headRefName: 'feat/VC-3-login' },
-      { number: 12, title: 'VC-4 fix header', headRefName: 'fix-header' },
-      { number: 13, title: 'chore', headRefName: 'chore' },
-    ]))
-    expect(mergeLines(b, 5)).toEqual(['#11     VC-3       queued', '#12     VC-4       queued', '#13                queued'])
-  })
-
-  test('step dispatches label the PR, by agent or by inline sub-skill', () => {
-    let b = bash(EMPTY, LIST, '[{"number":11,"title":"","headRefName":"VC-3"}]')
-    b = observeStart(b, 'Agent', { subagent_type: 'agile-merge-review:pr-updater', description: 'update PR #11', prompt: '' })
-    expect(b.prs[11]?.step).toBe('3a update')
-    b = skill(b, 'agile-merge-review:merge-review-pr', 'PR 11')
-    expect(b.prs[11]?.step).toBe('3b review')
-    b = observeStart(b, 'Agent', { subagent_type: 'agile-merge-review:fix-until-satisfied', description: 'fix', prompt: 'https://github.com/o/r/pull/11' })
-    expect(b.prs[11]?.step).toBe('3c fix')
-  })
-
-  test('gh pr merge alone is not a merge: only a view with mergedAt is', () => {
-    let b = bash(EMPTY, LIST, '[{"number":11,"title":"","headRefName":"VC-3"}]')
-    b = bash(b, 'gh pr merge 11 --squash', '')
-    expect(b.prs[11]).toEqual({ number: 11, key: 'VC-3', step: '3f merge' })
-    b = bash(b, 'gh pr view 11 --json state,mergedAt', '{"state":"OPEN","mergedAt":null}')
-    expect(b.prs[11]?.merged).toBeUndefined()
-    b = bash(b, 'gh pr view 11 --json state,mergedAt', '{"state":"MERGED","mergedAt":"2026-09-14T10:00:00Z"}')
-    expect(mergeLines(b, 5)).toEqual(['#11     VC-3       merged'])
-  })
-
-  test('a merged listing closes known PRs and adds no history', () => {
-    let b = bash(EMPTY, LIST, '[{"number":11,"title":"","headRefName":"VC-3"}]')
-    b = bash(b, 'gh pr list --state merged --limit 50 --json number,headRefName', '[{"number":11},{"number":2}]')
-    expect(b.prOrder).toEqual([11])
-    expect(b.prs[11]?.merged).toBe(true)
-  })
-
-  test('open PRs sort before merged ones', () => {
-    let b = bash(EMPTY, LIST, '[{"number":1},{"number":2}]')
-    b = observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 1 }, 'ok')
-    expect(mergeLines(b, 5).map(l => l.split(' ')[0])).toEqual(['#2', '#1'])
-  })
-})
-
-describe('drain', () => {
-  test('counts a pass per implement run, shows the stage, ends on its banner', () => {
-    let b = skill(EMPTY, 'agile-sprint-drain:agile-sprint-drain')
-    b = skill(b, 'agile-execution:agile-10-implement')
-    expect(drainLine(b)).toBe('drain · pass 1 · build · running')
-    b = skill(b, 'agile-merge-review:agile-11-merge-train')
-    expect(drainLine(b)).toBe('drain · pass 1 · merge · running')
-    b = skill(b, 'agile-execution:agile-10-implement')
-    expect(b.loop).toBe('drain')
-    expect(drainLine(b)).toBe('drain · pass 2 · build · running')
-    b = observeAnswer(b, '══ STUCK ══  2 remaining')
-    expect(drainLine(b)).toBe('drain · pass 2 · STUCK')
-  })
-
-  test('outside a drain the orchestrators set their own loop and no banner applies', () => {
-    const b = skill(EMPTY, 'agile-merge-review:agile-11-merge-train')
-    expect([b.loop, b.stage]).toEqual(['merge-train', 'merge'])
-    expect(observeAnswer(b, '══ DRAINED ══')).toBe(b)
-  })
-
-  test('a board stored before the merge queue existed still loads', () => {
-    expect(loadBoard({ tickets: {}, order: [] })).toEqual(EMPTY)
-    expect(loadBoard(null)).toBeUndefined()
-  })
-})
+import { EMPTY, actionableOf, applyJira, markerTargets, nextPageOf, applyPrs, applyRuns, ciOf, cloudIdOf, jqlOf, judged, keysOf, laneRows, leftOf, loadBoard, movesOf, observeStart, parkedOf, pointsFieldOf, projectsOf, runsOf, sampled, stallsOf, stampCosts, withKeys, type Board } from '../hooks/state/board.ts'
 
 const SHA = 'c'.repeat(40)
+const T0 = Date.parse('2026-10-01T10:00:00Z')
+const at = (min: number) => new Date(T0 + min * 60_000).toISOString()
+const skill = (b: Board, name: string, now = T0, args = '') => observeStart(b, 'Skill', { skill: name, args }, now)
+const FIELD = 'customfield_10016'
+const issue = (key: string, over: { status?: string; category?: string; labels?: string[]; points?: number; phases?: string[] } = {}) => ({
+  key,
+  webUrl: `https://acme.atlassian.net/browse/${key}`,
+  fields: {
+    summary: `${key} work`,
+    status: { name: over.status ?? 'To Do', statusCategory: { key: over.category ?? 'new' } },
+    labels: over.labels ?? [],
+    ...(over.points !== undefined && { [FIELD]: over.points }),
+    comment: { comments: (over.phases ?? []).map(p => ({ body: `🤖 <!-- agile:phase=${p} --> x` })) },
+  },
+})
 
-describe('reviewed sha and CI', () => {
-  test('a pr-reviewer receipt and an inline review answer record the reviewed sha', () => {
-    let b = observeTool(EMPTY, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer', description: 'review PR #4' }, `Reviewed sha: ${SHA}`)
-    expect(b.prs[4]?.reviewed).toBe(SHA)
-    b = observeReview(EMPTY, 5, `## PR #5 Review\n\nReviewed sha: ${SHA}`)
-    expect(b.prs[5]?.reviewed).toBe(SHA)
+describe('dispatch facts', () => {
+  test('orchestrator skills set the loop, stage and drain passes', () => {
+    let b = skill(EMPTY, 'agile-sprint-drain:agile-sprint-drain')
+    expect(b.drain).toEqual({ pass: 0, outcome: 'running' })
+    b = skill(b, 'agile-execution:agile-10-implement', T0 + 1)
+    b = skill(b, 'agile-merge-review:agile-11-merge-train', T0 + 2)
+    b = skill(b, 'agile-execution:agile-10-implement', T0 + 3)
+    expect(b.drain?.pass).toBe(2)
+    expect(b.passes).toEqual([{ start: T0 + 1, merge: T0 + 2, end: T0 + 3 }, { start: T0 + 3 }])
+    expect(b.since).toBe(T0)
   })
 
-  test('a response without the reviewed sha leaves the board as it was', () => {
-    expect(observeReview(EMPTY, 5, 'Reading the diff of PR #5 now.')).toBe(EMPTY)
+  test('a train step dispatched three times for one PR is a stall', () => {
+    let b = EMPTY
+    for (let i = 0; i < 3; i++) b = observeStart(b, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer', description: 'review PR #42' })
+    expect(b.prs[42]?.step).toBe('3b review')
+    expect(stallsOf(b)).toEqual(['PR #42 3b review ×3'])
   })
 
-  test('gh run view with headSha records the run; two agreeing reads count', () => {
-    const view = `gh run view 7 --json status,conclusion,headSha`
-    let b = bash(EMPTY, view, JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA }))
-    expect(runOf(b, SHA)).toEqual({ status: 'completed', conclusion: 'success', reads: 1 })
-    b = bash(b, view, JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA }))
-    expect(runOf(b, SHA.slice(0, 7))?.reads).toBe(2)
-    b = bash(b, 'gh run view 7 --json status,conclusion', '{"status":"completed","conclusion":"success"}')
-    expect(runOf(b, SHA)?.reads).toBe(2)
+  test('a merge command marks the step, by gh or any MCP server name', () => {
+    expect(observeStart(EMPTY, 'Bash', { command: 'gh pr merge 9 --squash' }).prs[9]?.step).toBe('3f merge')
+    expect(observeStart(EMPTY, 'mcp__gh__merge_pull_request', { pullNumber: 9 }).prs[9]?.step).toBe('3f merge')
   })
 
-  test('the background wait output (gh run view --jq with headSha and failed jobs) counts as a read', () => {
-    const wait = 'gh run watch 7 --exit-status --interval 30 >/dev/null 2>&1; gh run view 7 --json status,conclusion,headSha,jobs --jq "$V"'
-    const out = JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA, failed: [] })
-    let b = bash(EMPTY, wait, out)
-    expect(runOf(b, SHA)).toEqual({ status: 'completed', conclusion: 'success', reads: 1 })
-    b = bash(b, 'gh run view 7 --json status,conclusion,headSha', JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA }))
-    expect(runOf(b, SHA)?.reads).toBe(2)
+  test('Jira calls name the ticket keys the next sync reads', () => {
+    expect(keysOf('mcp__atlassian__getJiraIssue', { issueIdOrKey: 'VC-4' })).toEqual(['VC-4'])
+    expect(keysOf('mcp__x__searchJiraIssuesUsingJql', { jql: 'project = VC' })).toEqual([])
+    expect(withKeys(EMPTY, ['VC-4']).order).toEqual(['VC-4'])
   })
 })
 
-describe('parked and stalls', () => {
-  test('a validator verdict parks the ticket', () => {
-    let b = observeTool(EMPTY, 'Agent', { subagent_type: 'agile-execution:ticket-validator', prompt: 'validate VC-2' }, 'verdict: rejected')
-    b = observeTool(b, 'Agent', { subagent_type: 'agile-execution:ticket-validator', prompt: 'validate VC-3' }, 'verdict: critical-park')
-    expect(parkedOf(b)).toEqual(['VC-2 Needs Info', 'VC-3 awaiting decision'])
-    expect(buildLines(b, 5)[0]).toContain('needs info')
+describe('gh sync', () => {
+  const rows = [
+    { number: 1, title: 'old', state: 'MERGED', createdAt: at(-600), mergedAt: at(-500), url: 'https://github.com/o/r/pull/1' },
+    { number: 5, title: 'VC-3: login', headRefName: 'feature/VC-3-login', headRefOid: SHA, state: 'OPEN', createdAt: at(5), url: 'https://github.com/o/r/pull/5' },
+    { number: 6, title: 'VC-4 x', state: 'MERGED', createdAt: at(10), mergedAt: at(20), url: 'https://github.com/o/r/pull/6' },
+  ]
+
+  test('open PRs and PRs since the loop started land on their tickets; older history does not', () => {
+    const b = applyPrs(skill(EMPTY, 'agile-10-implement'), rows, T0 + 1)
+    expect(b.prOrder).toEqual([5, 6])
+    expect(b.tickets['VC-3']?.pr).toBe(5)
+    expect(b.prs[6]).toMatchObject({ merged: true, step: 'merged', mergedAt: T0 + 20 * 60_000 })
+    expect(b.repo).toBe('https://github.com/o/r')
+    expect(b.gh).toEqual({ at: T0 + 1 })
   })
 
-  test('a step started three times for one PR is a stall', () => {
-    let b = EMPTY
-    for (let i = 0; i < 3; i++) b = skill(b, 'agile-merge-review:merge-review-pr', 'PR 9')
-    expect(stallsOf(b)).toEqual(['PR #9 3b review ×3'])
-    expect(mergeLines(b, 5)[0]).toContain('⟳3b×3')
-  })
-})
-
-describe('burndown, swimlanes, drain timeline', () => {
-  test('samples tickets left only on change, draws a sparkline', () => {
-    let b = EMPTY
-    for (const k of ['AB-1', 'AB-2']) b = sampled(observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment(k, 'pr'), 'ok'), 1)
-    b = sampled(b, 2)
-    expect(b.burn?.length).toBe(2)
-    b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-1', title: '' }, '/pull/3')
-    b = sampled(observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 3 }, 'ok'), 3)
-    expect(burnLine(b)).toMatch(/^burn \S{3}  1\/2 tickets left$/)
+  test('runs: the latest per workflow on each sha decides CI', () => {
+    const b = applyRuns(EMPTY, [
+      { databaseId: 1, headSha: SHA, status: 'completed', conclusion: 'failure', workflowName: 'ci', createdAt: at(1) },
+      { databaseId: 2, headSha: SHA, status: 'completed', conclusion: 'success', workflowName: 'ci', createdAt: at(2) },
+      { databaseId: 3, headSha: SHA, status: 'in_progress', workflowName: 'e2e', createdAt: at(2) },
+      { databaseId: 4, headSha: 'short', status: 'completed' },
+    ], 0)
+    expect(runsOf(b, SHA.slice(0, 8))?.map(r => r.id)).toEqual([2, 3])
+    expect(ciOf(runsOf(b, SHA))).toEqual({ state: 'pending', detail: 'e2e in_progress' })
+    expect(ciOf([{ workflow: 'ci', status: 'completed', conclusion: 'skipped' }])).toEqual({ state: 'green' })
+    expect(ciOf([{ workflow: 'ci', status: 'completed', conclusion: 'cancelled' }]).state).toBe('red')
+    expect(ciOf(undefined).state).toBe('none')
   })
 
-  test('points from the loop Jira reads switch the burndown to points once every ticket has them', () => {
-    let b = EMPTY
-    for (const k of ['AB-1', 'AB-2']) b = sampled(observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment(k, 'pr'), 'ok'), 1)
-    const search = JSON.stringify({ issues: [{ key: 'AB-1', fields: { customfield_10016: 5 } }, { key: 'AB-9', fields: { customfield_10016: 8 } }] })
-    b = sampled(observeTool(b, 'mcp__atlassian__searchJiraIssuesUsingJql', { jql: 'sprint in openSprints()' }, search), 2)
-    expect(b.points).toEqual({ 'AB-1': 5, 'AB-9': 8 })
-    expect(b.burnUnit).toBe('tickets')
-    b = sampled(observeTool(b, 'mcp__atlassian__getJiraIssue', {}, JSON.stringify({ key: 'AB-2', fields: { customfield_10016: 3 } })), 3)
-    expect(b.burnUnit).toBe('points')
-    expect(b.burn).toEqual([{ at: 3, left: 8, total: 8 }])
-    b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-1', title: '' }, '/pull/3')
-    b = sampled(observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 3 }, 'ok'), 4)
-    expect(burnLine(b)).toMatch(/ 3\/8 pts left$/)
-    expect(observeTool(EMPTY, 'mcp__atlassian__getJiraIssue', {}, JSON.stringify({ key: 'AB-2', fields: { customfield_10028: 3 } }), 'customfield_10028').points).toEqual({ 'AB-2': 3 })
-  })
-
-  test('reads the story-points-field config key', () => {
-    expect(pointsFieldOf('- **`story-points-field`**: `customfield_10028`')).toBe('customfield_10028')
-    expect(pointsFieldOf('story-points-field: customfield_10042')).toBe('customfield_10042')
-    expect(pointsFieldOf('no config here')).toBeUndefined()
-  })
-
-  test('a swimlane row marks reached steps and the CI state of the head', () => {
-    let b = skill(EMPTY, 'agile-merge-review:merge-update-pr', 'PR 4')
-    b = skill(b, 'agile-merge-review:merge-review-pr', 'PR 4')
-    b = bash(b, 'gh pr view 4 --json headRefOid', JSON.stringify({ headRefOid: SHA }))
-    b = bash(b, 'gh run list --branch x -L1 --json databaseId,status,conclusion,headSha', JSON.stringify([{ databaseId: 1, status: 'completed', conclusion: 'failure', headSha: SHA }]))
-    const [row] = laneRows(b)
-    expect(row?.cells).toEqual(['done', 'now', 'todo', 'fail', 'todo', 'todo'])
-    expect(row?.ci).toBe('CI ✖ failure')
-  })
-
-  test('each drain pass records build and merge time and what it moved', () => {
-    let b = observeStart(EMPTY, 'Skill', { skill: 'agile-sprint-drain' }, 0)
-    b = observeStart(b, 'Skill', { skill: 'agile-10-implement' }, 0)
-    b = observeTool(b, 'mcp__github__create_pull_request', { head: 'AB-1', title: '' }, '/pull/3')
-    b = observeStart(b, 'Skill', { skill: 'agile-11-merge-train' }, 60_000)
-    b = observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 3 }, 'ok')
-    b = observeStart(b, 'Skill', { skill: 'agile-10-implement' }, 120_000)
-    b = observeAnswer(b, '══ DRAINED ══', 180_000)
-    const rows = passRows(b, 180_000, 10)
-    expect(rows.map(r => [r.build, r.merge, r.text])).toEqual([[5, 5, 'build 1 → merge 1 · 2 min'], [5, 0, 'nothing moved · 1 min']])
+  test('PR lanes show the dispatched steps and CI on the head', () => {
+    let b = applyPrs(EMPTY, rows.slice(1, 2), 0)
+    b = observeStart(b, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer', description: 'PR #5' })
+    b = applyRuns(b, [{ databaseId: 9, headSha: SHA, status: 'completed', conclusion: 'failure', workflowName: 'ci' }], 0)
+    expect(laneRows(b)).toEqual([{ pr: 5, key: 'VC-3', cells: ['todo', 'now', 'todo', 'fail', 'todo', 'todo'], ci: 'CI ✖ ci failure' }])
   })
 })
 
-describe('board edge cases', () => {
-  test('a bare sha from gh pr view -q .headRefOid sets the head', () => {
-    const b = bash(EMPTY, 'gh pr view 4 --json headRefOid -q .headRefOid', `${SHA}\n`)
-    expect(b.prs[4]?.head).toBe(SHA)
-    expect(bash(EMPTY, 'gh pr view 4 --json title', `${SHA}\n`).prs[4]).toBeUndefined()
+describe('Jira sync', () => {
+  test('status, points, phase markers, reworks and the needs-info park', () => {
+    const answer = { issues: { nodes: [
+      issue('VC-3', { status: 'In Progress', category: 'indeterminate', points: 3, phases: ['plan', 'rework', 'implement', 'rework'] }),
+      issue('VC-9', { labels: ['needs-info'], points: 2 }),
+    ] } }
+    const b = applyJira(EMPTY, answer, FIELD, 7)
+    expect(b.tickets['VC-3']).toMatchObject({ status: 'In Progress', category: 'indeterminate', phase: 'rework', reworks: 2, points: 3 })
+    expect(parkedOf(b)).toEqual(['VC-9 Needs Info'])
+    expect(b.site).toBe('https://acme.atlassian.net')
+    expect(b.jira).toEqual({ at: 7 })
   })
 
-  test('a run without headSha, or with a short one, is not recorded', () => {
-    expect(bash(EMPTY, 'gh run list --json databaseId,status', '[{"databaseId":1,"status":"completed"}]').runs).toBeUndefined()
-    expect(bash(EMPTY, 'gh run view 1 --json status,headSha', '{"status":"completed","headSha":"abc1234"}').runs).toBeUndefined()
+  test('a sprint search without comments keeps the markers; comment reads rotate over the working tickets', () => {
+    const noComment = (key: string, category: string) => ({ key, fields: { status: { name: 'S', statusCategory: { key: category } } } })
+    let b = applyJira(EMPTY, { issues: [issue('VC-3', { category: 'indeterminate', phases: ['plan'] })] }, FIELD, 5)
+    b = applyJira(b, { issues: [noComment('VC-3', 'indeterminate'), noComment('VC-4', 'new'), noComment('VC-5', 'done'), noComment('VC-6', 'indeterminate')] }, FIELD, 6)
+    expect(b.tickets['VC-3']).toMatchObject({ phase: 'plan', reworks: 0, markedAt: 5, status: 'S' })
+    b = withKeys(b, ['VC-4'])
+    expect(markerTargets(b, 4)).toEqual(['VC-4', 'VC-6', 'VC-3'])
+    expect(markerTargets(b, 1)).toEqual(['VC-4'])
   })
 
-  test('a changed read resets the agreeing-read count', () => {
-    const view = 'gh run view 7 --json status,conclusion,headSha'
-    let b = bash(EMPTY, view, JSON.stringify({ status: 'in_progress', headSha: SHA }))
-    b = bash(b, view, JSON.stringify({ status: 'completed', conclusion: 'success', headSha: SHA }))
-    expect(runOf(b, SHA)?.reads).toBe(1)
+  test('the next page token, in either answer shape', () => {
+    expect(nextPageOf({ issues: { nodes: [], pageInfo: { hasNextPage: true, endCursor: 'c1' } } })).toBe('c1')
+    expect(nextPageOf({ issues: { nodes: [], pageInfo: { hasNextPage: false, endCursor: 'c1' } } })).toBeUndefined()
+    expect(nextPageOf({ issues: [], nextPageToken: 't2' })).toBe('t2')
+    expect(nextPageOf({ issues: [], nextPageToken: 't2', isLast: true })).toBeUndefined()
   })
 
-  test('the run store keeps the newest 40 shas', () => {
-    let b = EMPTY
-    for (let i = 0; i < 45; i++) {
-      const sha = i.toString(16).padStart(40, '0')
-      b = bash(b, 'gh run view 1 --json status,headSha', JSON.stringify({ status: 'queued', headSha: sha }))
-    }
-    expect(Object.keys(b.runs ?? {}).length).toBe(40)
-    expect(runOf(b, '0'.repeat(40))).toBeUndefined()
+  test('a key that is not only a key never reaches the JQL', () => {
+    expect(keysOf('mcp__atlassian__getJiraIssue', { issueIdOrKey: 'VC-1) OR project = X' })).toEqual([])
   })
 
-  test('parked tickets leave the burndown, merged PRs leave the stalls', () => {
-    let b = EMPTY
-    for (const k of ['AB-1', 'AB-2']) b = observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment(k, 'plan'), 'ok')
-    b = observeTool(b, 'Agent', { subagent_type: 'agile-execution:ticket-validator', prompt: 'AB-2' }, 'rejected')
-    expect(sampled(b, 1).burn).toEqual([{ at: 1, left: 1, total: 2 }])
-    for (let i = 0; i < 3; i++) b = skill(b, 'agile-merge-review:merge-update-pr', 'PR 5')
-    expect(stallsOf(b)).toEqual(['PR #5 3a update ×3'])
-    b = observeTool(b, 'mcp__github__merge_pull_request', { pullNumber: 5 }, 'ok')
-    expect(stallsOf(b)).toEqual([])
+  test('the JQL covers the known projects open sprints and every known key', () => {
+    expect(jqlOf(EMPTY)).toBeUndefined()
+    const b = applyPrs(withKeys(EMPTY, ['VC-3']), [{ number: 2, title: 'OPS-1 fix', state: 'OPEN' }], 0)
+    expect(projectsOf(b)).toEqual(['VC', 'OPS'])
+    expect(jqlOf(b)).toBe('(project in (VC, OPS) AND sprint in openSprints()) OR key in (VC-3, OPS-1)')
   })
 
-  test('three rework markers make a ticket stall', () => {
-    let b = EMPTY
-    for (let i = 0; i < 3; i++) b = observeTool(b, 'mcp__atlassian__addCommentToJiraIssue', comment('AB-3', 'rework'), 'ok')
-    expect(stallsOf(b)).toEqual(['AB-3 rework ×3'])
+  test('config: the points field and cloudId from AGENTS.md text', () => {
+    const config = '## Skill configuration\n- **`cloudId`**: `1a2b3c4d-1111-2222-3333-444455556666`\n- story-points-field: `customfield_10028`'
+    expect(cloudIdOf(config)).toBe('1a2b3c4d-1111-2222-3333-444455556666')
+    expect(cloudIdOf('cloudId: https://acme.atlassian.net')).toBe('https://acme.atlassian.net')
+    expect(pointsFieldOf(config)).toBe('customfield_10028')
+  })
+})
+
+describe('burndown and drain outcome', () => {
+  const sprint = (left: string[], done: string[] = []) =>
+    applyJira(EMPTY, { issues: [...left.map(k => issue(k, { points: 2 })), ...done.map(k => issue(k, { points: 3, status: 'Done', category: 'done' }))] }, FIELD, T0)
+
+  test('work left counts Jira done and merged PRs as done, in points when every ticket has them', () => {
+    let b = sprint(['VC-1', 'VC-2'], ['VC-3'])
+    expect(leftOf(b)).toEqual({ left: 4, total: 7, unit: 'points' })
+    b = applyPrs(b, [{ number: 8, title: 'VC-1', state: 'MERGED', mergedAt: at(1) }], T0)
+    expect(leftOf(b).left).toBe(2)
+    b = sampled(sampled(b, 1), 2)
+    expect(b.burn).toEqual([{ at: 1, left: 2, total: 7 }])
   })
 
-  test('the burndown needs two samples, and a unit change restarts it', () => {
-    let b = sampled(observeTool(EMPTY, 'mcp__atlassian__addCommentToJiraIssue', comment('AB-1', 'plan'), 'ok'), 1)
-    expect(burnLine(b)).toBeUndefined()
-    b = sampled(observeTool(b, 'mcp__atlassian__getJiraIssue', {}, JSON.stringify({ key: 'AB-1', fields: { customfield_10016: 2 } })), 2)
-    expect(b.burn).toEqual([{ at: 2, left: 2, total: 2 }])
+  test('DRAINED once Jira answered and nothing is actionable; never from answer text', () => {
+    let b = skill(skill(sprint([], ['VC-3']), 'agile-sprint-drain'), 'agile-10-implement', T0)
+    b = judged(b, T0 + 5, false)
+    expect(b.drain?.outcome).toBe('DRAINED')
+    expect(b.passes?.at(-1)?.end).toBe(T0 + 5)
+    const open = applyPrs(skill(skill(sprint([], ['VC-3']), 'agile-sprint-drain'), 'agile-10-implement', T0), [{ number: 4, title: 'VC-3', state: 'OPEN' }], T0)
+    expect(actionableOf(open)).toBe(1)
+    expect(judged(open, T0 + 5, false).drain?.outcome).toBe('running')
   })
 
-  test('swimlanes: a merged PR is done throughout, a running CI is current', () => {
-    let b = observeTool(EMPTY, 'mcp__github__merge_pull_request', { pullNumber: 1 }, 'ok')
-    b = skill(b, 'agile-merge-review:merge-update-pr', 'PR 2')
-    b = bash(b, 'gh pr view 2 --json headRefOid', JSON.stringify({ headRefOid: SHA }))
-    b = bash(b, 'gh run view 9 --json status,headSha', JSON.stringify({ status: 'in_progress', headSha: SHA }))
-    const [merged, running] = laneRows(b)
-    expect(merged?.cells.every(c => c === 'done')).toBe(true)
-    expect(running?.cells).toEqual(['now', 'todo', 'todo', 'now', 'todo', 'todo'])
-    expect(running?.ci).toBe('CI … in_progress')
+  test('STUCK when the session goes idle with work left and a pass that moved nothing; acting again resumes', () => {
+    let b = skill(skill(sprint(['VC-1']), 'agile-sprint-drain'), 'agile-10-implement', T0)
+    expect(judged(b, T0 + 9, false).drain?.outcome).toBe('running')
+    b = judged(b, T0 + 9, true)
+    expect(b.drain?.outcome).toBe('STUCK')
+    expect(observeStart(b, 'Bash', { command: 'ls' }).drain?.outcome).toBe('running')
+    const waiting = applyRuns(applyPrs(skill(skill(sprint(['VC-1']), 'agile-sprint-drain'), 'agile-10-implement', T0), [{ number: 3, title: 'VC-1', state: 'OPEN', headRefOid: SHA, createdAt: at(-5) }], T0), [{ databaseId: 1, headSha: SHA, status: 'in_progress', workflowName: 'ci' }], T0)
+    expect(judged(waiting, T0 + 9, true).drain?.outcome).toBe('running')
+    const moved = applyPrs(skill(skill(sprint(['VC-1']), 'agile-sprint-drain'), 'agile-10-implement', T0), [{ number: 3, title: 'VC-1', state: 'OPEN', createdAt: at(1) }], T0)
+    expect(judged(moved, T0 + 120_000, true).drain?.outcome).toBe('running')
+    expect(movesOf(moved, moved.passes!.at(-1)!, T0 + 120_000)).toEqual({ built: 1, merged: 0 })
   })
 
-  test('a pass still running shows as running, not as nothing moved', () => {
-    let b = observeStart(EMPTY, 'Skill', { skill: 'agile-sprint-drain' }, 0)
-    b = observeStart(b, 'Skill', { skill: 'agile-10-implement' }, 0)
-    expect(passRows(b, 60_000, 10)).toEqual([{ pass: 1, build: 10, merge: 0, text: 'running · 1 min' }])
+  test('costs are stamped once per pass boundary', () => {
+    let b: Board = { ...EMPTY, passes: [{ start: 0, end: 5 }, { start: 5 }] }
+    b = stampCosts(b, 2)
+    expect(b.passes).toEqual([{ start: 0, end: 5, cost0: 2, cost1: 2 }, { start: 5, cost0: 2 }])
+    expect(stampCosts(b, 3)).toBe(b)
   })
 
-  test('loadBoard rejects what is not a board', () => {
-    expect(loadBoard(null)).toBeUndefined()
-    expect(loadBoard({ order: 'x' })).toBeUndefined()
-    expect(loadBoard({ order: [] })?.prOrder).toEqual([])
+  test('a stored board from an older version loads', () => {
+    expect(loadBoard({ order: ['VC-1'], tickets: { 'VC-1': { key: 'VC-1' } } })?.prs).toEqual({})
+    expect(loadBoard({ nope: 1 })).toBeUndefined()
   })
 })

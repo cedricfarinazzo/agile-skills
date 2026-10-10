@@ -1,13 +1,37 @@
 import type { AgentInfo } from 'claude-code'
 
+/** A PR as `gh pr list --json number,title,headRefName,headRefOid,state,createdAt,mergedAt,url` reports it. */
+export type PrRow = { number: number; title?: string; headRefName?: string; headRefOid?: string; state?: string; createdAt?: string; mergedAt?: string | null; url?: string }
+
+/** A workflow run as `gh run list --json databaseId,headSha,status,conclusion,workflowName,createdAt` reports it. */
+export type RunRow = { databaseId?: number; headSha?: string; status?: string; conclusion?: string; workflowName?: string; createdAt?: string }
+
+/** The files changed from one commit to another (`gh api .../compare/<a>...<b>`); `status` is GitHub's (`ahead`, `identical`, `diverged`, `behind`). */
+export type Compare = { status: string; files: string[] }
+
 /**
- * The engine calls the guard, receipt and authoring hooks make, bound from `$` in register.tsx
- * (one hooks module per plugin, and `$` stays in that file).
+ * The engine calls the hooks make, bound from `$` in register.tsx (one hooks module per plugin, and
+ * `$` stays in that file). Every program the mods run, and every MCP call, is one named call here,
+ * written out in full in register.tsx; each resolves undefined when the program or server fails.
  */
 export type Host = {
   now: () => Promise<number>
-  /** The branch checked out in `dir` (`git rev-parse --abbrev-ref HEAD`), or undefined when git fails. */
+  /** The branch checked out in `dir` (`git rev-parse --abbrev-ref HEAD`). */
   branch: (dir: string) => Promise<string | undefined>
+  /** The repo's latest 100 PRs, any state (`gh pr list`). */
+  prs: () => Promise<PrRow[] | undefined>
+  /** The repo's latest 100 workflow runs (`gh run list`). */
+  runs: () => Promise<RunRow[] | undefined>
+  /** One PR's live head and state (`gh pr view <n>`). */
+  prView: (pr: number) => Promise<{ headRefOid: string; state: string } | undefined>
+  /** Every workflow run on one commit (`gh run list --commit <sha>`). */
+  runsOn: (sha: string) => Promise<RunRow[] | undefined>
+  /** The PR's files present at its head (`gh api .../pulls/<n>/files`, removed files left out). */
+  prFiles: (pr: number) => Promise<string[] | undefined>
+  /** The files changed from `base` to `head` (`gh api .../compare/<base>...<head>`). */
+  compare: (base: string, head: string) => Promise<Compare | undefined>
+  /** One page (50 issues) of a JQL search on the session's Atlassian MCP server; the parsed JSON answer. */
+  jira: (cloudId: string, jql: string, fields: string[], page?: string) => Promise<unknown>
   agents: () => Promise<AgentInfo[]>
   storeGet: (key: string) => Promise<unknown>
   storeSet: (key: string, value: unknown) => Promise<void>
