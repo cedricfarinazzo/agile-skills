@@ -177,6 +177,51 @@ describe('push and grant guards', () => {
   })
 })
 
+describe('fix-round cap', () => {
+  beforeEach(async () => {
+    guardsReset()
+    await guardsStart(fakeHost().host, '/repo')
+  })
+  const fix = (pr = 7) => ['Agent', { subagent_type: 'agile-merge-review:fix-until-satisfied', description: `fix PR #${pr}` }] as const
+  const at = (sha: string) => ({ prView: { 7: { headRefOid: sha, state: 'OPEN' } } })
+
+  test('counted by the live head gh reports at each 3c dispatch; the fourth head is refused', async () => {
+    await guardsBefore(fakeHost().host, ...skill('agile-11-merge-train'), undefined)
+    for (const sha of [OLD, SHA, OTHER]) {
+      expect(await guardsBefore(fakeHost(at(sha)).host, ...fix(), undefined)).toBeUndefined()
+      // a re-dispatch on the same head (a missing receipt) is not a new round
+      expect(await guardsBefore(fakeHost(at(sha)).host, ...fix(), undefined)).toBeUndefined()
+    }
+    const { host, calls } = fakeHost(at('f'.repeat(40)))
+    expect(await guardsBefore(host, ...fix(), undefined)).toContain('3 fix rounds already')
+    expect(calls).toEqual(['gh pr view 7'])
+  })
+
+  test('the count survives a restart, and reset clears it', async () => {
+    const { host, store } = fakeHost(at(OLD))
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    await guardsBefore(host, ...fix(), undefined)
+    expect(store.get('fixes')).toEqual({ 7: [OLD] })
+    guardsReset(host)
+    expect(store.get('fixes')).toEqual({})
+  })
+
+  test('fails closed: no PR named, or gh does not answer', async () => {
+    const { host } = fakeHost()
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    expect(await guardsBefore(host, 'Agent', { subagent_type: 'agile-merge-review:fix-until-satisfied', description: 'fix it' }, undefined)).toContain('names the PR it fixes')
+    expect(await guardsBefore(host, ...fix(), undefined)).toContain('could not read the PR')
+  })
+
+  test('off outside the merge train, on inside a merge-session', async () => {
+    const outside = fakeHost()
+    expect(await guardsBefore(outside.host, ...fix(), undefined)).toBeUndefined()
+    expect(outside.calls).toEqual([])
+    const session = fakeHost({ agents: [{ id: 's1', type: 'agile-sprint-drain:merge-session' }] })
+    expect(await guardsBefore(session.host, 'Skill', { skill: 'merge-fix-until-satisfied', args: 'PR #7' }, 's1')).toContain('could not read the PR')
+  })
+})
+
 describe('receipts hook', () => {
   test('stores contract receipts, toasts a flagged one, ignores other agents', async () => {
     const { host, store, toasts } = fakeHost()

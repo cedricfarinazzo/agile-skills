@@ -128,8 +128,42 @@ export function pushDenial(command: string, branch: string | undefined): string 
   return undefined
 }
 
+/** Fix rounds per PR across train runs (`agile-11-merge-train`, review-round budget): 3c on this many heads, then 3d. */
+export const FIX_ROUNDS = 3
+
+/** A 3c dispatch: `fix-until-satisfied` by agent, or `merge-fix-until-satisfied` inline. */
+export const isFixDispatch = (tool: string, args: Record<string, unknown>) =>
+  (tool === 'Agent' && /(^|:)fix-until-satisfied$/.test(str(args.subagent_type))) || (tool === 'Skill' && /(^|:)merge-fix-until-satisfied$/.test(str(args.skill)))
+
+/**
+ * The fix-round cap: a PR gets 3c on at most FIX_ROUNDS distinct heads. A re-dispatch on a head that
+ * already had its round (a missing receipt) passes; a new round past the cap is refused.
+ *
+ * @param heads the live heads earlier 3c dispatches for this PR were made at, read with gh
+ * @param head the PR's live head now
+ */
+export function fixDenial(pr: number, heads: string[], head: string): string | undefined {
+  if (heads.some(h => sameSha(h, head)) || heads.length < FIX_ROUNDS) return undefined
+  return `PR #${pr}: ${heads.length} fix rounds already (3c on ${heads.map(h => h.slice(0, 7)).join(', ')}). The review loop is not converging: take 3d (blocked postmortem, PR left open) and let a human decide.`
+}
+
+/** A call that starts new build work: a new implement run, or the first phase of a new ticket. */
+export const isNewBuild = (tool: string, args: Record<string, unknown>) =>
+  (tool === 'Skill' && /(^|:)(agile-10-implement|implement-validate)$/.test(str(args.skill))) || (tool === 'Agent' && /(^|:)ticket-validator$/.test(str(args.subagent_type)))
+
+/**
+ * The budget stop: once the loop has spent its budget, no new build work starts; open PRs still merge.
+ *
+ * @param spent USD the session spent while a loop ran, from the engine's cost ledger
+ * @param budget the `budgetUsd` option; 0 or less is no budget
+ */
+export function budgetDenial(spent: number, budget: number, tool: string, args: Record<string, unknown>): string | undefined {
+  if (budget <= 0 || spent < budget || !isNewBuild(tool, args)) return undefined
+  return `budget: the loop spent $${spent.toFixed(2)} of its $${budget.toFixed(2)} budget (agile-mods budgetUsd). Start no new build work: merge what is open, then stop and report BUDGET.`
+}
+
 /** A call a guard refused, kept for the console's Guards tab. */
-export type Refusal = { at: number; rule: 'grant' | '3f' | 'push'; text: string; agent?: string }
+export type Refusal = { at: number; rule: 'grant' | '3f' | 'push' | 'fix' | 'budget'; text: string; agent?: string }
 
 export const MAX_REFUSALS = 20
 
@@ -138,6 +172,8 @@ export const keepRefusal = (list: Refusal[], refusal: Refusal): Refusal[] => [..
 /** Which guard wrote a refusal, read from its text. */
 export function ruleOf(text: string): Refusal['rule'] {
   if (/never pushes to|never force-pushes|names the branch it pushes/.test(text)) return 'push'
+  if (/^(agile-mods: )?budget:/.test(text)) return 'budget'
+  if (/fix rounds already|fix-round cap/.test(text)) return 'fix'
   if (/--match-head-commit|expectedHeadSha|merge guard|CI |no review read|pinned head/.test(text)) return '3f'
   return 'grant'
 }

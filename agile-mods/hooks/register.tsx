@@ -2,16 +2,20 @@
 import type { EngineInterface, ProcessRunResult, Register, RenderNode } from 'claude-code'
 import { EMPTY, POINTS_FIELD, applyJira, markerTargets, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, rasterCells, statusText, tabOf, type Row, type Tab } from './state/console.ts'
-import { keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
+import { budgetDenial, isNewBuild, keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
+import { filesTargets, withFiles, withSpend, withTokens, withoutLedger } from './state/flow.ts'
+import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { agentTypeOf, guardedCall, guardsAfter, guardsBefore, guardsReset, guardsStart, loopRunning } from './guards.ts'
 import { argsOf, type Compare, type Finished, type Host, type PrRow, type RunRow } from './host.ts'
 import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsStart } from './receipts.ts'
 
 // The plugin's one hooks module. The board is read from the sources the mod queries itself: gh for
-// PRs and CI runs, the session's Atlassian MCP server for tickets. It refreshes while a loop runs,
-// shortly after the loop's own writes, and when /agile-board opens. Tool calls add only the
-// dispatches themselves (which orchestrator or train step started, when). The board is kept in
+// PRs, CI runs and open PRs' files, the session's Atlassian MCP server for tickets, the engine for
+// cost, request usage and agents. It refreshes a few seconds after the loop's own writes and
+// dispatches, when /agile-board opens, and every 5 minutes as a fallback while a loop runs or the
+// pane is in use. Tool calls add only the dispatches themselves (which orchestrator or train step
+// started, when). The board is kept in
 // $.store and drawn three ways: a one-line status entry, an alert row above the prompt when
 // something needs a person, and the agile console pane (/agile-board).
 // The guards (guards.ts) and /receipts (receipts.ts) share these hooks: each event is registered
@@ -21,8 +25,13 @@ const STORE_KEY = 'board'
 const RETRO_KEY = 'retro'
 const PANE = 'agile-console'
 const TICK_MS = 15_000
-const GH_EVERY = 15_000
-const JIRA_EVERY = 60_000
+// the fallback: the loop's own calls trigger a refresh (soon), so a timer catches only changes made elsewhere
+const GH_EVERY = 300_000
+const JIRA_EVERY = 300_000
+// an event refreshes at most this often, however many land
+const GH_GAP = 10_000
+const JIRA_GAP = 30_000
+const FILES_PER_SYNC = 5
 const SOON_MS = 3_000
 const MARKER_READS = 4
 const JIRA_PAGES = 4
@@ -39,6 +48,8 @@ let paneAt = 0
 let soonQueued = false
 const busy = { gh: false, jira: false }
 let ghError: string | undefined
+let budget = 0
+let agentStats: Stats = {}
 // the plugin store is shared by every repo: each key is scoped to the session's working directory
 let scope = ''
 
@@ -122,8 +133,13 @@ async function syncGh($: EngineInterface) {
     ghError = undefined
     const [prs, runs] = await Promise.all([host.prs(), host.runs()])
     const now = await $.clock.now()
-    if (!prs || !runs) save($, { ...board, gh: { ...board.gh, error: ghError ?? 'gh failed' } })
-    else save($, sampled(judged(applyRuns(applyPrs(board, prs, now), runs, now), now, false), now))
+    if (!prs || !runs) return save($, { ...board, gh: { ...board.gh, error: ghError ?? 'gh failed' } })
+    save($, sampled(judged(applyRuns(applyPrs(board, prs, now), runs, now), now, false), now))
+    // open PRs' files for the overlap map, read once per head
+    for (const { pr, head } of filesTargets(board, FILES_PER_SYNC)) {
+      const files = await host.prFiles(pr)
+      if (files) save($, withFiles(board, pr, head, files))
+    }
   } finally {
     busy.gh = false
   }
@@ -142,7 +158,7 @@ async function syncJira($: EngineInterface) {
     const host = hostOf($)
     let page: string | undefined
     for (let i = 0; i < JIRA_PAGES; i++) {
-      const answer = await host.jira(cloudId, jql, ['summary', 'status', 'labels', pointsField], page)
+      const answer = await host.jira(cloudId, jql, ['summary', 'status', 'labels', 'statuscategorychangedate', pointsField], page)
       save($, applyJira(board, answer, pointsField, await $.clock.now()))
       page = nextPageOf(answer)
       if (!page) break
@@ -165,8 +181,10 @@ const live = (now: number) => (loopRunning() && board.drain?.outcome !== 'DRAINE
 async function tick($: EngineInterface, force = false) {
   const now = await $.clock.now()
   if (!force && !live(now)) return
-  if (force || now - (board.gh?.at ?? 0) >= GH_EVERY) await syncGh($)
-  if (force || now - (board.jira?.at ?? 0) >= JIRA_EVERY) await syncJira($)
+  if (loopRunning()) await meter($)
+  const since = (s?: { at?: number }) => (s?.at === undefined ? Infinity : now - s.at)
+  if (since(board.gh) >= (force ? GH_GAP : GH_EVERY)) await syncGh($)
+  if (since(board.jira) >= (force ? JIRA_GAP : JIRA_EVERY)) await syncJira($)
 }
 
 /** A refresh a few seconds after a call that changed GitHub or Jira, once however many land. */
@@ -183,13 +201,17 @@ const WRITES = /\b(gh\s+(pr|run|api)\b|git\s+push\b)/
 const writes = (tool: string, args: Record<string, unknown>) =>
   (tool === 'Bash' && WRITES.test(String(args.command ?? ''))) || /^mcp__.+__(transitionJiraIssue|editJiraIssue|addCommentToJiraIssue|createJiraIssue|create_pull_request|merge_pull_request|update_pull_request)$/.test(tool)
 
-/** Takes the session's cost at each drain pass boundary that has none yet. */
-function stamp($: EngineInterface) {
-  void $.session.usage().then(u => {
-    if (u.cost === undefined) return
-    const next = stampCosts(board, u.cost.usd)
-    if (next !== board) save($, next)
-  }).catch(() => undefined)
+/** Reads the cost ledger: the loop's spend, and the cost at each drain pass boundary that has none yet. */
+async function meter($: EngineInterface) {
+  const u = await $.session.usage().catch(() => undefined)
+  if (u?.cost === undefined) return
+  save($, stampCosts(withSpend(board, u.cost.usd), u.cost.usd))
+}
+
+/** Redraws the status line, which reads the clock for the spend rate and the forecast. */
+function showStatus($: EngineInterface) {
+  if (!shown) return $.ui.status(undefined)
+  void $.clock.now().then(now => $.ui.status(statusText(board, now, budget))).catch(() => undefined)
 }
 
 function save($: EngineInterface, next: Board) {
@@ -200,9 +222,9 @@ function save($: EngineInterface, next: Board) {
   const fresh = [...stallsOf(board).map(s => `looping: ${s}`), ...parkedOf(board).map(s => `parked: ${s}`)].filter(s => !known.has(s.replace(/^\w+: /, '')))
   if (fresh.length) $.ui.toast(`agile: ${fresh.join(' · ')}`, { timeoutMs: 10000 })
   void $.store.set(scope + STORE_KEY, board).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
-  $.ui.status(shown ? statusText(board) : undefined)
+  showStatus($)
   $.ui.invalidate('ui.render')
-  if (board.passes !== before.passes) stamp($)
+  if (board.passes?.length !== before.passes?.length) void meter($)
   if (board.drain?.outcome !== before.drain?.outcome) saveRetro($, retro)
   if (autoOpen && board.drain?.outcome === 'running' && before.drain?.outcome !== 'running') {
     // opened unasked, so it waits for a wide terminal and never takes the keyboard
@@ -235,13 +257,15 @@ function styleOf(tags?: string): Record<string, unknown> {
 
 export const register: Register = (on, options) => {
   autoOpen = options?.autoOpen !== false
+  budget = typeof options?.budgetUsd === 'number' && options.budgetUsd > 0 ? options.budgetUsd : 0
 
   on('session.start', async ($, e, next) => {
     const r = await next(e)
     scope = `${r.cwd}:`
     const host = hostOf($)
     const stored = loadBoard(await $.store.get(scope + STORE_KEY).catch(() => undefined))
-    if (stored) board = stored
+    // the cost ledger restarts with the session
+    if (stored) board = withoutLedger(stored)
     const storedRetro = loadRetro(await $.store.get(scope + RETRO_KEY).catch(() => undefined))
     if (storedRetro) retro = storedRetro
     await guardsStart(host, r.cwd)
@@ -254,12 +278,12 @@ export const register: Register = (on, options) => {
     await receiptsStart(host)
     await $.command.register({
       name: 'agile-board',
-      description: 'Agile console: board, flow, drain, guards and links tabs, plus show, hide, retro, reset (agile-mods)',
-      argumentHint: '[board | flow | drain | guards | links | show | hide | retro | reset]',
+      description: 'Agile console: board, flow, wip, drain, guards and links tabs, plus show, hide, retro, reset (agile-mods)',
+      argumentHint: '[board | flow | wip | drain | guards | links | show | hide | retro | reset]',
       immediate: true,
     }).catch(err => $.ui.log(`agile-mods: /agile-board not registered: ${err}`))
     await $.command.register(RECEIPTS_COMMAND).catch(err => $.ui.log(`agile-mods: /receipts not registered: ${err}`))
-    $.ui.status(shown ? statusText(board) : undefined)
+    showStatus($)
     // elapsed times move while a loop runs; the redraw is throttled by the engine
     $.clock.every(5000, () => {
       if (board.loop && board.drain?.outcome !== 'STUCK' && board.drain?.outcome !== 'DRAINED') $.ui.invalidate('ui.render')
@@ -276,17 +300,18 @@ export const register: Register = (on, options) => {
       guardsReset(hostOf($))
       refusals = []
       allowed = 0
+      agentStats = {}
       return { text: 'agile board and retro counts cleared' }
     }
     if (arg === 'retro') return { text: retroText(retro, board, await $.clock.now()) ?? 'no loop data recorded yet' }
     if (arg === 'hide' || arg === 'show') {
       shown = arg === 'show'
-      $.ui.status(shown ? statusText(board) : undefined)
+      showStatus($)
       $.ui.invalidate('ui.render')
       return { text: shown ? 'agile status and alerts shown' : 'agile status and alerts hidden' }
     }
     const wanted = arg ? tabOf(arg) : tab
-    if (!wanted) return { text: `unknown tab "${arg}": board, flow, drain, guards, links, or show, hide, retro, reset` }
+    if (!wanted) return { text: `unknown tab "${arg}": board, flow, wip, drain, guards, links, or show, hide, retro, reset` }
     tab = wanted
     paneAt = await $.clock.now()
     void tick($, true).catch(() => undefined)
@@ -300,7 +325,8 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     const host = hostOf($)
     const args = argsOf(e)
-    const deny = await guardsBefore(host, e.tool, args, e.agentId)
+    if (budget && isNewBuild(e.tool, args)) await meter($)
+    const deny = budgetDenial(board.spend?.usd ?? 0, budget, e.tool, args) ?? await guardsBefore(host, e.tool, args, e.agentId)
     if (deny) {
       const type = e.agentId ? await agentTypeOf(host, e.agentId) : undefined
       refusals = keepRefusal(refusals, { at: await $.clock.now(), rule: ruleOf(deny), text: deny, ...(type && { agent: type.split(':').at(-1) }) })
@@ -311,6 +337,7 @@ export const register: Register = (on, options) => {
     allowed += 1
 
     const now = await $.clock.now()
+    if (e.agentId) agentStats = noteCall(agentStats, e.agentId, e.tool, args, now)
     if (typeof args.cloudId === 'string' && /^mcp__.+__/.test(e.tool)) cloudId ??= args.cloudId
     save($, withKeys(observeStart(board, e.tool, args, now), keysOf(e.tool, args)))
     saveRetro($, retroStart(retro, e.tool, args, now))
@@ -321,7 +348,7 @@ export const register: Register = (on, options) => {
       text: r.deny !== undefined || r.isError ? undefined : r.text,
     }
     await guardsAfter(host, e.tool, args, e.agentId, done.text)
-    if (writes(e.tool, args) || (e.tool === 'Skill' && loopRunning())) soon($)
+    if (writes(e.tool, args) || ((e.tool === 'Skill' || e.tool === 'Agent') && loopRunning())) soon($)
     saveRetro($, retroEnd(retro, e.tool, done.text))
     await receiptsAfter(host, e.tool, args, done)
     $.ui.invalidate('ui.render')
@@ -346,13 +373,30 @@ export const register: Register = (on, options) => {
     const now = await $.clock.now()
     save($, sampled(judged(board, now, true), now))
     saveRetro($, retro)
-    stamp($)
+    await meter($)
+    return r
+  })
+
+  // each model request's usage, by the stage it served: a loop agent's by its type, the main loop's by the board's stage
+  on('turn.step', async function* ($, e, next) {
+    const r = yield* next(e)
+    if (!r.usage || !loopRunning()) return r
+    // bookkeeping only: a failure here never touches the request
+    try {
+      const type = e.agentId ? await agentTypeOf(hostOf($), e.agentId) : undefined
+      const stage = type ? stageOf(type) : e.agentId ? undefined : board.stage
+      const now = await $.clock.now()
+      if (e.agentId) agentStats = noteTokens(agentStats, e.agentId, r.usage, now)
+      if (stage) save($, withTokens(board, stage, r.usage))
+    } catch {
+      // the next request counts again
+    }
     return r
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (!shown || e.props.hasSurvey) return next(e)
-    const row = alertRow(board, { now: await $.clock.now(), refusals, allowed, receipts: receiptsNow() }, e.props.bodyColumns)
+    const row = alertRow(board, { now: await $.clock.now(), refusals, allowed, receipts: receiptsNow(), budget }, e.props.bodyColumns)
     if (!row) return next(e)
     const ui = await $.ui.resolve(e)
     const { Box } = ui
@@ -370,7 +414,9 @@ export const register: Register = (on, options) => {
     const ui = await $.ui.resolve(e)
     const { Box, Text, Button } = ui
     const usage = await $.session.usage().catch(() => undefined)
-    const ctx = { now: await $.clock.now(), usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow() }
+    const now = await $.clock.now()
+    const lanes = tab === 'drain' ? laneOf(await $.agent.list().catch(() => []), agentStats, now) : undefined
+    const ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, budget }
     const w = Math.max(30, e.props.bodyColumns - 2)
     return (
       <Box flexDirection="column">
@@ -388,6 +434,10 @@ export const register: Register = (on, options) => {
     )
   })
 }
+
+/** The stage a loop agent serves, by its type; undefined for an agent outside the loop. */
+const stageOf = (type: string) =>
+  /^agile-execution:|:build-session$/.test(type) ? 'build' as const : /^agile-merge-review:|:merge-session$/.test(type) ? 'merge' as const : undefined
 
 type Elements = Awaited<ReturnType<EngineInterface['ui']['resolve']>>
 

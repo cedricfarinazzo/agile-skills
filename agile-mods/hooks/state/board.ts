@@ -28,6 +28,8 @@ export type Ticket = {
   named?: boolean
   /** When its comments were last read for markers. */
   markedAt?: number
+  /** When it entered its status category (Jira `statuscategorychangedate`): the start of its age in progress. */
+  since?: number
 }
 
 export type Pr = {
@@ -43,13 +45,19 @@ export type Pr = {
   step?: string
   /** How many times each train step was dispatched for this PR. */
   seen?: Record<string, number>
+  /** Its files at `filesHead` (`gh api .../pulls/<n>/files`), for the overlap map. */
+  files?: string[]
+  filesHead?: string
 }
 
 /** A workflow run on a sha, the latest per workflow. */
 export type Run = { id?: number; workflow: string; status: string; conclusion?: string; at?: number }
 
-/** `cost0` and `cost1` are the session's cost in USD when the pass started and ended. */
-export type Pass = { start: number; merge?: number; end?: number; cost0?: number; cost1?: number }
+/** Prompt tokens as the API counts them: uncached input, cache reads, cache writes, and output. */
+export type Tokens = { input: number; read: number; write: number; output: number }
+
+/** `cost0` and `cost1` are the session's cost in USD when the pass started and ended; `tokens` its model requests by stage. */
+export type Pass = { start: number; merge?: number; end?: number; cost0?: number; cost1?: number; tokens?: Partial<Record<Stage, Tokens>> }
 
 /** When a source last answered, and its error when the last try failed. */
 export type Sync = { at?: number; error?: string }
@@ -73,6 +81,12 @@ export type Board = {
   burn?: { at: number; left: number; total: number }[]
   burnUnit?: 'points' | 'tickets'
   passes?: Pass[]
+  /** The repo's merged PRs in gh's latest 100: when each merged, and how long it was open. */
+  history?: { merges: number[]; cycles: number[] }
+  /** USD the session spent while a loop ran; `last` is the ledger reading it counted up to. */
+  spend?: { usd: number; last?: number }
+  /** Model requests by stage over the whole loop. */
+  tokens?: Partial<Record<Stage, Tokens>>
   gh?: Sync
   jira?: Sync
 }
@@ -207,7 +221,12 @@ export const withKeys = (board: Board, keys: string[]): Board => keys.reduce((b,
  * ticket, or was created since the first loop started.
  */
 export function applyPrs(prior: Board, rows: PrRow[], now: number): Board {
-  let board: Board = { ...prior, gh: { at: now } }
+  const merged = rows.flatMap(r => {
+    const at = time(r.mergedAt)
+    const created = time(r.createdAt)
+    return r.state === 'MERGED' && at !== undefined && created !== undefined ? [[at, at - created] as const] : []
+  })
+  let board: Board = { ...prior, gh: { at: now }, history: { merges: merged.map(m => m[0]), cycles: merged.map(m => Math.max(0, m[1])) } }
   for (const row of rows) {
     if (typeof row.number !== 'number') continue
     const key = (str(row.headRefName) + ' ' + str(row.title)).match(TICKET_KEY)?.[0]
@@ -297,6 +316,7 @@ export function applyJira(prior: Board, answer: unknown, field: string, now: num
     const site = str(issue.webUrl).match(/^(https:\/\/[^/]+)\/browse\//)?.[1]
     if (site && !board.site) board = { ...board, site }
     const parked = labels.includes('needs-info') || /needs?.?info/i.test(str(status?.name))
+    const since = time(f.statuscategorychangedate)
     board = withTicket(board, key, {
       ...(str(f.summary) && { summary: str(f.summary) }),
       ...(status && {
@@ -306,6 +326,7 @@ export function applyJira(prior: Board, answer: unknown, field: string, now: num
       }),
       ...(phases && { phase: phases.at(-1), reworks: phases.filter(p => p === 'rework').length, markedAt: now }),
       ...(typeof points === 'number' && { points }),
+      ...(since !== undefined && { since }),
     })
   }
   return board

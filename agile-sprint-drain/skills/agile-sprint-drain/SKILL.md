@@ -188,11 +188,15 @@ Never bypasses an orchestrator's pause (a parked ticket is human-blocked here; t
 
 ## Reports
 
+**BUDGET** — agile-mods refused new build work (`agile-mods: budget:`): the loop spent its `budgetUsd`. Run the merge train once more on what is open, then stop. Report what merged, what is left, and the spend the refusal names.
+
 **PAUSED** — `max-merges` reached with actionable items left. One line: merged this invocation, items remaining, `re-invoke to continue`. Not a healthy stop and not a failure.
 
 **DRAINED** — the only healthy stop: every sprint ticket `Done` + merged or legitimately exited (out-of-scope, Needs Info); any human-blocked item left means STUCK. List Done tickets and exits with reasons, **the audit-trail result (`N/N complete` or exceptions)**, then point at `agile-sprint-close`.
 
 **STUCK** — actionable set empty (or `MAX_PASSES` hit) with items remaining. Classify each: **parked critical decision**; **Needs Info / under-spec**; **dead blocker chain** (name the blocker); **CI failed identically K passes** (check + fingerprint); **unconverged review** (cycles exhausted, or awaiting a human); **persistent conflict**. On a ceiling stop, list still-actionable items separately — re-invoking handles them.
+
+**Notify on a stop.** At the top level, on DRAINED, STUCK or BUDGET, send one `PushNotification` a person can act on (`STUCK: VC-12 awaiting a decision, VC-9 Needs Info`), never for progress. No such tool (e.g. Codex) → the report alone.
 
 ## Output discipline
 

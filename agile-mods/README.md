@@ -10,14 +10,14 @@ Each mod has its own page:
 
 | Mod | Command | Active |
 |---|---|---|
-| [Agile console](docs/console.md) — status line, alert row and a five-tab pane: board with burndown, ticket and PR flow, drain passes with cost, guards and receipts, links | `/agile-board [board \| flow \| drain \| guards \| links \| show \| hide \| retro \| reset]` | always |
-| [Guards](docs/guards.md) — tool grants, 3f merge gates (pinned reviewed head, fresh green CI), push guard; refusals logged on the Guards tab | — | always |
+| [Agile console](docs/console.md) — status line with spend rate and an 85% date, alert row, and a six-tab pane: board with burnup and a Monte Carlo forecast, ticket and PR flow, aging WIP and PR overlap, drain passes with cost, cache hit rate and the loop's agents, guards and receipts, links | `/agile-board [board \| flow \| wip \| drain \| guards \| links \| show \| hide \| retro \| reset]` | always |
+| [Guards](docs/guards.md) — tool grants, 3f merge gates (pinned live head, green CI, every file reviewed), push guard, fix-round cap, budget stop; refusals logged on the Guards tab | — | always |
 | [Receipt inspector](docs/receipts.md) — agent receipts checked against the receipt contract | `/receipts [all \| clear]` | always |
 | [Retro data](docs/retro.md) — loop counts for `agile-15-retro` | `/agile-board retro` | always |
 
 Every hook calls `next`. The console, receipts and retro only observe. The guards can refuse a call (`deny`, which the model reads as the tool's error).
 
-One option, set in `/plugin configure agile-mods@agile-skills`: `autoOpen` (default on) opens the console, unfocused, when an `agile-sprint-drain` starts, in a terminal of 144 columns or more.
+Two options, set in `/plugin configure agile-mods@agile-skills`: `autoOpen` (default on) opens the console, unfocused, when an `agile-sprint-drain` starts, in a terminal of 144 columns or more; `budgetUsd` (default 0, none) stops new build work once a loop has spent that much.
 
 The board needs `gh` logged in for the repo. For its Jira side, the repo's `## Skill configuration` names `cloudId` (as `agile-10-implement` already requires) and the session allows the read-only `mcp__<server>__searchJiraIssuesUsingJql` in `/permissions`; without either, the board shows gh data and says what is missing.
 
@@ -30,21 +30,22 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 | Command | Why | When |
 |---|---|---|
 | `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard: the branch a `git push` that names none would send | Before such a push, inside a loop |
-| `gh pr list --state all --limit 100 --json …` | Board: PRs, their heads, merged or not | Every 15 s while a loop runs or the pane is open, 3 s after a GitHub write, when `/agile-board` opens |
+| `gh pr list --state all --limit 100 --json …` | Board: PRs, their heads, merged or not; merge history for aging and the forecast | 3 s after the loop's GitHub writes, CI waits and dispatches, when the main loop goes idle, when `/agile-board` opens, and every 5 minutes while a loop runs or the pane is open |
 | `gh run list --limit 100 --json …` | Board: CI per sha | Same |
-| `gh pr view <n> --json headRefOid,state` | 3f gate: the PR's live head | At a merge call |
+| `gh api --paginate repos/{owner}/{repo}/pulls/<n>/files` | Board: each open PR's files, for the overlap map | With the PR list, once per PR head |
+| `gh pr view <n> --json headRefOid,state` | 3f gate and fix-round cap: the PR's live head | At a merge call and a 3c dispatch |
 | `gh run list --commit <sha> --json …` | 3f gate: every CI run on that head | At a merge call |
 | `gh api repos/{owner}/{repo}/pulls/<n>/files` | 3f gate: the files a review must have read | At a merge call |
 | `gh api repos/{owner}/{repo}/compare/<sha>...<head>` | 3f gate: which files changed since an earlier review | At a merge call, for each earlier reviewed sha |
 
 `gh` talks to GitHub with the user's own `gh` login; the mod reads its output and keeps it local.
 
-**MCP call:** `searchJiraIssuesUsingJql` on the session's connected Atlassian server (`$.mcp.call`), read-only: the sprint's tickets (`summary`, `status`, `labels`, the story-points field) and, a few tickets at a time, their comments for the `agile:phase` markers. It sends Atlassian a JQL query naming the repo's Jira projects and ticket keys, and the `cloudId`. It runs only when that tool is already allowed in the session's permissions (checked first with `$.tool.check`, which opens no dialog), every 60 s while a loop runs or the pane is open.
+**MCP call:** `searchJiraIssuesUsingJql` on the session's connected Atlassian server (`$.mcp.call`), read-only: the sprint's tickets (`summary`, `status`, `labels`, the story-points field) and, a few tickets at a time, their comments for the `agile:phase` markers. It sends Atlassian a JQL query naming the repo's Jira projects and ticket keys, and the `cloudId`. It runs only when that tool is already allowed in the session's permissions (checked first with `$.tool.check`, which opens no dialog), with the gh refresh (above).
 
 **Read:**
 - The loop's tool calls (`tool.call`): which orchestrator or train step was dispatched, which agent type made a call, the `git show <sha>:<path>` commands a reviewer ran, a merge or push command about to run, the ticket keys and `cloudId` a Jira call names. Agent receipts are read only for the `/receipts` contract check.
 - Two files at session start: `AGENTS.md` and `CLAUDE.md` in the working directory, for `story-points-field` and `cloudId`.
-- `$.session.usage()`, for the cost of each drain pass. `turn.complete` on the main loop, to judge a drain STUCK when the session goes idle; the answer text is not read.
+- `$.session.usage()`, for the cost of each drain pass and the loop's spend. `turn.step`, for each model request's token counts (input, cache reads and writes, output); the request and its answer are not read. `turn.complete` on the main loop, to judge a drain STUCK when the session goes idle; the answer text is not read. `$.agent.list()`, for the type and status of the loop's agents.
 
 **Send:** nothing to any host but GitHub through `gh` and Atlassian through the session's MCP server, as above. Two things go back into the session: a guard's refusal, which the model reads as the tool's error, and the retro counts, added as context to the `agile-15-retro` Skill call.
 
@@ -54,9 +55,9 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 hooks/hooks.json          # names the one module
 hooks/register.tsx        # every hook; binds $ into a Host for the modules below
 hooks/host.ts             # the Host type
-hooks/guards.ts           # guards: grant backstop, 3f merge gates, push guard
+hooks/guards.ts           # guards: grant backstop, 3f merge gates, push guard, fix-round cap
 hooks/receipts.ts         # /receipts
-hooks/state/*.ts          # pure logic: board, console views, guards, review coverage, receipts, retro
+hooks/state/*.ts          # pure logic: board, flow metrics, agents lane, console views, guards, review coverage, receipts, retro
 docs/*.md                 # one page per mod
 tests/unit/*.spec.ts      # bun test over hooks/state, and over the hook modules through tests/unit/fake-host.ts
 tests/engine/*.test.ts    # claude plugin test: register.tsx loaded in the engine

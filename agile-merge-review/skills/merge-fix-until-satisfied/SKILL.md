@@ -46,6 +46,8 @@ fix(<scope>): <ticket> <imperative summary>
 <body only if the why is non-obvious>
 ```
 
+**Lint before the push.** Run every command the CI lint job runs on the tree you are about to push, not only Phase 1's per-file linter, and read each real exit code. Fix and re-run until each exits 0; a lint failure CI finds costs the caller a whole 3e round.
+
 Then `git push origin <branch>` where `<branch>` is whatever HEAD is on (`git rev-parse --abbrev-ref HEAD`) — a PR feature branch, or `main` itself when the caller is fixing a post-merge follow-up.
 
 **Confirm you are on the right branch BEFORE committing.** Your caller resolves one working location per PR and names it in your prompt — often a worktree that already holds the branch, because `agile-10-implement` leaves one per unmerged ticket. Work there by absolute path (`cd <path>`, `git -C <path>`) and check `git -C <path> rev-parse --abbrev-ref HEAD` matches the PR's branch. If it does not — most dangerously if it says `main` while you were asked to fix a PR — **stop and emit the receipt with `blocked`**; do not commit. "Whatever HEAD is on" is the push rule, not a licence to commit a PR's fixes wherever the shell happens to be pointing.

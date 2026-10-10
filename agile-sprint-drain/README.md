@@ -73,6 +73,9 @@ By the dependency gate a ticket is un-startable until its blocker's PR merges �
 
 - **DRAINED** — lists Done + merged tickets and any that legitimately exited (out-of-scope, Needs Info); then points at [`agile-sprint-close`](../agile-sprint-close/README.md).
 - **STUCK** — the actionable set emptied (or the `MAX_PASSES` ceiling hit) while items remain; per remaining item, names its human-blocked class: parked critical decision, Needs Info, dead blocker chain, CI failed identically K passes (+ the repeated check), unconverged review, or persistent conflict. That's your work list — resolve one upstream blocker and re-invoke.
+- **BUDGET** — with [agile-mods](../agile-mods/README.md)' `budgetUsd` set, the mod refused new build work once the loop spent it; the drain merges what is open, then reports what merged, what is left, and the spend.
+
+At the top level, DRAINED, STUCK and BUDGET each send one push notification (Claude Code's `PushNotification`), so a drain left running reaches you when it stops.
 
 ## Configuration
 

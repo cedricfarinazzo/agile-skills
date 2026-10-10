@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
-import { grantDenial, mergeDenial, mergeTargetOf, pushDenial } from '../../hooks/state/guards.ts'
+import { budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isFixDispatch, isNewBuild, mergeDenial, mergeTargetOf, pushDenial, ruleOf } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -110,5 +110,47 @@ describe('push guard', () => {
   test('a feature push passes', () => {
     expect(pushDenial('git push -u origin feat/VC-3', 'feat/VC-3')).toBeUndefined()
     expect(pushDenial('git -C /w push', 'feat')).toBeUndefined()
+  })
+})
+
+describe('fix-round cap', () => {
+  const heads = ['1'.repeat(40), '2'.repeat(40), '3'.repeat(40)]
+
+  test('3c on a new head passes under the cap, a re-dispatch on a counted head always passes', () => {
+    expect(FIX_ROUNDS).toBe(3)
+    expect(fixDenial(7, heads.slice(0, 2), '9'.repeat(40))).toBeUndefined()
+    expect(fixDenial(7, heads, heads[1]!)).toBeUndefined()
+  })
+
+  test('a fourth head is refused and sent to 3d', () => {
+    const deny = fixDenial(7, heads, '9'.repeat(40))!
+    expect(deny).toContain('3 fix rounds already (3c on 1111111, 2222222, 3333333)')
+    expect(deny).toContain('take 3d')
+    expect(ruleOf(deny)).toBe('fix')
+  })
+
+  test('3c dispatches, by agent or inline', () => {
+    expect(isFixDispatch('Agent', { subagent_type: 'agile-merge-review:fix-until-satisfied' })).toBe(true)
+    expect(isFixDispatch('Skill', { skill: 'agile-merge-review:merge-fix-until-satisfied' })).toBe(true)
+    expect(isFixDispatch('Skill', { skill: 'fix-until-satisfied-ish' })).toBe(false)
+  })
+})
+
+describe('budget stop', () => {
+  test('past the budget, new build work is refused and the merge train is not', () => {
+    const impl = { skill: 'agile-execution:agile-10-implement' }
+    expect(budgetDenial(19.99, 20, 'Skill', impl)).toBeUndefined()
+    expect(budgetDenial(25, 0, 'Skill', impl)).toBeUndefined()
+    const deny = budgetDenial(20, 20, 'Skill', impl)!
+    expect(deny).toBe('budget: the loop spent $20.00 of its $20.00 budget (agile-mods budgetUsd). Start no new build work: merge what is open, then stop and report BUDGET.')
+    expect(ruleOf(`agile-mods: ${deny}`)).toBe('budget')
+    expect(budgetDenial(25, 20, 'Skill', { skill: 'agile-merge-review:agile-11-merge-train' })).toBeUndefined()
+    expect(budgetDenial(25, 20, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer' })).toBeUndefined()
+  })
+
+  test('new build work: an implement run, or the first phase of a ticket', () => {
+    expect(isNewBuild('Skill', { skill: 'implement-validate' })).toBe(true)
+    expect(isNewBuild('Agent', { subagent_type: 'agile-execution:ticket-validator' })).toBe(true)
+    expect(isNewBuild('Agent', { subagent_type: 'agile-execution:build-implementer' })).toBe(false)
   })
 })
