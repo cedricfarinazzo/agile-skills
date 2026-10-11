@@ -204,7 +204,7 @@ async function syncJira($: EngineInterface) {
       page = nextPageOf(answer)
       if (!page) break
     }
-    for (const key of markerTargets(board, MARKER_READS).filter(k => !tooLarge.has(k))) {
+    for (const key of markerTargets(board, MARKER_READS + tooLarge.size).filter(k => !tooLarge.has(k)).slice(0, MARKER_READS)) {
       try {
         save($, applyJira(board, await host.jira(cloudId, `key = ${key}`, ['comment'], undefined, 1), pointsField, await $.clock.now()))
       } catch (err) {
@@ -359,6 +359,7 @@ export const register: Register = (on, options) => {
       guardsReset(hostOf($))
       refusals = []
       allowed = 0
+      tooLarge.clear()
       agentStats = {}
       return { text: 'agile board and retro counts cleared' }
     }

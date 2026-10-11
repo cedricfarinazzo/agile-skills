@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { covers, readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
+import { covers, END, readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
 import { guardedCall } from '../../hooks/guards.ts'
 import { budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
 
@@ -57,15 +57,17 @@ describe('review coverage', () => {
     expect(readsOf(`${show} && git show ${SHA}:b.ts | nl`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
     // one file piped first into a line-range filter is a ranged read
     expect(readsOf(`git show ${SHA}:a.ts | sed -n 10,90p | nl`)).toEqual([{ sha: SHA, path: 'a.ts', range: [10, 90] }])
-    expect(readsOf(`git show ${SHA}:a.ts | tail -n +500`)).toEqual([{ sha: SHA, path: 'a.ts', range: [500, Infinity] }])
+    expect(readsOf(`git show ${SHA}:a.ts | tail -n +500`)).toEqual([{ sha: SHA, path: 'a.ts', range: [500, END] }])
     expect(readsOf(`git show ${SHA}:a.ts ${SHA}:b.ts | head -n 9`)).toEqual([])
     expect(readsOf(`git show ${SHA}:a.ts | head -n 9 | grep x`)).toEqual([])
     expect(readsOf(`git show ${SHA}:a.ts | head -n -5`)).toEqual([])
+    expect(readsOf(`git show ${SHA}:a.ts | sed -n '1,400p'`)).toEqual([{ sha: SHA, path: 'a.ts', range: [1, 400] }])
+    expect(readsOf(`git show ${SHA}:a.ts | sed -n '1,4p;9p'`)).toEqual([])
     expect(readsOf(`git show ${SHA}:a.ts | head -n5`)).toEqual([{ sha: SHA, path: 'a.ts', range: [1, 5] }])
     expect(readsOf(`git show ${SHA}:a.ts | sed -n 50,10p`)).toEqual([])
     expect(readsOf(`git show ${SHA}:a.ts | sed -n 0,10p`)).toEqual([])
     expect(readsOf(`git show ${SHA}:a.ts | sed -n 1,9p\;20,30p`)).toEqual([])
-    expect(covers([[1, 100], [101, 149], [150, Infinity]], 400)).toBe(true)
+    expect(covers([[1, 100], [101, 149], [150, END]], 400)).toBe(true)
     expect(covers([[1, 100], [102, 400]], 400)).toBe(false)
     expect(covers([[1, 300]], 400)).toBe(false)
     // a leading cd picks the repository; the full sha still names the object
@@ -171,7 +173,8 @@ describe('fix-round cap', () => {
     expect(pushPlanOf('git push origin --delete feat/x')).toEqual({ refs: [{ src: 'feat/x', dst: 'feat/x' }], delete: true })
     // what the push prints, merged and trimmed, changes nothing it sends
     expect(pushPlanOf('cd /w && git push origin a 2>&1 | tail -2')).toEqual({ dir: '/w', refs: [{ src: 'a', dst: 'a' }] })
-    expect(pushPlanOf('git push origin a | head -n 5')).toEqual({ refs: [{ src: 'a', dst: 'a' }] })
+    expect(pushPlanOf('git push origin a | tail -n 5')).toEqual({ refs: [{ src: 'a', dst: 'a' }] })
+    expect(pushPlanOf('git push origin a 2>&1 | head -2')).toEqual({ error: 'a push in the loop is one plain command' })
     expect(pushPlanOf('git push origin a | tee log')).toEqual({ error: 'a push in the loop is one plain command' })
     expect(pushPlanOf('git push origin a 2>&1 | tail -2; git push origin main')).toEqual({ error: 'a push in the loop is one plain command' })
     expect(pushPlanOf('GIT_TRACE=1 git push origin a')).toEqual({ error: 'a push in the loop runs git directly, with no prefix' })

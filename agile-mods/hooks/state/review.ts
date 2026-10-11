@@ -3,8 +3,10 @@
 
 /** Paths read in full, by the sha they were read at (as written in the command, 7 to 40 hex). */
 export type Reads = Record<string, string[]>
-/** Line ranges read of a file too large for one command, by sha then path; `Infinity` ends at the file's end. */
+/** Line ranges read of a file too large for one command, by sha then path; END ends at the file's end. */
 export type Parts = Record<string, Record<string, [number, number][]>>
+/** The end of a `tail -n +A` range: a number, since the store keeps JSON and JSON has no Infinity. */
+export const END = Number.MAX_SAFE_INTEGER
 
 const MAX_SHAS = 60
 const MAX_PATHS = 2000
@@ -21,7 +23,7 @@ function rangeOf(pipe: string): [number, number] | undefined {
   m = pipe.match(/^head\s+(?:-n\s*(\d+)|-(\d+))$/)
   if (m) return [1, Number(m[1] ?? m[2])]
   m = pipe.match(/^tail\s+-n\s*\+(\d+)$/)
-  if (m) return [Number(m[1]), Infinity]
+  if (m) return [Number(m[1]), END]
   return undefined
 }
 
@@ -44,7 +46,8 @@ export const sameSha = (a: string, b: string) => a.length >= 7 && b.length >= 7 
  * nothing, so a read is never credited that the reviewer did not see.
  */
 export function readsOf(command: string): { sha: string; path: string; range?: [number, number] }[] {
-  command = command.trim().replace(CD, '')
+  // `sed -n '1,400p'` quotes only digits, so it reads the same unquoted
+  command = command.trim().replace(CD, '').replace(/(\|\s*sed\s+-n\s+)(['"])(\d+,\d+p)\2/g, '$1$3')
   if (UNMODELLED.test(command)) return []
   const out: { sha: string; path: string; range?: [number, number] }[] = []
   for (const part of command.split('&&')) {

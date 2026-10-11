@@ -289,7 +289,8 @@ export function fixDenial(pr: number, rounds: Rounds | undefined, round: string)
 export type PushPlan = { dir?: string; refs: { src: string; dst: string }[]; delete?: boolean }
 
 const PUSH_FLAGS = /^(-u|--set-upstream|--force-with-lease(=\S+)?|--no-verify|-q|--quiet|-v|--verbose|--porcelain|-f|--force|-d|--delete)$/
-const OUTPUT_TAIL = /(?:\s+2>&1)?(?:\s*\|\s*(?:tail|head)(?:\s+-n)?(?:\s+-?\d+)?)?$/
+// tail, not head: head exits early and its closed pipe can kill the push mid-way
+const OUTPUT_TAIL = /(?:\s+2>&1)?(?:\s*\|\s*tail(?:\s+-n)?(?:\s+-?\d+)?)?$/
 const unquote = (w: string) => w.replace(/^"([^"]*)"$|^'([^']*)'$/, '$1$2')
 
 /**
