@@ -234,7 +234,7 @@ export function mergeDenial(pr: number, pin: string | undefined, facts: MergeFac
   if (!unread) return `PR #${pr}: the merge guard could not list the PR's files (gh api pulls/${pr}/files failed), so it cannot check the review covered them. Retry once gh answers.`
   if (unread.length) {
     const shown = unread.slice(0, 5).join(', ') + (unread.length > 5 ? ` and ${unread.length - 5} more` : '')
-    return `PR #${pr}: no review read ${unread.length} file(s) as they land at ${pin.slice(0, 12)}: ${shown}. A review reads each file in full with git show <sha>:<path> (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.`
+    return `PR #${pr}: no review read ${unread.length} file(s) as they land at ${pin.slice(0, 12)}: ${shown}. A review reads each file in full with its own command, [cd <dir> &&] git show <40-hex sha>:<path> (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.`
   }
   return undefined
 }
@@ -289,6 +289,7 @@ export function fixDenial(pr: number, rounds: Rounds | undefined, round: string)
 export type PushPlan = { dir?: string; refs: { src: string; dst: string }[]; delete?: boolean }
 
 const PUSH_FLAGS = /^(-u|--set-upstream|--force-with-lease(=\S+)?|--no-verify|-q|--quiet|-v|--verbose|--porcelain|-f|--force|-d|--delete)$/
+const OUTPUT_TAIL = /(?:\s+2>&1)?(?:\s*\|\s*(?:tail|head)(?:\s+-n)?(?:\s+-?\d+)?)?$/
 const unquote = (w: string) => w.replace(/^"([^"]*)"$|^'([^']*)'$/, '$1$2')
 
 /**
@@ -298,6 +299,8 @@ const unquote = (w: string) => w.replace(/^"([^"]*)"$|^'([^']*)'$/, '$1$2')
  * refused, since the cap could not tell which branch it sends. No refs: the branch's own push target.
  */
 export function pushPlanOf(command: string): PushPlan | { error: string } {
+  // what the push prints, merged and trimmed, changes nothing it sends
+  command = command.trim().replace(OUTPUT_TAIL, '')
   const bare = command.replace(/'[^']*'/g, "''").replace(/"[^"$`\\]*"/g, '""')
   if (/[;|`$<>()\n\\]|(?<!&)&(?!&)/.test(bare.replace(/&&/g, ''))) return { error: 'a push in the loop is one plain command' }
   const segments = command.split('&&').map(c => c.trim())

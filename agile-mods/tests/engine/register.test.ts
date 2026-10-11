@@ -77,6 +77,21 @@ describe('board sources through the engine', () => {
     expect(w.mcp[0]).toMatchObject({ tool: 'searchJiraIssuesUsingJql', cloudId: CLOUD, maxResults: 50 })
     expect(String(w.mcp[0]!.jql)).toContain('key in (VC-1)')
   })
+
+  test('a Jira page past the output limit is asked again at half the size', async ($, on) => {
+    const ok = JSON.stringify({ issues: { nodes: [{ key: 'VC-1', fields: { summary: 's', status: { name: 'To Do', statusCategory: { key: 'new' } } } }], pageInfo: { hasNextPage: false } } })
+    const w = world(on, {
+      files: { 'AGENTS.md': `cloudId: ${CLOUD}` },
+      jiraAllowed: true,
+      jira: (args: Record<string, unknown>) => (Number(args.maxResults) > 12 ? 'Output too large for the tool result.' : ok),
+      gh: { 'gh pr list': { stdout: '[]' }, 'gh run list --limit': { stdout: '[]' } },
+    })
+    await start($)
+    await $.tool.call({ tool: 'mcp__atlassian__getJiraIssue', issueIdOrKey: 'VC-1', cloudId: CLOUD } as never)
+    await $.command.run({ command: 'agile-board', args: 'board' } as never)
+    for (let i = 0; i < 50 && w.mcp.length < 3; i++) await new Promise(r => setTimeout(r, 10))
+    expect(w.mcp.slice(0, 3).map(c => c.maxResults)).toEqual([50, 25, 12])
+  })
 })
 
 describe('loop limits through the engine', () => {

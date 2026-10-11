@@ -55,6 +55,12 @@ describe('review coverage', () => {
       `git show ${SHA.slice(0, 12)}:a.ts`,
     ]) expect(readsOf(command)).toEqual([])
     expect(readsOf(`${show} && git show ${SHA}:b.ts | nl`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
+    // a leading cd picks the repository; the full sha still names the object
+    expect(readsOf(`cd /w/repo && ${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])
+    expect(readsOf(`cd /w/repo; ${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])
+    expect(readsOf(`cd /w; ${show}; gh pr merge 1`)).toEqual([])
+    expect(readsOf(`cd $D && ${show}`)).toEqual([])
+    expect(readsOf(`gh pr diff 1 --name-only && ${show}`)).toEqual([])
   })
 
   test('a file is read when shown at the head, or at an ancestor with no change since', () => {
@@ -150,6 +156,11 @@ describe('fix-round cap', () => {
     expect(pushPlanOf('git push --all origin')).toEqual({ error: 'the push option --all is not read' })
     expect(pushPlanOf('cd w; git push')).toEqual({ error: 'a push in the loop is one plain command' })
     expect(pushPlanOf('git push origin --delete feat/x')).toEqual({ refs: [{ src: 'feat/x', dst: 'feat/x' }], delete: true })
+    // what the push prints, merged and trimmed, changes nothing it sends
+    expect(pushPlanOf('cd /w && git push origin a 2>&1 | tail -2')).toEqual({ dir: '/w', refs: [{ src: 'a', dst: 'a' }] })
+    expect(pushPlanOf('git push origin a | head -n 5')).toEqual({ refs: [{ src: 'a', dst: 'a' }] })
+    expect(pushPlanOf('git push origin a | tee log')).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf('git push origin a 2>&1 | tail -2; git push origin main')).toEqual({ error: 'a push in the loop is one plain command' })
     expect(pushPlanOf('GIT_TRACE=1 git push origin a')).toEqual({ error: 'a push in the loop runs git directly, with no prefix' })
   })
 })

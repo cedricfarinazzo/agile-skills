@@ -12,7 +12,7 @@ export type World = {
   /** Answers by argv joined with spaces; the first key the command starts with wins. */
   gh?: Record<string, { exitCode?: number; stdout: string }>
   jiraAllowed?: boolean
-  jira?: unknown
+  jira?: unknown | ((args: Record<string, unknown>) => string)
   agents?: { id: string; type: string }[]
   files?: Record<string, string>
   /** The session's cost so far, as the engine's ledger reports it. */
@@ -49,7 +49,9 @@ export function world(on: On, w: World = {}) {
   on('tool.check', async () => ({ decision: w.jiraAllowed ? 'allow' : 'ask' }) as never)
   on('mcp.call', async (_$, e) => {
     mcp.push({ ...e.args, tool: e.tool })
-    return { value: { content: [{ type: 'text', text: JSON.stringify(w.jira ?? { issues: { nodes: [] } }) }], isError: false } }
+    // a function answers per call, with raw text (the engine's too-large notice is not JSON)
+    const text = typeof w.jira === 'function' ? w.jira(e.args) : JSON.stringify(w.jira ?? { issues: { nodes: [] } })
+    return { value: { content: [{ type: 'text', text }], isError: false } }
   })
   // the tools themselves: a call that reaches the bottom ran (the UI events are left unanswered: the engine drops them)
   on('tool.call', async (_$, e) => {

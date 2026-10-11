@@ -59,7 +59,7 @@ The projects come from the ticket keys on the board (named by the loop's Jira ca
 
 ## Limits
 
-- Jira pages hold 50 issues; a sprint over 200 tickets shows its first 200. A ticket's phase is read a few tickets per refresh, so a large sprint takes a few minutes to fill in.
+- Jira pages hold 50 issues, halved down to 5 when an answer passes the MCP output limit; a sprint over 200 tickets shows its first 200. A ticket whose comments alone pass the limit keeps its phase unread for the session. A ticket's phase is read a few tickets per refresh, so a large sprint takes a few minutes to fill in.
 - A train step is read from its dispatch text: a dispatch that names no PR (`#42`, `PR 42`, `/pull/42`) moves no step. PR state, CI and tickets do not depend on it.
 - The pane and the alert row draw in the interactive terminal and the Desktop Code tab; elsewhere (VS Code chat panel, `claude -p`) the hooks still run and nothing draws.
 - A pane the mod opens by itself waits for a 144-column terminal; `/agile-board` opens it at any width.

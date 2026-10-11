@@ -18,16 +18,19 @@ const WHOLE = /^(cat(\s+-n)?|nl|tee\s+\S+)$/
  * command after a failed one, so only `&&`, which stops at the first failure, joins reads.
  */
 const UNMODELLED = /["'`$\\<>()#{}\n;]|\|\||(?<!&)&(?!&)/
+/** A leading `cd <dir> &&` or `cd <dir>;`: it picks the repository, and the full sha still names the object. */
+const CD = /^cd\s+[^\s"'`$\\<>()#{};&|]+\s*(?:&&|;)\s*/
 
 export const sameSha = (a: string, b: string) => a.length >= 7 && b.length >= 7 && (a.startsWith(b) || b.startsWith(a))
 
 /**
  * Every `<sha>:<path>` a shell command shows in full. Only plain `git show` / `git cat-file -p`
- * commands joined by `&&` count, each optionally piped into `cat`, `nl` or `tee`; every word after
+ * commands joined by `&&`, after an optional leading `cd <dir>`, count, each optionally piped into `cat`, `nl` or `tee`; every word after
  * the subcommand must be a spec. Anything the shell could read differently from this parser counts
  * nothing, so a read is never credited that the reviewer did not see.
  */
 export function readsOf(command: string): { sha: string; path: string }[] {
+  command = command.trim().replace(CD, '')
   if (UNMODELLED.test(command)) return []
   const out: { sha: string; path: string }[] = []
   for (const part of command.split('&&')) {
