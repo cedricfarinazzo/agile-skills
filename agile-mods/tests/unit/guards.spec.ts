@@ -208,6 +208,8 @@ describe('fix-round cap', () => {
     expect(pushPlanOf(`cd /w; git push origin a > log b; echo`)).toEqual({ refs: [{ src: 'a', dst: 'a' }, { src: 'b', dst: 'b' }], commits: true })
     expect(pushPlanOf(`cd /w; git push -q; echo $?`)).toEqual({ dir: '/w', refs: [], commits: true })
     expect(pushPlanOf(`cd /w; git checkout b; git push -q`)).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf(`cd /w; gh pr checkout 12; git push`)).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf(`cd /w; gh pr co 12; git push origin HEAD`)).toEqual({ error: 'a push in the loop is one plain command' })
     expect(pushPlanOf(`cd /w; cd x; git push`)).toEqual({ dir: '/w/x', refs: [], commits: true })
     expect(pushPlanOf(`cd /w/a/b; npm test; cd ..; git branch --show-current; git push -q; cd /`)).toEqual({ dir: '/w/a/b/..', refs: [], commits: true })
     expect(pushPlanOf(`for d in a b; do cd $d; git push; done`)).toEqual({ error: 'a push in the loop is one plain command' })

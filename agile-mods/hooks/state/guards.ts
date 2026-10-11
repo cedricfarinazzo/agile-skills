@@ -447,6 +447,9 @@ function namedPushes(command: string): PushPlan | undefined {
 /** A segment that leaves the checked-out branch and its push target as they are: no git, or a git read. */
 function staysPut(words: string[]): boolean {
   const g = words.findIndex(w => /(^|\/)git$/.test(w))
+  // another program can move the branch too (`gh pr checkout`, a script running git switch): a word that
+  // names a checkout, a switch or a worktree anywhere in the segment is read as one
+  if (words.some(w => /^(checkout|switch|worktree|co)$/.test(w))) return false
   if (g < 0) return true
   let j = g + 1
   while (j < words.length && words[j]!.startsWith('-')) j += /^-[Cc]$/.test(words[j]!) ? 2 : 1
