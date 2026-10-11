@@ -387,10 +387,18 @@ function namedPushes(command: string): PushPlan | undefined {
   for (const words of segments) {
     const at = words.findIndex((w, i) => /(^|\/)git$/.test(w) && pushAt(words, i) >= 0)
     if (at < 0) continue
-    // a redirection ends the push's own words (`2>&1` splits as `2>`)
+    // redirections are not arguments: each is dropped wherever it stands, with its target when that is a
+    // word of its own (`2>&1` splits as `2>`, its `&1` ending the segment); every other word is read
     const tail = words.slice(pushAt(words, at) + 1)
-    const end = tail.findIndex(a => /^\d*[<>]/.test(a))
-    const args = end < 0 ? tail : tail.slice(0, end)
+    const args: string[] = []
+    for (let i = 0; i < tail.length; i++) {
+      const a = tail[i]!
+      if (/^\d*(>>?|<|>&|<&|&>)/.test(a)) {
+        if (/^\d*(>>?|<|>&|<&|&>)$/.test(a)) i++
+        continue
+      }
+      args.push(a)
+    }
     if (args.some(a => a.startsWith('-') && !PUSH_FLAGS.test(a)) || args.some(a => /[$`*?]/.test(a))) return undefined
     const [, ...specs] = args.filter(a => !a.startsWith('-'))
     const deletes = args.some(a => a === '-d' || a === '--delete')

@@ -188,6 +188,9 @@ describe('fix-round cap', () => {
     expect(pushPlanOf(`git commit -F - <<'EOF' && git push origin a\nmsg; $(rm x)\nEOF`)).toEqual({ refs: [{ src: 'a', dst: 'a' }], commits: true })
     // a script: each push read on its own when it names its branch, always a round
     expect(pushPlanOf(`cd /w; npm test 2>&1 | tail -1; git add -A && git commit -qm "x" && git push -q -u origin feat/a 2>&1 | tail -1; echo done`)).toEqual({ refs: [{ src: 'feat/a', dst: 'feat/a' }], commits: true })
+    // a word after a redirection is still a ref
+    expect(pushPlanOf(`cd /w; git push origin a 2>/dev/null b; echo`)).toEqual({ refs: [{ src: 'a', dst: 'a' }, { src: 'b', dst: 'b' }], commits: true })
+    expect(pushPlanOf(`cd /w; git push origin a > log b; echo`)).toEqual({ refs: [{ src: 'a', dst: 'a' }, { src: 'b', dst: 'b' }], commits: true })
     expect(pushPlanOf(`cd /w; git push -q; echo $?`)).toEqual({ dir: '/w', refs: [], commits: true })
     expect(pushPlanOf(`cd /w; git checkout b; git push -q`)).toEqual({ error: 'a push in the loop is one plain command' })
     expect(pushPlanOf(`cd /w; cd x; git push`)).toEqual({ dir: '/w/x', refs: [], commits: true })
