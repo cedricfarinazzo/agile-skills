@@ -16,9 +16,10 @@ const WHOLE = /^(cat(\s+-n)?|nl|tee\s+\S+)$/
 /** One pipe that keeps a line range: `sed -n A,Bp`, `head -n N` (or `head -N`), `tail -n +A`. */
 function rangeOf(pipe: string): [number, number] | undefined {
   let m = pipe.match(/^sed\s+-n\s+(\d+),(\d+)p$/)
-  if (m) return [Number(m[1]), Number(m[2])]
-  m = pipe.match(/^head\s+(?:-n\s*)?-?(\d+)$/)
-  if (m && /^head\s+(-n|-\d)/.test(pipe)) return [1, Number(m[1])]
+  if (m && Number(m[1]) >= 1 && Number(m[1]) <= Number(m[2])) return [Number(m[1]), Number(m[2])]
+  // `head -n -N` prints all but the last N lines, so only a positive count is a range
+  m = pipe.match(/^head\s+(?:-n\s*(\d+)|-(\d+))$/)
+  if (m) return [1, Number(m[1] ?? m[2])]
   m = pipe.match(/^tail\s+-n\s*\+(\d+)$/)
   if (m) return [Number(m[1]), Infinity]
   return undefined
