@@ -121,7 +121,7 @@ const isMessage = (words: string[], k: number) =>
   /^(\S*\/)?(git|gh)$/.test(words[0] ?? '') && (MESSAGE_FLAG.test(words[k - 1] ?? '') || /^--(message|body|title|notes|subject)=/.test(words[k]!))
 
 /** A heredoc's body is data for the command that reads it: left out of the words, kept for the text checks. */
-export const withoutHeredocs = (command: string) => command.replace(/<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\s*\2[ \t]*(?=\n|$)/g, '')
+export const withoutHeredocs = (command: string) => command.replace(/<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\t*\2(?=\n|$)/g, '')
 
 /**
  * The git subcommands a line could run: after every `git` word, wherever it stands (behind a wrapper,
@@ -176,7 +176,7 @@ export function hiddenPush(command: string): boolean {
 
 // a heredoc read by one of these is data: written to a file, or a git or gh message
 const DATA_READER = /^(\S*\/)?(cat|tee|git|gh)$/
-const HEREDOC = /<<-?\s*(['"]?)(\w+)\1([^\n]*)\n([\s\S]*?)\n\s*\2[ \t]*(?=\n|$)/g
+const HEREDOC = /<<-?\s*(['"]?)(\w+)\1([^\n]*)\n([\s\S]*?)\n\t*\2(?=\n|$)/g
 /** The program a heredoc feeds: the first word of its command, after env assignments and a `cd … &&`. */
 function heredocReader(command: string, at: number): string {
   const line = command.slice(0, at).split(/\n|;|&&|\|\||\||\$\(/).at(-1) ?? ''
@@ -270,13 +270,20 @@ const BASE = /^(main|master)$/
  * @param branch the branch checked out where the push runs, for a push that names no refspec
  */
 export function pushDenial(command: string, branch: string | undefined): string | undefined {
-  for (const push of command.split(/&&|\|\||;|\|/).filter(pushesIn)) {
-    const words = push.trim().split(/\s+/).slice(push.trim().split(/\s+/).indexOf('push') + 1)
+  // read twice, from the raw text split at its separators and from the words as the shell resolves them
+  // (quotes, escapes, newlines), so neither a quoted `"main"` nor an escaped `m\ain` slips past
+  const raw = command.split(/&&|\|\||;|\||\n/).filter(pushesIn).map(p => p.trim().split(/\s+/).map(w => w.replace(/^["']|["']$/g, '')))
+  const resolved = shellWords(withoutHeredocs(command)).filter(words => words.some((w, i) => /(^|\/)git$/.test(w) && pushAt(words, i) >= 0))
+  for (const all of [...raw, ...resolved]) {
+    const at = all.indexOf('push')
+    if (at < 0) continue
+    const words = all.slice(at + 1)
     const flags = words.filter(w => w.startsWith('-'))
-    if (flags.some(f => f === '--force' || f === '--mirror' || /^-[a-zA-Z]*f/.test(f))) {
+    const lease = flags.some(f => /^--force-with-lease/.test(f))
+    if (flags.some(f => f === '--force' || f === '--mirror' || /^-[a-zA-Z]*f/.test(f)) || (!lease && words.some(w => w.startsWith('+')))) {
       return 'the loop never force-pushes without a lease: use --force-with-lease, and say so in the receipt.'
     }
-    const refs = words.filter(w => !w.startsWith('-')).map(w => w.replace(/^["']|["']$/g, '')).slice(1)
+    const refs = words.filter(w => !w.startsWith('-') && !/^\d*[<>&]/.test(w)).slice(1)
     if (refs.some(r => /[$`]/.test(r))) return 'the loop names the branch it pushes: a computed push target ($VAR, $(...)) cannot be checked against main.'
     const targets = refs.map(r => r.replace(/^\+/, '').split(':').at(-1)!.replace(/^refs\/heads\//, '')).map(r => (r === 'HEAD' ? branch ?? r : r))
     const target = targets.find(t => BASE.test(t)) ?? (!refs.length && branch && BASE.test(branch) ? branch : undefined)
@@ -327,7 +334,7 @@ export function pushPlanOf(command: string): PushPlan | { error: string } {
   // what the push prints, merged and trimmed, changes nothing it sends
   command = command.trim().replace(OUTPUT_TAIL, '')
   // a commit message in a quoted heredoc is text the shell never expands: it reads as an empty message
-  command = command.replace(/"\$\(cat\s+<<-?\s*'(\w+)'\n[\s\S]*?\n\s*\1\s*\n?\s*\)"/g, '""').replace(/<<-?\s*'(\w+)'([^\n]*)\n[\s\S]*?\n\s*\1[ \t]*(?=\n|$)/g, '$2')
+  command = command.replace(/"\$\(cat\s+<<-?\s*'(\w+)'\n(?:(?!\n\t*\1\n)[\s\S])*?\n\t*\1\n\)"/g, '""').replace(/<<-?\s*'(\w+)'([^\n]*)\n(?:(?!\n\t*\1(?:\n|$))[\s\S])*?\n\t*\1(?=\n|$)/g, '$2')
   // quoted text set aside as tokens, so a quoted && or ; is not read as shell syntax
   const quoted: string[] = []
   const flat = command.replace(/'[^']*'|"[^"$`\\]*"/g, q => `\u0000${quoted.push(q) - 1}\u0000`)

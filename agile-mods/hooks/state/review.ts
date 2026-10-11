@@ -86,8 +86,12 @@ const PERSISTED = /<persisted-output>|Output too large/
  *
  * @param output the text the model got back; a read whose output was cut or persisted counts nothing
  */
+/** A read that failed: with reads joined by `;`, a later success hides it from the exit code. */
+const FAILED = /^(fatal|error): /m
+const unread = (command: string, output: string) => output.length > MAX_OUTPUT || PERSISTED.test(output) || (/;/.test(command) && FAILED.test(output))
+
 export function withReads(reads: Reads, command: string, output: string): Reads {
-  if (output.length > MAX_OUTPUT || PERSISTED.test(output)) return reads
+  if (unread(command, output)) return reads
   let next = reads
   for (const { sha, path, range } of readsOf(command)) {
     if (range) continue
@@ -102,7 +106,7 @@ export function withReads(reads: Reads, command: string, output: string): Reads 
 
 /** Adds the line ranges one finished command read; the same object when it read none. Same output rule as withReads. */
 export function withParts(parts: Parts, command: string, output: string): Parts {
-  if (output.length > MAX_OUTPUT || PERSISTED.test(output)) return parts
+  if (unread(command, output)) return parts
   let next = parts
   for (const { sha, path, range } of readsOf(command)) {
     if (!range) continue

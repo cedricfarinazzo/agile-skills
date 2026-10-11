@@ -164,6 +164,21 @@ describe('fix-round cap', () => {
     expect(isFixDispatch('Skill', { skill: 'fix-until-satisfied-ish' })).toBe(false)
   })
 
+  test('main and force are read from the words the shell resolves, and +ref is a force push', () => {
+    expect(pushDenial('cd /w; git push origin m\\ain', 'a')).toContain('never pushes to main')
+    expect(pushDenial("cd /w; git push origin 'ma''in'", 'a')).toContain('never pushes to main')
+    expect(pushDenial('cd /w\ngit push origin feat/a\ngit push origin main', 'a')).toContain('never pushes to main')
+    expect(pushDenial('git push origin +feat/a', 'a')).toContain('force-pushes')
+    expect(pushDenial('git push --force-with-lease origin +HEAD:feat/a', 'feat/a')).toBeUndefined()
+    expect(pushDenial('git push origin feat/a 2>&1 | tail -2', 'a')).toBeUndefined()
+  })
+
+  test('a failed read joined by ; credits nothing', () => {
+    const SHA = 'a'.repeat(40)
+    expect(withReads({}, `git show ${SHA}:a.ts; git show ${SHA}:b.ts`, "fatal: path 'a.ts' does not exist\nb text")).toEqual({})
+    expect(withReads({}, `git show ${SHA}:a.ts; git show ${SHA}:b.ts`, 'a text\nb text')).toEqual({ [SHA]: ['a.ts', 'b.ts'] })
+  })
+
   test('gh options before the subcommand, and a graphql read beside $ and @ elsewhere on the line', () => {
     expect(sideDoorDenial('Bash', { command: 'R=o/r; gh -R $R run view 1 --log-failed | grep x' })).toBeUndefined()
     expect(sideDoorDenial('Bash', { command: 'gh --repo o/r pr view 1' })).toBeUndefined()

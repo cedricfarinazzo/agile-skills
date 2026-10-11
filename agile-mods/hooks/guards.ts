@@ -161,8 +161,12 @@ export async function guardsBefore(host: Host, tool: string, args: Record<string
 
   const command = tool === 'Bash' && typeof args.command === 'string' ? args.command : ''
   if (inLoop && pushesIn(command)) {
-    const refspec = /\bpush\b(\s+-\S+)*\s+\S+\s+\S+/.test(command)
-    const deny = pushDenial(command, refspec && !/\bHEAD\b/.test(command) ? undefined : await branchOf(host, command))
+    // the branch where the push runs: the plan's directory (its cds followed), else the leading cd or -C
+    const plan = pushPlanOf(command)
+    // read only for a push that names no branch, or HEAD
+    const named = !('error' in plan) && plan.refs.length > 0 && !plan.refs.some(r => r.src === 'HEAD' || r.dst === 'HEAD') && !/\bHEAD\b/.test(command)
+    const branch = named ? undefined : 'error' in plan || !plan.dir ? await branchOf(host, command) : await host.branch(plan.dir)
+    const deny = pushDenial(command, branch)
     if (deny) return `agile-mods: ${deny}`
     const cap = await fixPush(host, command, type ?? '', agentId)
     if (cap) return `agile-mods: ${cap}`
