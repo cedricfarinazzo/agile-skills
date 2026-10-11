@@ -32,6 +32,8 @@ function rangeOf(pipe: string): [number, number] | undefined {
  * newline, background `&`): a command using any of it counts no read. `;` and a newline run the next
  * command after a failed one, so only `&&`, which stops at the first failure, joins reads.
  */
+/** A separator between reads: echo with plain or quoted text, nothing the shell expands. */
+const ECHO = /^echo(\s+('[^']*'|"[^"$`\\]*"|[\w=.:\/+-]+))*$/
 const UNMODELLED = /["'`$\\<>()#{}\n;]|\|\||(?<!&)&(?!&)/
 /** A leading `cd <dir> &&` or `cd <dir>;`: it picks the repository, and the full sha still names the object. */
 const CD = /^cd\s+[^\s"'`$\\<>()#{};&|]+\s*(?:&&|;)\s*/
@@ -48,14 +50,20 @@ export const sameSha = (a: string, b: string) => a.length >= 7 && b.length >= 7 
 export function readsOf(command: string): { sha: string; path: string; range?: [number, number] }[] {
   // `sed -n '1,400p'` quotes only digits, so it reads the same unquoted
   command = command.trim().replace(CD, '').replace(/(\|\s*sed\s+-n\s+)(['"])(\d+,\d+p)\2/g, '$1$3')
+  // reads may be joined by `;` as well as `&&` (a full-sha read of a PR file cannot fail), with plain
+  // `echo` separators between them; each part is still read on its own
+  const parts = command.split(/\s*(?:&&|;)\s*/).filter(p => p && !ECHO.test(p))
+  if (!parts.length) return []
+  command = parts.join(' && ')
   if (UNMODELLED.test(command)) return []
   const out: { sha: string; path: string; range?: [number, number] }[] = []
   for (const part of command.split('&&')) {
     const [head, ...pipes] = part.split('|').map(s => s.trim())
     if (!head) return []
-    // a single line-range pipe, first, makes a ranged read of one file; anything else after it must keep every line
-    const range = pipes.length ? rangeOf(pipes[0]!) : undefined
-    if (pipes.slice(range ? 1 : 0).some(p => !WHOLE.test(p))) return []
+    // one line-range pipe makes a ranged read of one file; every other pipe must keep every line
+    const ranges = pipes.map(rangeOf)
+    const range = ranges.find(Boolean)
+    if (ranges.filter(Boolean).length > 1 || pipes.some((p, i) => !ranges[i] && !WHOLE.test(p))) return []
     const show = head.match(SHOW)
     if (!show) return []
     const words = show[1]!.split(/\s+/)

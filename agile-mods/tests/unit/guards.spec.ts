@@ -43,7 +43,7 @@ describe('review coverage', () => {
       `${show} 2>/dev/null`,
       `echo "x && ${show}"`,
       `false || ${show}`,
-      `true; ${show}`,
+      `true; ${show}; x`,
       `false\n${show}`,
       `${show} &`,
       `(${show})`,
@@ -70,6 +70,12 @@ describe('review coverage', () => {
     expect(covers([[1, 100], [101, 149], [150, END]], 400)).toBe(true)
     expect(covers([[1, 100], [102, 400]], 400)).toBe(false)
     expect(covers([[1, 300]], 400)).toBe(false)
+    // reads joined by ; with echo separators, and a range after cat -n
+    expect(readsOf(`${show}; echo '----'; git show ${SHA}:b.ts`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
+    expect(readsOf(`git show ${SHA}:a.ts | cat -n | sed -n 100,220p`)).toEqual([{ sha: SHA, path: 'a.ts', range: [100, 220] }])
+    expect(readsOf(`${show}; echo "$x"`)).toEqual([])
+    expect(readsOf(`${show}; rm -rf x`)).toEqual([])
+    expect(readsOf(`git show ${SHA}:a.ts | head -n 9 | tail -n +3`)).toEqual([])
     // a leading cd picks the repository; the full sha still names the object
     expect(readsOf(`cd /w/repo && ${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])
     expect(readsOf(`cd /w/repo; ${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])
