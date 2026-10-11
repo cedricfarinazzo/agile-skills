@@ -142,6 +142,12 @@ describe('Jira sync', () => {
     expect(next.prOrder).toEqual([6])
     expect(applyPrs(next, [{ number: 5, title: 'OLD-1', state: 'MERGED', createdAt: at(-60), mergedAt: at(-50) }], T0).prOrder).toEqual([6])
     expect(pruned(b, new Set())).toBe(b)
+    // a key named during the read, and a done ticket with an open PR, stay
+    const racing = withKeys(next, ['LATE-1'])
+    expect(pruned(racing, new Set(['NEW-1'])).order).toEqual(['NEW-1', 'LATE-1'])
+    const openDone = applyPrs(applyJira(next, { issues: [issue('OLD-3', { status: 'Done', category: 'done' })] }, FIELD, T0), [{ number: 7, title: 'OLD-3', state: 'OPEN' }], T0)
+    expect(jqlOf(openDone)).toContain('OLD-3')
+    expect(pruned(openDone, new Set(['NEW-1'])).order).toContain('OLD-3')
   })
 
   test('config: the points field and cloudId from AGENTS.md text', () => {

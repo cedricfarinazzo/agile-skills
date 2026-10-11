@@ -78,6 +78,23 @@ describe('board sources through the engine', () => {
     expect(String(w.mcp[0]!.jql)).toContain('key in (VC-1)')
   })
 
+  test('a stored board from a past sprint: tickets the open sprints no longer return leave it', async ($, on) => {
+    const old = { key: 'OLD-1', status: 'Done', category: 'done' }
+    const w = world(on, {
+      files: { 'AGENTS.md': `cloudId: ${CLOUD}` },
+      jiraAllowed: true,
+      stored: { '/repo:board': { tickets: { 'OLD-1': old }, order: ['OLD-1'], prs: {}, prOrder: [] } },
+      jira: { issues: { nodes: [{ key: 'VC-1', fields: { summary: 's', status: { name: 'To Do', statusCategory: { key: 'new' } } } }], pageInfo: { hasNextPage: false } } },
+      gh: { 'gh pr list': { stdout: '[]' }, 'gh run list --limit': { stdout: '[]' } },
+    })
+    await start($)
+    await $.command.run({ command: 'agile-board', args: 'board' } as never)
+    const order = () => (w.stored.get('/repo:board') as { order?: string[] } | undefined)?.order
+    for (let i = 0; i < 50 && order()?.includes('OLD-1'); i++) await new Promise(r => setTimeout(r, 10))
+    expect(String(w.mcp[0]!.jql)).not.toContain('OLD-1')
+    expect(order()).toEqual(['VC-1'])
+  })
+
   test('a Jira page past the output limit is asked again at half the size', async ($, on) => {
     const ok = JSON.stringify({ issues: { nodes: [{ key: 'VC-1', fields: { summary: 's', status: { name: 'To Do', statusCategory: { key: 'new' } } } }], pageInfo: { hasNextPage: false } } })
     const w = world(on, {
