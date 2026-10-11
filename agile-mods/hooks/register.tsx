@@ -1,6 +1,6 @@
 /* @jsx h */
 import type { EngineInterface, ProcessRunResult, Register, RenderNode } from 'claude-code'
-import { EMPTY, POINTS_FIELD, applyJira, markerTargets, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
+import { EMPTY, POINTS_FIELD, applyJira, markerTargets, pruned, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, issuesOf, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, rasterCells, statusText, tabOf, type Row, type Tab } from './state/console.ts'
 import { budgetDenial, isBuildWork, keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
@@ -189,6 +189,8 @@ async function syncJira($: EngineInterface) {
     const host = hostOf($)
     let page: string | undefined
     let size = JIRA_PAGE
+    const returned = new Set<string>()
+    let complete = false
     for (let i = 0; i < JIRA_PAGES; i++) {
       let answer: unknown
       try {
@@ -201,9 +203,15 @@ async function syncJira($: EngineInterface) {
         continue
       }
       save($, applyJira(board, answer, pointsField, await $.clock.now()))
+      for (const issue of issuesOf(answer)) returned.add(String(issue.key))
       page = nextPageOf(answer)
-      if (!page) break
+      if (!page) {
+        complete = true
+        break
+      }
     }
+    // the whole read answered: what it did not return is a past sprint's, and leaves the board
+    if (complete) save($, pruned(board, returned))
     for (const key of markerTargets(board, MARKER_READS + tooLarge.size).filter(k => !tooLarge.has(k)).slice(0, MARKER_READS)) {
       try {
         save($, applyJira(board, await host.jira(cloudId, `key = ${key}`, ['comment'], undefined, 1), pointsField, await $.clock.now()))
