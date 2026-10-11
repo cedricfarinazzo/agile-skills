@@ -58,7 +58,7 @@ The per-phase tool-grant checks do not apply inside a session agent: it runs eve
 
 ## Seeing refusals
 
-Each refusal is also kept for the session and shown on the Guards tab of the [agile console](console.md): when it happened, which rule (`grant`, `3f`, `push`, `fix`, `budget`, `side` for the API, MCP and alias side doors), the text, and the agent that made the call, with a count of allowed calls beside it. A toast shows it as it happens, so a refusal is visible while the pane is closed. The log is in memory: a reload or `/agile-board reset` clears it.
+Each refusal is also kept for the session and shown on the Guards tab of the [agile console](console.md): when it happened, which rule (`grant`, `3f`, `push`, `fix`, `budget`, `side` for the API, MCP and alias side doors), the text, and the agent that made the call, with a count of allowed calls beside it. A toast shows it as it happens, so a refusal is visible while the pane is closed. The log is in memory: a reload or `/agile-board reset` clears it; `reset` clears the receipts beside it too.
 
 ## What a refusal looks like
 

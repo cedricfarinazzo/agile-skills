@@ -193,6 +193,9 @@ describe('burndown and drain outcome', () => {
     // resuming a running drain keeps its board
     const running = skill(sprint(['VC-1'], [], skill(EMPTY, 'agile-sprint-drain')), 'agile-sprint-drain', T0 + 5)
     expect(running.order).toEqual(['VC-1'])
+    // and so does re-invoking a STUCK one
+    const stuck = skill({ ...running, drain: { pass: 2, outcome: 'STUCK' } }, 'agile-sprint-drain', T0 + 6)
+    expect(stuck.order).toEqual(['VC-1'])
   })
 
   test('DRAINED once Jira answered and nothing is actionable; never from answer text', () => {

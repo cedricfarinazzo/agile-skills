@@ -95,6 +95,30 @@ describe('board sources through the engine', () => {
     expect(order()).toEqual(['VC-1'])
   })
 
+  test('/agile-board reset clears the receipts with the board, and a read in flight saves nothing', async ($, on) => {
+    const answer = JSON.stringify({ issues: { nodes: [{ key: 'VC-1', fields: { summary: 's', status: { name: 'To Do', statusCategory: { key: 'new' } } } }], pageInfo: { hasNextPage: false } } })
+    let resetDone: Promise<unknown> | undefined
+    const w = world(on, {
+      files: { 'AGENTS.md': `cloudId: ${CLOUD}` },
+      jiraAllowed: true,
+      stored: {
+        '/repo:board': { tickets: { 'VC-1': { key: 'VC-1' } }, order: ['VC-1'], prs: {}, prOrder: [] },
+        '/repo:receipts': [{ agent: 'agile-merge-review:pr-reviewer', at: 1, issues: ['preamble'] }],
+      },
+      // the reset lands while the Jira read is out
+      jira: () => ((resetDone ??= $.command.run({ command: 'agile-board', args: 'reset' } as never)), answer),
+      gh: { 'gh pr list': { stdout: '[]' }, 'gh run list --limit': { stdout: '[]' } },
+    })
+    await start($)
+    await $.command.run({ command: 'agile-board', args: 'board' } as never)
+    for (let i = 0; i < 50 && !resetDone; i++) await new Promise(r => setTimeout(r, 10))
+    await resetDone
+    await new Promise(r => setTimeout(r, 50))
+    expect(w.stored.get('/repo:receipts')).toEqual([])
+    expect((w.stored.get('/repo:board') as { order: string[] }).order).toEqual([])
+    expect(said(await $.command.run({ command: 'receipts', args: 'all' } as never))).not.toContain('pr-reviewer')
+  })
+
   test('a Jira page past the output limit is asked again at half the size', async ($, on) => {
     const ok = JSON.stringify({ issues: { nodes: [{ key: 'VC-1', fields: { summary: 's', status: { name: 'To Do', statusCategory: { key: 'new' } } } }], pageInfo: { hasNextPage: false } } })
     const w = world(on, {

@@ -24,6 +24,12 @@ export async function receiptsStart(host: Host) {
   if (Array.isArray(stored)) receipts = stored as Receipt[]
 }
 
+/** Clears the receipts, for /agile-board reset. */
+export function receiptsReset(host: Host) {
+  receipts = []
+  void host.storeSet(STORE_KEY, receipts).catch(() => undefined)
+}
+
 export async function receiptsCommand(host: Host, arg: string): Promise<string> {
   if (arg !== 'clear') return receiptsText(receipts, arg === 'all')
   receipts = []
