@@ -6,7 +6,7 @@
 
 Checks each agent's receipt against the shared receipt contract in `CLAUDE.md` as it returns, so a bad receipt is visible without reading every one.
 
-Each `agile-execution:*` / `agile-merge-review:*` / `agile-sprint-drain:*` agent receipt is checked as it returns. A flagged receipt toasts and shows `✖` on the Guards tab (a clean one shows `✔`); `/receipts` lists flagged ones, `/receipts all` every one (last 40, kept in `$.store`).
+Each `agile-execution:*` / `agile-merge-review:*` / `agile-sprint-drain:*` agent receipt is checked as it returns. A flagged receipt toasts and shows `✖` on the Guards tab (a clean one shows `✔`); `/receipts` lists flagged ones, `/receipts all` every one (last 40, kept in `$.store`); `/receipts clear` and `/agile-board reset` clear them.
 
 Flags: `no receipt`, `preamble`, `summary/praise section`, `blocked: …`, `unapplied_mutations: …`, `no reviewed sha` (pr-reviewer), `agent errored`.
 

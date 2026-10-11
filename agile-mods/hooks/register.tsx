@@ -1,6 +1,6 @@
 /* @jsx h */
 import type { EngineInterface, ProcessRunResult, Register, RenderNode } from 'claude-code'
-import { EMPTY, POINTS_FIELD, applyJira, markerTargets, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
+import { EMPTY, POINTS_FIELD, applyJira, markerTargets, pruned, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, issuesOf, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, rasterCells, statusText, tabOf, type Row, type Tab } from './state/console.ts'
 import { budgetDenial, isBuildWork, keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
@@ -8,7 +8,7 @@ import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { agentTypeOf, guardedCall, guardsAfter, guardsBefore, guardsReset, guardsStart, loopRunning } from './guards.ts'
 import { argsOf, type Compare, type Finished, type Host, type PrRow, type RunRow } from './host.ts'
-import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsStart } from './receipts.ts'
+import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsReset, receiptsStart } from './receipts.ts'
 
 // The plugin's one hooks module. The board is read from the sources the mod queries itself: gh for
 // PRs, CI runs and open PRs' files, the session's Atlassian MCP server for tickets, the engine for
@@ -62,6 +62,8 @@ const busy = { gh: false, jira: false }
 let ghError: string | undefined
 let budget = 0
 let agentStats: Stats = {}
+/** Bumped by /agile-board reset and a fresh drain: a read begun before it saves nothing. */
+let epoch = 0
 // the plugin store is shared by every repo: each key is scoped to the session's working directory
 let scope = ''
 
@@ -155,28 +157,40 @@ function hostOf($: EngineInterface): Host {
   }
 }
 
+/**
+ * A save for a read that awaits: dropped once /agile-board reset ran since the read began, so an
+ * answer to the old board's query never puts its tickets and PRs back.
+ */
+const keeper = ($: EngineInterface) => {
+  const at = epoch
+  return (next: Board) => {
+    if (at === epoch) save($, next)
+  }
+}
+
 /** Re-reads PRs and CI runs with gh. */
 async function syncGh($: EngineInterface) {
   if (busy.gh) return
   busy.gh = true
+  const keep = keeper($)
   try {
     const host = hostOf($)
     ghError = undefined
     const [prs, runs] = await Promise.all([host.prs(), host.runs()])
     const now = await $.clock.now()
-    if (!prs || !runs) return save($, { ...board, gh: { ...board.gh, error: ghError ?? 'gh failed' } })
-    save($, sampled(judged(applyRuns(applyPrs(board, prs, now), runs, now), now, false), now))
+    if (!prs || !runs) return keep({ ...board, gh: { ...board.gh, error: ghError ?? 'gh failed' } })
+    keep(sampled(judged(applyRuns(applyPrs(board, prs, now), runs, now), now, false), now))
     // open PRs' files for the overlap map, read once per head
     for (const { pr, head } of filesTargets(board, FILES_PER_SYNC)) {
       const files = await host.prFiles(pr)
-      if (files) save($, withFiles(board, pr, head, files))
+      if (files) keep(withFiles(board, pr, head, files))
     }
   } finally {
     busy.gh = false
   }
 }
 
-/** Re-reads the board's tickets from Jira: its projects' open sprints and every key it holds. */
+/** Re-reads the board's tickets from Jira: its projects' open sprints and the keys the loop is on. */
 async function syncJira($: EngineInterface) {
   const jql = jqlOf(board)
   if (busy.jira || !jql) return
@@ -185,10 +199,13 @@ async function syncJira($: EngineInterface) {
     return
   }
   busy.jira = true
+  const keep = keeper($)
   try {
     const host = hostOf($)
     let page: string | undefined
     let size = JIRA_PAGE
+    const returned = new Set<string>()
+    let complete = false
     for (let i = 0; i < JIRA_PAGES; i++) {
       let answer: unknown
       try {
@@ -200,13 +217,19 @@ async function syncJira($: EngineInterface) {
         i--
         continue
       }
-      save($, applyJira(board, answer, pointsField, await $.clock.now()))
+      keep(applyJira(board, answer, pointsField, await $.clock.now()))
+      for (const issue of issuesOf(answer)) returned.add(String(issue.key))
       page = nextPageOf(answer)
-      if (!page) break
+      if (!page) {
+        complete = true
+        break
+      }
     }
+    // the whole read answered: what it did not return is a past sprint's, and leaves the board
+    if (complete) keep(pruned(board, returned))
     for (const key of markerTargets(board, MARKER_READS + tooLarge.size).filter(k => !tooLarge.has(k)).slice(0, MARKER_READS)) {
       try {
-        save($, applyJira(board, await host.jira(cloudId, `key = ${key}`, ['comment'], undefined, 1), pointsField, await $.clock.now()))
+        keep(applyJira(board, await host.jira(cloudId, `key = ${key}`, ['comment'], undefined, 1), pointsField, await $.clock.now()))
       } catch (err) {
         // one ticket whose comments pass the limit: its markers stay unread, the rest of the board syncs
         if (!(err instanceof TooLarge)) throw err
@@ -214,9 +237,9 @@ async function syncJira($: EngineInterface) {
       }
     }
     const now = await $.clock.now()
-    save($, sampled(judged(board, now, false), now))
+    keep(sampled(judged(board, now, false), now))
   } catch (err) {
-    save($, { ...board, jira: { ...board.jira, error: err instanceof Error ? err.message : String(err) } })
+    keep({ ...board, jira: { ...board.jira, error: err instanceof Error ? err.message : String(err) } })
   } finally {
     busy.jira = false
   }
@@ -354,9 +377,11 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'agile-board' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
     if (arg === 'reset') {
+      epoch += 1
       save($, EMPTY)
       saveRetro($, EMPTY_RETRO)
       guardsReset(hostOf($))
+      receiptsReset(hostOf($))
       refusals = []
       allowed = 0
       tooLarge.clear()
@@ -408,6 +433,8 @@ export const register: Register = (on, options) => {
     const now = await $.clock.now()
     if (e.agentId) agentStats = noteCall(agentStats, e.agentId, e.tool, args, now)
     if (typeof args.cloudId === 'string' && /^mcp__.+__/.test(e.tool)) cloudId ??= args.cloudId
+    // a drain that starts fresh (not resuming a running or STUCK one) empties the board: reads begun before it save nothing
+    if (/(^|:)agile-sprint-drain$/.test(skill) && board.drain?.outcome !== 'running' && board.drain?.outcome !== 'STUCK') epoch += 1
     save($, withKeys(observeStart(board, e.tool, args, now), keysOf(e.tool, args)))
     saveRetro($, retroStart(retro, e.tool, args, now))
     const r = await next(e)

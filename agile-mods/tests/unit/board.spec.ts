@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { EMPTY, actionableOf, applyJira, markerTargets, nextPageOf, applyPrs, applyRuns, ciOf, cloudIdOf, jqlOf, judged, keysOf, laneRows, leftOf, loadBoard, movesOf, observeStart, parkedOf, pointsFieldOf, projectsOf, runsOf, sampled, stallsOf, stampCosts, withKeys, type Board } from '../../hooks/state/board.ts'
+import { EMPTY, actionableOf, applyJira, markerTargets, nextPageOf, applyPrs, applyRuns, ciOf, cloudIdOf, jqlOf, judged, keysOf, laneRows, leftOf, loadBoard, movesOf, observeStart, parkedOf, pruned, pointsFieldOf, projectsOf, runsOf, sampled, stallsOf, stampCosts, withKeys, type Board } from '../../hooks/state/board.ts'
 
 const SHA = 'c'.repeat(40)
 const T0 = Date.parse('2026-10-01T10:00:00Z')
@@ -129,6 +129,27 @@ describe('Jira sync', () => {
     expect(jqlOf(b)).toBe('(project in (VC, OPS) AND sprint in openSprints()) OR key in (VC-3, OPS-1)')
   })
 
+  test('a complete Jira read drops the past sprint: tickets it did not return and their closed PRs', () => {
+    let b = applyJira(EMPTY, { issues: [issue('OLD-1', { status: 'Done', category: 'done' }), issue('NEW-1')] }, FIELD, T0)
+    b = withKeys(b, ['OLD-1'])
+    b = applyPrs(b, [
+      { number: 5, title: 'OLD-1', state: 'MERGED', createdAt: at(-60), mergedAt: at(-50) },
+      { number: 6, title: 'NEW-1', state: 'OPEN', createdAt: at(1) },
+    ], T0)
+    expect(jqlOf(b)).not.toContain('OLD-1')
+    const next = pruned(b, new Set(['NEW-1']))
+    expect(next.order).toEqual(['NEW-1'])
+    expect(next.prOrder).toEqual([6])
+    expect(applyPrs(next, [{ number: 5, title: 'OLD-1', state: 'MERGED', createdAt: at(-60), mergedAt: at(-50) }], T0).prOrder).toEqual([6])
+    expect(pruned(b, new Set())).toBe(b)
+    // a key named during the read, and a done ticket with an open PR, stay
+    const racing = withKeys(next, ['LATE-1'])
+    expect(pruned(racing, new Set(['NEW-1'])).order).toEqual(['NEW-1', 'LATE-1'])
+    const openDone = applyPrs(applyJira(next, { issues: [issue('OLD-3', { status: 'Done', category: 'done' })] }, FIELD, T0), [{ number: 7, title: 'OLD-3', state: 'OPEN' }], T0)
+    expect(jqlOf(openDone)).toContain('OLD-3')
+    expect(pruned(openDone, new Set(['NEW-1'])).order).toContain('OLD-3')
+  })
+
   test('config: the points field and cloudId from AGENTS.md text', () => {
     const config = '## Skill configuration\n- **`cloudId`**: `1a2b3c4d-1111-2222-3333-444455556666`\n- story-points-field: `customfield_10028`'
     expect(cloudIdOf(config)).toBe('1a2b3c4d-1111-2222-3333-444455556666')
@@ -138,8 +159,8 @@ describe('Jira sync', () => {
 })
 
 describe('burndown and drain outcome', () => {
-  const sprint = (left: string[], done: string[] = []) =>
-    applyJira(EMPTY, { issues: [...left.map(k => issue(k, { points: 2 })), ...done.map(k => issue(k, { points: 3, status: 'Done', category: 'done' }))] }, FIELD, T0)
+  const sprint = (left: string[], done: string[] = [], base: Board = EMPTY) =>
+    applyJira(base, { issues: [...left.map(k => issue(k, { points: 2 })), ...done.map(k => issue(k, { points: 3, status: 'Done', category: 'done' }))] }, FIELD, T0)
 
   test('work left counts Jira done and merged PRs as done, in points when every ticket has them', () => {
     let b = sprint(['VC-1', 'VC-2'], ['VC-3'])
@@ -158,25 +179,44 @@ describe('burndown and drain outcome', () => {
     expect(done).toBe(leftOf(b).done)
   })
 
+  test('a new drain starts a fresh board: last sprint tickets, PRs and runs are dropped, site and repo kept', () => {
+    let old = applyPrs(sprint(['OLD-1'], ['OLD-2']), [{ number: 9, title: 'OLD-1', state: 'OPEN', url: 'https://github.com/o/r/pull/9' }], T0)
+    expect(old.order).toEqual(['OLD-1', 'OLD-2'])
+    old = { ...old, drain: { pass: 3, outcome: 'DRAINED' } }
+    const next = skill(old, 'agile-sprint-drain', T0 + 99)
+    expect(next.order).toEqual([])
+    expect(next.prOrder).toEqual([])
+    expect(next.site).toBe(old.site)
+    expect(next.repo).toBe(old.repo)
+    expect(next.since).toBe(T0 + 99)
+    expect(jqlOf(next)).toBeUndefined()
+    // resuming a running drain keeps its board
+    const running = skill(sprint(['VC-1'], [], skill(EMPTY, 'agile-sprint-drain')), 'agile-sprint-drain', T0 + 5)
+    expect(running.order).toEqual(['VC-1'])
+    // and so does re-invoking a STUCK one
+    const stuck = skill({ ...running, drain: { pass: 2, outcome: 'STUCK' } }, 'agile-sprint-drain', T0 + 6)
+    expect(stuck.order).toEqual(['VC-1'])
+  })
+
   test('DRAINED once Jira answered and nothing is actionable; never from answer text', () => {
-    let b = skill(skill(sprint([], ['VC-3']), 'agile-sprint-drain'), 'agile-10-implement', T0)
+    let b = skill(sprint([], ['VC-3'], skill(EMPTY, 'agile-sprint-drain')), 'agile-10-implement', T0)
     b = judged(b, T0 + 5, false)
     expect(b.drain?.outcome).toBe('DRAINED')
     expect(b.passes?.at(-1)?.end).toBe(T0 + 5)
-    const open = applyPrs(skill(skill(sprint([], ['VC-3']), 'agile-sprint-drain'), 'agile-10-implement', T0), [{ number: 4, title: 'VC-3', state: 'OPEN' }], T0)
+    const open = applyPrs(skill(sprint([], ['VC-3'], skill(EMPTY, 'agile-sprint-drain')), 'agile-10-implement', T0), [{ number: 4, title: 'VC-3', state: 'OPEN' }], T0)
     expect(actionableOf(open)).toBe(1)
     expect(judged(open, T0 + 5, false).drain?.outcome).toBe('running')
   })
 
   test('STUCK when the session goes idle with work left and a pass that moved nothing; acting again resumes', () => {
-    let b = skill(skill(sprint(['VC-1']), 'agile-sprint-drain'), 'agile-10-implement', T0)
+    let b = skill(sprint(['VC-1'], [], skill(EMPTY, 'agile-sprint-drain')), 'agile-10-implement', T0)
     expect(judged(b, T0 + 9, false).drain?.outcome).toBe('running')
     b = judged(b, T0 + 9, true)
     expect(b.drain?.outcome).toBe('STUCK')
     expect(observeStart(b, 'Bash', { command: 'ls' }).drain?.outcome).toBe('running')
-    const waiting = applyRuns(applyPrs(skill(skill(sprint(['VC-1']), 'agile-sprint-drain'), 'agile-10-implement', T0), [{ number: 3, title: 'VC-1', state: 'OPEN', headRefOid: SHA, createdAt: at(-5) }], T0), [{ databaseId: 1, headSha: SHA, status: 'in_progress', workflowName: 'ci' }], T0)
+    const waiting = applyRuns(applyPrs(skill(sprint(['VC-1'], [], skill(EMPTY, 'agile-sprint-drain')), 'agile-10-implement', T0), [{ number: 3, title: 'VC-1', state: 'OPEN', headRefOid: SHA, createdAt: at(-5) }], T0), [{ databaseId: 1, headSha: SHA, status: 'in_progress', workflowName: 'ci' }], T0)
     expect(judged(waiting, T0 + 9, true).drain?.outcome).toBe('running')
-    const moved = applyPrs(skill(skill(sprint(['VC-1']), 'agile-sprint-drain'), 'agile-10-implement', T0), [{ number: 3, title: 'VC-1', state: 'OPEN', createdAt: at(1) }], T0)
+    const moved = applyPrs(skill(sprint(['VC-1'], [], skill(EMPTY, 'agile-sprint-drain')), 'agile-10-implement', T0), [{ number: 3, title: 'VC-1', state: 'OPEN', createdAt: at(1) }], T0)
     expect(judged(moved, T0 + 120_000, true).drain?.outcome).toBe('running')
     expect(movesOf(moved, moved.passes!.at(-1)!, T0 + 120_000)).toEqual({ built: 1, merged: 0 })
   })

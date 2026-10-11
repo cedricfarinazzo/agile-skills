@@ -168,7 +168,12 @@ const withPass = (board: Board, patch: (p: Pass) => Partial<Pass>): Board => {
 const onOrchestrator = (board: Board, skill: string, now: number): Board => {
   const draining = board.drain?.outcome === 'running'
   const since = board.since ?? now
-  if (skill.endsWith('agile-sprint-drain')) return { ...board, since, loop: 'drain', stage: undefined, drain: { pass: 0, outcome: 'running' }, passes: [] }
+  if (skill.endsWith('agile-sprint-drain')) {
+    // a drain that is not resuming a running one starts a new sprint's board: tickets, PRs, runs and
+    // burnup of the last one are dropped (the Jira query would otherwise keep re-reading their keys)
+    const fresh: Board = draining ? board : { ...EMPTY, site: board.site, repo: board.repo, history: board.history, spend: board.spend }
+    return { ...fresh, since: draining ? since : now, loop: 'drain', stage: undefined, drain: { pass: 0, outcome: 'running' }, passes: [] }
+  }
   if (skill.endsWith('agile-10-implement')) {
     if (!draining) return { ...board, since, loop: 'implement', stage: 'build' }
     const closed = withPass(board, () => ({ end: now }))
@@ -291,7 +296,7 @@ export const runsOf = (board: Board, sha: string): Run[] | undefined =>
 type Issue = { key?: unknown; webUrl?: unknown; fields?: Record<string, unknown> }
 
 /** Every `{ key, fields }` object in a Jira search answer. */
-function issuesOf(answer: unknown): Issue[] {
+export function issuesOf(answer: unknown): Issue[] {
   const found: Issue[] = []
   const walk = (node: unknown, depth: number) => {
     if (depth > 5 || typeof node !== 'object' || node === null) return
@@ -363,12 +368,50 @@ export function markerTargets(board: Board, n: number): string[] {
     .slice(0, n)
 }
 
-/** The JQL for the board's tickets: its projects' open sprints, and every key already on it. */
+/** A ticket the loop is still on: named by its calls and not done, or holding an open PR. */
+const onIt = (board: Board, key: string) => {
+  const t = board.tickets[key]!
+  return (t.named && t.category !== 'done') || !!(t.pr && board.prs[t.pr]?.state === 'OPEN')
+}
+
+/**
+ * The JQL for the board's tickets: its projects' open sprints, plus the keys the loop is still on,
+ * so an old sprint's keys fall away.
+ */
 export function jqlOf(board: Board): string | undefined {
   const projects = projectsOf(board)
   if (!projects.length) return undefined
-  const keys = board.order.filter(k => KEY_ONLY.test(k)).slice(-50)
+  const keys = board.order.filter(k => KEY_ONLY.test(k) && onIt(board, k)).slice(-50)
   return `(project in (${projects.join(', ')}) AND sprint in openSprints())${keys.length ? ` OR key in (${keys.join(', ')})` : ''}`
+}
+
+/**
+ * After a complete Jira read: drops the tickets it did not return (a past sprint's), and the PRs
+ * that were only on the board for them. A ticket the loop is on stays, read or not: one it named
+ * during the read was not in the query. `since` moves past the dropped PRs so gh does not re-add them.
+ */
+export function pruned(board: Board, returned: Set<string>): Board {
+  if (!returned.size) return board
+  const keep = new Set(board.order.filter(k => returned.has(k) || onIt(board, k)))
+  if (keep.size === board.order.length) return board
+  const tickets: Board['tickets'] = {}
+  for (const k of keep) tickets[k] = board.tickets[k]!
+  const dropped = board.prOrder.filter(n => {
+    const p = board.prs[n]!
+    return p.state !== 'OPEN' && (!p.key || !keep.has(p.key))
+  })
+  const prs: Board['prs'] = {}
+  const prOrder = board.prOrder.filter(n => !dropped.includes(n))
+  for (const n of prOrder) prs[n] = board.prs[n]!
+  const latest = Math.max(0, ...dropped.map(n => board.prs[n]!.createdAt ?? 0))
+  return {
+    ...board,
+    tickets,
+    order: board.order.filter(k => keep.has(k)),
+    prs,
+    prOrder,
+    ...(latest && board.since !== undefined && { since: Math.max(board.since, latest + 1) }),
+  }
 }
 
 const isDone = (board: Board, key: string) => {
