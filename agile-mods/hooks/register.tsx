@@ -141,6 +141,12 @@ function hostOf($: EngineInterface): Host {
       if (answer === undefined) throw new TooLarge()
       return answer
     },
+    lines: async (dir, sha, path) => {
+      if (!/^[0-9a-f]{40}$/.test(sha) || path.startsWith('-')) return undefined
+      const r = await $.process.run(['git', '-C', dir, 'show', `${sha}:${path}`], { timeoutMs: 10_000 }).catch(() => undefined)
+      if (r?.exitCode !== 0) return undefined
+      return r.stdout.split('\n').length - (r.stdout.endsWith('\n') ? 1 : 0)
+    },
     agents: () => $.agent.list(),
     storeGet: key => $.store.get(scope + key),
     storeSet: (key, value) => $.store.set(scope + key, value),

@@ -1,7 +1,7 @@
 import type { Host } from './host.ts'
 import { ciOf, applyRuns, dispatchText, EMPTY, PR_REF } from './state/board.ts'
 import { FIX_ROUNDS, PUSH_FORM, fixDenial, grantDenial, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushesIn, pushPlanOf, sideDoorDenial, type Rounds } from './state/guards.ts'
-import { earlierShas, sameSha, unreadFiles, withReads, type Reads } from './state/review.ts'
+import { covers, earlierShas, partsAt, sameSha, unreadFiles, withParts, withReads, type Parts, type Reads } from './state/review.ts'
 
 // Guards: the rules the skills state in prose, enforced on the call that would break them.
 // - a subagent's tool grant: review-lens and pr-reviewer never edit or post, jira-postmortem never links;
@@ -13,6 +13,7 @@ import { earlierShas, sameSha, unreadFiles, withReads, type Reads } from './stat
 // calling agent's type) and stays on until /agile-board reset.
 
 const READS_KEY = 'reads'
+const PARTS_KEY = 'parts'
 const FIXES_KEY = 'fixes'
 const LOOP_AGENT = /^agile-(execution|merge-review|sprint-drain):/
 const MERGE_AGENT = /^agile-(merge-review|sprint-drain):/
@@ -21,6 +22,7 @@ let cwd: string | undefined
 let trainActive = false
 let loopActive = false
 let reads: Reads = {}
+let parts: Parts = {}
 // per PR, the fix rounds that pushed to it
 let fixRounds: Record<string, Rounds> = {}
 // per loop ('' is the main loop): a number that moves at each of its Skill or Agent calls
@@ -47,6 +49,8 @@ export async function guardsStart(host: Host, sessionCwd: string) {
   cwd = sessionCwd
   const stored = await host.storeGet(READS_KEY).catch(() => undefined)
   if (stored && typeof stored === 'object') reads = stored as Reads
+  const storedParts = await host.storeGet(PARTS_KEY).catch(() => undefined)
+  if (storedParts && typeof storedParts === 'object') parts = storedParts as Parts
   const fixes = await host.storeGet(FIXES_KEY).catch(() => undefined)
   // an older version kept a list of heads per PR: not rounds, so not carried over
   if (fixes && typeof fixes === 'object') fixRounds = Object.fromEntries(Object.entries(fixes as Record<string, unknown>).filter(([, r]) => Array.isArray((r as Rounds)?.ids) && Array.isArray((r as Rounds)?.heads))) as Record<string, Rounds>
@@ -120,7 +124,14 @@ async function mergeFacts(host: Host, pr: number, pin: string) {
     // only a head that descends from the read sha keeps those reads
     deltas[sha] = cmp && (cmp.status === 'ahead' || cmp.status === 'identical') ? cmp.files : undefined
   }
-  return { live, ci, unread: unreadFiles(reads, live.headRefOid, files, deltas) }
+  const unread: string[] = []
+  for (const f of unreadFiles(reads, live.headRefOid, files, deltas)) {
+    // a file too large for one read counts when its line ranges at the head cover it, measured by git
+    const ranges = partsAt(parts, live.headRefOid, f)
+    const lines = ranges.length ? await host.lines(cwd ?? '.', live.headRefOid, f) : undefined
+    if (lines === undefined || !covers(ranges, lines)) unread.push(f)
+  }
+  return { live, ci, unread }
 }
 
 /** Before a tool call: the refusal, when a grant, a 3f gate or the push guard forbids it. */
@@ -168,9 +179,15 @@ export async function guardsAfter(host: Host, tool: string, args: Record<string,
   const type = agentId ? await agentTypeOf(host, agentId) : undefined
   if (!/(^|:)pr-reviewer$/.test(type ?? '') && !inlineReviews.has(agentId ?? '')) return
   const next = withReads(reads, args.command, output)
-  if (next === reads) return
-  reads = next
-  void host.storeSet(READS_KEY, reads).catch(err => host.log(`agile-mods: store write failed: ${err}`))
+  if (next !== reads) {
+    reads = next
+    void host.storeSet(READS_KEY, reads).catch(err => host.log(`agile-mods: store write failed: ${err}`))
+  }
+  const nextParts = withParts(parts, args.command, output)
+  if (nextParts !== parts) {
+    parts = nextParts
+    void host.storeSet(PARTS_KEY, parts).catch(err => host.log(`agile-mods: store write failed: ${err}`))
+  }
 }
 
 /** Whether a guard covers this call (a merge, a push, an edit or post): checked from the call alone, for a hook that could not run. */
@@ -186,8 +203,10 @@ export function guardsReset(host?: Host) {
   loopActive = false
   inlineReviews.clear()
   reads = {}
+  parts = {}
   fixRounds = {}
   loopSeq.clear()
   if (host) void host.storeSet(READS_KEY, reads).catch(() => undefined)
+  if (host) void host.storeSet(PARTS_KEY, parts).catch(() => undefined)
   if (host) void host.storeSet(FIXES_KEY, fixRounds).catch(() => undefined)
 }

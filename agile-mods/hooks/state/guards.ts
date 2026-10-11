@@ -234,7 +234,7 @@ export function mergeDenial(pr: number, pin: string | undefined, facts: MergeFac
   if (!unread) return `PR #${pr}: the merge guard could not list the PR's files (gh api pulls/${pr}/files failed), so it cannot check the review covered them. Retry once gh answers.`
   if (unread.length) {
     const shown = unread.slice(0, 5).join(', ') + (unread.length > 5 ? ` and ${unread.length - 5} more` : '')
-    return `PR #${pr}: no review read ${unread.length} file(s) as they land at ${pin.slice(0, 12)}: ${shown}. A review reads each file in full with its own command, [cd <dir> &&] git show <40-hex sha>:<path> (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.`
+    return `PR #${pr}: no review read ${unread.length} file(s) as they land at ${pin.slice(0, 12)}: ${shown}. A review reads each file in full with its own command, [cd <dir> &&] git show <40-hex sha>:<path>, or a file too large for one read in line ranges piped into sed -n A,Bp (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.`
   }
   return undefined
 }

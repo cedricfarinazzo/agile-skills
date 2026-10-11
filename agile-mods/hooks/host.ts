@@ -41,6 +41,8 @@ export type Host = {
   compare: (base: string, head: string) => Promise<Compare | undefined>
   /** One page (`size` issues, 50 by default) of a JQL search on the session's Atlassian MCP server; the parsed JSON answer. */
   jira: (cloudId: string, jql: string, fields: string[], page?: string, size?: number) => Promise<unknown>
+  /** The line count of `<sha>:<path>` (`git -C <dir> show`), for a file reviewed in line ranges. */
+  lines: (dir: string, sha: string, path: string) => Promise<number | undefined>
   agents: () => Promise<AgentInfo[]>
   storeGet: (key: string) => Promise<unknown>
   storeSet: (key: string, value: unknown) => Promise<void>

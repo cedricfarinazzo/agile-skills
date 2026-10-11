@@ -46,6 +46,27 @@ describe('merge guard', () => {
     expect(await guardsBefore(host, 'Bash', merge(), 's1')).toContain('no review read 2 file(s)')
   })
 
+  test('a file too large for one read counts when line ranges at the head cover every line', async () => {
+    const { host } = fakeHost(github({ lines: { [`${SHA}:src/b.ts`]: 250 } }))
+    await guardsBefore(host, ...skill('agile-merge-review:agile-11-merge-train'), undefined)
+    await read(host, `git show ${SHA}:src/a.ts`)
+    await read(host, `cd /repo && git show ${SHA}:src/b.ts | head -n 100`)
+    await read(host, `git show ${SHA}:src/b.ts | sed -n 150,200p | cat -n`)
+    // a gap at 101-149 and an end short of 250
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('src/b.ts')
+    await read(host, `git show ${SHA}:src/b.ts | sed -n 101,149p`)
+    await read(host, `git show ${SHA}:src/b.ts | tail -n +201`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('a range whose output was persisted counts nothing, and git not answering the length leaves the file unread', async () => {
+    const { host } = fakeHost(github())
+    await guardsBefore(host, ...skill('agile-merge-review:agile-11-merge-train'), undefined)
+    await read(host, `git show ${SHA}:src/a.ts`)
+    await read(host, `git show ${SHA}:src/b.ts | head -n 10`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('src/b.ts')
+  })
+
   test('a pinned merge of a head every file of which a reviewer read, with green CI, passes', async () => {
     const { host, calls } = fakeHost(github())
     await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)

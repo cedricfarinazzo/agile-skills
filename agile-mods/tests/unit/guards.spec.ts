@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
+import { covers, readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
 import { guardedCall } from '../../hooks/guards.ts'
 import { budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
 
@@ -31,7 +31,7 @@ describe('review coverage', () => {
   test('counts whole git show and cat-file reads, not partial or computed ones', () => {
     expect(readsOf(`git show ${SHA}:src/a.ts && git -C /w show ${SHA}:./b.ts | cat -n`)).toEqual([{ sha: SHA, path: 'src/a.ts' }, { sha: SHA, path: 'b.ts' }])
     expect(readsOf(`git cat-file -p ${SHA}:c.ts`)).toEqual([{ sha: SHA, path: 'c.ts' }])
-    expect(readsOf(`git show ${SHA}:a.ts | head -40`)).toEqual([])
+    expect(readsOf(`git show ${SHA}:a.ts | head -40`)).toEqual([{ sha: SHA, path: 'a.ts', range: [1, 40] }])
     expect(readsOf(`git show $SHA:a.ts; git show ${SHA}:$f`)).toEqual([])
     expect(readsOf(`cat src/a.ts`)).toEqual([])
   })
@@ -55,6 +55,15 @@ describe('review coverage', () => {
       `git show ${SHA.slice(0, 12)}:a.ts`,
     ]) expect(readsOf(command)).toEqual([])
     expect(readsOf(`${show} && git show ${SHA}:b.ts | nl`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
+    // one file piped first into a line-range filter is a ranged read
+    expect(readsOf(`git show ${SHA}:a.ts | sed -n 10,90p | nl`)).toEqual([{ sha: SHA, path: 'a.ts', range: [10, 90] }])
+    expect(readsOf(`git show ${SHA}:a.ts | tail -n +500`)).toEqual([{ sha: SHA, path: 'a.ts', range: [500, Infinity] }])
+    expect(readsOf(`git show ${SHA}:a.ts ${SHA}:b.ts | head -n 9`)).toEqual([])
+    expect(readsOf(`git show ${SHA}:a.ts | head -n 9 | grep x`)).toEqual([])
+    expect(readsOf(`git show ${SHA}:a.ts | sed -n 1,9p\;20,30p`)).toEqual([])
+    expect(covers([[1, 100], [101, 149], [150, Infinity]], 400)).toBe(true)
+    expect(covers([[1, 100], [102, 400]], 400)).toBe(false)
+    expect(covers([[1, 300]], 400)).toBe(false)
     // a leading cd picks the repository; the full sha still names the object
     expect(readsOf(`cd /w/repo && ${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])
     expect(readsOf(`cd /w/repo; ${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])

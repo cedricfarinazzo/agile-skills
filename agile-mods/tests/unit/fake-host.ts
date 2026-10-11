@@ -18,6 +18,8 @@ export type Answers = {
   /** `git rev-list --no-merges <base>..<ref>` is empty, by `<base>..<ref>`; left out: commits. */
   onlyMerges?: Record<string, boolean>
   compare?: Record<string, Compare>
+  /** Line counts by `<sha>:<path>`; left out: git failed. */
+  lines?: Record<string, number>
   jira?: unknown
   agents?: { id: string; type: string }[]
   /** Every store write fails, as a full disk would. */
@@ -55,6 +57,7 @@ export function fakeHost(opts: Answers = {}) {
     },
     prFiles: async pr => (calls.push(`gh api pulls/${pr}/files`), opts.prFiles?.[pr]),
     compare: async (base, head) => (calls.push(`gh api compare/${base.slice(0, 7)}...${head.slice(0, 7)}`), opts.compare?.[`${base}...${head}`]),
+    lines: async (dir, sha, path) => (calls.push(`git -C ${dir} show ${sha.slice(0, 7)}:${path}`), opts.lines?.[`${sha}:${path}`]),
     jira: async () => {
       calls.push('jira search')
       if (opts.jira === undefined) throw new Error('no Atlassian MCP server connected')
