@@ -46,6 +46,27 @@ describe('merge guard', () => {
     expect(await guardsBefore(host, 'Bash', merge(), 's1')).toContain('no review read 2 file(s)')
   })
 
+  test('a file too large for one read counts when line ranges at the head cover every line', async () => {
+    const { host } = fakeHost(github({ lines: { [`${SHA}:src/b.ts`]: 250 } }))
+    await guardsBefore(host, ...skill('agile-merge-review:agile-11-merge-train'), undefined)
+    await read(host, `git show ${SHA}:src/a.ts`)
+    await read(host, `cd /repo && git show ${SHA}:src/b.ts | head -n 100`)
+    await read(host, `git show ${SHA}:src/b.ts | sed -n 150,200p | cat -n`)
+    // a gap at 101-149 and an end short of 250
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('src/b.ts')
+    await read(host, `git show ${SHA}:src/b.ts | sed -n 101,149p`)
+    await read(host, `git show ${SHA}:src/b.ts | tail -n +201`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('a range whose output was persisted counts nothing, and git not answering the length leaves the file unread', async () => {
+    const { host } = fakeHost(github())
+    await guardsBefore(host, ...skill('agile-merge-review:agile-11-merge-train'), undefined)
+    await read(host, `git show ${SHA}:src/a.ts`)
+    await read(host, `git show ${SHA}:src/b.ts | head -n 10`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('src/b.ts')
+  })
+
   test('a pinned merge of a head every file of which a reviewer read, with green CI, passes', async () => {
     const { host, calls } = fakeHost(github())
     await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
@@ -246,13 +267,17 @@ describe('fix-round cap', () => {
   test('a push the cap cannot read with certainty is refused in the loop', async () => {
     await loop()
     const commands = [
-      'git push -o ci.skip origin VC-7', 'git push --all origin', 'cd ../wt; git push', 'git push origin VC-7 | tee log', 'git -c x=y push origin VC-7',
+      'git push -o ci.skip origin VC-7', 'git push --all origin', 'cd ../wt; git checkout x; git push', 'git -C a status; cd b; git push', 'git -c x=y push origin VC-7',
       'git push origin VC-7 && git push origin VC-8',
       // a step before the push could move what it sends after the cap read it
-      'git checkout VC-7 && git push', 'git branch -u origin/VC-7 && git push', 'git commit -m "fix; tidy" && git push origin VC-7',
+      'git checkout VC-7 && git push', 'git branch -u origin/VC-7 && git push',
     ]
     for (const command of commands) expect(await guardsBefore(gh().host, 'Bash', { command }, 'f1')).toContain('the fix-round cap reads every push in the loop')
     expect(await guardsBefore(gh().host, 'Bash', { command: 'cd /w && git push -u origin VC-7' }, 'f1')).toBeUndefined()
+    // a push the words show plainly, naming its branch, is read inside any line, and counts a round
+    for (const command of ['git commit -m "fix; tidy" && git push origin VC-7', '{ git push origin VC-7; }', 'grep x f; git push origin VC-7', 'if true; then git push origin VC-7; fi', 'git push origin VC-7 | tee log', 'timeout 60 bash -c true && git push origin VC-7 2>&1', 'g\\it push origin VC-7', "$'git' push origin VC-7"]) {
+      expect(await guardsBefore(gh().host, 'Bash', { command }, 'f1')).toBeUndefined()
+    }
     // a push hidden in a shell script is read too
     expect(await guardsBefore(gh().host, 'Bash', { command: `bash -c 'git push origin VC-7'` }, 'f1')).toContain('the fix-round cap reads every push in the loop')
   })
@@ -266,14 +291,14 @@ describe('fix-round cap', () => {
     // however a push is wrapped or hidden, it is read as one, and one the cap cannot read is refused
     const hidden = [
       'timeout 60 git push origin main', 'nice git push origin VC-7', 'sudo -u x git push origin VC-7', 'env -i git push origin VC-7', '/usr/bin/env git push origin VC-7',
-      '{ git push origin VC-7; }', 'if true; then git push origin VC-7; fi', '! git push origin VC-7', 'bash -lc "git push origin VC-7"', 'sh -ec "git push origin VC-7"',
-      '"git" push origin main', 'git $(echo push) origin VC-7', 'timeout 60 git up origin VC-7', 'grep x f; git push origin VC-7', 'git -P push origin VC-7', 'git --no-pager -C /w push origin VC-7 extra:main',
+      '! git push origin VC-7', 'bash -lc "git push origin VC-7"', 'sh -ec "git push origin VC-7"',
+      '"git" push origin main', 'git $(echo push) origin VC-7', 'timeout 60 git up origin VC-7', 'git -P push origin VC-7', 'git --no-pager -C /w push origin VC-7 extra:main',
       // quoting, escapes, expansions, text run by something else
-      'g\\it push origin VC-7', "$'git' push origin VC-7", 'G=git && $G push origin VC-7', '${X:-git} push origin VC-7', 'echo push origin VC-7 | xargs git',
+      'G=git && $G push origin VC-7', '${X:-git} push origin VC-7', 'echo push origin VC-7 | xargs git',
       "man -P 'git push origin main' ls", 'echo "$(git push origin VC-7)"', 'bash <<< "git push origin VC-7"', 'echo "git push origin VC-7" | bash', 'bash -l -c "git push origin VC-7"',
       'python3 -c "import os; os.system(\'git push origin VC-7\')"', 'gh repo sync --branch main --force',
       `awk 'BEGIN{system("git push origin VC-7")}'`, `find . -maxdepth 0 -exec git push origin VC-7 \\;`, `ssh host 'git push origin VC-7'`, `make push GIT='git push origin VC-7'`,
-      'man git push', 'timeout 60 bash -c true && git push origin VC-7 2>&1', 'rg --pre=./run x && echo git push', "rg --pre-glob '*' --pre 'git push origin VC-7' x", '{git,} push origin VC-7', 'GIT_PAGER="git push origin VC-7" git log', 'bash <<EOF\ngit push origin VC-7\nEOF',
+      'man git push', 'rg --pre=./run x && echo git push', "rg --pre-glob '*' --pre 'git push origin VC-7' x", '{git,} push origin VC-7', 'GIT_PAGER="git push origin VC-7" git log', 'bash <<EOF\ngit push origin VC-7\nEOF',
     ]
     for (const command of hidden) expect(await guardsBefore(gh().host, 'Bash', { command }, 'f1')).toMatch(/^agile-mods: /)
     expect(await guardsBefore(gh().host, 'Bash', { command: '"git" push origin main' }, 'f1')).toContain('never pushes to main')

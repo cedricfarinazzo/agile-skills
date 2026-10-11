@@ -36,9 +36,10 @@ The board and the guards take their data from GitHub, git and Jira, read by the 
 | `gh pr view <n> --json headRefOid,state` | 3f gate: the PR's live head | At a merge call |
 | `git -C <dir> rev-parse --abbrev-ref --symbolic-full-name @{push}` | Fix-round cap: where a bare `git push` sends the branch | Before such a push, inside a loop |
 | `gh pr list --head <branch> --state open --json number,headRefOid,baseRefName` | Fix-round cap: the open PR a push sends to, and its head | Before a push, inside a loop |
-| `git -C <dir> rev-list --no-merges <head>..<ref> ^origin/<base>` | Fix-round cap: whether a push to a PR is an update (merges and the base's own commits only) | Before a push to an open PR's branch |
+| `git -C <dir> rev-list --no-merges <head>..<ref> ^origin/<base>` | Fix-round cap: whether a push to a PR is an update (merges and the base's own commits only) | Before a push to an open PR's branch, unless the same command commits |
 | `gh run list --commit <sha> --json …` | 3f gate: every CI run on that head | At a merge call |
 | `gh api repos/{owner}/{repo}/compare/<sha>...<head>` | 3f gate: which files changed since an earlier review | At a merge call, for each earlier reviewed sha |
+| `git -C <session dir> show <sha>:<path>` | 3f gate: the line count of a file the review read in line ranges | At a merge call, for each such file not read whole |
 
 `gh` talks to GitHub with the user's own `gh` login; the mod reads its output and keeps it local.
 

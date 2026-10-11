@@ -40,7 +40,7 @@ const unquoted = (command: string) => command.replace(/'[^']*'/g, "''").replace(
  * newlines, words at blanks, with quotes and backslashes resolved (`"git"`, `gi''t`, `g\\it` and
  * `$'git'` are all `git`; a quoted commit message stays one word).
  */
-function shellWords(command: string): string[][] {
+export function shellWords(command: string): string[][] {
   const segments: string[][] = []
   let words: string[] = []
   let word = ''
@@ -121,7 +121,7 @@ const isMessage = (words: string[], k: number) =>
   /^(\S*\/)?(git|gh)$/.test(words[0] ?? '') && (MESSAGE_FLAG.test(words[k - 1] ?? '') || /^--(message|body|title|notes|subject)=/.test(words[k]!))
 
 /** A heredoc's body is data for the command that reads it: left out of the words, kept for the text checks. */
-const withoutHeredocs = (command: string) => command.replace(/<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\s*\2[ \t]*(?=\n|$)/g, '')
+export const withoutHeredocs = (command: string) => command.replace(/<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\t*\2(?=\n|$)/g, '')
 
 /**
  * The git subcommands a line could run: after every `git` word, wherever it stands (behind a wrapper,
@@ -155,16 +155,38 @@ export function gitCommandsOf(command: string, depth = 0): string[] {
  * line that runs any program but git, gh, cd and the print/search ones. An allowlist, not a list of
  * runners: a program not on it is assumed able to run text.
  */
-function hiddenPush(command: string): boolean {
+export function hiddenPush(command: string): boolean {
   if (textOnly(command)) return false
-  const segments = shellWords(withoutHeredocs(command))
-  const all = segments.flat()
-  if (all.some(w => w.includes('$')) && all.includes('push') && !all.some((w, i) => /(^|\/)git$/.test(w) && all[i + 1] === 'push')) return true
+  const body = dataHeredocsOut(command)
+  // gh runs no git: its arguments (`--event push`, a --body) are data
+  const segments = shellWords(withoutHeredocs(body)).filter(words => !/(^|\/)gh$/.test(programOf(words)))
+  // per segment: a computed command beside a push word, with no git push the words show in that segment
+  if (segments.some(words => words.some(w => w.includes('$')) && words.includes('push') && !words.some((w, i) => /(^|\/)git$/.test(w) && pushAt(words, i) >= 0))) return true
   const names = (t: string) => /\bgit\b/.test(t) && /\bpush\b/.test(t)
   if (segments.some(words => words.some((w, k) => /\s/.test(w) && names(w) && !isMessage(words, k)))) return true
-  // git and push named on a line (heredoc bodies included) that also runs anything but git, gh, cd or a print/search program
-  return names(command.replace(/["'\\]/g, '')) && segments.some(words => !safeSegment(words, SAFE_PROGRAM))
+  // git and push named outside a message or gh's arguments (heredoc bodies a program reads included),
+  // on a line that also runs anything but git, gh, cd or a print/search program
+  // a git push the words show (behind a wrapper too) is read by gitCommandsOf: here only what another
+  // program gets, and git close before push on one line, as a call to it is written (`["git", "push"]`)
+  const others = segments.filter(words => !words.some((w, i) => /(^|\/)git$/.test(w) && pushAt(words, i) >= 0) && !/(^|\/)git$/.test(programOf(words)))
+  // segments joined on one line: a pipe can hand one segment's words to the next (`echo push | xargs git`)
+  const text = [others.map(words => words.join(' ')).join(' '), ...heredocBodies(body)].join('\n')
+  return /\bgit\b[^\n]{0,40}?\bpush\b|\bpush\b[^\n]{0,40}?\bgit\b/.test(text.replace(/["'\\]/g, '')) && segments.some(words => !safeSegment(words, SAFE_PROGRAM))
 }
+
+// a heredoc read by one of these is data: written to a file, or a git or gh message
+const DATA_READER = /^(\S*\/)?(cat|tee|git|gh)$/
+const HEREDOC = /<<-?\s*(['"]?)(\w+)\1([^\n]*)\n([\s\S]*?)\n\t*\2(?=\n|$)/g
+/** The program a heredoc feeds: the first word of its command, after env assignments and a `cd … &&`. */
+function heredocReader(command: string, at: number): string {
+  const line = command.slice(0, at).split(/\n|;|&&|\|\||\||\$\(/).at(-1) ?? ''
+  return programOf(line.trim().split(/\s+/))
+}
+/** The line with every heredoc a data reader reads cut out, its delimiter line kept. */
+const dataHeredocsOut = (command: string) =>
+  command.replace(HEREDOC, (m, _q, _d, rest, _b, at) => (DATA_READER.test(heredocReader(command, at)) ? `<<''${rest}` : m))
+/** The bodies of the heredocs left in a line. */
+const heredocBodies = (command: string) => [...command.matchAll(HEREDOC)].map(m => m[4]!)
 
 export const pushesIn = (command: string) => gitCommandsOf(command).some(c => c === 'push' || c === '?') || hiddenPush(command)
 
@@ -234,7 +256,7 @@ export function mergeDenial(pr: number, pin: string | undefined, facts: MergeFac
   if (!unread) return `PR #${pr}: the merge guard could not list the PR's files (gh api pulls/${pr}/files failed), so it cannot check the review covered them. Retry once gh answers.`
   if (unread.length) {
     const shown = unread.slice(0, 5).join(', ') + (unread.length > 5 ? ` and ${unread.length - 5} more` : '')
-    return `PR #${pr}: no review read ${unread.length} file(s) as they land at ${pin.slice(0, 12)}: ${shown}. A review reads each file in full with git show <sha>:<path> (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.`
+    return `PR #${pr}: no review read ${unread.length} file(s) as they land at ${pin.slice(0, 12)}: ${shown}. A review reads each file in full with its own command, [cd <dir> &&] git show <40-hex sha>:<path>, or a file too large for one read in line ranges piped into sed -n A,Bp (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.`
   }
   return undefined
 }
@@ -248,13 +270,20 @@ const BASE = /^(main|master)$/
  * @param branch the branch checked out where the push runs, for a push that names no refspec
  */
 export function pushDenial(command: string, branch: string | undefined): string | undefined {
-  for (const push of command.split(/&&|\|\||;|\|/).filter(pushesIn)) {
-    const words = push.trim().split(/\s+/).slice(push.trim().split(/\s+/).indexOf('push') + 1)
+  // read twice, from the raw text split at its separators and from the words as the shell resolves them
+  // (quotes, escapes, newlines), so neither a quoted `"main"` nor an escaped `m\ain` slips past
+  const raw = command.split(/&&|\|\||;|\||\n/).filter(pushesIn).map(p => p.trim().split(/\s+/).map(w => w.replace(/^["']|["']$/g, '')))
+  const resolved = shellWords(withoutHeredocs(command)).filter(words => words.some((w, i) => /(^|\/)git$/.test(w) && pushAt(words, i) >= 0))
+  for (const all of [...raw, ...resolved]) {
+    const at = all.indexOf('push')
+    if (at < 0) continue
+    const words = all.slice(at + 1)
     const flags = words.filter(w => w.startsWith('-'))
-    if (flags.some(f => f === '--force' || f === '--mirror' || /^-[a-zA-Z]*f/.test(f))) {
+    const lease = flags.some(f => /^--force-with-lease/.test(f))
+    if (flags.some(f => f === '--force' || f === '--mirror' || /^-[a-zA-Z]*f/.test(f)) || (!lease && words.some(w => w.startsWith('+')))) {
       return 'the loop never force-pushes without a lease: use --force-with-lease, and say so in the receipt.'
     }
-    const refs = words.filter(w => !w.startsWith('-')).map(w => w.replace(/^["']|["']$/g, '')).slice(1)
+    const refs = words.filter(w => !w.startsWith('-') && !/^\d*[<>&]/.test(w)).slice(1)
     if (refs.some(r => /[$`]/.test(r))) return 'the loop names the branch it pushes: a computed push target ($VAR, $(...)) cannot be checked against main.'
     const targets = refs.map(r => r.replace(/^\+/, '').split(':').at(-1)!.replace(/^refs\/heads\//, '')).map(r => (r === 'HEAD' ? branch ?? r : r))
     const target = targets.find(t => BASE.test(t)) ?? (!refs.length && branch && BASE.test(branch) ? branch : undefined)
@@ -286,9 +315,13 @@ export function fixDenial(pr: number, rounds: Rounds | undefined, round: string)
 }
 
 /** What a push sends where, read from the command: the directory it runs in, each `src:dst`, and whether it deletes. */
-export type PushPlan = { dir?: string; refs: { src: string; dst: string }[]; delete?: boolean }
+export type PushPlan = { dir?: string; refs: { src: string; dst: string }[]; delete?: boolean; commits?: boolean }
+/** A step that may come before a push: staging, committing, and git commands that only read. */
+const BEFORE_PUSH = /^git(?:\s+-C\s+\S+)?\s+(add|commit|fetch|status|log|diff|show|rev-parse|branch\s+--show-current)\b/
 
 const PUSH_FLAGS = /^(-u|--set-upstream|--force-with-lease(=\S+)?|--no-verify|-q|--quiet|-v|--verbose|--porcelain|-f|--force|-d|--delete)$/
+// tail, not head: head exits early and its closed pipe can kill the push mid-way
+const OUTPUT_TAIL = /(?:\s+2>&1)?(?:\s*\|\s*tail(?:\s+-n)?(?:\s+-?\d+)?)?$/
 const unquote = (w: string) => w.replace(/^"([^"]*)"$|^'([^']*)'$/, '$1$2')
 
 /**
@@ -298,17 +331,31 @@ const unquote = (w: string) => w.replace(/^"([^"]*)"$|^'([^']*)'$/, '$1$2')
  * refused, since the cap could not tell which branch it sends. No refs: the branch's own push target.
  */
 export function pushPlanOf(command: string): PushPlan | { error: string } {
-  const bare = command.replace(/'[^']*'/g, "''").replace(/"[^"$`\\]*"/g, '""')
-  if (/[;|`$<>()\n\\]|(?<!&)&(?!&)/.test(bare.replace(/&&/g, ''))) return { error: 'a push in the loop is one plain command' }
-  const segments = command.split('&&').map(c => c.trim())
+  // what the push prints, merged and trimmed, changes nothing it sends
+  command = command.trim().replace(OUTPUT_TAIL, '')
+  // a commit message in a quoted heredoc is text the shell never expands: it reads as an empty message
+  command = command.replace(/"\$\(cat\s+<<-?\s*'(\w+)'\n(?:(?!\n\t*\1\n)[\s\S])*?\n\t*\1\n\)"/g, '""').replace(/<<-?\s*'(\w+)'([^\n]*)\n(?:(?!\n\t*\1(?:\n|$))[\s\S])*?\n\t*\1(?=\n|$)/g, '$2')
+  // quoted text set aside as tokens, so a quoted && or ; is not read as shell syntax
+  const quoted: string[] = []
+  const flat = command.replace(/'[^']*'|"[^"$`\\]*"/g, q => `\u0000${quoted.push(q) - 1}\u0000`)
+  if (/[;|`$<>()\n\\]|(?<!&)&(?!&)/.test(flat.replace(/&&/g, ''))) return namedPushes(command) ?? { error: 'a push in the loop is one plain command' }
+  const restore = (t: string) => t.replace(/\u0000(\d+)\u0000/g, (_, n) => quoted[Number(n)]!)
+  const segments = flat.split('&&').map(c => restore(c.trim()))
   const pushes = segments.filter(pushesIn)
   if (pushes.length !== 1) return { error: 'a command pushes once' }
-  // a step before the push could move the branch or what it holds after the cap read it: only cd may
+  // before the push: cd, staging and committing, and git reads. A commit there makes new work the cap
+  // cannot see before the call, so such a push always takes a round
   let dir: string | undefined
+  let commits = false
   for (const seg of segments.slice(0, segments.indexOf(pushes[0]!))) {
     const cd = seg.match(/^cd\s+(\S+)$/)
-    if (!cd) return { error: 'only a cd may run before a push in the same command' }
-    dir = unquote(cd[1]!)
+    if (cd) {
+      dir = unquote(cd[1]!)
+      continue
+    }
+    const git = seg.match(BEFORE_PUSH)
+    if (!git) return namedPushes(command) ?? { error: 'only a cd, git add, git commit or a git read may run before a push in the same command' }
+    if (/^(add|commit|fetch)$/.test(git[1]!)) commits = true
   }
   const words = pushes[0]!.split(/\s+/).map(unquote)
   if (!/(^|\/)git$/.test(words[0]!)) return { error: 'a push in the loop runs git directly, with no prefix' }
@@ -329,7 +376,97 @@ export function pushPlanOf(command: string): PushPlan | { error: string } {
   })
   // a delete (`--delete`, or `:<branch>` for every ref) sends no commit
   const deletes = args.some(a => a === '-d' || a === '--delete') || (refs.length > 0 && refs.every(r => r.src === ''))
-  return { ...(dir && { dir }), refs, ...(deletes && { delete: true }) }
+  return { ...(dir && { dir }), refs, ...(deletes && { delete: true }), ...(commits && { commits: true }) }
+}
+
+/**
+ * A line the plan cannot read as a whole (a script with `;`, newlines, pipes or `$`), read push by
+ * push: each `git push` the words show must name its remote and every branch it sends, plainly, and
+ * nothing may hide another push. Each counts as a round, since the line may commit around it.
+ */
+function namedPushes(command: string): PushPlan | undefined {
+  if (hiddenPush(command) || gitCommandsOf(command).includes('?')) return undefined
+  // head exits early and its closed pipe can kill the push mid-way
+  if (/\bpush\b[^\n;&|]*(&>?\d?\s*)?\|\s*head\b/.test(command)) return undefined
+  const segments = shellWords(withoutHeredocs(command))
+  const refs: { src: string; dst: string }[] = []
+  let bare = 0
+  for (const words of segments) {
+    const at = words.findIndex((w, i) => /(^|\/)git$/.test(w) && pushAt(words, i) >= 0)
+    if (at < 0) continue
+    // redirections are not arguments: each is dropped wherever it stands, with its target when that is a
+    // word of its own (`2>&1` splits as `2>`, its `&1` ending the segment); every other word is read
+    const tail = words.slice(pushAt(words, at) + 1)
+    const args: string[] = []
+    for (let i = 0; i < tail.length; i++) {
+      const a = tail[i]!
+      if (/^\d*(>>?|<|>&|<&|&>)/.test(a)) {
+        if (/^\d*(>>?|<|>&|<&|&>)$/.test(a)) i++
+        continue
+      }
+      args.push(a)
+    }
+    if (args.some(a => a.startsWith('-') && !PUSH_FLAGS.test(a)) || args.some(a => /[$`*?]/.test(a))) return undefined
+    const [, ...specs] = args.filter(a => !a.startsWith('-'))
+    const deletes = args.some(a => a === '-d' || a === '--delete')
+    if (!specs.length) {
+      bare++
+      continue
+    }
+    for (const spec of specs) {
+      // a ref is a plain name: anything else (`;` from find -exec, a glob) is not read
+      if (!/^\+?[\w./-]*(:[\w./-]+)?$/.test(spec)) return undefined
+      const [src, dst] = spec.replace(/^\+/, '').split(':')
+      const clean = (r: string) => r.replace(/^refs\/heads\//, '')
+      const to = clean(dst ?? src!)
+      if (!to) return undefined
+      if (to === 'HEAD') {
+        bare++
+        continue
+      }
+      refs.push({ src: deletes ? '' : clean(src!), dst: to })
+    }
+  }
+  if (!bare) return refs.length ? { refs, commits: true } : undefined
+  // a push that names no branch sends the checked-out one: read only when the line does not move it and
+  // runs in one place, its leading cd (a `git -C`, or a cd later on, could put it elsewhere)
+  if (bare > 1 || refs.length || !segments.every(staysPut)) return undefined
+  // the directory: each cd before the push, followed in order (one inside a loop or a subshell is not seen
+  // apart, so a line with control flow is not read)
+  if (segments.some(w => w[0] === 'git' && w[1] === '-C') || /\b(for|while|until|if|case)\b[^\n]*\b(do|then|in)\b|\(/.test(withoutHeredocs(command).replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, '""'))) return undefined
+  let dir: string | undefined
+  for (const words of segments.slice(0, segments.findIndex(w => w.some((x, i) => /(^|\/)git$/.test(x) && pushAt(w, i) >= 0)))) {
+    if (words[0] !== 'cd') continue
+    const to = words[1]
+    if (!to || /[$`~*?]/.test(to) || to === '-') return undefined
+    dir = to.startsWith('/') || !dir ? to : `${dir}/${to}`
+  }
+  return { ...(dir && { dir }), refs: [], commits: true }
+}
+
+/** A segment that leaves the checked-out branch and its push target as they are: no git, or a git read. */
+function staysPut(words: string[]): boolean {
+  const g = words.findIndex(w => /(^|\/)git$/.test(w))
+  // another program can move the branch too (`gh pr checkout`, a script running git switch): a word that
+  // names a checkout, a switch or a worktree anywhere in the segment is read as one
+  if (words.some(w => /^(checkout|switch|worktree|co)$/.test(w))) return false
+  if (g < 0) return true
+  let j = g + 1
+  while (j < words.length && words[j]!.startsWith('-')) j += /^-[Cc]$/.test(words[j]!) ? 2 : 1
+  const sub = words[j] ?? ''
+  // git branch only to print it: -u, -m, -f and friends move what a bare push sends
+  if (sub === 'branch') return words.slice(j + 1).every(w => /^(--show-current|--list|-a|-r|-v|-vv)$/.test(w))
+  return STAYS.test(sub)
+}
+
+// git commands that leave the checked-out branch where it is
+const STAYS = /^(add|commit|status|log|diff|show|rev-parse|fetch|push|ls-files|ls-remote|ls-tree|blame|grep|shortlog|describe|cat-file|rev-list|merge-base|merge-tree|for-each-ref|stash)$/
+
+/** The index of `push` in a `git [-C <dir>] push …` that starts at word i, or -1. */
+function pushAt(words: string[], i: number): number {
+  let j = i + 1
+  if (words[j] === '-C') j += 2
+  return words[j] === 'push' ? j : -1
 }
 
 const GITHUB_BRANCH_WRITES = new Set(['push_files', 'create_or_update_file', 'delete_file', 'create_branch', 'update_pull_request_branch'])
@@ -380,6 +517,27 @@ function ghApiCalls(command: string): { endpoint: string; writes: boolean }[] {
     return calls
   })
 }
+/**
+ * The query text of every `gh api graphql` call in a line, when each is a literal `-f query=…` (or
+ * `-F`, `--raw-field`, `--field`) that the line spells out in single quotes; undefined when any is not.
+ */
+function graphqlQueries(command: string): string | undefined {
+  const texts: string[] = []
+  for (const words of shellWords(command)) {
+    const g = words.findIndex((w, i) => /(^|\/)gh$/.test(w) && words.slice(i + 1).includes('api') && words.slice(i + 1).includes('graphql'))
+    if (g < 0) continue
+    const rest = words.slice(g + 1)
+    if (rest.some(w => w === '--input' || /^--input=/.test(w))) return undefined
+    const fields = rest.flatMap((w, i) => (/^(-f|-F|--field|--raw-field)$/.test(w) ? [rest[i + 1] ?? ''] : /^(--field|--raw-field)=/.test(w) ? [w.replace(/^[^=]+=/, '')] : /^-[fF]\S/.test(w) ? [w.slice(2)] : []))
+    const query = fields.filter(f => f.startsWith('query='))
+    if (query.length !== 1 || /^query=@/.test(query[0]!)) return undefined
+    // the raw line must hold the query in single quotes, so the shell expanded nothing in it
+    const text = query[0]!.slice('query='.length)
+    if (!command.includes(`query='${text}'`)) return undefined
+    texts.push(text)
+  }
+  return texts.length ? texts.join('\n') : undefined
+}
 const GRAPHQL_WRITE_OK = /^(addPullRequestReviewThreadReply|addPullRequestReviewComment|addPullRequestReview|submitPullRequestReview|addComment|updateIssueComment|resolveReviewThread|unresolveReviewThread|addLabelsToLabelable|removeLabelsFromLabelable)$/
 
 // the GitHub MCP writes the loop may make: comments, reviews, PR edits; merge and create are gated by 3f and the budget
@@ -426,10 +584,13 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
   }
   if (calls.some(c => c.endpoint === 'graphql')) {
     const graphql = 'the loop writes to GitHub through GraphQL only for comments, replies, reviews and labels, with the query written out; branches change with git push, where the guards read it.'
-    // a query the line does not show (a variable, a file, stdin) cannot be read
-    if (/\$|@|--input/.test(command.replace(/\$\w+\s*:/g, ''))) return graphql
-    if (/\bmutation\b/.test(command)) {
-      const fields = [...command.matchAll(/(?:\w+\s*:\s*)?(\w+)\s*\(\s*input\s*:/g)].map(m => m[1]!)
+    // each graphql call's query, from its own words: a literal `query=` the line shows in full is judged by
+    // itself; a query the line does not show (a variable, a file, stdin) cannot be read
+    const queries = graphqlQueries(command)
+    const source = queries ?? command
+    if (!queries && /\$|@|--input/.test(command.replace(/\$\w+\s*:/g, ''))) return graphql
+    if (/\bmutation\b/.test(source)) {
+      const fields = [...source.matchAll(/(?:\w+\s*:\s*)?(\w+)\s*\(\s*input\s*:/g)].map(m => m[1]!)
       if (!fields.length || fields.some(f => !GRAPHQL_WRITE_OK.test(f))) return graphql
     }
   }
@@ -437,7 +598,10 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
   if (shellWords(command).some(w => w[0] === 'gh' && w[1] === 'repo' && w[2] === 'sync')) return 'the loop writes to a branch with git push, where the guards read it, not through gh repo sync.'
   for (const words of shellWords(command)) {
     const at = words.findIndex(w => /(^|\/)gh$/.test(w))
-    const sub = at < 0 ? undefined : words.slice(at + 1).find(w => !w.startsWith('-'))
+    // gh's own options before the subcommand: -R/--repo and --hostname take a value
+    let k = at + 1
+    while (at >= 0 && k < words.length && words[k]!.startsWith('-')) k += /^(-R|--repo|--hostname)$/.test(words[k]!) ? 2 : 1
+    const sub = at < 0 ? undefined : words[k]
     if (sub === undefined) continue
     if (!GH_COMMANDS.has(sub)) return `the loop runs gh's own commands by name: "gh ${sub}" is not one (an alias or extension could hide a push).`
     if ((sub === 'alias' && words.includes('set')) || sub === 'extension') return 'the loop does not add gh aliases or run gh extensions: either could hide a push.'
@@ -449,7 +613,7 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
 }
 
 /** The merge side's agents and the read-only agent types, which go on past the budget. */
-export const PUSH_FORM = 'run the push as its own command: [cd <dir> &&] git push [-u|--force-with-lease] <remote> <branch>'
+export const PUSH_FORM = 'run the push as [cd <dir> &&] [git add … && git commit … &&] git push [-u|--force-with-lease] <remote> <branch>'
 
 const PAST_BUDGET = /^agile-merge-review:|:merge-session$|^(Explore|Plan|claude-code-guide|statusline-setup)$/
 

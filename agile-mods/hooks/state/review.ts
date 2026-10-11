@@ -3,6 +3,10 @@
 
 /** Paths read in full, by the sha they were read at (as written in the command, 7 to 40 hex). */
 export type Reads = Record<string, string[]>
+/** Line ranges read of a file too large for one command, by sha then path; END ends at the file's end. */
+export type Parts = Record<string, Record<string, [number, number][]>>
+/** The end of a `tail -n +A` range: a number, since the store keeps JSON and JSON has no Infinity. */
+export const END = Number.MAX_SAFE_INTEGER
 
 const MAX_SHAS = 60
 const MAX_PATHS = 2000
@@ -11,34 +15,63 @@ const SHOW = /^git\s+(?:-C\s+\S+\s+)?(?:--no-pager\s+)?(?:show|cat-file\s+-p)\s+
 const SPEC = /^([0-9a-f]{40}):(.+)$/
 /** A pipe into anything but these drops part of the file, so the read does not count. */
 const WHOLE = /^(cat(\s+-n)?|nl|tee\s+\S+)$/
+/** One pipe that keeps a line range: `sed -n A,Bp`, `head -n N` (or `head -N`), `tail -n +A`. */
+function rangeOf(pipe: string): [number, number] | undefined {
+  let m = pipe.match(/^sed\s+-n\s+(\d+),(\d+)p$/)
+  if (m && Number(m[1]) >= 1 && Number(m[1]) <= Number(m[2])) return [Number(m[1]), Number(m[2])]
+  // `head -n -N` prints all but the last N lines, so only a positive count is a range
+  m = pipe.match(/^head\s+(?:-n\s*(\d+)|-(\d+))$/)
+  if (m) return [1, Number(m[1] ?? m[2])]
+  m = pipe.match(/^tail\s+-n\s*\+(\d+)$/)
+  if (m) return [Number(m[1]), END]
+  return undefined
+}
 
 /**
  * Shell syntax the parser does not model (quotes, expansion, redirection, subshells, `||`, `;`, a
  * newline, background `&`): a command using any of it counts no read. `;` and a newline run the next
  * command after a failed one, so only `&&`, which stops at the first failure, joins reads.
  */
+/** A separator between reads: echo with plain or quoted text, nothing the shell expands. */
+const ECHO = /^echo(\s+('[^']*'|"[^"$`\\]*"|[\w=.:\/+-]+))*$/
 const UNMODELLED = /["'`$\\<>()#{}\n;]|\|\||(?<!&)&(?!&)/
+/** A leading `cd <dir> &&` or `cd <dir>;`: it picks the repository, and the full sha still names the object. */
+const CD = /^cd\s+[^\s"'`$\\<>()#{};&|]+\s*(?:&&|;)\s*/
 
 export const sameSha = (a: string, b: string) => a.length >= 7 && b.length >= 7 && (a.startsWith(b) || b.startsWith(a))
 
 /**
- * Every `<sha>:<path>` a shell command shows in full. Only plain `git show` / `git cat-file -p`
- * commands joined by `&&` count, each optionally piped into `cat`, `nl` or `tee`; every word after
+ * Every `<sha>:<path>` a shell command shows, in full or (one file, piped first into `sed -n A,Bp`,
+ * `head -n N` or `tail -n +A`) as a line range. Only plain `git show` / `git cat-file -p`
+ * commands joined by `&&`, after an optional leading `cd <dir>`, count, each optionally piped into `cat`, `nl` or `tee`; every word after
  * the subcommand must be a spec. Anything the shell could read differently from this parser counts
  * nothing, so a read is never credited that the reviewer did not see.
  */
-export function readsOf(command: string): { sha: string; path: string }[] {
+export function readsOf(command: string): { sha: string; path: string; range?: [number, number] }[] {
+  // `sed -n '1,400p'` quotes only digits, so it reads the same unquoted
+  command = command.trim().replace(CD, '').replace(/(\|\s*sed\s+-n\s+)(['"])(\d+,\d+p)\2/g, '$1$3')
+  // reads may be joined by `;` as well as `&&` (a full-sha read of a PR file cannot fail), with plain
+  // `echo` separators between them; each part is still read on its own
+  const parts = command.split(/\s*(?:&&|;)\s*/).filter(p => p && !ECHO.test(p))
+  if (!parts.length) return []
+  command = parts.join(' && ')
   if (UNMODELLED.test(command)) return []
-  const out: { sha: string; path: string }[] = []
+  const out: { sha: string; path: string; range?: [number, number] }[] = []
   for (const part of command.split('&&')) {
     const [head, ...pipes] = part.split('|').map(s => s.trim())
-    if (!head || pipes.some(p => !WHOLE.test(p))) return []
+    if (!head) return []
+    // one line-range pipe makes a ranged read of one file; every other pipe must keep every line
+    const ranges = pipes.map(rangeOf)
+    const range = ranges.find(Boolean)
+    if (ranges.filter(Boolean).length > 1 || pipes.some((p, i) => !ranges[i] && !WHOLE.test(p))) return []
     const show = head.match(SHOW)
     if (!show) return []
-    for (const word of show[1]!.split(/\s+/)) {
+    const words = show[1]!.split(/\s+/)
+    if (range && words.length !== 1) return []
+    for (const word of words) {
       const spec = word.match(SPEC)
       if (!spec || /[*?\[]/.test(spec[2]!)) return []
-      out.push({ sha: spec[1]!, path: spec[2]!.replace(/^\.\//, '') })
+      out.push({ sha: spec[1]!, path: spec[2]!.replace(/^\.\//, ''), ...(range && { range }) })
     }
   }
   return out
@@ -53,10 +86,15 @@ const PERSISTED = /<persisted-output>|Output too large/
  *
  * @param output the text the model got back; a read whose output was cut or persisted counts nothing
  */
+/** A read that failed: with reads joined by `;`, a later success hides it from the exit code. */
+const FAILED = /^(fatal|error): /m
+const unread = (command: string, output: string) => output.length > MAX_OUTPUT || PERSISTED.test(output) || (/;/.test(command) && FAILED.test(output))
+
 export function withReads(reads: Reads, command: string, output: string): Reads {
-  if (output.length > MAX_OUTPUT || PERSISTED.test(output)) return reads
+  if (unread(command, output)) return reads
   let next = reads
-  for (const { sha, path } of readsOf(command)) {
+  for (const { sha, path, range } of readsOf(command)) {
+    if (range) continue
     const known = next[sha] ?? []
     if (known.includes(path)) continue
     const { [sha]: _, ...rest } = next
@@ -65,6 +103,33 @@ export function withReads(reads: Reads, command: string, output: string): Reads 
   const shas = Object.keys(next)
   return shas.length > MAX_SHAS ? Object.fromEntries(shas.slice(-MAX_SHAS).map(s => [s, next[s]!])) : next
 }
+
+/** Adds the line ranges one finished command read; the same object when it read none. Same output rule as withReads. */
+export function withParts(parts: Parts, command: string, output: string): Parts {
+  if (unread(command, output)) return parts
+  let next = parts
+  for (const { sha, path, range } of readsOf(command)) {
+    if (!range) continue
+    const files = next[sha] ?? {}
+    next = { ...next, [sha]: { ...files, [path]: [...(files[path] ?? []), range].slice(-200) } }
+  }
+  const shas = Object.keys(next)
+  return shas.length > MAX_SHAS ? Object.fromEntries(shas.slice(-MAX_SHAS).map(s => [s, next[s]!])) : next
+}
+
+/** Whether line ranges cover lines 1 to `lines` with no gap. */
+export function covers(ranges: [number, number][], lines: number): boolean {
+  let upTo = 0
+  for (const [a, b] of [...ranges].sort((x, y) => x[0] - y[0])) {
+    if (a > upTo + 1) return false
+    upTo = Math.max(upTo, b)
+  }
+  return upTo >= lines
+}
+
+/** The ranges read of a file at a sha matching `sha` (full or abbreviated). */
+export const partsAt = (parts: Parts, sha: string, path: string) =>
+  Object.keys(parts).filter(s => sameSha(s, sha)).flatMap(s => parts[s]![path] ?? [])
 
 /** The shas a read was recorded at that match `sha` (full or abbreviated either way). */
 export const readShas = (reads: Reads, sha: string) => Object.keys(reads).filter(s => sameSha(s, sha))

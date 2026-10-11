@@ -35,6 +35,17 @@ const FILES_PER_SYNC = 5
 const SOON_MS = 3_000
 const MARKER_READS = 4
 const JIRA_PAGES = 4
+/** Issues a Jira page asks for, and the floor it halves to when an answer passes the MCP output limit. */
+const JIRA_PAGE = 50
+const JIRA_PAGE_MIN = 5
+/** A Jira answer that came back as the engine's too-large notice instead of JSON. */
+class TooLarge extends Error {
+  constructor() {
+    super('the Jira answer passed the MCP output limit even at the smallest page')
+  }
+}
+/** Tickets whose comments alone pass the limit: their markers are not read again this session. */
+const tooLarge = new Set<string>()
 let board: Board = EMPTY
 let retro: Retro = EMPTY_RETRO
 let shown = true
@@ -115,11 +126,11 @@ function hostOf($: EngineInterface): Host {
       return out?.split('\n').filter(Boolean)
     },
     compare: async (base, head) => (SHA.test(base) && SHA.test(head) ? parsed<Compare>(await gh($.process.run(['gh', 'api', `repos/{owner}/{repo}/compare/${base}...${head}`, '--jq', '{status: .status, files: [.files[].filename]}'], GH_TIMEOUT))) : undefined),
-    jira: async (cloud, jql, fields, page) => {
+    jira: async (cloud, jql, fields, page, size = JIRA_PAGE) => {
       const tool = await jiraSearchTool($)
       if (!tool) throw new Error('no Atlassian MCP server connected')
-      // 50 a page: a larger answer passes the engine's MCP output limit and arrives as a notice, not JSON
-      const input = { cloudId: cloud, jql, fields, maxResults: 50, responseContentFormat: 'markdown', ...(page && { nextPageToken: page }) }
+      // an answer past the engine's MCP output limit arrives as a notice, not JSON: the caller retries smaller
+      const input = { cloudId: cloud, jql, fields, maxResults: size, responseContentFormat: 'markdown', ...(page && { nextPageToken: page }) }
       // the call goes through the session's permissions: asked first, so a refresh never opens a dialog
       const { decision } = await $.tool.check({ tool, input })
       if (decision !== 'allow') throw new Error(`allow ${tool} in /permissions to sync Jira`)
@@ -127,8 +138,14 @@ function hostOf($: EngineInterface): Host {
       const text = r.content.filter(b => b.type === 'text').map(b => b.text ?? '').join('')
       if (r.isError) throw new Error(text.slice(0, 120) || 'Jira search failed')
       const answer = r.structuredContent ?? parsed(text)
-      if (answer === undefined) throw new Error('the Jira answer was not JSON (too large?)')
+      if (answer === undefined) throw new TooLarge()
       return answer
+    },
+    lines: async (dir, sha, path) => {
+      if (!/^[0-9a-f]{40}$/.test(sha) || path.startsWith('-')) return undefined
+      const r = await $.process.run(['git', '-C', dir, 'show', `${sha}:${path}`], { timeoutMs: 10_000 }).catch(() => undefined)
+      if (r?.exitCode !== 0) return undefined
+      return r.stdout.split('\n').length - (r.stdout.endsWith('\n') ? 1 : 0)
     },
     agents: () => $.agent.list(),
     storeGet: key => $.store.get(scope + key),
@@ -171,14 +188,30 @@ async function syncJira($: EngineInterface) {
   try {
     const host = hostOf($)
     let page: string | undefined
+    let size = JIRA_PAGE
     for (let i = 0; i < JIRA_PAGES; i++) {
-      const answer = await host.jira(cloudId, jql, ['summary', 'status', 'labels', 'statuscategorychangedate', pointsField], page)
+      let answer: unknown
+      try {
+        answer = await host.jira(cloudId, jql, ['summary', 'status', 'labels', 'statuscategorychangedate', pointsField], page, size)
+      } catch (err) {
+        // a page too large for the engine's limit: the same page again, half the size
+        if (!(err instanceof TooLarge) || size <= JIRA_PAGE_MIN) throw err
+        size = Math.max(JIRA_PAGE_MIN, Math.floor(size / 2))
+        i--
+        continue
+      }
       save($, applyJira(board, answer, pointsField, await $.clock.now()))
       page = nextPageOf(answer)
       if (!page) break
     }
-    for (const key of markerTargets(board, MARKER_READS)) {
-      save($, applyJira(board, await host.jira(cloudId, `key = ${key}`, ['comment']), pointsField, await $.clock.now()))
+    for (const key of markerTargets(board, MARKER_READS + tooLarge.size).filter(k => !tooLarge.has(k)).slice(0, MARKER_READS)) {
+      try {
+        save($, applyJira(board, await host.jira(cloudId, `key = ${key}`, ['comment'], undefined, 1), pointsField, await $.clock.now()))
+      } catch (err) {
+        // one ticket whose comments pass the limit: its markers stay unread, the rest of the board syncs
+        if (!(err instanceof TooLarge)) throw err
+        tooLarge.add(key)
+      }
     }
     const now = await $.clock.now()
     save($, sampled(judged(board, now, false), now))
@@ -326,6 +359,7 @@ export const register: Register = (on, options) => {
       guardsReset(hostOf($))
       refusals = []
       allowed = 0
+      tooLarge.clear()
       agentStats = {}
       return { text: 'agile board and retro counts cleared' }
     }

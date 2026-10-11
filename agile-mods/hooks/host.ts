@@ -39,8 +39,10 @@ export type Host = {
   prFiles: (pr: number) => Promise<string[] | undefined>
   /** The files changed from `base` to `head` (`gh api .../compare/<base>...<head>`). */
   compare: (base: string, head: string) => Promise<Compare | undefined>
-  /** One page (50 issues) of a JQL search on the session's Atlassian MCP server; the parsed JSON answer. */
-  jira: (cloudId: string, jql: string, fields: string[], page?: string) => Promise<unknown>
+  /** One page (`size` issues, 50 by default) of a JQL search on the session's Atlassian MCP server; the parsed JSON answer. */
+  jira: (cloudId: string, jql: string, fields: string[], page?: string, size?: number) => Promise<unknown>
+  /** The line count of `<sha>:<path>` (`git -C <dir> show`), for a file reviewed in line ranges. */
+  lines: (dir: string, sha: string, path: string) => Promise<number | undefined>
   agents: () => Promise<AgentInfo[]>
   storeGet: (key: string) => Promise<unknown>
   storeSet: (key: string, value: unknown) => Promise<void>
