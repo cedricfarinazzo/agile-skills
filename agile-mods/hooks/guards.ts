@@ -86,7 +86,8 @@ async function fixPush(host: Host, command: string, type: string, agentId: strin
     const pr = await host.prOfBranch(dst)
     if (pr === null) continue
     if (!pr) return `the fix-round cap could not read the PR of ${dst} (gh pr list --head failed), so it refuses. Retry once gh answers.`
-    if ((await host.onlyMerges(dir, pr.headRefOid, ref.src, pr.baseRefName)) === true) continue
+    // a commit in the same command lands after this check could see it: no update exemption
+    if (!plan.commits && (await host.onlyMerges(dir, pr.headRefOid, ref.src, pr.baseRefName)) === true) continue
     const round = roundOf(type, agentId)
     const known = fixRounds[pr.number]
     const deny = fixDenial(pr.number, known, round)

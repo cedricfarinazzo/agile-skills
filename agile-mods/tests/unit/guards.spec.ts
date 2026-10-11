@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { covers, END, readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
 import { guardedCall } from '../../hooks/guards.ts'
-import { budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
+import { sideDoorDenial, budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -158,25 +158,55 @@ describe('fix-round cap', () => {
     expect(isFixDispatch('Skill', { skill: 'fix-until-satisfied-ish' })).toBe(false)
   })
 
+  test('gh options before the subcommand, and a graphql read beside $ and @ elsewhere on the line', () => {
+    expect(sideDoorDenial('Bash', { command: 'R=o/r; gh -R $R run view 1 --log-failed | grep x' })).toBeUndefined()
+    expect(sideDoorDenial('Bash', { command: 'gh --repo o/r pr view 1' })).toBeUndefined()
+    expect(sideDoorDenial('Bash', { command: 'gh -R o/r myalias' })).toContain('gh myalias')
+    expect(sideDoorDenial('Bash', { command: `gh api graphql -f query='query{repository(owner:"o",name:"r"){id}}' > x.json; grep -c '@' x.json; echo $?` })).toBeUndefined()
+    expect(sideDoorDenial('Bash', { command: `gh api graphql -f query='mutation{deleteRef(input:{refId:"x"}){clientMutationId}}' > x; echo $?` })).toContain('GraphQL')
+    expect(sideDoorDenial('Bash', { command: `Q='mutation{deleteRef(input:{refId:"x"}){clientMutationId}}'; gh api graphql -f query="$Q"` })).toContain('GraphQL')
+  })
+
   test('what a push sends where, or why it cannot be read', () => {
     expect(pushPlanOf('git push origin VC-1-auth')).toEqual({ refs: [{ src: 'VC-1-auth', dst: 'VC-1-auth' }] })
     expect(pushPlanOf('cd /w && git -C /x push -u origin "feat/x"')).toEqual({ dir: '/x', refs: [{ src: 'feat/x', dst: 'feat/x' }] })
     expect(pushPlanOf('cd /w && git push --force-with-lease origin +HEAD:refs/heads/feat/y')).toEqual({ dir: '/w', refs: [{ src: 'HEAD', dst: 'feat/y' }] })
     expect(pushPlanOf('git push')).toEqual({ refs: [] })
     expect(pushPlanOf('git push origin a b')).toEqual({ refs: [{ src: 'a', dst: 'a' }, { src: 'b', dst: 'b' }] })
-    expect(pushPlanOf('git add -A && git commit -m "x; $y" && git push origin a')).toEqual({ error: 'a push in the loop is one plain command' })
-    expect(pushPlanOf("git commit -m 'x; y' && git push origin a")).toEqual({ error: 'only a cd may run before a push in the same command' })
+    expect(pushPlanOf('git add -A && git commit -m "x; $y" && git push origin a')).toEqual({ refs: [{ src: 'a', dst: 'a' }], commits: true })
+    // commit and push in one command: read, and always a round
+    expect(pushPlanOf("git commit -m 'x; y && z' && git push origin a")).toEqual({ refs: [{ src: 'a', dst: 'a' }], commits: true })
+    expect(pushPlanOf(`cd /w && git branch --show-current && git add -A && git commit -q -m "$(cat <<'EOF'\nfix: a; b $(x) && git push origin main\nEOF\n)" && git push -u origin a 2>&1 | tail -2`)).toEqual({ dir: '/w', refs: [{ src: 'a', dst: 'a' }], commits: true })
+    expect(pushPlanOf(`git commit -F - <<'EOF'\nmsg; $(rm -rf x)\nEOF\ngit push origin a`)).toEqual({ refs: [{ src: 'a', dst: 'a' }], commits: true })
+    expect(pushPlanOf(`git commit -m "$(cat <<EOF\n$(date)\nEOF\n)" && git push origin a`)).toEqual({ refs: [{ src: 'a', dst: 'a' }], commits: true })
+    expect(pushPlanOf(`git commit -F - <<'EOF' && git push origin a\nmsg; $(rm x)\nEOF`)).toEqual({ refs: [{ src: 'a', dst: 'a' }], commits: true })
+    // a script: each push read on its own when it names its branch, always a round
+    expect(pushPlanOf(`cd /w; npm test 2>&1 | tail -1; git add -A && git commit -qm "x" && git push -q -u origin feat/a 2>&1 | tail -1; echo done`)).toEqual({ refs: [{ src: 'feat/a', dst: 'feat/a' }], commits: true })
+    expect(pushPlanOf(`cd /w; git push -q; echo $?`)).toEqual({ dir: '/w', refs: [], commits: true })
+    expect(pushPlanOf(`cd /w; git checkout b; git push -q`)).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf(`cd /w; cd x; git push`)).toEqual({ dir: '/w/x', refs: [], commits: true })
+    expect(pushPlanOf(`cd /w/a/b; npm test; cd ..; git branch --show-current; git push -q; cd /`)).toEqual({ dir: '/w/a/b/..', refs: [], commits: true })
+    expect(pushPlanOf(`for d in a b; do cd $d; git push; done`)).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf(`(cd x; true); git push`)).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf(`cd /w; git push origin HEAD; echo`)).toEqual({ dir: '/w', refs: [], commits: true })
+    expect(pushPlanOf(`B=feat/a; git push origin $B`)).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf(`cd /w; git push origin --delete m/a m/b`)).toEqual({ refs: [{ src: '', dst: 'm/a' }, { src: '', dst: 'm/b' }], commits: true })
+    expect(pushPlanOf(`cd /w; G=git; $G push origin x; git push origin y`)).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf('git checkout b && git push origin b')).toEqual({ refs: [{ src: 'b', dst: 'b' }], commits: true })
+    expect(pushPlanOf('git checkout b && git push')).toEqual({ error: 'only a cd, git add, git commit or a git read may run before a push in the same command' })
+    expect(pushPlanOf('git reset --hard x && git push origin b')).toEqual({ refs: [{ src: 'b', dst: 'b' }], commits: true })
     expect(pushPlanOf('git push origin a && git log -1')).toEqual({ refs: [{ src: 'a', dst: 'a' }] })
     expect(pushPlanOf('git push -o ci.skip origin a')).toEqual({ error: 'the push option -o is not read' })
     expect(pushPlanOf('git push --all origin')).toEqual({ error: 'the push option --all is not read' })
-    expect(pushPlanOf('cd w; git push')).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf('cd w; git push')).toEqual({ dir: 'w', refs: [], commits: true })
     expect(pushPlanOf('git push origin --delete feat/x')).toEqual({ refs: [{ src: 'feat/x', dst: 'feat/x' }], delete: true })
     // what the push prints, merged and trimmed, changes nothing it sends
     expect(pushPlanOf('cd /w && git push origin a 2>&1 | tail -2')).toEqual({ dir: '/w', refs: [{ src: 'a', dst: 'a' }] })
     expect(pushPlanOf('git push origin a | tail -n 5')).toEqual({ refs: [{ src: 'a', dst: 'a' }] })
     expect(pushPlanOf('git push origin a 2>&1 | head -2')).toEqual({ error: 'a push in the loop is one plain command' })
-    expect(pushPlanOf('git push origin a | tee log')).toEqual({ error: 'a push in the loop is one plain command' })
-    expect(pushPlanOf('git push origin a 2>&1 | tail -2; git push origin main')).toEqual({ error: 'a push in the loop is one plain command' })
+    expect(pushPlanOf('git push origin a | tee log')).toEqual({ refs: [{ src: 'a', dst: 'a' }], commits: true })
+    expect(pushPlanOf('git push origin a 2>&1 | tail -2; git push origin main')).toEqual({ refs: [{ src: 'a', dst: 'a' }, { src: 'main', dst: 'main' }], commits: true })
+    expect(pushDenial('git push origin a 2>&1 | tail -2; git push origin main', 'a')).toContain('never pushes to main')
     expect(pushPlanOf('GIT_TRACE=1 git push origin a')).toEqual({ error: 'a push in the loop runs git directly, with no prefix' })
   })
 })
