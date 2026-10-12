@@ -135,13 +135,13 @@ Inside a loop, `guardSideDoor` keeps every write where the other guards can read
 
 ### Ticket cap
 
-With `ticketBudgetUsd` set and `guardTicketBudget` not `off`, once one ticket's cost (the [ticket cost](#the-board) the Cost tab shows, an estimate) reaches it, these are refused for a call that names that one ticket among those on the board:
+With `ticketBudgetUsd` set and `guardTicketBudget` not `off`, once one ticket's cost (the [ticket cost](#the-board) the Cost tab shows, an estimate) reaches it, these are refused for a call that names a ticket on the board over its cap, or that names none and whose agent's ticket (or, for `gh pr create`, the checked-out branch's) is over it:
 
 - `agile-10-implement` and every `implement-*` skill;
 - `gh pr create`, `create_pull_request`, and a `gh api` POST to `pulls`;
 - every agent dispatch except the merge side's and the read-only types (`Explore`, `Plan`, `claude-code-guide`, `statusline-setup`).
 
-Its open PR still merges, and so do the other tickets. A call that names none or several tickets is not held. A person can allow a ticket past its cap ([bypass](guards.md#bypass)): build calls naming that ticket and no other go on until it is done, parked or its PR merges. With `warn` the call goes on and is logged on the Guards tab.
+Its open PR still merges, and so do the other tickets. A call naming several tickets is refused if any is over. A call that can be tied to no ticket is refused while any ticket is over its cap, except `agile-10-implement`, whose phases each name theirs; the refusal offers no bypass, since it names no ticket. A person can allow a ticket past its cap ([bypass](guards.md#bypass)): build calls naming that ticket and no other go on until it is done, parked or its PR merges. With `warn` the call goes on and is logged on the Guards tab.
 
 A ticket's cost counts from the run's start: a session's first loop call while no drain is running, or `/agile-board reset`; a running drain keeps its run across sessions. Not covered: the main loop editing and pushing to an existing branch by hand, which the merge side needs for inline fixes.
 

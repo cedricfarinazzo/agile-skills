@@ -3,7 +3,7 @@ import { covers, END, howRead, parseReads, planChunks, readsOf, withReads, type 
 import { configOf, modesLine, repoConfigOf, tightened } from '../../hooks/state/config.ts'
 import { allow, ticketBudgetOpen, openOf, take3f, takeFix, BYPASS_MS } from '../../hooks/state/bypass.ts'
 import { guardedCall } from '../../hooks/guards.ts'
-import { sideDoorDenial, ticketBudgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeProblems, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
+import { sideDoorDenial, ticketBudgetDenial, type TicketCapInput, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeProblems, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -341,21 +341,53 @@ describe('fail closed', () => {
 
 describe('ticket cap', () => {
   const impl = { skill: 'agile-execution:implement-code' }
-  const costs: Record<string, number> = { 'VC-1': 12, 'VC-2': 3 }
-  const cost = (k: string) => costs[k] ?? 0
+  const costs: Record<string, number> = { 'VC-1': 12, 'VC-2': 3, 'VC-3': 20 }
+  const input = (over: Partial<TicketCapInput> = {}): TicketCapInput => ({
+    cost: k => costs[k] ?? 0,
+    cap: 12,
+    allowed: () => false,
+    named: [],
+    capped: ['VC-1', 'VC-3'],
+    ...over,
+  })
 
-  test('a ticket at its cap gets no build work; the merge side, other tickets and calls naming several are not held', () => {
-    expect(ticketBudgetDenial(cost, 12, ['VC-2'], 'Skill', impl)).toBeUndefined()
-    expect(ticketBudgetDenial(cost, 0, ['VC-1'], 'Skill', impl)).toBeUndefined()
-    const deny = ticketBudgetDenial(cost, 12, ['VC-1'], 'Skill', impl)!
-    expect(deny).toBe('agile-mods: ticket budget: VC-1 cost an estimated $12.00 of its $12.00 cap (agile-mods ticketBudgetUsd). Start no build work on it: report VC-1 as blocked (BUDGET) and go on with the other tickets; its open PR can still merge.')
-    expect(ruleOf(deny)).toBe('ticketBudget')
-    expect(ticketBudgetDenial(cost, 12, ['VC-1', 'VC-2'], 'Skill', impl)).toBeUndefined()
-    expect(ticketBudgetDenial(cost, 12, [], 'Skill', impl)).toBeUndefined()
-    expect(ticketBudgetDenial(cost, 12, ['VC-1'], 'Skill', { skill: 'agile-merge-review:agile-11-merge-train' })).toBeUndefined()
-    expect(ticketBudgetDenial(cost, 12, ['VC-1'], 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer' })).toBeUndefined()
-    expect(ticketBudgetDenial(cost, 12, ['VC-1'], 'Agent', { subagent_type: 'agile-sprint-drain:merge-session' })).toBeUndefined()
-    expect(ticketBudgetDenial(cost, 12, ['VC-1'], 'Bash', { command: 'gh pr create --fill' })).toContain('VC-1')
+  test('a call naming a ticket at its cap is refused; the merge side and other tickets are not held', () => {
+    expect(ticketBudgetDenial(input({ named: ['VC-2'] }), 'Skill', impl)).toBeUndefined()
+    expect(ticketBudgetDenial(input({ cap: 0, named: ['VC-1'] }), 'Skill', impl)).toBeUndefined()
+    const deny = ticketBudgetDenial(input({ named: ['VC-1'] }), 'Skill', impl)!
+    expect(deny.text).toBe('agile-mods: ticket budget: VC-1 cost an estimated $12.00 of its $12.00 cap (agile-mods ticketBudgetUsd). Start no build work on it: report VC-1 as blocked (BUDGET) and go on with the other tickets; its open PR can still merge.')
+    expect(deny.tickets).toEqual(['VC-1'])
+    expect(ruleOf(deny.text)).toBe('ticketBudget')
+    expect(ticketBudgetDenial(input({ named: ['VC-1'] }), 'Skill', { skill: 'agile-merge-review:agile-11-merge-train' })).toBeUndefined()
+    expect(ticketBudgetDenial(input({ named: ['VC-1'] }), 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer' })).toBeUndefined()
+    expect(ticketBudgetDenial(input({ named: ['VC-1'] }), 'Agent', { subagent_type: 'agile-sprint-drain:merge-session' })).toBeUndefined()
+    expect(ticketBudgetDenial(input({ named: ['VC-1'] }), 'Bash', { command: 'gh pr create --fill' })?.tickets).toEqual(['VC-1'])
+  })
+
+  test('a call naming several tickets is held to each of them', () => {
+    const deny = ticketBudgetDenial(input({ named: ['VC-1', 'VC-2'] }), 'Skill', impl)!
+    expect(deny.tickets).toEqual(['VC-1'])
+    const both = ticketBudgetDenial(input({ named: ['VC-1', 'VC-3', 'VC-2'] }), 'Agent', { subagent_type: 'agile-sprint-drain:build-session' })!
+    expect(both.tickets).toEqual(['VC-1', 'VC-3'])
+    expect(both.text).toContain('VC-1 ($12.00), VC-3 ($20.00)')
+    expect(ticketBudgetDenial(input({ named: ['VC-1', 'VC-2'], allowed: k => k === 'VC-1' }), 'Skill', impl)).toBeUndefined()
+  })
+
+  test('a call naming none is held to its agent\'s ticket, or refused while a ticket is over its cap', () => {
+    expect(ticketBudgetDenial(input({ own: 'VC-1' }), 'Bash', { command: 'gh pr create --fill' })?.tickets).toEqual(['VC-1'])
+    expect(ticketBudgetDenial(input({ own: 'VC-2' }), 'Bash', { command: 'gh pr create --fill' })).toBeUndefined()
+    const none = ticketBudgetDenial(input(), 'Agent', { subagent_type: 'agile-execution:build-implementer', description: 'implement it' })!
+    expect(none).toMatchObject({ tickets: [], named: false })
+    expect(none.text).toContain('names no ticket, and VC-1, VC-3 are over the $12.00 cap')
+    expect(ruleOf(none.text)).toBe('ticketBudget')
+    // nothing is over its cap: a call naming none goes on
+    expect(ticketBudgetDenial(input({ capped: [] }), 'Agent', { subagent_type: 'agile-execution:build-implementer' })).toBeUndefined()
+    // a person allowed every ticket that is over
+    expect(ticketBudgetDenial(input({ allowed: () => true }), 'Agent', { subagent_type: 'agile-execution:build-implementer' })).toBeUndefined()
+    // the orchestrator names its tickets in every phase it runs
+    expect(ticketBudgetDenial(input(), 'Skill', { skill: 'agile-execution:agile-10-implement' })).toBeUndefined()
+    // the merge side and read-only agents are not build work
+    expect(ticketBudgetDenial(input(), 'Agent', { subagent_type: 'Explore' })).toBeUndefined()
   })
 
   test('build work: an implement run or phase, opening a PR, any agent but the merge side and read-only types', () => {

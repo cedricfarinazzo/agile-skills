@@ -536,16 +536,34 @@ export const register: Register = (on, options) => {
     const by = type ? { agent: type.split(':').at(-1) } : {}
     let deny: string | undefined
     let offer: Offer | undefined
-    // the one ticket a build call names, among those the board knows; the cost counted so far is an estimate
+    // the tickets a build call names, among those the board knows; with none named, the ticket its agent
+    // works, or the branch a PR is opened for. A cost counted so far is an estimate
     const named = [...new Set((dispatchText(args) + ' ' + String(args.command ?? '')).match(new RegExp(TICKET_KEY.source, 'g')) ?? [])].filter(k => board.tickets[k])
     const gate = config.modes.ticketBudget
-    const over = gate === 'off' ? undefined : ticketBudgetDenial(k => board.tickets[k]?.cost?.usd ?? 0, cap, named, e.tool, args)
+    let over: ReturnType<typeof ticketBudgetDenial>
+    if (cap > 0 && gate !== 'off') {
+      let own: string | undefined
+      if (!named.length && e.agentId && type && modelOf(type)) own = (await workerOf(host, e.agentId, type)).ticket
+      if (!named.length && !own && e.tool === 'Bash' && /\bgh\s+pr\s+create\b/.test(String(args.command ?? ''))) own = ticketOfText(board, (await host.branch('.')) ?? '')
+      const allowed = allowancesNow()
+      const input = {
+        cost: (k: string) => board.tickets[k]?.cost?.usd ?? 0,
+        cap,
+        named,
+        ...(own && { own }),
+        capped: board.order.filter(k => (board.tickets[k]?.cost?.usd ?? 0) >= cap && !ticketEnded(k)),
+      }
+      over = ticketBudgetDenial({ ...input, allowed: k => ticketBudgetOpen(allowed, k) }, e.tool, args)
+      // let through only because a person allowed it: logged and counted, never told to the model
+      const without = over ? undefined : ticketBudgetDenial({ ...input, allowed: () => false }, e.tool, args)
+      if (without) note($, { at, rule: 'ticketBudget', kind: 'bypassed', text: `past the ticket cap on a person's bypass: ${without.text}`, ...by })
+    }
     if (over) {
-      if (ticketBudgetOpen(allowancesNow(), named[0]!)) note($, { at, rule: 'ticketBudget', kind: 'bypassed', text: `past the ticket cap on a person's bypass: ${over}`, ...by })
-      else if (gate === 'warn') note($, { at, rule: 'ticketBudget', kind: 'warned', text: over, ...by })
+      if (gate === 'warn') note($, { at, rule: 'ticketBudget', kind: 'warned', text: over.text, ...by })
       else {
-        offer = { rule: 'ticketBudget', ticket: named[0]! }
-        deny = over + bypassTail(offer)
+        // a refusal naming one ticket can be allowed once; one that names none cannot, since there is no ticket to allow
+        if (over.tickets.length === 1) offer = { rule: 'ticketBudget', ticket: over.tickets[0]! }
+        deny = over.text + (offer ? bypassTail(offer) : '')
       }
     }
     if (!deny) {

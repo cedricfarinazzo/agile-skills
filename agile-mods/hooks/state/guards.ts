@@ -654,17 +654,57 @@ export const isBuildWork = (tool: string, args: Record<string, unknown>) =>
 
 /**
  * The ticket cap: once a ticket's agents cost its cap, no build work starts on it; its open PR still
- * merges and the other tickets go on. Only a call that names exactly one ticket is held to it.
- *
- * @param cost USD the ticket's agents cost this run (an estimate, from their tokens)
- * @param cap the `ticketBudgetUsd` option; 0 or less is no cap
- * @param keys the tickets the call names, among those the board knows
+ * merges and the other tickets go on. A build call is held to the cap of every ticket it names, and
+ * one that names none is held to the ticket its agent works, or the branch it opens a PR for. A
+ * build call that can be tied to no ticket is refused while any ticket is over its cap, since it
+ * could be the one that builds it; the top-level `agile-10-implement` is exempt, because every
+ * phase it runs names its ticket.
  */
-export function ticketBudgetDenial(cost: (key: string) => number, cap: number, keys: string[], tool: string, args: Record<string, unknown>): string | undefined {
-  if (cap <= 0 || keys.length !== 1 || !isBuildWork(tool, args)) return undefined
-  const spent = cost(keys[0]!)
-  if (spent < cap) return undefined
-  return `agile-mods: ticket budget: ${keys[0]} cost an estimated $${spent.toFixed(2)} of its $${cap.toFixed(2)} cap (agile-mods ticketBudgetUsd). Start no build work on it: report ${keys[0]} as blocked (BUDGET) and go on with the other tickets; its open PR can still merge.`
+export type TicketCapInput = {
+  /** USD a ticket's agents cost this run (an estimate, from their tokens). */
+  cost: (key: string) => number
+  /** The `ticketBudgetUsd` option; 0 or less is no cap. */
+  cap: number
+  /** A person allowed this ticket past its cap. */
+  allowed: (key: string) => boolean
+  /** The tickets the call names, among those the board knows. */
+  named: string[]
+  /** The ticket the calling agent works, or the branch's ticket, when the call names none. */
+  own?: string
+  /** Every ticket on the board whose cost has reached the cap. */
+  capped: string[]
+}
+
+export function ticketBudgetDenial(c: TicketCapInput, tool: string, args: Record<string, unknown>): { text: string; tickets: string[]; named: boolean } | undefined {
+  if (c.cap <= 0 || !isBuildWork(tool, args)) return undefined
+  const keys = c.named.length ? c.named : c.own ? [c.own] : []
+  const over = keys.filter(k => c.cost(k) >= c.cap && !c.allowed(k))
+  const usd = (n: number) => `$${n.toFixed(2)}`
+  if (over.length === 1) {
+    const k = over[0]!
+    return {
+      text: `agile-mods: ticket budget: ${k} cost an estimated ${usd(c.cost(k))} of its ${usd(c.cap)} cap (agile-mods ticketBudgetUsd). Start no build work on it: report ${k} as blocked (BUDGET) and go on with the other tickets; its open PR can still merge.`,
+      tickets: over,
+      named: true,
+    }
+  }
+  if (over.length > 1) {
+    return {
+      text: `agile-mods: ticket budget: ${over.map(k => `${k} (${usd(c.cost(k))})`).join(', ')} each cost an estimated ${usd(c.cap)} or more, the cap (agile-mods ticketBudgetUsd). Start no build work naming them: report them as blocked (BUDGET) and go on with the other tickets; their open PRs can still merge.`,
+      tickets: over,
+      named: true,
+    }
+  }
+  const orchestrator = tool === 'Skill' && /(^|:)agile-10-implement$/.test(str(args.skill))
+  const open = c.capped.filter(k => !c.allowed(k))
+  if (keys.length === 0 && !orchestrator && open.length) {
+    return {
+      text: `agile-mods: ticket budget: this call names no ticket, and ${open.join(', ')} ${open.length === 1 ? 'is' : 'are'} over the ${usd(c.cap)} cap (agile-mods ticketBudgetUsd). Name the ticket the work is for (its key in the prompt, or a branch that carries it) so the cap can be checked.`,
+      tickets: [],
+      named: false,
+    }
+  }
+  return undefined
 }
 
 /** A call a guard refused, warned about, or let through on a person's bypass, kept for the console's Guards tab. */

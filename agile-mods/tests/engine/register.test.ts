@@ -142,6 +142,35 @@ describe('loop limits through the engine', () => {
     expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-merge-review:agile-11-merge-train', args: 'VC-3' } as never))).toBe('ok')
   })
 
+  test('a build call that names no ticket cannot get past a capped one: its agent\'s ticket, then the branch, then a refusal', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    world(on, {
+      agents: [
+        { id: 'b3', type: 'agile-execution:build-implementer', description: 'implement VC-3' },
+        { id: 'b4', type: 'agile-execution:build-implementer', description: 'implement VC-4' },
+      ],
+      stored: { '/repo:board': capped },
+    })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    const step = async (agentId: string) => {
+      const s = $.turn.step({ turnId: 't', index: 0, model: 'm', messageCount: 1, agentId })
+      let n = await s.next()
+      while (!n.done) n = await s.next()
+    }
+    await step('b3')
+    await step('b4')
+    // the PR VC-3's agent opens names no ticket: it is held to VC-3's cap, the other agent's is not
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill', agentId: 'b3' } as never))).toContain('ticket budget: VC-3')
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill', agentId: 'b4' } as never))).toBe('ok')
+    // the main loop dispatching a build agent with no key while VC-3 is over: refused, and nothing to allow once
+    const r = said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-execution:build-implementer', description: 'implement the next one' } as never))
+    expect(r).toContain('this call names no ticket, and VC-3 is over the $5.00 cap')
+    expect(r).not.toContain('A person can allow')
+    // naming a ticket that is not over goes on; naming several, one of them over, does not
+    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-execution:build-implementer', description: 'implement VC-4' } as never))).toBe('ok')
+    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-execution:build-implementer', description: 'implement VC-4 and VC-3' } as never))).toContain('ticket budget: VC-3')
+  })
+
   test('guardTicketBudget warn lets the call through; off checks nothing', { options: { ticketBudgetUsd: 5, guardTicketBudget: 'warn' } }, async ($, on) => {
     world(on, { stored: { '/repo:board': capped } })
     await start($)

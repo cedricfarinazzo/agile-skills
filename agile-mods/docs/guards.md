@@ -111,7 +111,9 @@ With `ticketBudgetUsd` set, once the agents that worked a ticket have cost that 
 
 ```mermaid
 flowchart LR
-  c["a build call<br/>naming one ticket"] --> k{"ticket cost so far<br/>≥ ticketBudgetUsd?"}
+  c["a build call"] --> t{"which ticket?"}
+  t -- "named in the call,<br/>else its agent's, else<br/>the PR's branch" --> k{"ticket cost so far<br/>≥ ticketBudgetUsd?"}
+  t -- "none can be found,<br/>a ticket is over" --> r2["refused: name the ticket"]
   k -- no --> go["runs"]
   k -- yes --> m{"guardTicketBudget"}
   m -- enforce --> r["refused: the loop reports<br/>the ticket blocked (BUDGET)<br/>and goes on with the others"]
@@ -119,7 +121,7 @@ flowchart LR
   r -.-> a["Allow once<br/>(Guards tab)"] -.-> go
 ```
 
-The cost is the [Cost tab](console.md)'s estimate: the ticket's agents' tokens at their model's price, counted from the start of the run. Its open PR still merges, the other tickets go on, and a drain that is left with only capped tickets ends `STUCK`, naming each with its cost. A call that names no single ticket, or several, is not held to the cap. The ticket's work can overshoot by the phase already running, since a guard acts on the next call.
+The cost is the [Cost tab](console.md)'s estimate: the ticket's agents' tokens at their model's price, counted from the start of the run. Its open PR still merges, the other tickets go on, and a drain that is left with only capped tickets ends `STUCK`, naming each with its cost. A call is held to every ticket it names. One that names none is held to the ticket its agent works, or to the branch a `gh pr create` opens, and a call that cannot be tied to any ticket is refused while one is over its cap: name the ticket (its key in the prompt, or a branch that carries it). There is nothing to allow once for that refusal; name the ticket and retry. `agile-10-implement` itself is exempt, because each phase it runs names its ticket. The ticket's work can overshoot by the phase already running, since a guard acts on the next call.
 
 ## Bypass
 
