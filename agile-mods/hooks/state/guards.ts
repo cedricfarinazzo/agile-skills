@@ -654,8 +654,8 @@ export const isBuildWork = (tool: string, args: Record<string, unknown>) =>
 
 /**
  * The ticket cap: once a ticket's agents cost its cap, no build work starts on it; its open PR still
- * merges and the other tickets go on. A build call is held to the cap of every ticket it names, and
- * one that names none is held to the ticket its agent works, or the branch it opens a PR for. A
+ * merges and the other tickets go on. A build call is held to the cap of every ticket it names and of
+ * the ticket its agent works, and one that names none is held to the branch it opens a PR for. A
  * build call that can be tied to no ticket is refused while any ticket is over its cap, since it
  * could be the one that builds it; the top-level `agile-10-implement` is exempt, because every
  * phase it runs names its ticket.
@@ -669,7 +669,7 @@ export type TicketCapInput = {
   allowed: (key: string) => boolean
   /** The tickets the call names, among those the board knows. */
   named: string[]
-  /** The ticket the calling agent works, or the branch's ticket, when the call names none. */
+  /** The ticket the calling agent works, or the branch's ticket when neither it nor the call names one. */
   own?: string
   /** Every ticket on the board whose cost has reached the cap. */
   capped: string[]
@@ -677,7 +677,7 @@ export type TicketCapInput = {
 
 export function ticketBudgetDenial(c: TicketCapInput, tool: string, args: Record<string, unknown>): { text: string; tickets: string[]; named: boolean } | undefined {
   if (c.cap <= 0 || !isBuildWork(tool, args)) return undefined
-  const keys = c.named.length ? c.named : c.own ? [c.own] : []
+  const keys = [...new Set([...c.named, ...(c.own ? [c.own] : [])])]
   const over = keys.filter(k => c.cost(k) >= c.cap && !c.allowed(k))
   const usd = (n: number) => `$${n.toFixed(2)}`
   if (over.length === 1) {

@@ -320,6 +320,35 @@ describe('ticket cost through the engine', () => {
   })
 })
 
+describe('the cap through the engine: no way round', () => {
+  const capped = { tickets: { 'VC-3': { key: 'VC-3', cost: { usd: 6, build: 6, merge: 0, ms: 0, firstAt: 0 } }, 'VC-4': { key: 'VC-4' } }, order: ['VC-3', 'VC-4'], prs: {}, prOrder: [], drain: { pass: 1, outcome: 'running' } }
+  const step = async ($: Parameters<typeof start>[0], agentId: string) => {
+    const s = $.turn.step({ turnId: 't', index: 0, model: 'm', messageCount: 1, agentId })
+    let n = await s.next()
+    while (!n.done) n = await s.next()
+  }
+
+  test('naming another ticket beside the agent\'s own does not get a capped ticket built', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    world(on, { agents: [{ id: 'b3', type: 'agile-execution:build-implementer', description: 'implement VC-3' }], stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await step($, 'b3')
+    const r = said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-4 (the work for VC-4)', agentId: 'b3' } as never))
+    expect(r).toContain('ticket budget: VC-3')
+  })
+
+  test('a subagent that is not one of the loop\'s own still counts against the ticket it names, priced at the dearest tier when its model is unknown', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    const w = world(on, { agents: [{ id: 'g1', type: 'general-purpose', description: 'build VC-4' }], stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    const b = w.stored.get('/repo:board') as Board
+    // 100 input, 900 cache read, 5 output at the opus price
+    expect(Math.abs(b.tickets['VC-4']!.cost!.usd - (100 * 5 + 900 * 0.5 + 5 * 25) / 1e6) < 1e-9).toBe(true)
+  })
+})
+
 describe('refresh through the engine', () => {
   test('the loop\'s own calls refresh the board 3 s later, at most every 10 s, and the timer waits 5 minutes', async ($, on) => {
     const w = world(on, { gh: { 'gh pr list': { stdout: '[]' }, 'gh run list --limit': { stdout: '[]' } } })

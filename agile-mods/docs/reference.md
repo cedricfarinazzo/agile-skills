@@ -135,7 +135,7 @@ Inside a loop, `guardSideDoor` keeps every write where the other guards can read
 
 ### Ticket cap
 
-With `ticketBudgetUsd` set and `guardTicketBudget` not `off`, once one ticket's cost (the [ticket cost](#the-board) the Cost tab shows, an estimate) reaches it, these are refused for a call that names a ticket on the board over its cap, or that names none and whose agent's ticket (or, for `gh pr create`, the checked-out branch's) is over it:
+With `ticketBudgetUsd` set and `guardTicketBudget` not `off`, once one ticket's cost (the [ticket cost](#the-board) the Cost tab shows, an estimate) reaches it, these are refused for a call that names a ticket on the board over its cap, or whose agent works one that is (naming another ticket beside it changes nothing), or that names none and, for `gh pr create`, whose checked-out branch carries one:
 
 - `agile-10-implement` and every `implement-*` skill;
 - `gh pr create`, `create_pull_request`, and a `gh api` POST to `pulls`;
@@ -204,9 +204,9 @@ Where each lives in the code:
 
 | Part | Rule |
 |---|---|
-| Whose requests | A loop agent's only (`agile-execution`, `agile-merge-review`, `agile-sprint-drain` agents). The main session's are not counted per ticket |
+| Whose requests | Any subagent's, so build work dispatched as a `general-purpose` agent counts too. The main session's own requests are not counted per ticket |
 | Which ticket | The one ticket the agent's dispatch description names (or the PR it names). A `build-session` or `merge-session`, which work several tickets in turn, follow the one ticket their latest tool call names; a call naming several tickets, or none the board knows, moves nothing |
-| Price | USD per million tokens, input / output: `opus` 5 / 25, `sonnet` 3 / 15, `haiku` 1 / 5. Cache reads cost a tenth of input, cache writes 1.25 times. The model is the one the request reports; if it is not an opus, sonnet or haiku id, the one the agent's file declares. The table matches `session-audit`'s |
+| Price | USD per million tokens, input / output: `opus` 5 / 25, `sonnet` 3 / 15, `haiku` 1 / 5. Cache reads cost a tenth of input, cache writes 1.25 times. The model is the one the request reports; if it is not an opus, sonnet or haiku id, the one the agent's file declares, and for an agent with no file the `opus` tier, so a model nobody priced is never counted low. The table matches `session-audit`'s |
 | Overhead | The session's spend ledger minus the sum over tickets, never below 0 |
 | Working time | The gap between one agent's requests, a gap over 5 minutes counted as 0 |
 | Reset | A new run (a drain starting, or the first orchestrator call of a session outside a running drain) and `/agile-board reset` |

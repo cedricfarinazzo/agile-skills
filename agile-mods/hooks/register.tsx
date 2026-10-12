@@ -542,8 +542,9 @@ export const register: Register = (on, options) => {
     const gate = config.modes.ticketBudget
     let over: ReturnType<typeof ticketBudgetDenial>
     if (cap > 0 && gate !== 'off') {
+      // the ticket its agent works counts beside the ones the call names: a call that names another ticket too is no way round
       let own: string | undefined
-      if (!named.length && e.agentId && type && modelOf(type)) own = (await workerOf(host, e.agentId, type)).ticket
+      if (e.agentId && type) own = (await workerOf(host, e.agentId, type)).ticket
       if (!named.length && !own && e.tool === 'Bash' && /\bgh\s+pr\s+create\b/.test(String(args.command ?? ''))) own = ticketOfText(board, (await host.branch('.')) ?? '')
       const allowed = allowancesNow()
       const input = {
@@ -724,11 +725,14 @@ async function workerOf(host: Host, id: string, type: string) {
   return w
 }
 
-/** Counts one request of a loop agent against its ticket: dollars from its tokens, working time since its last one. */
+/**
+ * Counts one request of a subagent against its ticket: dollars from its tokens, working time since its
+ * last one. Any subagent counts, not only the loop's own: build work dispatched as a general-purpose
+ * agent must not escape the cap. The model is the one the request reports, else the one its agent
+ * file declares, else the dearest tier, so a model nobody priced is never counted too low.
+ */
 async function countRequest(host: Host, id: string, type: string, usage: Usage & { model?: string }, now: number) {
-  // a loop agent only; the model the request reports, else the one its agent file declares
-  if (!modelOf(type)) return
-  const model = modelOfId(usage.model) ?? modelOf(type)!
+  const model = modelOfId(usage.model) ?? modelOf(type) ?? 'opus'
   const w = await workerOf(host, id, type)
   const ms = w.at === undefined ? 0 : now - w.at
   w.at = now

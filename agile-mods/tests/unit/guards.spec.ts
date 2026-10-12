@@ -373,6 +373,14 @@ describe('ticket cap', () => {
     expect(ticketBudgetDenial(input({ named: ['VC-1', 'VC-2'], allowed: k => k === 'VC-1' }), 'Skill', impl)).toBeUndefined()
   })
 
+  test('naming another ticket is no way round: the agent\'s own ticket is held beside the named ones', () => {
+    const deny = ticketBudgetDenial(input({ named: ['VC-2'], own: 'VC-1' }), 'Skill', impl)!
+    expect(deny.tickets).toEqual(['VC-1'])
+    expect(ticketBudgetDenial(input({ named: ['VC-2'], own: 'VC-2' }), 'Skill', impl)).toBeUndefined()
+    // a person allowed VC-1: the decoy is no longer needed, and the call passes
+    expect(ticketBudgetDenial(input({ named: ['VC-2'], own: 'VC-1', allowed: k => k === 'VC-1' }), 'Skill', impl)).toBeUndefined()
+  })
+
   test('a call naming none is held to its agent\'s ticket, or refused while a ticket is over its cap', () => {
     expect(ticketBudgetDenial(input({ own: 'VC-1' }), 'Bash', { command: 'gh pr create --fill' })?.tickets).toEqual(['VC-1'])
     expect(ticketBudgetDenial(input({ own: 'VC-2' }), 'Bash', { command: 'gh pr create --fill' })).toBeUndefined()

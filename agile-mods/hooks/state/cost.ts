@@ -1,6 +1,6 @@
-// Pure: what each ticket cost the run. A request's tokens come from `turn.step` per loop agent, so
-// its dollars are tokens times a price per million tokens of the model its agent file declares; a
-// ticket's cost is the sum over the agents that worked it. The main session's own requests are not
+// Pure: what each ticket cost the run. A request's tokens come from `turn.step` per subagent, so
+// its dollars are tokens times a price per million tokens of the model it reports (else its agent
+// file's); a ticket's cost is the sum over the agents that worked it. The main session's own requests are not
 // counted here: the run's overhead is the ledger's spend minus what the tickets add up to.
 
 import { PR_REF, TICKET_KEY, type Board, type Stage, type Ticket } from './board.ts'
