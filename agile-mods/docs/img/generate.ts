@@ -8,8 +8,8 @@ const HOUR = 3_600_000, NOW = 30 * HOUR
 const board: any = {
   tickets: {
     'SHOP-12': { key: 'SHOP-12', status: 'Done', category: 'done', pr: 40, points: 3 },
-    'SHOP-14': { key: 'SHOP-14', status: 'In Review', category: 'indeterminate', phase: 'review', pr: 42, points: 5, since: 20 * HOUR },
-    'SHOP-15': { key: 'SHOP-15', status: 'In Progress', category: 'indeterminate', phase: 'implement', points: 3, since: 26 * HOUR },
+    'SHOP-14': { key: 'SHOP-14', status: 'In Review', category: 'indeterminate', phase: 'status_change', pr: 42, points: 5, since: 20 * HOUR },
+    'SHOP-15': { key: 'SHOP-15', status: 'In Progress', category: 'indeterminate', phase: 'plan', points: 3, since: 26 * HOUR },
     'SHOP-16': { key: 'SHOP-16', status: 'To Do', category: 'new', points: 2 },
     'SHOP-17': { key: 'SHOP-17', status: 'Needs Info', category: 'indeterminate', parked: 'needs-info', points: 2 },
   },
@@ -31,7 +31,7 @@ const refusals: any[] = [
 ]
 const guard = { modes: 'grants enforce · mergeReview enforce · push enforce · fixRounds 3 · budget $25 · bypass on', notes: [], allowances: [], bypass: true, coverage: [{ pr: 42, head: SHA, files: { 'src/cart.ts': 'full', 'src/cart.test.ts': 'delta', 'docs/cart.md': undefined } }] }
 const lanes = [{ name: 'merge-session', work: 'PR #42', status: 'running', age: 840_000, tokens: 1_240_000, hit: 0.93, idle: 20_000 }, { name: 'build-session', work: 'SHOP-15', status: 'running', age: 2_300_000, tokens: 2_800_000, hit: 0.88, wait: 'run 8812', idle: 60_000 }, { name: 'build-session', work: 'SHOP-14', status: 'completed', age: 5_100_000, tokens: 3_900_000, hit: 0.9, idle: 0 }]
-const ctx: any = { lanes, now: NOW, usd: 7.9, refusals, allowed: 214, receipts: [{ agent: 'agile-merge-review:pr-reviewer', at: 0, pr: 42, issues: [] }], budget: 25, guard }
+const ctx: any = { lanes, now: NOW, usd: 7.9, refusals, allowed: 214, receipts: [{ agent: 'agile-merge-review:pr-reviewer', at: 0, pr: 42, issues: [] }], budget: 25, guard, live: { 'SHOP-15': 'implement' } }
 
 const W = 92, CW = 8.4, LH = 19, PAD = 18
 const C: Record<string, string> = { fg: '#cdd6f4', d: '#7f849c', c: '#89dceb', m: '#f5c2e7', g: '#a6e3a1', y: '#f9e2af', r: '#f38ba8', bl: '#89b4fa' }

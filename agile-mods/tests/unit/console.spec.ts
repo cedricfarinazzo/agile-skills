@@ -16,7 +16,7 @@ function sample(over: Partial<Board> = {}): Board {
     stage: 'merge',
     drain: { pass: 2, outcome: 'running' },
     order: ['VC-3', 'VC-7', 'VC-9'],
-    tickets: { 'VC-3': { key: 'VC-3', phase: 'pr', pr: 40, points: 3 }, 'VC-7': { key: 'VC-7', phase: 'review', pr: 42, points: 5 }, 'VC-9': { key: 'VC-9', phase: 'plan', parked: 'needs-info', points: 2 } },
+    tickets: { 'VC-3': { key: 'VC-3', phase: 'pr', pr: 40, points: 3 }, 'VC-7': { key: 'VC-7', phase: 'pr', pr: 42, points: 5 }, 'VC-9': { key: 'VC-9', phase: 'plan', parked: 'needs-info', points: 2 } },
     prOrder: [40, 42],
     prs: {
       40: { number: 40, key: 'VC-3', state: 'MERGED', merged: true, step: '4 postmortem', createdAt: 60_000, mergedAt: 200_000 },
@@ -58,11 +58,20 @@ describe('console rows', () => {
 
   test('flow tab: ticket dots by phase, PR lanes', () => {
     const out = plain(consoleRows('flow', sample(), ctx(), 48))
-    expect(out).toMatch(/VC-7\s+●●●◐○\s+review\s+PR #42/)
+    // a marker is the phase just finished: `pr` posted, so review is next
+    expect(out).toMatch(/VC-7\s+●●●●◐\s+review\s+PR #42/)
     expect(out).toMatch(/VC-9\s+○○○○○\s+needs info/)
     expect(out.split('MERGE')[0]).not.toContain('VC-3')
     expect(out).toContain('3a 3b 3c 3e 3f 4')
     expect(out).toMatch(/#42\s+VC-7/)
+  })
+
+  test('flow tab: a running agent names the phase, and the dot after the finished marker is not drawn as done', () => {
+    const b = sample({ tickets: { ...sample().tickets, 'VC-5': { key: 'VC-5', phase: 'plan', category: 'indeterminate' } }, order: [...sample().order, 'VC-5'] })
+    expect(plain(consoleRows('flow', b, ctx(), 60))).toMatch(/VC-5\s+●●◐○○\s+implement/)
+    // build-monitor on VC-7 outranks the marker
+    expect(plain(consoleRows('flow', b, ctx({ live: { 'VC-7': 'monitor' } }), 60))).toMatch(/VC-7\s+●●●●●\s+monitor/)
+    expect(plain(consoleRows('flow', b, ctx({ live: { 'VC-5': 'plan' } }), 60))).toMatch(/VC-5\s+●◐○○○\s+plan/)
   })
 
   test('drain tab: a row per pass, cost from the stamped boundaries, live cost for the running pass', () => {

@@ -195,10 +195,19 @@ Where each lives in the code:
 | PRs | `gh pr list --state all --limit 100 --json number,title,headRefName,headRefOid,state,createdAt,mergedAt,url` | Open PRs, and closed ones since the first loop or naming a board ticket: ticket key, head, merged, times. Every merged PR feeds aging and the forecast |
 | PR files | `gh api --paginate repos/{owner}/{repo}/pulls/<n>/files`, once per open PR head, 5 per refresh | The overlap map, review coverage |
 | CI | `gh run list --limit 100 --json databaseId,headSha,status,conclusion,workflowName,createdAt` | The latest run per workflow on each sha |
-| Jira sprint | `searchJiraIssuesUsingJql`: `(project in (…) AND sprint in openSprints()) OR key in (…)`, fields `summary, status, labels, statuscategorychangedate, <points field>`, 50 a page (halved down to 5 if an answer is too large), 4 pages at most | Status, points, parked (`needs-info` or a Needs Info status), time in status |
-| Jira comments | The same search with `key = <key>` and `comment`, up to 4 tickets per refresh | The latest `agile:phase=<x>` marker, and `rework` markers |
+| Jira sprint | `searchJiraIssuesUsingJql`: `(project in (…) AND sprint in openSprints()) OR key in (…)`, fields `summary, status, labels, statuscategorychangedate, <points field>`, 50 a page (halved down to 5 if an answer is too large), 4 pages at most | Status, points, parked (`needs-info` or a Needs Info status), time in status, the review verdict label (`dev-review-approved`, `dev-review-changes-requested`) |
+| Jira comments | The same search with `key = <key>` and `comment`, up to 4 tickets per refresh | The `agile:phase=<x>` markers: the latest, the set seen, and the `rework` count |
 | Tool calls | The `tool.call` hook (the call, not its result) | Which loop and stage started, train steps per PR, which ticket and `cloudId` a Jira call names |
 | The engine | `$.session.usage()`, `turn.step`, `$.agent.list()` | Spend, tokens and cache hits per stage and agent, the agents lane |
+
+**Build phase.** A marker is posted when its phase ends, so the latest marker is the phase just finished. The Flow and WIP tabs show the phase running now:
+
+| Evidence, in order | Phase shown |
+|---|---|
+| A running agent whose description names the ticket (or its PR): `ticket-validator`, `ticket-planner`, `build-implementer`, `pr-publisher`, `self-reviewer` or `review-lens`, `build-monitor` | `validate`, `plan`, `implement`, `pr`, `review`, `monitor` |
+| No agent: the step after the latest marker | `validate` → `plan` → `implement` → `pr` → `review` → `handoff` → `monitor` |
+
+Two cases change the next step: an `implement` marker after a `pr` marker is a fix pass, so `review` comes next, and a `review` marker with the `dev-review-changes-requested` label sends the ticket back to `implement`. A `session` agent runs every phase, so its tickets use the marker rule. A phase read from a marker alone carries a `?` once the marker comment was posted (its Jira `created` time, not the last poll) more than 10 minutes ago. A marker this version does not know shows as `<marker>?` with no dot running.
 
 The projects come from the ticket keys the loop names. The points field is `story-points-field` from the repo's `AGENTS.md` or `CLAUDE.md`, defaulting to `customfield_10016`.
 

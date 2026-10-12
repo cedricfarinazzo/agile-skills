@@ -3,6 +3,7 @@
 // register.tsx only maps rows onto elements.
 
 import type { Lane } from './agents.ts'
+import { BUILD_PHASES, dotsDone, phaseOf, type Phase } from './phase.ts'
 import { laneRows, leftOf, linksOf, movesOf, parkedOf, passCost, stallsOf, type Board, type Cell, type Pass, type Sync } from './board.ts'
 import { MIN_CYCLES, agingFlags, agingOf, cacheFlags, dayName, forecastOf, hitRate, overlapOf, pct, rateOf, span, type Forecast } from './flow.ts'
 import type { Allowance } from './bypass.ts'
@@ -57,6 +58,8 @@ export type Ctx = {
   receipts: Receipt[]
   /** The loop's agents as the engine lists them, for the Drain tab. */
   lanes?: Lane[]
+  /** The build phase each ticket's running agent is in, by ticket key. */
+  live?: Record<string, Phase>
   /** The `budgetUsd` option; 0 or absent is no budget. */
   budget?: number
   /** For the Guards tab: each gate's mode, setting notes, open bypasses, and review coverage. */
@@ -255,31 +258,23 @@ function boardRows(board: Board, ctx: Ctx, w: number): Row[] {
   return rows
 }
 
-const PHASES = ['plan', 'implement', 'validate', 'review', 'pr']
-
-function phaseIndex(phase: string | undefined): number {
-  if (!phase) return -1
-  if (phase === 'rework') return 1
-  if (phase === 'post_merge' || phase === 'status_change') return PHASES.length
-  return PHASES.indexOf(phase)
-}
-
 const CELL: Record<Cell, [string, string]> = { done: ['✔', 'g'], now: ['●', 'y b'], todo: ['·', 'd'], fail: ['✖', 'r b'] }
 const MAX_BUILD_ROWS = 12
 
-function flowRows(board: Board): Row[] {
+function flowRows(board: Board, ctx: Ctx): Row[] {
   const rows: Row[] = []
   const open = board.order.filter(k => {
     const t = board.tickets[k]!
     return t.category !== 'done' && !(t.pr && board.prs[t.pr]?.merged)
   })
-  rows.push(line(['BUILD', 'c b'], ['  open tickets, phase from Jira', 'd']))
+  rows.push(line(['BUILD', 'c b'], [`  ${BUILD_PHASES.join(' › ')}  ·  now: agent, else last marker`, 'd']))
   if (!open.length) rows.push(line(['none yet', 'd']))
   for (const key of open.slice(-MAX_BUILD_ROWS)) {
     const t = board.tickets[key]!
-    const at = phaseIndex(t.phase)
-    const dots = PHASES.map((_, i) => (t.parked ? seg('○', 'd') : i < at ? seg('●', 'g') : i === at ? seg('◐', 'y b') : seg('○', 'd')))
-    const label = t.parked ? 'needs info' : (t.phase ?? t.status ?? '—')
+    const p = phaseOf(t, ctx.live?.[key], ctx.now)
+    const at = dotsDone(p)
+    const dots = BUILD_PHASES.map((_, i) => (t.parked ? seg('○', 'd') : i < at ? seg('●', 'g') : i === at ? seg('◐', p.source === 'agent' ? 'y b' : 'y') : seg('○', 'd')))
+    const label = t.parked ? 'needs info' : p.now === 'done' ? 'done' : p.now === 'queued' ? (t.status ?? 'queued') : p.now === 'unknown' ? `${p.done}?` : `${p.now}${p.stale ? '?' : ''}`
     rows.push({ kind: 'line', segs: [seg(key.padEnd(10), t.parked ? 'y' : 'b'), ...dots, seg(`  ${label.padEnd(11)}`, t.parked ? 'y' : 'd'), seg(t.pr ? `PR #${t.pr}` : '', 'd')] })
   }
   if (open.length > MAX_BUILD_ROWS) rows.push(line([`… ${open.length - MAX_BUILD_ROWS} earlier`, 'd']))
@@ -298,7 +293,7 @@ function flowRows(board: Board): Row[] {
 const MAX_AGING_ROWS = 12
 
 function wipRows(board: Board, ctx: Ctx, w: number): Row[] {
-  const { items, p50, p85 } = agingOf(board, ctx.now)
+  const { items, p50, p85 } = agingOf(board, ctx.now, ctx.live)
   const n = board.history?.cycles.length ?? 0
   const rows: Row[] = [
     p50 !== undefined && p85 !== undefined
@@ -473,7 +468,7 @@ function clip(row: Row, w: number): Row {
 }
 
 function tabRows(tab: Tab, board: Board, ctx: Ctx, w: number): Row[] {
-  if (tab === 'flow') return flowRows(board)
+  if (tab === 'flow') return flowRows(board, ctx)
   if (tab === 'wip') return wipRows(board, ctx, w)
   if (tab === 'drain') return drainRows(board, ctx, w)
   if (tab === 'guards') return guardRows(ctx, w)

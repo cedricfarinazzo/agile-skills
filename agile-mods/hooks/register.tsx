@@ -7,6 +7,7 @@ import { budgetOpen, offerText, type Offer } from './state/bypass.ts'
 import { configOf, modesLine, repoConfigOf, tightened, type GuardConfig } from './state/config.ts'
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
 import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
+import { liveOf } from './state/phase.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { agentTypeOf, allowancesNow, coverageOf, guardedCall, guardsAfter, guardsAllow, guardsCheck, guardsConfigure, guardsPrune, guardsReset, guardsStart, loopRunning } from './guards.ts'
 import { argsOf, type Compare, type Finished, type Host, type PrRow, type RunRow } from './host.ts'
@@ -648,9 +649,11 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button } = ui
     const usage = await $.session.usage().catch(() => undefined)
     const now = await $.clock.now()
-    const lanes = tab === 'drain' ? laneOf(await $.agent.list().catch(() => []), agentStats, now) : undefined
+    const agents = tab === 'drain' || tab === 'flow' || tab === 'wip' ? await $.agent.list().catch(() => []) : []
+    const lanes = tab === 'drain' ? laneOf(agents, agentStats, now) : undefined
+    const live = tab === 'flow' || tab === 'wip' ? liveOf(agents, board) : undefined
     const guard = tab === 'guards' ? { modes: modesLine(config), notes: configNotes, allowances: allowancesNow(), bypass: config.allowBypass, coverage: await coverageNow($, now) } : undefined
-    const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, budget, ...(guard && { guard }) }
+    const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, budget, ...(live && { live }), ...(guard && { guard }) }
     const w = Math.max(30, e.props.bodyColumns - 2)
     return (
       <Box flexDirection="column">

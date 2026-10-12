@@ -3,7 +3,8 @@
 // reported (merge times, ticket status dates, PR files, the cost ledger, request usage), never the
 // model's answers.
 
-import type { Board, Pass, Stage, Tokens } from './board.ts'
+import type { Board, Pass, Stage, Tokens, Ticket } from './board.ts'
+import { phaseOf, type Phase } from './phase.ts'
 
 const HOUR = 3_600_000
 const DAY = 86_400_000
@@ -97,6 +98,14 @@ export function span(ms: number): string {
   return h < 48 ? `${h}h` : `${Math.round(ms / DAY)}d`
 }
 
+/** Where an in-progress ticket is: the phase running or next, with `?` when only an old marker says so. */
+const whereOf = (t: Ticket, live: Phase | undefined, now: number) => {
+  if (!t.phase && !live) return t.status ?? 'in progress'
+  const p = phaseOf(t, live, now)
+  if (p.now === 'unknown') return `${p.done}?`
+  return p.now === 'done' || p.now === 'queued' ? (t.status ?? 'in progress') : `${p.now}${p.stale ? '?' : ''}`
+}
+
 export type AgingItem = { id: string; kind: 'pr' | 'ticket'; where: string; age: number }
 
 /** Below this many merged PRs the percentile lines are not drawn. */
@@ -107,14 +116,14 @@ export const MIN_CYCLES = 5
  * ticket without an open PR since Jira says it entered that category. The lines are the 50th and
  * 85th percentile of how long the repo's merged PRs stayed open.
  */
-export function agingOf(board: Board, now: number): { items: AgingItem[]; p50?: number; p85?: number } {
+export function agingOf(board: Board, now: number, live?: Record<string, Phase>): { items: AgingItem[]; p50?: number; p85?: number } {
   const open = board.prOrder.map(n => board.prs[n]!).filter(p => p.state === 'OPEN' && p.createdAt !== undefined)
   const withPr = new Set(open.map(p => p.key).filter(Boolean))
   const prs: AgingItem[] = open.map(p => ({ id: `#${p.number}${p.key ? ` ${p.key}` : ''}`, kind: 'pr', where: p.step ?? 'open', age: now - p.createdAt! }))
   const tickets: AgingItem[] = board.order
     .map(k => board.tickets[k]!)
     .filter(t => t.category === 'indeterminate' && t.since !== undefined && !t.parked && !withPr.has(t.key))
-    .map(t => ({ id: t.key, kind: 'ticket', where: t.phase ?? t.status ?? 'in progress', age: now - t.since! }))
+    .map(t => ({ id: t.key, kind: 'ticket', where: whereOf(t, live?.[t.key], now), age: now - t.since! }))
   const cycles = board.history?.cycles ?? []
   const lines = cycles.length >= MIN_CYCLES ? { p50: percentile(cycles, 0.5), p85: percentile(cycles, 0.85) } : {}
   return { items: [...prs, ...tickets].sort((a, b) => b.age - a.age), ...lines }
