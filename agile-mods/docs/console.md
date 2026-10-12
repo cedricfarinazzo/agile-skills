@@ -2,13 +2,13 @@
 
 [← agile-mods](../README.md)
 
-`/agile-board [board | flow | wip | drain | guards | links | show | hide | retro | reset]` · always active · code: `hooks/state/board.ts` (state), `hooks/state/flow.ts` (spend, cache, aging, forecast, overlap), `hooks/state/agents.ts` (agents lane), `hooks/state/console.ts` (views), drawing in `hooks/register.tsx`
+`/agile-board [board | flow | wip | drain | guards | links | show | hide | retro | reset | allow <n>]` · always active · code: `hooks/state/board.ts` (state), `hooks/state/flow.ts` (spend, cache, aging, forecast, overlap), `hooks/state/agents.ts` (agents lane), `hooks/state/console.ts` (views), drawing in `hooks/register.tsx`
 
 A live view of the agile loop. It answers "where is the loop, is it stuck, what does it cost, when will it be done, and what did the guards refuse?" without reading the transcript. It draws in three places, from one board the mod reads itself from gh and Jira (see [What updates the board](#what-updates-the-board)), kept in `$.store` per repo, so a resumed session shows where the loop stood.
 
 | Where | Shows |
 |---|---|
-| Status line | `agile ▸ drain p3 merge · 13/21 pts · 4 merged · $3.10/h $1.40/PR · 85% by Thu` (with a budget set, `$12.40/$20` too); shown once the board has a loop, a ticket or a PR, and cleared by `/agile-board hide` or `reset` |
+| Status line | `agile ▸ drain p3 merge · 13/21 pts · 4 merged · $3.10/h $1.40/PR · 85% by Thu` (with a budget set, `$12.40/$20` too; with a bypass open, `⚑ 1 bypass`); shown once the board has a loop, a ticket or a PR, and cleared by `/agile-board hide` or `reset` |
 | One row above the prompt | Only when something needs a person or just ended: parked tickets, looping work, a spent budget, a PR open past the repo's 85th percentile, a stage whose cache hit rate dropped (yellow), `STUCK` (red), `DRAINED` (green). Nothing otherwise, so the band stays free for other mods |
 | The console pane | Six tabs, below |
 
@@ -22,7 +22,7 @@ A live view of the agile loop. It answers "where is the loop, is it stuck, what 
 | 2 Flow | Build: one row per open ticket, five dots for `plan`, `implement`, `validate`, `review`, `pr`, its latest Jira marker (or its Jira status) and PR. Merge: one row per PR with a cell per train step (`3a 3b 3c 3e 3f 4`: `✔` reached, `●` current, `✖` red CI) and the CI state of its head |
 | 3 WIP | Aging: each open PR and each in-progress ticket without one, as a bar of its age with the repo's 50th and 85th percentile lines. Overlap: open PRs that change the same file, and top directories more than one open PR changes |
 | 4 Drain | One bar per pass, split into build time (cyan) and merge time (magenta), with what the pass moved, its duration, its cost and its prompt-cache hit rate per stage; totals, cost per merged PR and spend per hour; then the loop's agents: type, ticket or PR, status, age, tokens, cache hit rate, and the CI run it watches or how long it has been quiet |
-| 5 Guards | Calls the guards refused this session (newest first, with the rule and the agent), the allowed count, and each agent receipt checked against the contract |
+| 5 Guards | Each gate's mode and any setting note; open bypasses; calls the guards refused, warned about or let through on a bypass this session (newest first, with the rule and the agent), with an **Allow once** button under each refusal a person can bypass; review coverage of each open PR at its head (read in full, in ranges, carried, by a diff, or not read); and each agent receipt checked against the contract |
 | 6 Links | Each ticket's Jira page and each PR, once Jira and gh have answered |
 
 **Burnup.** Work done (cyan) under the total scope (grey) over time, drawn as a `Raster` of half blocks in the terminal and as eighth-block text elsewhere (the Desktop app has no `Raster`). A ticket filed mid-sprint raises the scope instead of hiding in a flat burndown; the header says how much the scope grew. The unit is story points once every ticket on the board has them, and tickets until then: a sum of points for some tickets and 1 for others would mean neither. A change of unit restarts the line. Points come from the mod's own Jira search, in the field named by the repo's `story-points-field` (read from `AGENTS.md`, then `CLAUDE.md`; default `customfield_10016`). Work done means tickets in a done status category in Jira or with a merged PR; parked tickets stay in the scope and count as neither done nor left, here and in the gauge.

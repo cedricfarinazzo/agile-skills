@@ -5,6 +5,8 @@
 import type { Lane } from './agents.ts'
 import { laneRows, leftOf, linksOf, movesOf, parkedOf, passCost, stallsOf, type Board, type Cell, type Pass, type Sync } from './board.ts'
 import { MIN_CYCLES, agingFlags, agingOf, cacheFlags, dayName, forecastOf, hitRate, overlapOf, pct, rateOf, span, type Forecast } from './flow.ts'
+import type { Allowance } from './bypass.ts'
+import { offerText } from './bypass.ts'
 import type { Refusal } from './guards.ts'
 import type { Receipt } from './receipts.ts'
 
@@ -40,6 +42,11 @@ export type Row =
   | { kind: 'tiles'; tiles: Tile[] }
   | { kind: 'chart'; chart: Chart }
   | { kind: 'link'; label: string; href: string }
+  /** A button that allows the n-th open refusal once (`/agile-board allow <n>`). */
+  | { kind: 'allow'; n: number; label: string }
+
+/** How each file of an open PR counts as read at its head (`full`, `ranges`, `carried`, `delta`); undefined: not read. */
+export type Coverage = { pr: number; head: string; files: Record<string, string | undefined> }[]
 
 export type Ctx = {
   now: number
@@ -52,6 +59,8 @@ export type Ctx = {
   lanes?: Lane[]
   /** The `budgetUsd` option; 0 or absent is no budget. */
   budget?: number
+  /** For the Guards tab: each gate's mode, setting notes, open bypasses, and review coverage. */
+  guard?: { modes: string; notes: string[]; allowances: Allowance[]; bypass: boolean; coverage?: Coverage }
 }
 
 const rep = (ch: string, n: number) => ch.repeat(Math.max(0, Math.round(n)))
@@ -394,15 +403,45 @@ function agentRows(ctx: Ctx, w: number): Row[] {
 
 const RULE_LABEL: Record<Refusal['rule'], string> = { grant: 'grant', '3f': '3f', push: 'push', fix: 'fix', budget: 'budget', side: 'side' }
 
+/** The refusals a person can still allow, newest first: the numbers `/agile-board allow <n>` takes. */
+export const offersOf = (refusals: Refusal[]) => [...refusals].reverse().filter(r => !r.kind && r.offer)
+
+const KIND_MARK: Record<string, [string, string]> = { refused: ['✖ ', 'r'], warned: ['⚠ ', 'y'], bypassed: ['➜ ', 'm'] }
+
 function guardRows(ctx: Ctx, w: number): Row[] {
+  const refused = ctx.refusals.filter(r => !r.kind).length
+  const warned = ctx.refusals.filter(r => r.kind === 'warned').length
+  const bypassed = ctx.refusals.filter(r => r.kind === 'bypassed').length
   const rows: Row[] = [
-    spread(text(['GUARDS', 'b'], ['  this session', 'd']), text([String(ctx.refusals.length), ctx.refusals.length ? 'r b' : 'g b'], [' refused  ', 'd'], [String(ctx.allowed), 'g b'], [' allowed', 'd']), w),
-    blank,
+    spread(text(['GUARDS', 'b'], ['  this session', 'd']), text([String(refused), refused ? 'r b' : 'g b'], [' refused  ', 'd'], [String(warned), warned ? 'y b' : 'd'], [' warned  ', 'd'], [String(bypassed), bypassed ? 'm b' : 'd'], [' bypassed  ', 'd'], [String(ctx.allowed), 'g b'], [' allowed', 'd']), w),
   ]
+  if (ctx.guard) {
+    rows.push(line(['modes  ', 'd'], ctx.guard.modes))
+    for (const n of ctx.guard.notes) rows.push(line(['⚠ ', 'y'], [n, 'y']))
+    for (const a of ctx.guard.allowances) rows.push(line(['➜ ', 'm'], ['allowed: ', 'd'], offerText(a), [a.until ? `  ${Math.max(0, Math.round((a.until - ctx.now) / 60_000))} min left` : '  until its ticket ends', 'd']))
+  }
+  rows.push(blank)
   if (!ctx.refusals.length) rows.push(line(['no call refused', 'd']))
+  const offers = offersOf(ctx.refusals)
   for (const r of [...ctx.refusals].reverse().slice(0, 6)) {
-    rows.push(line([fmtAgo(ctx.now - r.at).padEnd(9), 'd'], ['✖ ', 'r'], [RULE_LABEL[r.rule].padEnd(6), 'y'], r.text.replace(/^agile-mods:\s*/, '').slice(0, Math.max(10, w - 18))))
+    const [mark, tone] = KIND_MARK[r.kind ?? 'refused']!
+    rows.push(line([fmtAgo(ctx.now - r.at).padEnd(9), 'd'], [mark, tone], [RULE_LABEL[r.rule].padEnd(6), 'y'], r.text.replace(/^agile-mods:\s*/, '').replace(/ A person can allow.*$/, '').slice(0, Math.max(10, w - 18))))
     if (r.agent) rows.push(line('          ', [`by ${r.agent}`, 'd']))
+    const n = offers.indexOf(r) + 1
+    if (n && ctx.guard?.bypass !== false) rows.push({ kind: 'allow', n, label: offerText(r.offer!) })
+  }
+  const coverage = ctx.guard?.coverage ?? []
+  if (coverage.length) {
+    rows.push(blank)
+    rows.push(line(['REVIEW COVERAGE', 'b'], ['  each open PR at its head', 'd']))
+    for (const c of coverage) {
+      const files = Object.entries(c.files)
+      const read = files.filter(([, how]) => how).length
+      rows.push(line([`#${c.pr} `, 'b'], [c.head.slice(0, 7), 'd'], [`  ${read}/${files.length} read`, read === files.length ? 'g' : 'y']))
+      for (const [path, how] of files.filter(([, how]) => !how).slice(0, 5)) rows.push(line('    ', ['✖ ', 'r'], path, ['  not read', 'd']))
+      const ways = ['full', 'ranges', 'carried', 'delta'].map(k => [k, files.filter(([, how]) => how === k).length] as const).filter(([, n]) => n)
+      if (ways.length) rows.push(line('    ', [ways.map(([k, n]) => `${n} ${k}`).join(' · '), 'd']))
+    }
   }
   rows.push(blank)
   rows.push(line(['RECEIPTS', 'b'], ['  checked against the contract', 'd']))
@@ -461,7 +500,7 @@ export function alertRow(board: Board, ctx: Ctx, w: number): Row | undefined {
 }
 
 /** The status-line entry: where the loop is, work left, merges, spend rate, and the 85% date; undefined when idle. */
-export function statusText(board: Board, now: number, budget = 0): string | undefined {
+export function statusText(board: Board, now: number, budget = 0, bypasses = 0): string | undefined {
   if (!board.loop && !board.order.length && !board.prOrder.length) return undefined
   const { left, total, unit } = leftOf(board)
   const where = board.drain
@@ -474,7 +513,7 @@ export function statusText(board: Board, now: number, budget = 0): string | unde
     budget > 0 ? `$${rate.spent.toFixed(2)}/$${budget.toFixed(0)}` : '',
   ].filter(Boolean).join(' ')
   const f = left ? forecast(board, now) : undefined
-  return `agile ▸ ${where}${total ? ` · ${left}/${total} ${unitName(unit)}` : ''} · ${mergedPrs(board)} merged${money ? ` · ${money}` : ''}${f?.days ? ` · 85% by ${dayName(now, f.days.p85)}` : ''}`
+  return `agile ▸ ${where}${total ? ` · ${left}/${total} ${unitName(unit)}` : ''} · ${mergedPrs(board)} merged${money ? ` · ${money}` : ''}${f?.days ? ` · 85% by ${dayName(now, f.days.p85)}` : ''}${bypasses ? ` · ⚑ ${bypasses} bypass${bypasses === 1 ? '' : 'es'}` : ''}`
 }
 
 const DEFAULT_COLOR = 0x01000000

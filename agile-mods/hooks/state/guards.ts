@@ -229,37 +229,65 @@ export function mergeTargetOf(tool: string, args: Record<string, unknown>): { pr
 export type MergeFacts = {
   /** `gh pr view`: the live head and state; undefined when gh failed. */
   live?: { headRefOid: string; state: string }
-  /** Every workflow run on the live head (`gh run list --commit`); undefined when gh failed. */
+  /** Every workflow run on the head (`gh run list --commit`); undefined when gh failed or the gate is off. */
   ci?: ReturnType<typeof ciOf>
-  /** PR files no reviewer read in their landing form; undefined when the files could not be listed. */
+  /** PR files no reviewer read in their landing form; undefined when the files could not be listed or the gate is off. */
   unread?: string[]
+  /** For an unread file too large for one read, the chunk plan the refusal prints. */
+  plans?: string[]
+  /** Why reads by the caller did not count, as the guard recorded them. */
+  skipped?: string[]
+  /** Who asked: a session agent cannot dispatch pr-reviewer, so it is told to read again itself. */
+  inline?: boolean
 }
+
+export type MergeGate = 'mergePin' | 'mergeCi' | 'mergeReview'
+/** Which gates a merge checks: the off ones are skipped. */
+export type MergeChecks = Record<MergeGate, boolean>
+export const ALL_CHECKS: MergeChecks = { mergePin: true, mergeCi: true, mergeReview: true }
 
 /**
  * The 3f gates on a train merge, checked against GitHub rather than the loop's account of it: the
  * head is pinned and is the live head, every workflow run on it finished green, and every file of
- * the PR was read by a reviewer (`git show <sha>:<path>`) at a sha where it already had its landing
- * content. A gate that cannot read its source refuses: it fails closed.
+ * the PR was read by a reviewer at a sha where it has its landing content (in full, or by a diff
+ * since a full read). A gate that cannot read its source fails: it fails closed. Each problem names
+ * its gate, so a gate set to warn or off is told apart.
  */
-export function mergeDenial(pr: number, pin: string | undefined, facts: MergeFacts): string | undefined {
-  if (!pin) return `pin the reviewed head: gh pr merge ${pr} --squash --match-head-commit <reviewed sha> (or expectedHeadSha), so GitHub refuses a head that moved after the review.`
+export function mergeProblems(pr: number, pin: string | undefined, facts: MergeFacts, checks: MergeChecks = ALL_CHECKS): { gate: MergeGate; text: string }[] {
+  const out: { gate: MergeGate; text: string }[] = []
+  if (checks.mergePin && !pin) out.push({ gate: 'mergePin', text: `pin the reviewed head: gh pr merge ${pr} --squash --match-head-commit <reviewed sha> (or expectedHeadSha), so GitHub refuses a head that moved after the review.` })
   const { live, ci, unread } = facts
-  if (!live) return `PR #${pr}: the merge guard could not read the PR (gh pr view ${pr} failed), so it refuses rather than merge unchecked. Check gh auth and retry.`
-  if (live.state !== 'OPEN') return undefined
-  if (!sameSha(live.headRefOid, pin)) {
-    return `PR #${pr}: the pinned head ${pin.slice(0, 12)} is not the PR head ${live.headRefOid.slice(0, 12)}. Review the delta (git diff ${pin.slice(0, 12)}..${live.headRefOid.slice(0, 12)}), re-enter 3e on the new head, and pin it.`
+  if (!live) {
+    const gate = (['mergePin', 'mergeCi', 'mergeReview'] as MergeGate[]).find(g => checks[g])
+    if (gate) out.push({ gate, text: `PR #${pr}: the merge guard could not read the PR (gh pr view ${pr} failed), so it refuses rather than merge unchecked. Check gh auth and retry.` })
+    return out
   }
-  if (!ci) return `PR #${pr}: the merge guard could not read CI on ${pin.slice(0, 12)} (gh run list --commit failed), so it refuses. Retry once gh answers.`
-  if (ci.state === 'none') return `PR #${pr}: no CI run on ${pin.slice(0, 12)}. Wait for the run on this head (3e) before merging.`
-  if (ci.state === 'pending') return `PR #${pr}: CI on ${pin.slice(0, 12)} has not finished (${ci.detail}). Wait for it (3e), then merge.`
-  if (ci.state === 'red') return `PR #${pr}: CI on ${pin.slice(0, 12)} is red (${ci.detail}). Fix it (3c), re-enter 3e, then merge.`
-  if (!unread) return `PR #${pr}: the merge guard could not list the PR's files (gh api pulls/${pr}/files failed), so it cannot check the review covered them. Retry once gh answers.`
-  if (unread.length) {
-    const shown = unread.slice(0, 5).join(', ') + (unread.length > 5 ? ` and ${unread.length - 5} more` : '')
-    return `PR #${pr}: no review read ${unread.length} file(s) as they land at ${pin.slice(0, 12)}: ${shown}. A review reads each file in full with its own command, [cd <dir> &&] git show <40-hex sha>:<path>, or a file too large for one read in line ranges piped into sed -n A,Bp (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.`
+  if (live.state !== 'OPEN') return []
+  const sha = live.headRefOid
+  if (checks.mergePin && pin && !sameSha(sha, pin)) {
+    out.push({ gate: 'mergePin', text: `PR #${pr}: the pinned head ${pin.slice(0, 12)} is not the PR head ${sha.slice(0, 12)}. Review the delta (git diff ${pin.slice(0, 12)}..${sha.slice(0, 12)}), re-enter 3e on the new head, and pin it.` })
   }
-  return undefined
+  if (checks.mergeCi) {
+    if (!ci) out.push({ gate: 'mergeCi', text: `PR #${pr}: the merge guard could not read CI on ${sha.slice(0, 12)} (gh run list --commit failed), so it refuses. Retry once gh answers.` })
+    else if (ci.state === 'none') out.push({ gate: 'mergeCi', text: `PR #${pr}: no CI run on ${sha.slice(0, 12)}. Wait for the run on this head (3e) before merging.` })
+    else if (ci.state === 'pending') out.push({ gate: 'mergeCi', text: `PR #${pr}: CI on ${sha.slice(0, 12)} has not finished (${ci.detail}). Wait for it (3e), then merge.` })
+    else if (ci.state === 'red') out.push({ gate: 'mergeCi', text: `PR #${pr}: CI on ${sha.slice(0, 12)} is red (${ci.detail}). Fix it (3c), re-enter 3e, then merge.` })
+  }
+  if (checks.mergeReview) {
+    if (!unread) out.push({ gate: 'mergeReview', text: `PR #${pr}: the merge guard could not list the PR's files (gh api pulls/${pr}/files failed), so it cannot check the review covered them. Retry once gh answers.` })
+    else if (unread.length) {
+      const shown = unread.slice(0, 5).join(', ') + (unread.length > 5 ? ` and ${unread.length - 5} more` : '')
+      const plans = facts.plans?.length ? ` Too large for one read: ${facts.plans.join('; ')}.` : ''
+      const skipped = facts.skipped?.length ? ` Reads that did not count: ${facts.skipped.slice(0, 3).join('; ')}.` : ''
+      const next = facts.inline ? 'read what is missing yourself (3b), then merge' : 're-dispatch pr-reviewer on what is missing'
+      out.push({ gate: 'mergeReview', text: `PR #${pr}: no review read ${unread.length} file(s) as they land at ${sha.slice(0, 12)}: ${shown}. A review reads each file in full with its own command, git show <sha>:<path> (a file over 25,000 characters in consecutive sed -n A,Bp chunks), or, after a fix, the diff from the reviewed sha: git diff <reviewed sha>..<head> (merge-review-pr step 4).${plans}${skipped} Then ${next}.` })
+    }
+  }
+  return out
 }
+
+/** The first problem of a merge, or undefined: every gate enforced. */
+export const mergeDenial = (pr: number, pin: string | undefined, facts: MergeFacts) => mergeProblems(pr, pin, facts)[0]?.text
 
 const BASE = /^(main|master)$/
 
@@ -292,26 +320,23 @@ export function pushDenial(command: string, branch: string | undefined): string 
   return undefined
 }
 
-/** Fix rounds per PR across train runs (`agile-11-merge-train` Stop conditions): this many pushes, then 3d. */
+/** Fix rounds per PR after a review, by default (`fixRounds` option): this many, then 3d. */
 export const FIX_ROUNDS = 3
 
 /** A 3c dispatch: `fix-until-satisfied` by agent, or `merge-fix-until-satisfied` inline. */
 export const isFixDispatch = (tool: string, args: Record<string, unknown>) =>
   (tool === 'Agent' && /(^|:)fix-until-satisfied$/.test(str(args.subagent_type))) || (tool === 'Skill' && /(^|:)merge-fix-until-satisfied$/.test(str(args.skill)))
 
-/** The fix rounds a PR had: one id per round that pushed, and the head each round pushed onto. */
-export type Rounds = { ids: string[]; heads: string[] }
+/** The fix rounds a PR had: the reviewed head each round pushed onto, and rounds a person allowed past the cap. */
+export type Rounds = { heads: string[]; extra?: number }
 
 /**
- * The fix-round cap on a push to an open PR's branch: a round already counted pushes again freely; a
- * new round past FIX_ROUNDS is refused.
- *
- * @param round the pushing round: one dispatched agent's run, or the main loop's (or a session
- *   agent's) pushes between two of its Skill or Agent calls
+ * The fix-round cap on a push that starts a new round (a push onto a reviewed head no round started
+ * from): refused once the PR had `cap` rounds, plus any a person allowed.
  */
-export function fixDenial(pr: number, rounds: Rounds | undefined, round: string): string | undefined {
-  if (!rounds || rounds.ids.includes(round) || rounds.ids.length < FIX_ROUNDS) return undefined
-  return `PR #${pr}: ${rounds.ids.length} fix rounds already pushed (onto ${rounds.heads.map(h => h.slice(0, 7)).join(', ')}). The fixes are not converging: take 3d (blocked postmortem, PR left open) and let a human decide.`
+export function fixDenial(pr: number, rounds: Rounds | undefined, cap = FIX_ROUNDS): string | undefined {
+  if (!cap || !rounds || rounds.heads.length < cap + (rounds.extra ?? 0)) return undefined
+  return `PR #${pr}: ${rounds.heads.length} fix rounds already pushed after a review (onto ${rounds.heads.map(h => h.slice(0, 7)).join(', ')}). The fixes are not converging: take 3d (blocked postmortem, PR left open) and let a human decide.`
 }
 
 /** What a push sends where, read from the command: the directory it runs in, each `src:dst`, and whether it deletes. */
@@ -638,8 +663,17 @@ export function budgetDenial(spent: number, budget: number, tool: string, args: 
   return `agile-mods: budget: the loop spent $${spent.toFixed(2)} of its $${budget.toFixed(2)} budget (agile-mods budgetUsd). Start no build work: merge what is open, then stop and report BUDGET.`
 }
 
-/** A call a guard refused, kept for the console's Guards tab. */
-export type Refusal = { at: number; rule: 'grant' | '3f' | 'push' | 'fix' | 'budget' | 'side'; text: string; agent?: string }
+/** A call a guard refused, warned about, or let through on a person's bypass, kept for the console's Guards tab. */
+export type Refusal = {
+  at: number
+  rule: 'grant' | '3f' | 'push' | 'fix' | 'budget' | 'side'
+  text: string
+  agent?: string
+  /** Refused (the default), let through by a gate set to warn, or let through on a bypass. */
+  kind?: 'warned' | 'bypassed'
+  /** What a person can allow, for a refusal a bypass covers. */
+  offer?: import('./bypass.ts').Offer
+}
 
 export const MAX_REFUSALS = 20
 

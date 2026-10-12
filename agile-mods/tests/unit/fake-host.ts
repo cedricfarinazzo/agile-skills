@@ -20,6 +20,14 @@ export type Answers = {
   compare?: Record<string, Compare>
   /** Line counts by `<sha>:<path>`; left out: git failed. */
   lines?: Record<string, number>
+  /** File text by `<sha>:<path>`; left out: git failed. */
+  show?: Record<string, string>
+  /** Full shas by the abbreviation a read used; left out: not a commit here. */
+  resolve?: Record<string, string>
+  /** `git diff --name-status -M` by `<from>..<to>`; left out: git failed. */
+  changes?: Record<string, { status: string; path: string; from?: string }[]>
+  /** Trees by commit or branch; left out: git failed. */
+  tree?: Record<string, string>
   jira?: unknown
   agents?: { id: string; type: string }[]
   /** Every store write fails, as a full disk would. */
@@ -58,6 +66,10 @@ export function fakeHost(opts: Answers = {}) {
     prFiles: async pr => (calls.push(`gh api pulls/${pr}/files`), opts.prFiles?.[pr]),
     compare: async (base, head) => (calls.push(`gh api compare/${base.slice(0, 7)}...${head.slice(0, 7)}`), opts.compare?.[`${base}...${head}`]),
     lines: async (dir, sha, path) => (calls.push(`git -C ${dir} show ${sha.slice(0, 7)}:${path}`), opts.lines?.[`${sha}:${path}`]),
+    show: async (dir, sha, path) => (calls.push(`git -C ${dir} show ${sha.slice(0, 7)}:${path} (text)`), opts.show?.[`${sha}:${path}`]),
+    resolve: async (dir, rev) => (calls.push(`git -C ${dir} rev-parse ${rev}`), opts.resolve?.[rev]),
+    changes: async (dir, from, to) => (calls.push(`git -C ${dir} diff --name-status ${from.slice(0, 7)} ${to.slice(0, 7)}`), opts.changes?.[`${from}..${to}`]),
+    tree: async (dir, ref) => (calls.push(`git -C ${dir} rev-parse ${ref.slice(0, 7)}^{tree}`), opts.tree?.[ref]),
     jira: async () => {
       calls.push('jira search')
       if (opts.jira === undefined) throw new Error('no Atlassian MCP server connected')

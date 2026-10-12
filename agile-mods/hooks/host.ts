@@ -43,6 +43,14 @@ export type Host = {
   jira: (cloudId: string, jql: string, fields: string[], page?: string, size?: number) => Promise<unknown>
   /** The line count of `<sha>:<path>` (`git -C <dir> show`), for a file reviewed in line ranges. */
   lines: (dir: string, sha: string, path: string) => Promise<number | undefined>
+  /** The text of `<sha>:<path>` (`git -C <dir> show`), for the chunk plan of a file too large for one read. */
+  show: (dir: string, sha: string, path: string) => Promise<string | undefined>
+  /** The full sha of a commit named by 7 to 40 hex (`git -C <dir> rev-parse --verify --quiet <rev>^{commit}`). */
+  resolve: (dir: string, rev: string) => Promise<string | undefined>
+  /** The paths that differ between two trees (`git -C <dir> diff --name-status -M -z <from> <to>`). */
+  changes: (dir: string, from: string, to: string) => Promise<{ status: string; path: string; from?: string }[] | undefined>
+  /** The tree a commit or branch points at (`git -C <dir> rev-parse --verify --quiet <ref>^{tree}`). */
+  tree: (dir: string, ref: string) => Promise<string | undefined>
   agents: () => Promise<AgentInfo[]>
   storeGet: (key: string) => Promise<unknown>
   storeSet: (key: string, value: unknown) => Promise<void>

@@ -1,12 +1,14 @@
 /* @jsx h */
 import type { EngineInterface, ProcessRunResult, Register, RenderNode } from 'claude-code'
-import { EMPTY, POINTS_FIELD, applyJira, markerTargets, pruned, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, issuesOf, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
-import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, rasterCells, statusText, tabOf, type Row, type Tab } from './state/console.ts'
+import { EMPTY, POINTS_FIELD, TICKET_KEY, applyJira, dispatchText, markerTargets, pruned, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, issuesOf, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
+import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, offersOf, rasterCells, statusText, tabOf, type Coverage, type Ctx, type Row, type Tab } from './state/console.ts'
 import { budgetDenial, isBuildWork, keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
+import { budgetOpen, offerText, type Offer } from './state/bypass.ts'
+import { configOf, modesLine, repoConfigOf, tightened, type GuardConfig } from './state/config.ts'
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
 import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
-import { agentTypeOf, guardedCall, guardsAfter, guardsBefore, guardsReset, guardsStart, loopRunning } from './guards.ts'
+import { agentTypeOf, allowancesNow, coverageOf, guardedCall, guardsAfter, guardsAllow, guardsCheck, guardsConfigure, guardsPrune, guardsReset, guardsStart, loopRunning } from './guards.ts'
 import { argsOf, type Compare, type Finished, type Host, type PrRow, type RunRow } from './host.ts'
 import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsReset, receiptsStart } from './receipts.ts'
 
@@ -61,6 +63,10 @@ let persistQueued = false
 const busy = { gh: false, jira: false }
 let ghError: string | undefined
 let budget = 0
+let config: GuardConfig
+let configNotes: string[] = []
+/** Per open PR at its head: how each file counts as read, for the Guards tab; refreshed at most every 15 s. */
+let coverage: Record<number, { head: string; at: number; files: Record<string, string | undefined> }> = {}
 let agentStats: Stats = {}
 /** Bumped by /agile-board reset and a fresh drain: a read begun before it saves nothing. */
 let epoch = 0
@@ -148,6 +154,39 @@ function hostOf($: EngineInterface): Host {
       const r = await $.process.run(['git', '-C', dir, 'show', `${sha}:${path}`], { timeoutMs: 10_000 }).catch(() => undefined)
       if (r?.exitCode !== 0) return undefined
       return r.stdout.split('\n').length - (r.stdout.endsWith('\n') ? 1 : 0)
+    },
+    show: async (dir, sha, path) => {
+      if (!/^[0-9a-f]{40}$/.test(sha) || path.startsWith('-')) return undefined
+      const r = await $.process.run(['git', '-C', dir, 'show', `${sha}:${path}`], { timeoutMs: 10_000 }).catch(() => undefined)
+      return r?.exitCode === 0 ? r.stdout : undefined
+    },
+    resolve: async (dir, rev) => {
+      if (!SHA.test(rev)) return undefined
+      const r = await $.process.run(['git', '-C', dir, 'rev-parse', '--verify', '--quiet', `${rev}^{commit}`], { timeoutMs: 5_000 }).catch(() => undefined)
+      const out = r?.exitCode === 0 ? r.stdout.trim() : ''
+      return /^[0-9a-f]{40}$/.test(out) ? out : undefined
+    },
+    changes: async (dir, from, to) => {
+      if (!SHA.test(from) || !SHA.test(to)) return undefined
+      const r = await $.process.run(['git', '-C', dir, 'diff', '--name-status', '-M', '-z', from, to], { timeoutMs: 10_000 }).catch(() => undefined)
+      if (r?.exitCode !== 0) return undefined
+      // -z: status, then one path (two for a rename or copy), each NUL-terminated
+      const words = r.stdout.split('\0')
+      const out: { status: string; path: string; from?: string }[] = []
+      for (let i = 0; i < words.length - 1;) {
+        const status = words[i++]!.charAt(0)
+        if (status === 'R' || status === 'C') {
+          const old = words[i++]!
+          out.push({ status: status === 'C' ? 'A' : 'R', path: words[i++]!, ...(status === 'R' && { from: old }) })
+        } else out.push({ status, path: words[i++]! })
+      }
+      return out
+    },
+    tree: async (dir, ref) => {
+      if (!(SHA.test(ref) || ref === 'HEAD' || BRANCH.test(ref))) return undefined
+      const r = await $.process.run(['git', '-C', dir, 'rev-parse', '--verify', '--quiet', `${ref}^{tree}`], { timeoutMs: 5_000 }).catch(() => undefined)
+      const out = r?.exitCode === 0 ? r.stdout.trim() : ''
+      return /^[0-9a-f]{40}$/.test(out) ? out : undefined
     },
     agents: () => $.agent.list(),
     storeGet: key => $.store.get(scope + key),
@@ -282,7 +321,7 @@ async function meter($: EngineInterface) {
 /** Redraws the status line, which reads the clock for the spend rate and the forecast. */
 function showStatus($: EngineInterface) {
   if (!shown) return $.ui.status(undefined)
-  void $.clock.now().then(now => $.ui.status(statusText(board, now, budget))).catch(() => undefined)
+  void $.clock.now().then(now => $.ui.status(statusText(board, now, budget, allowancesNow().length))).catch(() => undefined)
 }
 
 function save($: EngineInterface, next: Board) {
@@ -321,6 +360,39 @@ function saveRetro($: EngineInterface, next: Retro) {
   void $.store.set(scope + RETRO_KEY, retro).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
 }
 
+const mergedCount = () => board.prOrder.filter(n => board.prs[n]?.merged).length
+
+/** A ticket a budget bypass covered is over: done, parked, or its PR merged. */
+const ticketEnded = (key: string) => {
+  const t = board.tickets[key]
+  return t?.category === 'done' || !!t?.parked || board.prOrder.some(n => board.prs[n]?.key === key && board.prs[n]?.merged)
+}
+
+const bypassTail = (offer: Offer) =>
+  config.allowBypass ? ` A person can allow this once from /agile-board guards (${offerText(offer)}): return blocked (guard, bypass available) and wait; do not ask them to run the command themselves.` : ''
+
+/** A gate set to warn, or a call let through on a bypass: on the Guards tab and as a toast, never to the model. */
+function note($: EngineInterface, entry: Refusal) {
+  refusals = keepRefusal(refusals, entry)
+  if (entry.kind === 'bypassed') saveRetro($, { ...retro, bypassed: (retro.bypassed ?? 0) + 1 })
+  $.ui.toast(`agile guard ${entry.kind}: ${entry.text.slice(0, 160)}`, { timeoutMs: 8000 })
+  $.ui.invalidate('ui.render')
+}
+
+/** /agile-board allow <n> and the Guards tab's button: a person allows the n-th open refusal once. */
+async function allowAt($: EngineInterface, n: number): Promise<string> {
+  if (!config.allowBypass) return 'bypass is off (agile-mods allowBypass)'
+  const r = offersOf(refusals)[n - 1]
+  if (!r?.offer) return `no refusal [${n}] to allow: /agile-board guards lists them`
+  const now = await $.clock.now()
+  guardsAllow(hostOf($), r.offer, now, mergedCount())
+  refusals = refusals.map(x => (x === r ? { ...x, offer: undefined, text: `${x.text} [allowed]` } : x))
+  $.ui.toast(`agile: allowed ${offerText(r.offer)}, tell the loop to retry`, { timeoutMs: 10000 })
+  showStatus($)
+  $.ui.invalidate('ui.render')
+  return `allowed once: ${offerText(r.offer)}. Tell the loop to retry.`
+}
+
 const COLORS: Record<string, string> = { c: 'cyan', m: 'magenta', g: 'green', y: 'yellow', r: 'red', bl: 'blue' }
 const BADGES: Record<string, string> = { bgr: 'red', bgg: 'green', bgy: 'yellow' }
 
@@ -339,7 +411,11 @@ function styleOf(tags?: string): Record<string, unknown> {
 
 export const register: Register = (on, options) => {
   autoOpen = options?.autoOpen !== false
-  budget = typeof options?.budgetUsd === 'number' && options.budgetUsd > 0 ? options.budgetUsd : 0
+  const given = configOf(options as Record<string, unknown> | undefined)
+  config = given.config
+  configNotes = given.notes
+  budget = config.budgetUsd
+  guardsConfigure(config)
 
   on('session.start', async ($, e, next) => {
     const r = await next(e)
@@ -352,16 +428,22 @@ export const register: Register = (on, options) => {
     if (storedRetro) retro = storedRetro
     await guardsStart(host, r.cwd)
     // agile-10-implement's story-points-field and cloudId, pinned in the consumer repo's AGENTS.md or CLAUDE.md
+    // the guard settings there too, read once now and applied only where stricter: the loop can edit those files
     for (const file of ['AGENTS.md', 'CLAUDE.md']) {
-      const config = await $.fs.read(`${r.cwd}/${file}`).catch(() => '')
-      pointsField = pointsField === POINTS_FIELD ? (pointsFieldOf(config) ?? pointsField) : pointsField
-      cloudId ??= cloudIdOf(config)
+      const text = await $.fs.read(`${r.cwd}/${file}`).catch(() => '')
+      pointsField = pointsField === POINTS_FIELD ? (pointsFieldOf(text) ?? pointsField) : pointsField
+      cloudId ??= cloudIdOf(text)
+      const repo = tightened(config, repoConfigOf(text))
+      config = repo.config
+      configNotes = [...configNotes, ...repo.notes.map(n => `${file}: ${n}`)]
     }
+    budget = config.budgetUsd
+    guardsConfigure(config)
     await receiptsStart(host)
     await $.command.register({
       name: 'agile-board',
-      description: 'Agile console: board, flow, wip, drain, guards and links tabs, plus show, hide, retro, reset (agile-mods)',
-      argumentHint: '[board | flow | wip | drain | guards | links | show | hide | retro | reset]',
+      description: 'Agile console: board, flow, wip, drain, guards and links tabs, plus show, hide, retro, reset, allow <n> (agile-mods)',
+      argumentHint: '[board | flow | wip | drain | guards | links | show | hide | retro | reset | allow <n>]',
       immediate: true,
     }).catch(err => $.ui.log(`agile-mods: /agile-board not registered: ${err}`))
     await $.command.register(RECEIPTS_COMMAND).catch(err => $.ui.log(`agile-mods: /receipts not registered: ${err}`))
@@ -388,6 +470,14 @@ export const register: Register = (on, options) => {
       agentStats = {}
       return { text: 'agile board and retro counts cleared' }
     }
+    const allowArg = arg.match(/^allow(?:\s+(\d+))?$/)
+    if (allowArg) {
+      if (!allowArg[1]) {
+        const open = offersOf(refusals)
+        return { text: open.length ? open.map((r, i) => `[${i + 1}] ${offerText(r.offer!)}: ${r.text.replace(/^agile-mods:\s*/, '').slice(0, 100)}`).join('\n') : 'no refusal to allow' }
+      }
+      return { text: await allowAt($, Number(allowArg[1])) }
+    }
     if (arg === 'retro') return { text: retroText(retro, board, await $.clock.now()) ?? 'no loop data recorded yet' }
     if (arg === 'hide' || arg === 'show') {
       shown = arg === 'show'
@@ -396,7 +486,7 @@ export const register: Register = (on, options) => {
       return { text: shown ? 'agile status and alerts shown' : 'agile status and alerts hidden' }
     }
     const wanted = arg ? tabOf(arg) : tab
-    if (!wanted) return { text: `unknown tab "${arg}": board, flow, wip, drain, guards, links, or show, hide, retro, reset` }
+    if (!wanted) return { text: `unknown tab "${arg}": board, flow, wip, drain, guards, links, or show, hide, retro, reset, allow <n>` }
     tab = wanted
     paneAt = await $.clock.now()
     void tick($, true).catch(() => undefined)
@@ -420,11 +510,33 @@ export const register: Register = (on, options) => {
     } else if (budget && isBuildWork(e.tool, args)) await meter($)
     // the budget holds once a loop ran in this session, until /agile-board reset
     const spent = loopRunning() ? (board.spend?.usd ?? 0) : 0
-    const deny = budgetDenial(spent, budget, e.tool, args) ?? await guardsBefore(host, e.tool, args, e.agentId)
+    const at = await $.clock.now()
+    guardsPrune(host, at, ticketEnded, mergedCount())
+    const type = e.agentId ? await agentTypeOf(host, e.agentId) : undefined
+    const by = type ? { agent: type.split(':').at(-1) } : {}
+    let deny: string | undefined
+    let offer: Offer | undefined
+    const over = budgetDenial(spent, budget, e.tool, args)
+    if (over) {
+      // a person let this ticket's build and merge past the budget
+      const keys = [...new Set((dispatchText(args) + ' ' + String(args.command ?? '')).match(new RegExp(TICKET_KEY.source, 'g')) ?? [])]
+      if (budgetOpen(allowancesNow(), keys)) note($, { at, rule: 'budget', kind: 'bypassed', text: `past the budget on a person's bypass: ${over}`, ...by })
+      else {
+        offer = { rule: 'budget', ...(keys.length === 1 && { ticket: keys[0] }) }
+        deny = over + bypassTail(offer)
+      }
+    }
+    if (!deny) {
+      const verdict = await guardsCheck(host, e.tool, args, e.agentId)
+      for (const n of verdict.notes) note($, { at, rule: n.rule, kind: n.kind, text: n.text, ...by })
+      if (verdict.deny) {
+        deny = `agile-mods: ${verdict.deny}`
+        offer = verdict.offer
+      }
+    }
     if (deny) {
-      const type = e.agentId ? await agentTypeOf(host, e.agentId) : undefined
-      refusals = keepRefusal(refusals, { at: await $.clock.now(), rule: ruleOf(deny), text: deny, ...(type && { agent: type.split(':').at(-1) }) })
-      $.ui.toast(deny.replace(/^agile-mods:\s*/, 'agile guard: '), { timeoutMs: 8000 })
+      refusals = keepRefusal(refusals, { at, rule: ruleOf(deny), text: deny, ...by, ...(offer && config.allowBypass && { offer }) })
+      $.ui.toast(deny.replace(/^agile-mods:\s*/, 'agile guard: ').replace(/ A person can allow.*$/, ''), { timeoutMs: 8000 })
       $.ui.invalidate('ui.render')
       return { deny }
     }
@@ -443,7 +555,8 @@ export const register: Register = (on, options) => {
       isError: r.isError === true,
       text: r.deny !== undefined || r.isError ? undefined : r.text,
     }
-    await guardsAfter(host, e.tool, args, e.agentId, done.text)
+    // a reviewer's read that did not count: told now, so it reads again within the same review
+    const readNote = await guardsAfter(host, e.tool, args, e.agentId, done.text, done.isError)
     if (writes(e.tool, args) || ((e.tool === 'Skill' || e.tool === 'Agent') && loopRunning())) soon($)
     saveRetro($, retroEnd(retro, e.tool, done.text))
     await receiptsAfter(host, e.tool, args, done)
@@ -453,6 +566,7 @@ export const register: Register = (on, options) => {
       const data = retroText(retro, board, await $.clock.now())
       if (data && r.deny === undefined && !r.isError) return { ...r, context: [...(r.context ?? []), data] }
     }
+    if (readNote && r.deny === undefined) return { ...r, context: [...(r.context ?? []), readNote] }
     return r
   }).catch(($, e, next) => {
     // the hook threw, timed out, or was skipped on re-entry: a call a guard covers is refused rather
@@ -516,7 +630,8 @@ export const register: Register = (on, options) => {
     const usage = await $.session.usage().catch(() => undefined)
     const now = await $.clock.now()
     const lanes = tab === 'drain' ? laneOf(await $.agent.list().catch(() => []), agentStats, now) : undefined
-    const ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, budget }
+    const guard = tab === 'guards' ? { modes: modesLine(config), notes: configNotes, allowances: allowancesNow(), bypass: config.allowBypass, coverage: await coverageNow($, now) } : undefined
+    const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, budget, ...(guard && { guard }) }
     const w = Math.max(30, e.props.bodyColumns - 2)
     return (
       <Box flexDirection="column">
@@ -529,10 +644,24 @@ export const register: Register = (on, options) => {
           ))}
         </Box>
         <Text>{' '}</Text>
-        {consoleRows(tab, board, ctx, w).map((row, i) => renderRow(ui, row, `r${i}`))}
+        {consoleRows(tab, board, ctx, w).map((row, i) => renderRow(ui, row, `r${i}`, n => void allowAt($, n)))}
       </Box>
     )
   })
+}
+
+/** How each open PR's files count as read at its head, from the board's file lists; read again at most every 15 s. */
+async function coverageNow($: EngineInterface, now: number): Promise<Coverage> {
+  const host = hostOf($)
+  for (const n of board.prOrder) {
+    const pr = board.prs[n]
+    if (!pr || pr.state !== 'OPEN' || !pr.files || !pr.filesHead || !/^[0-9a-f]{40}$/.test(pr.filesHead)) continue
+    const known = coverage[n]
+    if (known && known.head === pr.filesHead && now - known.at < 15_000) continue
+    coverage = { ...coverage, [n]: { head: pr.filesHead, at: now, files: await coverageOf(host, pr.filesHead, pr.files).catch(() => ({})) } }
+  }
+  const open = new Set(board.prOrder.filter(n => board.prs[n]?.state === 'OPEN'))
+  return Object.entries(coverage).filter(([n]) => open.has(Number(n))).map(([n, c]) => ({ pr: Number(n), head: c.head, files: c.files }))
 }
 
 /** The stage a loop agent serves, by its type; undefined for an agent outside the loop. */
@@ -542,9 +671,18 @@ const stageOf = (type: string) =>
 type Elements = Awaited<ReturnType<EngineInterface['ui']['resolve']>>
 
 /** One row as elements: styled text in a line, bordered tiles, the burnup, or a link. */
-function renderRow(ui: Elements, row: Row, key: string): RenderNode {
-  const { Box, Text, Link } = ui
+function renderRow(ui: Elements, row: Row, key: string, onAllow?: (n: number) => void): RenderNode {
+  const { Box, Text, Link, Button } = ui
   if (row.kind === 'link') return <Link key={key} href={row.href} label={row.label} />
+  if (row.kind === 'allow') {
+    return (
+      <Box key={key} flexDirection="row" columnGap={1}>
+        <Text dimColor>{'          '}</Text>
+        <Button label={`Allow once [${row.n}]`} plain onPress={() => onAllow?.(row.n)} />
+        <Text dimColor wrap="truncate">{row.label}</Text>
+      </Box>
+    )
+  }
   if (row.kind === 'tiles') {
     return (
       <Box key={key} flexDirection="row" columnGap={1}>

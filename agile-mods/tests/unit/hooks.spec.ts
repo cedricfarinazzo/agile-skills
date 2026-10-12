@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { guardsAfter, guardsBefore, guardsReset, guardsStart } from '../../hooks/guards.ts'
+import { allowancesNow, guardsAfter, guardsAllow, guardsBefore, guardsCheck, guardsConfigure, guardsReset, guardsStart } from '../../hooks/guards.ts'
+import { DEFAULTS, configOf } from '../../hooks/state/config.ts'
 import { receiptsAfter, receiptsCommand, receiptsStart } from '../../hooks/receipts.ts'
 import { fakeHost, type Answers } from './fake-host.ts'
 
 const OLD = 'a'.repeat(40)
 const SHA = 'd'.repeat(40)
 const OTHER = 'e'.repeat(40)
+const MID = 'c'.repeat(40)
 const skill = (name: string, args = '') => ['Skill', { skill: name, args }] as const
 const done = (text: string | undefined) => ({ text, isError: false, denied: false })
 const REVIEWER = { id: 'r1', type: 'agile-merge-review:pr-reviewer' }
@@ -15,7 +17,8 @@ const green = [{ databaseId: 3, headSha: SHA, status: 'completed', conclusion: '
 /** GitHub as the merge guard reads it: PR 7 open at SHA, CI green on it, two files. */
 function github(over: Partial<Answers> = {}): Answers {
   return {
-    agents: [REVIEWER, { id: 's1', type: 'agile-sprint-drain:merge-session' }, { id: 'f1', type: 'agile-merge-review:fix-until-satisfied' }],
+    agents: [REVIEWER, { id: 's1', type: 'agile-sprint-drain:merge-session' }, { id: 'f1', type: 'agile-merge-review:fix-until-satisfied' },
+      { id: 'g1', type: 'general-purpose' }, { id: 'b1', type: 'agile-sprint-drain:build-session' }],
     prView: { 7: { headRefOid: SHA, state: 'OPEN' } },
     runsOn: { [SHA]: green },
     prFiles: { 7: ['src/a.ts', 'src/b.ts'] },
@@ -28,6 +31,7 @@ const read = (host: Parameters<typeof guardsAfter>[0], command: string, agent = 
 
 describe('merge guard', () => {
   beforeEach(async () => {
+    guardsConfigure(DEFAULTS)
     guardsReset()
     await guardsStart(fakeHost().host, '/repo')
   })
@@ -44,6 +48,109 @@ describe('merge guard', () => {
   test('a merge-review agent is gated even with no train skill seen in this session', async () => {
     const { host } = fakeHost(github())
     expect(await guardsBefore(host, 'Bash', merge(), 's1')).toContain('no review read 2 file(s)')
+  })
+
+  test('a merge-session running the train inline is the reviewer, and is told to read again itself', async () => {
+    const { host } = fakeHost(github())
+    await guardsBefore(host, ...skill('agile-merge-review:agile-11-merge-train'), 's1')
+    await read(host, `git show ${SHA}:src/a.ts`, 's1')
+    expect(await guardsBefore(host, 'Bash', merge(), 's1')).toContain('read what is missing yourself (3b)')
+    await read(host, `cd /repo; git show ${SHA}:src/b.ts`, 's1')
+    expect(await guardsBefore(host, 'Bash', merge(), 's1')).toBeUndefined()
+  })
+
+  test('the main loop reads count on the merge side only; the build side never counts', async () => {
+    const { host } = fakeHost(github())
+    await guardsBefore(host, ...skill('agile-execution:agile-10-implement'), undefined)
+    await guardsAfter(host, 'Bash', { command: `git show ${SHA}:src/a.ts` }, undefined, 'text')
+    await read(host, `git show ${SHA}:src/b.ts`, 'b1')
+    await guardsBefore(host, ...skill('agile-merge-review:agile-11-merge-train'), undefined)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('no review read 2 file(s)')
+    await guardsAfter(host, 'Bash', { command: `git show ${SHA}:src/a.ts && git show ${SHA}:src/b.ts` }, undefined, 'text')
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('an abbreviated sha is resolved in the repository; a sha in a variable is read as that sha', async () => {
+    const { host, calls } = fakeHost(github({ resolve: { [SHA.slice(0, 8)]: SHA } }))
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    await read(host, `cd /w && git show ${SHA.slice(0, 8)}:src/a.ts`)
+    expect(calls).toContain(`git -C /w rev-parse ${SHA.slice(0, 8)}`)
+    expect(await read(host, `git show ${OTHER.slice(0, 8)}:src/b.ts`)).toContain('is not a commit in this repository')
+    await read(host, `S=${SHA}; git show $S:src/b.ts`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('a read that does not count is told at once, with a chunk plan for one too large', async () => {
+    const big = Array.from({ length: 4000 }, (_, i) => `line ${i} ${'x'.repeat(20)}`).join('\n') + '\n'
+    const { host } = fakeHost(github({ show: { [`${SHA}:src/b.ts`]: big } }))
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    const note = await read(host, `git show ${SHA}:src/b.ts`, 'r1', '<persisted-output>\nOutput too large (100KB).')
+    expect(note).toContain('passed 30,000 characters')
+    expect(note).toMatch(/sed -n 1,\d+p · \d+,\d+p/)
+    expect(await read(host, `git show ${SHA}:src/a.ts | cut -c1-400`)).toContain('drops lines')
+    expect(await guardsAfter(host, 'Bash', { command: `git show ${SHA}:src/a.ts && false` }, 'r1', undefined, true)).toContain('exited with an error')
+    // a command that reads nothing says nothing, and reads that count say nothing
+    expect(await read(host, 'ls -la')).toBeUndefined()
+    expect(await read(host, `git show ${SHA}:src/a.ts`)).toBeUndefined()
+    // the merge refusal carries the plan, and the reason the read did not count
+    const deny = await guardsBefore(host, 'Bash', merge(), undefined)
+    expect(deny).toMatch(/Too large for one read: git show d+:src\/b.ts \| sed -n 1,/)
+    expect(deny).toContain('Reads that did not count')
+  })
+
+  test('after a fix, the diff from the reviewed sha covers the files it changed', async () => {
+    const { host } = fakeHost(github({ changes: { [`${OLD}..${SHA}`]: [{ status: 'M', path: 'src/b.ts' }] } }))
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    await read(host, `git show ${OLD}:src/a.ts ${OLD}:src/b.ts`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain(': src/b.ts.')
+    // a summary shows no lines
+    expect(await read(host, `git diff --stat ${OLD}..${SHA}`)).toContain('hides changed lines')
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain(': src/b.ts.')
+    await read(host, `git diff ${OLD}..${SHA} -- src/b.ts`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('chained fixes need only the latest diff; a file the fix added is read by its diff', async () => {
+    const { host } = fakeHost(github({
+      prFiles: { 7: ['src/a.ts', 'src/b.ts', 'src/n.ts'] },
+      changes: { [`${OLD}..${MID}`]: [{ status: 'M', path: 'src/b.ts' }], [`${MID}..${SHA}`]: [{ status: 'M', path: 'src/b.ts' }, { status: 'A', path: 'src/n.ts' }] },
+    }))
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    await read(host, `git show ${OLD}:src/a.ts ${OLD}:src/b.ts`)
+    await read(host, `git diff ${OLD}..${MID}`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('src/b.ts, src/n.ts')
+    await read(host, `git diff ${MID} ${SHA}`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('a gate set to warn lets the merge through with a note; off skips it', async () => {
+    const { host, calls } = fakeHost(github())
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    guardsConfigure(configOf({ guardMergeReview: 'warn' }).config)
+    const warned = await guardsCheck(host, 'Bash', merge(), undefined)
+    expect(warned.deny).toBeUndefined()
+    expect(warned.notes[0]).toMatchObject({ kind: 'warned', rule: '3f' })
+    guardsConfigure(configOf({ guardMergeReview: 'off', guardMergeCi: 'off' }).config)
+    calls.length = 0
+    expect(await guardsCheck(host, 'Bash', merge(), undefined)).toEqual({ notes: [] })
+    expect(calls).toEqual(['gh pr view 7'])
+  })
+
+  test('a person can allow one merge of the refused head, once', async () => {
+    const { host } = fakeHost(github())
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    const refused = await guardsCheck(host, 'Bash', merge(), undefined)
+    expect(refused.offer).toEqual({ rule: '3f', pr: 7, head: SHA })
+    expect(refused.deny).toContain('A person can allow this once from /agile-board guards')
+    guardsAllow(host, refused.offer!, 1_000, 0)
+    const passed = await guardsCheck(host, 'Bash', merge(), undefined)
+    expect(passed.deny).toBeUndefined()
+    expect(passed.notes[0]).toMatchObject({ kind: 'bypassed' })
+    expect(allowancesNow()).toEqual([])
+    expect((await guardsCheck(host, 'Bash', merge(), undefined)).deny).toContain('no review read')
+    // with the bypass off, the refusal does not offer one
+    guardsConfigure(configOf({ allowBypass: false }).config)
+    expect((await guardsCheck(host, 'Bash', merge(), undefined)).deny).not.toContain('A person can allow')
   })
 
   test('a file too large for one read counts when line ranges at the head cover every line', async () => {
@@ -96,10 +203,10 @@ describe('merge guard', () => {
 
   test('an inline merge-review-pr counts its loop reads until that loop invokes the next skill', async () => {
     const { host } = fakeHost(github())
-    await guardsBefore(host, ...skill('agile-merge-review:merge-review-pr', 'PR 7'), 's1')
-    await read(host, `git show ${SHA}:src/a.ts`, 's1')
-    await guardsBefore(host, ...skill('agile-merge-review:merge-fix-until-satisfied', 'PR 7'), 's1')
-    await read(host, `git show ${SHA}:src/b.ts`, 's1')
+    await guardsBefore(host, ...skill('agile-merge-review:merge-review-pr', 'PR 7'), 'g1')
+    await read(host, `git show ${SHA}:src/a.ts`, 'g1')
+    await guardsBefore(host, ...skill('agile-merge-review:merge-fix-until-satisfied', 'PR 7'), 'g1')
+    await read(host, `git show ${SHA}:src/b.ts`, 'g1')
     expect(await guardsBefore(host, 'Bash', merge(), 's1')).toContain('1 file(s) as they land')
   })
 
@@ -201,51 +308,94 @@ describe('push and grant guards', () => {
 
 describe('fix-round cap', () => {
   beforeEach(async () => {
+    guardsConfigure(DEFAULTS)
     guardsReset()
     await guardsStart(fakeHost().host, '/repo')
   })
   const agents = [1, 2, 3, 4].map(n => ({ id: `f${n}`, type: 'agile-merge-review:fix-until-satisfied' })).concat(
-    { id: 'u1', type: 'agile-merge-review:pr-updater' }, { id: 'ms', type: 'agile-sprint-drain:merge-session' }, { id: 'g1', type: 'general-purpose' })
+    { id: 'u1', type: 'agile-merge-review:pr-updater' }, { id: 'ms', type: 'agile-sprint-drain:merge-session' }, { id: 'g1', type: 'general-purpose' }, REVIEWER)
   /** PR 7 open on branch VC-7 at `head`. */
-  const gh = (head = SHA, over: Partial<Answers> = {}) => fakeHost({ agents, prOfBranch: { 'VC-7': { number: 7, headRefOid: head } }, ...over })
+  const gh = (head = SHA, over: Partial<Answers> = {}) => fakeHost({ agents, prOfBranch: { 'VC-7': { number: 7, headRefOid: head } }, prView: { 7: { headRefOid: head, state: 'OPEN' } }, ...over })
   const push = { command: 'git push origin VC-7' }
   const loop = async () => guardsBefore(fakeHost().host, ...skill('agile-sprint-drain'), undefined)
   const sha = (n: number) => String(n).repeat(40)
-
-  test('one round per dispatched agent run; the fourth is refused', async () => {
-    await loop()
+  /** A reviewer read a file of the PR at `head`: the head is reviewed. */
+  const review = (head: string) => guardsAfter(fakeHost({ agents }).host, 'Bash', { command: `git show ${head}:src/a.ts` }, 'r1', 'text')
+  /** Three rounds: a review at sha(n), then a push onto it. */
+  const spend = async () => {
     for (const n of [1, 2, 3]) {
+      await review(sha(n))
       expect(await guardsBefore(gh(sha(n)).host, 'Bash', push, `f${n}`)).toBeUndefined()
-      expect(await guardsBefore(gh(sha(9)).host, 'Bash', push, `f${n}`)).toBeUndefined()
     }
+  }
+
+  test('a round starts with a push onto a reviewed head; the fourth is refused', async () => {
+    await loop()
+    await spend()
+    await review(OTHER)
     const { host, calls } = gh(OTHER)
-    expect(await guardsBefore(host, 'Bash', push, 'f4')).toContain('3 fix rounds already pushed (onto 1111111, 2222222, 3333333)')
+    expect(await guardsBefore(host, 'Bash', push, 'f4')).toContain('3 fix rounds already pushed after a review (onto 1111111, 2222222, 3333333)')
     expect(calls).toContain('gh pr list --head VC-7')
   })
 
-  test('any phase counts: a general-purpose agent or the main loop pushing to the PR takes a round', async () => {
+  test('pushes onto a head no review read continue the round: a fresh agent after a CI wait adds none', async () => {
     await loop()
-    await guardsBefore(gh(sha(1)).host, 'Bash', push, 'g1')
-    await guardsBefore(gh(sha(2)).host, 'Bash', push, undefined)
-    await guardsBefore(fakeHost().host, ...skill('agile-10-implement'), undefined)
-    await guardsBefore(gh(sha(3)).host, 'Bash', push, undefined)
-    expect(await guardsBefore(gh(sha(4)).host, 'Bash', push, 'f1')).toContain('fix rounds already')
+    await spend()
+    // a mutant and its revert, each from a fresh session agent, onto heads no review read
+    for (const [n, agent] of [[5, 'ms'], [6, 'f4'], [7, 'g1']] as const) expect(await guardsBefore(gh(sha(n)).host, 'Bash', push, agent)).toBeUndefined()
+    // the main loop pushing again onto a reviewed head a round already started from is that round
+    expect(await guardsBefore(gh(sha(3)).host, 'Bash', push, undefined)).toBeUndefined()
   })
 
-  test('in the main loop or a session agent, a Skill or Agent call in between starts a new round', async () => {
+  test('a push that restores a reviewed tree takes no round, even past the cap', async () => {
     await loop()
-    for (const n of [1, 2]) expect(await guardsBefore(gh(sha(n)).host, 'Bash', push, 'ms')).toBeUndefined()
-    await guardsBefore(fakeHost().host, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer' }, 'ms')
-    await guardsBefore(gh(sha(3)).host, 'Bash', push, 'ms')
-    await guardsBefore(fakeHost().host, ...skill('merge-fix-until-satisfied', 'PR #7'), 'ms')
-    await guardsBefore(gh(sha(4)).host, 'Bash', push, 'ms')
-    await guardsBefore(fakeHost().host, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer' }, 'ms')
-    expect(await guardsBefore(gh(sha(5)).host, 'Bash', push, 'ms')).toContain('3 fix rounds already pushed')
+    await spend()
+    await review(OTHER)
+    const trees = { tree: { 'VC-7': 'T1', [sha(2)]: 'T1', [OTHER]: 'T9' } }
+    expect(await guardsBefore(gh(OTHER, trees).host, 'Bash', push, 'f4')).toBeUndefined()
+    // a commit in the same command lands after the check: no restore exemption, and the refusal says how
+    expect(await guardsBefore(gh(OTHER, trees).host, 'Bash', { command: 'git commit -m x && git push origin VC-7' }, 'f4')).toContain('commit first, then push in a command of its own')
+  })
+
+  test('a person can allow one more round on the PR', async () => {
+    await loop()
+    await spend()
+    await review(OTHER)
+    const refused = await guardsCheck(gh(OTHER).host, 'Bash', push, 'f4')
+    expect(refused.offer).toEqual({ rule: 'fix', pr: 7 })
+    guardsAllow(fakeHost().host, refused.offer!, 1_000, 0)
+    const passed = await guardsCheck(gh(OTHER).host, 'Bash', push, 'f4')
+    expect(passed.deny).toBeUndefined()
+    expect(passed.notes[0]).toMatchObject({ kind: 'bypassed', rule: 'fix' })
+    await review(MID)
+    expect(await guardsBefore(gh(MID).host, 'Bash', push, 'f4')).toContain('4 fix rounds already pushed')
+  })
+
+  test('the cap follows fixRounds, and 0 turns it off', async () => {
+    await loop()
+    guardsConfigure(configOf({ fixRounds: 1 }).config)
+    await review(sha(1))
+    await guardsBefore(gh(sha(1)).host, 'Bash', push, 'f1')
+    await review(sha(2))
+    expect(await guardsBefore(gh(sha(2)).host, 'Bash', push, 'f2')).toContain('1 fix rounds already pushed')
+    guardsConfigure(configOf({ fixRounds: 0 }).config)
+    expect(await guardsBefore(gh(sha(2)).host, 'Bash', push, 'f2')).toBeUndefined()
+  })
+
+  test('any phase counts: a general-purpose agent or the main loop pushing onto a reviewed head takes a round', async () => {
+    await loop()
+    for (const [n, agent] of [[1, 'g1'], [2, undefined], [3, 'u1']] as const) {
+      await review(sha(n))
+      await guardsBefore(gh(sha(n)).host, 'Bash', push, agent)
+    }
+    await review(sha(4))
+    expect(await guardsBefore(gh(sha(4)).host, 'Bash', push, 'f1')).toContain('fix rounds already')
   })
 
   test('a push of merge commits alone is an update, and takes no round', async () => {
     await loop()
-    for (const n of [1, 2, 3]) await guardsBefore(gh(sha(n)).host, 'Bash', push, `f${n}`)
+    await spend()
+    await review(OTHER)
     const update = gh(OTHER, { onlyMerges: { [`${OTHER}..VC-7`]: true } })
     expect(await guardsBefore(update.host, 'Bash', push, 'u1')).toBeUndefined()
     // the base's own commits, brought in by the merge, are not the PR's
@@ -256,7 +406,8 @@ describe('fix-round cap', () => {
 
   test('the PR comes from the pushed branch: a bare push from git, refspec targets, every target', async () => {
     await loop()
-    for (const n of [1, 2, 3]) await guardsBefore(gh(sha(n)).host, 'Bash', push, `f${n}`)
+    await spend()
+    await review(OTHER)
     const bare = gh(OTHER, { pushBranch: { '/w': 'VC-7' } })
     expect(await guardsBefore(bare.host, 'Bash', { command: 'cd /w && git push' }, 'f4')).toContain('fix rounds already')
     expect(bare.calls).toContain('git -C /w rev-parse @{push}')
@@ -302,7 +453,8 @@ describe('fix-round cap', () => {
     ]
     for (const command of hidden) expect(await guardsBefore(gh().host, 'Bash', { command }, 'f1')).toMatch(/^agile-mods: /)
     expect(await guardsBefore(gh().host, 'Bash', { command: '"git" push origin main' }, 'f1')).toContain('never pushes to main')
-    for (const n of [1, 2, 3]) await guardsBefore(gh(sha(n)).host, 'Bash', push, `f${n}`)
+    await spend()
+    await review(OTHER)
     // past the cap, deleting the branch is not a fix round
     expect(await guardsBefore(gh(OTHER).host, 'Bash', { command: 'git push origin --delete VC-7' }, 'f4')).toBeUndefined()
     expect(await guardsBefore(gh(OTHER).host, 'Bash', { command: 'git push origin :VC-7' }, 'f4')).toBeUndefined()
@@ -312,11 +464,15 @@ describe('fix-round cap', () => {
     expect(await guardsBefore(gh(OTHER).host, 'Bash', { command: 'git push origin --delete main' }, 'f4')).toContain('never pushes to main')
   })
 
-  test('a dispatch text naming only a PR with spent rounds is refused before the work', async () => {
+  test('a dispatch text naming only a PR with spent rounds, at a reviewed head, is refused before the work', async () => {
     await loop()
-    for (const n of [1, 2, 3]) await guardsBefore(gh(sha(n)).host, 'Bash', push, `f${n}`)
-    expect(await guardsBefore(gh().host, 'Agent', { subagent_type: 'agile-merge-review:fix-until-satisfied', description: 'fix PR #7' }, undefined)).toContain('fix rounds already')
-    expect(await guardsBefore(gh().host, 'Agent', { subagent_type: 'agile-merge-review:fix-until-satisfied', description: 'fix PR #7 like #41' }, undefined)).toBeUndefined()
+    await spend()
+    const fix = (description: string) => ({ subagent_type: 'agile-merge-review:fix-until-satisfied', description })
+    // the live head is unreviewed: the fix continues the last round
+    expect(await guardsBefore(gh(OTHER).host, 'Agent', fix('fix PR #7'), undefined)).toBeUndefined()
+    await review(OTHER)
+    expect(await guardsBefore(gh(OTHER).host, 'Agent', fix('fix PR #7'), undefined)).toContain('fix rounds already')
+    expect(await guardsBefore(gh(OTHER).host, 'Agent', fix('fix PR #7 like #41'), undefined)).toBeUndefined()
   })
 
   test('side doors are refused inside a loop: the API, GitHub MCP branch writes, git aliases', async () => {
@@ -398,11 +554,13 @@ describe('fix-round cap', () => {
     await loop()
     const failing = (head: string) => fakeHost({ agents, storeFails: true, prOfBranch: { 'VC-7': { number: 7, headRefOid: head } } })
     for (const n of [1, 2, 3]) {
+      await review(sha(n))
       const { host, logs } = failing(sha(n))
       await guardsBefore(host, 'Bash', push, `f${n}`)
       await new Promise(r => setTimeout(r, 0))
       expect(logs).toEqual(['agile-mods: store write failed: Error: disk full'])
     }
+    await review(OTHER)
     expect(await guardsBefore(failing(OTHER).host, 'Bash', push, 'f4')).toContain('fix rounds already')
     const reviewer = fakeHost({ agents: [REVIEWER], storeFails: true })
     await guardsBefore(reviewer.host, ...skill('agile-11-merge-train'), undefined)
@@ -414,24 +572,30 @@ describe('fix-round cap', () => {
   test('the count survives a restart, and reset clears it', async () => {
     await loop()
     const hosts = [1, 2, 3].map(n => gh(sha(n)))
-    for (const [i, h] of hosts.entries()) await guardsBefore(h.host, 'Bash', push, `f${i + 1}`)
+    for (const [i, h] of hosts.entries()) {
+      await review(sha(i + 1))
+      await guardsBefore(h.host, 'Bash', push, `f${i + 1}`)
+    }
     // the last write holds every round
     const saved = hosts[2]!
-    expect(saved.store.get('fixes')).toEqual({ 7: { ids: ['agent:f1', 'agent:f2', 'agent:f3'], heads: [sha(1), sha(2), sha(3)] } })
-    // a new session: memory empty, the store read back
+    expect(saved.store.get('rounds')).toEqual({ 7: { heads: [sha(1), sha(2), sha(3)] } })
+    // a new session: memory empty, the store read back (the reads too, so OTHER stays reviewed)
+    const reads = fakeHost({ agents })
+    await guardsAfter(reads.host, 'Bash', { command: `git show ${OTHER}:src/a.ts` }, 'r1', 'text')
     guardsReset()
     const next = gh(OTHER)
-    next.store.set('fixes', saved.store.get('fixes'))
+    next.store.set('rounds', saved.store.get('rounds'))
+    next.store.set('reads', reads.store.get('reads'))
     await guardsStart(next.host, '/repo')
     await loop()
     expect(await guardsBefore(next.host, 'Bash', push, 'f4')).toContain('3 fix rounds already pushed')
     guardsReset(next.host)
-    expect(next.store.get('fixes')).toEqual({})
+    expect(next.store.get('rounds')).toEqual({})
   })
 
-  test('an older store entry (heads per PR, not rounds) is not read as rounds', async () => {
+  test('an older store entry (rounds per agent run) is not read as review rounds', async () => {
     const old = gh(OTHER)
-    old.store.set('fixes', { 7: [sha(1), sha(2), sha(3)] })
+    old.store.set('rounds', { 7: { ids: ['agent:f1', 'agent:f2', 'agent:f3'] } })
     guardsReset()
     await guardsStart(old.host, '/repo')
     await loop()

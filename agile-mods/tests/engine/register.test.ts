@@ -169,23 +169,51 @@ describe('loop limits through the engine', () => {
     expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toBe('ok')
   })
 
-  test('a fourth fix round pushing to a PR is refused: the PR from the branch, the round from the agent', async ($, on) => {
+  test('a fourth fix round pushing to a PR is refused: the PR from the branch, a round per reviewed head', async ($, on) => {
     const pr = { stdout: '' }
     const fixers = [1, 2, 3, 4].map(n => ({ id: `f${n}`, type: 'agile-merge-review:fix-until-satisfied' }))
-    const w = world(on, { agents: fixers, gh: { 'gh pr list --head VC-7': pr } })
+    const w = world(on, { agents: [...fixers, { id: 'r1', type: 'agile-merge-review:pr-reviewer' }], gh: { 'gh pr list --head VC-7': pr } })
     await start($)
     await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never)
     const push = (agentId: string) => $.tool.call({ tool: 'Bash', command: 'git push origin VC-7', agentId } as never)
+    const review = (head: string) => $.tool.call({ tool: 'Bash', command: `git show ${head}:src/a.ts`, agentId: 'r1' } as never)
     for (const n of [1, 2, 3]) {
+      await review(String(n).repeat(40))
       pr.stdout = JSON.stringify([{ number: 7, headRefOid: String(n).repeat(40), baseRefName: 'main' }])
       expect(said(await push(`f${n}`))).toBe('ok')
     }
+    // a push onto a head no review read continues the round
+    pr.stdout = JSON.stringify([{ number: 7, headRefOid: '9'.repeat(40), baseRefName: 'main' }])
+    expect(said(await push('f4'))).toBe('ok')
+    await review('4'.repeat(40))
     pr.stdout = JSON.stringify([{ number: 7, headRefOid: '4'.repeat(40), baseRefName: 'main' }])
     expect(said(await push('f4'))).toContain('3 fix rounds already pushed')
     expect(w.ran).toContain('gh pr list --head VC-7 --state open --json number,headRefOid,baseRefName')
-    expect(w.tools.filter(t => t.startsWith('git push'))).toHaveLength(3)
+    expect(w.tools.filter(t => t.startsWith('git push'))).toHaveLength(4)
     // what a push adds is read against the PR head, less what the base already has
     expect(w.ran).toContain(`git -C /repo rev-list --no-merges ${'1'.repeat(40)}..VC-7 ^origin/main`)
+    // a person allows one more round from the Guards tab
+    await $.command.run({ command: 'agile-board', args: 'allow 1' } as never)
+    expect(said(await push('f4'))).toBe('ok')
+  })
+
+  test('a reviewer read that does not count is told at once, and a refused merge can be allowed once', async ($, on) => {
+    const w = world(on, {
+      agents: [{ id: 'r1', type: 'agile-merge-review:pr-reviewer' }],
+      gh: { 'gh pr view 7': { stdout: JSON.stringify({ headRefOid: SHA, state: 'OPEN' }) } },
+    })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never)
+    const r = await $.tool.call({ tool: 'Bash', command: `git show ${SHA.slice(0, 8)}:src/a.ts`, agentId: 'r1' } as never) as { context?: string[] }
+    expect(r.context?.join('\n')).toContain('is not a commit in this repository')
+    expect(w.ran).toContain(`git -C /repo rev-parse --verify --quiet ${SHA.slice(0, 8)}^{commit}`)
+    const merge = () => $.tool.call({ tool: 'Bash', command: `gh pr merge 7 --squash --match-head-commit ${SHA}` } as never)
+    expect(said(await merge())).toContain('A person can allow this once')
+    expect(w.tools.filter(t => t.startsWith('gh pr merge'))).toHaveLength(0)
+    const allowed = await $.command.run({ command: 'agile-board', args: 'allow 1' } as never) as { text?: string }
+    expect(allowed.text).toContain('allowed once: merge PR #7')
+    expect(said(await merge())).toBe('ok')
+    expect(said(await merge())).toContain('could not read CI')
   })
 
   test('/agile-board reads the files of each open PR once per head, for the overlap map', async ($, on) => {

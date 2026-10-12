@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { covers, END, readsOf, unreadFiles, withReads } from '../../hooks/state/review.ts'
+import { covers, END, howRead, parseReads, planChunks, readsOf, withReads, type Change } from '../../hooks/state/review.ts'
+import { configOf, modesLine, repoConfigOf, tightened } from '../../hooks/state/config.ts'
+import { allow, budgetOpen, openOf, take3f, takeFix, BYPASS_MS } from '../../hooks/state/bypass.ts'
 import { guardedCall } from '../../hooks/guards.ts'
-import { sideDoorDenial, budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
+import { sideDoorDenial, budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeProblems, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -33,6 +35,9 @@ describe('review coverage', () => {
     expect(readsOf(`git cat-file -p ${SHA}:c.ts`)).toEqual([{ sha: SHA, path: 'c.ts' }])
     expect(readsOf(`git show ${SHA}:a.ts | head -40`)).toEqual([{ sha: SHA, path: 'a.ts', range: [1, 40] }])
     expect(readsOf(`git show $SHA:a.ts; git show ${SHA}:$f`)).toEqual([])
+    // a sha set in a variable on the line reads as that sha; an abbreviated one is kept for the hook to resolve
+    expect(readsOf(`S=${SHA}; git show $S:a.ts && git show \${S}:b.ts`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
+    expect(readsOf(`git show ${SHA.slice(0, 8)}:a.ts`)).toEqual([{ sha: SHA.slice(0, 8), path: 'a.ts' }])
     expect(readsOf(`cat src/a.ts`)).toEqual([])
   })
 
@@ -43,8 +48,6 @@ describe('review coverage', () => {
       `${show} 2>/dev/null`,
       `echo "x && ${show}"`,
       `false || ${show}`,
-      `true; ${show}; x`,
-      `false\n${show}`,
       `${show} &`,
       `(${show})`,
       `x=$(${show})`,
@@ -52,8 +55,15 @@ describe('review coverage', () => {
       `git show --stat ${SHA}:a.ts`,
       `git show ${SHA}:a.ts ${SHA}:b.ts --name-only`,
       `${show} | wc -l`,
-      `git show ${SHA.slice(0, 12)}:a.ts`,
+      `git show ${SHA.slice(0, 6)}:a.ts`,
+      // a read after && runs only if the command before it succeeded, which the guard cannot see
+      `gh pr diff 1 --name-only && ${show}`,
+      `cat <<EOF\n${show}\nEOF`,
     ]) expect(readsOf(command)).toEqual([])
+    // each read in a chain counts on its own; other commands on the line are left out
+    expect(readsOf(`true; ${show}; x`)).toEqual([{ sha: SHA, path: 'a.ts' }])
+    expect(readsOf(`false\n${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])
+    expect(readsOf(`git diff origin/main -- x; echo ----; ${show}; gh run view 1 --log | grep x`)).toEqual([{ sha: SHA, path: 'a.ts' }])
     expect(readsOf(`${show} && git show ${SHA}:b.ts | nl`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
     // one file piped first into a line-range filter is a ranged read
     expect(readsOf(`git show ${SHA}:a.ts | sed -n 10,90p | nl`)).toEqual([{ sha: SHA, path: 'a.ts', range: [10, 90] }])
@@ -66,29 +76,75 @@ describe('review coverage', () => {
     expect(readsOf(`git show ${SHA}:a.ts | head -n5`)).toEqual([{ sha: SHA, path: 'a.ts', range: [1, 5] }])
     expect(readsOf(`git show ${SHA}:a.ts | sed -n 50,10p`)).toEqual([])
     expect(readsOf(`git show ${SHA}:a.ts | sed -n 0,10p`)).toEqual([])
-    expect(readsOf(`git show ${SHA}:a.ts | sed -n 1,9p\;20,30p`)).toEqual([])
+    // the shell splits at the ; too: lines 1-9 were shown, and `20,30p` is a command of its own
+    expect(readsOf(`git show ${SHA}:a.ts | sed -n 1,9p\;20,30p`)).toEqual([{ sha: SHA, path: 'a.ts', range: [1, 9] }])
     expect(covers([[1, 100], [101, 149], [150, END]], 400)).toBe(true)
     expect(covers([[1, 100], [102, 400]], 400)).toBe(false)
     expect(covers([[1, 300]], 400)).toBe(false)
     // reads joined by ; with echo separators, and a range after cat -n
     expect(readsOf(`${show}; echo '----'; git show ${SHA}:b.ts`)).toEqual([{ sha: SHA, path: 'a.ts' }, { sha: SHA, path: 'b.ts' }])
     expect(readsOf(`git show ${SHA}:a.ts | cat -n | sed -n 100,220p`)).toEqual([{ sha: SHA, path: 'a.ts', range: [100, 220] }])
-    expect(readsOf(`${show}; echo "$x"`)).toEqual([])
-    expect(readsOf(`${show}; rm -rf x`)).toEqual([])
+    expect(readsOf(`${show}; echo "$x"`)).toEqual([{ sha: SHA, path: 'a.ts' }])
+    expect(readsOf(`${show}; rm -rf x`)).toEqual([{ sha: SHA, path: 'a.ts' }])
     expect(readsOf(`git show ${SHA}:a.ts | head -n 9 | tail -n +3`)).toEqual([])
     // a leading cd picks the repository; the full sha still names the object
     expect(readsOf(`cd /w/repo && ${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])
     expect(readsOf(`cd /w/repo; ${show}`)).toEqual([{ sha: SHA, path: 'a.ts' }])
-    expect(readsOf(`cd /w; ${show}; gh pr merge 1`)).toEqual([])
+    expect(readsOf(`cd /w; ${show}; gh pr merge 1`)).toEqual([{ sha: SHA, path: 'a.ts' }])
     expect(readsOf(`cd $D && ${show}`)).toEqual([])
-    expect(readsOf(`gh pr diff 1 --name-only && ${show}`)).toEqual([])
+    expect(parseReads(`cd /w/repo && git -C /x show ${SHA}:a.ts; ${show}`).reads.map(r => r.dir)).toEqual(['/x', '/w/repo'])
   })
 
-  test('a file is read when shown at the head, or at an ancestor with no change since', () => {
-    const reads = withReads(withReads({}, `git show ${SHA}:a.ts ${SHA}:b.ts`, ''), `git show ${OTHER}:b.ts`, '')
-    expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: ['b.ts'] })).toEqual([])
-    expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: ['a.ts', 'b.ts'] })).toEqual(['a.ts'])
-    expect(unreadFiles(reads, OTHER, ['a.ts', 'b.ts'], { [SHA]: undefined })).toEqual(['a.ts'])
+  test('a diff counts when it shows every changed line between two shas', () => {
+    expect(parseReads(`git diff ${SHA}..${OTHER}`).diffs).toEqual([{ from: SHA, to: OTHER }])
+    expect(parseReads(`git -C /w diff -U20 ${SHA.slice(0, 8)} ${OTHER} -- a.ts ./b.ts | cat`).diffs).toEqual([{ from: SHA.slice(0, 8), to: OTHER, paths: ['a.ts', 'b.ts'], dir: '/w' }])
+    for (const flag of ['--stat', '--name-only', '--name-status', '--shortstat', '-w', '--ignore-all-space', '--diff-filter=M']) {
+      const parsed = parseReads(`git diff ${flag} ${SHA}..${OTHER}`)
+      expect(parsed.diffs).toEqual([])
+      expect(parsed.skipped[0]).toContain('hides changed lines')
+    }
+    for (const command of [`git diff ${SHA}...${OTHER}`, `git diff origin/main..${OTHER}`, `git diff ${SHA}..${OTHER} | head -50`, `git diff ${SHA}..${OTHER} -- 'src/*'`]) {
+      expect(parseReads(command).diffs).toEqual([])
+    }
+  })
+
+  test('a part that names a sha and does not count says why', () => {
+    expect(parseReads(`git show ${SHA}:a.ts | cut -c1-400`).skipped[0]).toContain('drops lines')
+    expect(parseReads(`git show ${SHA}:a.ts > /tmp/x`).skipped[0]).toContain('not a plain read')
+    expect(parseReads(`false || git show ${SHA}:a.ts`).skipped[0]).toContain('fails')
+    expect(parseReads('ls && echo ok').skipped).toEqual([])
+  })
+
+  test('the chunk plan keeps each chunk under the limit', () => {
+    const text = Array.from({ length: 10 }, (_, i) => String(i).repeat(9)).join('\n') + '\n'
+    expect(planChunks(text, 25)).toEqual([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
+    expect(planChunks('x'.repeat(40) + '\ny\n', 25)).toEqual([[1, 1], [2, 2]])
+  })
+
+  test('a file counts in full, unchanged since a read, or by a diff since a read', async () => {
+    const MID = 'c'.repeat(40)
+    const changes: Record<string, Change[]> = {
+      [`${SHA}..${MID}`]: [{ status: 'M', path: 'b.ts' }, { status: 'A', path: 'n.ts' }, { status: 'R', from: 'old.ts', path: 'r.ts' }],
+      [`${MID}..${OTHER}`]: [{ status: 'M', path: 'b.ts' }],
+      [`${SHA}..${OTHER}`]: [{ status: 'M', path: 'b.ts' }, { status: 'A', path: 'n.ts' }, { status: 'R', from: 'old.ts', path: 'r.ts' }],
+    }
+    const know = { changes: async (a: string, b: string) => changes[`${a}..${b}`], lines: async () => undefined }
+    const reads = withReads({}, `git show ${SHA}:a.ts ${SHA}:b.ts ${SHA}:old.ts`, '')
+    const at = (diffs: Record<string, { from: string; paths: string[] | '*' }[]>, sha: string, path: string) => howRead({ reads, parts: {}, diffs }, know, sha, path)
+    // unchanged since a full read: carried, whatever the history
+    expect(await at({}, OTHER, 'a.ts')).toBe('carried')
+    expect(await at({}, OTHER, 'b.ts')).toBeUndefined()
+    // changed: the diff from the read sha covers it; added and renamed files too
+    const one = { [OTHER]: [{ from: SHA, paths: '*' as const }] }
+    for (const f of ['a.ts', 'b.ts', 'n.ts', 'r.ts']) expect(await at(one, OTHER, f)).toBeTruthy()
+    // a diff limited to other paths does not cover b.ts
+    expect(await at({ [OTHER]: [{ from: SHA, paths: ['a.ts'] }] }, OTHER, 'b.ts')).toBeUndefined()
+    // chained: SHA..MID then MID..OTHER
+    const chain = { [MID]: [{ from: SHA, paths: '*' as const }], [OTHER]: [{ from: MID, paths: '*' as const }] }
+    expect(await at(chain, OTHER, 'b.ts')).toBe('delta')
+    expect(await at(chain, OTHER, 'n.ts')).toBe('delta')
+    // a diff from a sha nobody read proves nothing
+    expect(await at({ [OTHER]: [{ from: MID, paths: '*' as const }] }, OTHER, 'b.ts')).toBeUndefined()
   })
 
   test('the same read twice keeps one entry', () => {
@@ -118,6 +174,17 @@ describe('3f merge gates', () => {
     expect(mergeDenial(12, SHA, { live, ci, unread: ['a', 'b', 'c', 'd', 'e', 'f'] })).toContain('a, b, c, d, e and 1 more')
     expect(mergeDenial(12, SHA.slice(0, 12), { live, ci, unread: [] })).toBeUndefined()
     expect(mergeDenial(12, SHA, { live: { headRefOid: OTHER, state: 'MERGED' } })).toBeUndefined()
+    // after a fix, the refusal names the diff form; a session agent is told to read itself, with the chunk plan
+    const unread = mergeDenial(12, SHA, { live, ci, unread: ['a'], plans: ['git show x:a | sed -n 1,9p · 10,20p'], inline: true })!
+    expect(unread).toContain('git diff <reviewed sha>..<head>')
+    expect(unread).toContain('sed -n 1,9p · 10,20p')
+    expect(unread).toContain('read what is missing yourself (3b)')
+  })
+
+  test('each problem names its gate, and an unchecked gate is skipped', () => {
+    const live = { headRefOid: SHA, state: 'OPEN' }
+    expect(mergeProblems(12, undefined, { live, ci: { state: 'red', detail: 'x' }, unread: ['a'] }).map(p => p.gate)).toEqual(['mergePin', 'mergeCi', 'mergeReview'])
+    expect(mergeProblems(12, undefined, { live, unread: [] }, { mergePin: false, mergeCi: false, mergeReview: true })).toEqual([])
   })
 })
 
@@ -142,18 +209,20 @@ describe('push guard', () => {
 })
 
 describe('fix-round cap', () => {
-  const rounds = { ids: ['agent:f1', 'loop::4', 'loop:s1:9'], heads: ['1'.repeat(40), '2'.repeat(40), '3'.repeat(40)] }
+  const rounds = { heads: ['1'.repeat(40), '2'.repeat(40), '3'.repeat(40)] }
 
-  test('a new round passes under the cap; a counted round pushes again freely', () => {
+  test('a new round passes under the cap, and a person can allow more', () => {
     expect(FIX_ROUNDS).toBe(3)
-    expect(fixDenial(7, undefined, 'agent:x')).toBeUndefined()
-    expect(fixDenial(7, { ids: rounds.ids.slice(0, 2), heads: rounds.heads.slice(0, 2) }, 'agent:x')).toBeUndefined()
-    expect(fixDenial(7, rounds, 'loop::4')).toBeUndefined()
+    expect(fixDenial(7, undefined)).toBeUndefined()
+    expect(fixDenial(7, { heads: rounds.heads.slice(0, 2) })).toBeUndefined()
+    expect(fixDenial(7, { ...rounds, extra: 1 })).toBeUndefined()
+    expect(fixDenial(7, rounds, 0)).toBeUndefined()
+    expect(fixDenial(7, rounds, 5)).toBeUndefined()
   })
 
   test('a fourth round is refused and sent to 3d', () => {
-    const deny = fixDenial(7, rounds, 'agent:f9')!
-    expect(deny).toContain('3 fix rounds already pushed (onto 1111111, 2222222, 3333333)')
+    const deny = fixDenial(7, rounds)!
+    expect(deny).toContain('3 fix rounds already pushed after a review (onto 1111111, 2222222, 3333333)')
     expect(deny).toContain('take 3d')
     expect(ruleOf(deny)).toBe('fix')
   })
@@ -173,9 +242,10 @@ describe('fix-round cap', () => {
     expect(pushDenial('git push origin feat/a 2>&1 | tail -2', 'a')).toBeUndefined()
   })
 
-  test('a failed read joined by ; credits nothing', () => {
+  test('a git error voids the reads it names, or every read when it names none', () => {
     const SHA = 'a'.repeat(40)
-    expect(withReads({}, `git show ${SHA}:a.ts; git show ${SHA}:b.ts`, "fatal: path 'a.ts' does not exist\nb text")).toEqual({})
+    expect(withReads({}, `git show ${SHA}:a.ts; git show ${SHA}:b.ts`, "fatal: path 'a.ts' does not exist\nb text")).toEqual({ [SHA]: ['b.ts'] })
+    expect(withReads({}, `git show ${SHA}:a.ts; git show ${SHA}:b.ts`, 'fatal: bad object\nb text')).toEqual({})
     expect(withReads({}, `git show ${SHA}:a.ts; git show ${SHA}:b.ts`, 'a text\nb text')).toEqual({ [SHA]: ['a.ts', 'b.ts'] })
   })
 
@@ -273,5 +343,61 @@ describe('budget stop', () => {
     expect(isBuildWork('Bash', { command: 'gh api repos/o/r/pulls/7/comments/9/replies -f body=x' })).toBe(false)
     expect(isBuildWork('Skill', { skill: 'merge-review-pr' })).toBe(false)
     expect(isBuildWork('Bash', { command: 'git push' })).toBe(false)
+  })
+})
+
+describe('guard config', () => {
+  test('options are checked, and a bad value keeps its default with a note', () => {
+    const { config, notes } = configOf({ guardMergeReview: 'warn', guardPush: 'off', fixRounds: '5', budgetUsd: -1, allowBypass: 'no' })
+    expect(config.modes.mergeReview).toBe('warn')
+    expect(config.modes.push).toBe('enforce')
+    expect(config.fixRounds).toBe(5)
+    expect(config.budgetUsd).toBe(0)
+    expect(config.allowBypass).toBe(true)
+    expect(notes.join('\n')).toMatch(/guardPush.*enforce, warn/)
+    expect(notes.length).toBe(3)
+    expect(modesLine(config)).toContain('mergeReview warn')
+  })
+
+  test('a repo only tightens', () => {
+    const base = configOf({ guardMergeCi: 'warn', fixRounds: 3, budgetUsd: 20 }).config
+    const repo = repoConfigOf('## Skill configuration\n- guardMergeCi: enforce\n- guardGrants: off\n- fixRounds: 5\n- budgetUsd = 10\n- allowBypass: false\n')
+    const { config, notes } = tightened(base, repo)
+    expect(config.modes.mergeCi).toBe('enforce')
+    expect(config.modes.grants).toBe('enforce')
+    expect(config.fixRounds).toBe(3)
+    expect(config.budgetUsd).toBe(10)
+    expect(config.allowBypass).toBe(false)
+    expect(notes.join('\n')).toMatch(/guardGrants: off is looser/)
+    expect(notes.join('\n')).toMatch(/fixRounds: 5 is looser/)
+    expect(tightened(configOf({ fixRounds: 0 }).config, { fixRounds: '2' }).config.fixRounds).toBe(2)
+    expect(tightened(base, { fixRounds: '0' }).notes[0]).toContain('turn it off')
+  })
+})
+
+describe('bypass', () => {
+  test('a merge bypass covers one PR at its head, once, for 30 minutes', () => {
+    const list = allow([], { rule: '3f', pr: 7, head: SHA }, 0, 0)
+    expect(take3f(list, 8, [SHA], 1)).toBeUndefined()
+    expect(take3f(list, 7, [OTHER], 1)).toBeUndefined()
+    expect(take3f(list, 7, [SHA.slice(0, 12)], 1)).toEqual([])
+    expect(take3f(list, 7, [SHA], BYPASS_MS + 1)).toBeUndefined()
+    expect(openOf(list, BYPASS_MS + 1, () => false, 0)).toEqual([])
+  })
+
+  test('a fix bypass is one more round on that PR', () => {
+    const list = allow([], { rule: 'fix', pr: 7 }, 0, 0)
+    expect(takeFix(list, 7, 1)).toEqual([])
+    expect(takeFix(list, 9, 1)).toBeUndefined()
+  })
+
+  test('a budget bypass lasts until its ticket ends; one naming no ticket until the next merge', () => {
+    const list = allow(allow([], { rule: 'budget', ticket: 'VC-1' }, 0, 2), { rule: 'budget' }, 0, 2)
+    expect(budgetOpen([list[0]!], ['VC-1'])).toBe(true)
+    expect(budgetOpen([list[0]!], ['VC-2'])).toBe(false)
+    expect(budgetOpen([list[0]!], [])).toBe(true)
+    expect(openOf(list, BYPASS_MS * 10, () => false, 2)).toBe(list)
+    expect(openOf(list, 0, t => t === 'VC-1', 2)).toEqual([list[1]!])
+    expect(openOf(list, 0, () => false, 3)).toEqual([list[0]!])
   })
 })

@@ -10,7 +10,7 @@ You are the last read before the base branch — nothing downstream re-reads thi
 
 Run the `merge-review-pr` skill (Skill tool) with the PR number from your dispatch prompt. You did not write this code; do not rubber-stamp it. Its lenses and its Files-read / lens-verdict / AC-verification receipt sections are the contract the caller verifies against the PR diff. Read-only — never edit files here. Return the full review report as your result.
 
-**Read every file at the reviewed commit** (`git show <sha>:<path>`), never from the working tree: the checkout may be on another branch and concurrent work uses worktrees, so a working-tree read is a statement about the wrong tree. State the sha you read at. A file too large for one read goes in consecutive `| sed -n A,Bp` ranges to its last line (merge-review-pr step 4).
+**Read every file at the reviewed commit** (`git show <sha>:<path>`), never from the working tree: the checkout may be on another branch and concurrent work uses worktrees, so a working-tree read is a statement about the wrong tree. State the sha you read at. A file too large for one read goes in consecutive `| sed -n A,Bp` ranges, sized by characters, to its last line; a delta review reads `git diff <reviewed sha>..<head>` (merge-review-pr step 4).
 
 **Run the skill; do not re-implement it.** Its steps, gates, order, and output format are the contract — never substitute your own procedure, skip a gate, reorder steps, or improvise around one that looks unnecessary. If the skill genuinely cannot be followed, emit the receipt with `blocked` naming what stopped you.
 
