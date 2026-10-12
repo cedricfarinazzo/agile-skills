@@ -192,13 +192,24 @@ Where each lives in the code:
 
 | Source | Read with | Gives |
 |---|---|---|
-| PRs | `gh pr list --state all --limit 100 --json number,title,headRefName,headRefOid,state,createdAt,mergedAt,url` | Open PRs, and closed ones since the first loop or naming a board ticket: ticket key, head, merged, times. Every merged PR feeds aging and the forecast |
+| PRs | `gh pr list --state all --limit 100 --json number,title,headRefName,headRefOid,state,createdAt,mergedAt,url,additions,deletions` | Open PRs, and closed ones since the first loop or naming a board ticket: ticket key, head, merged, times, lines added and deleted. Every merged PR feeds aging and the forecast |
 | PR files | `gh api --paginate repos/{owner}/{repo}/pulls/<n>/files`, once per open PR head, 5 per refresh | The overlap map, review coverage |
 | CI | `gh run list --limit 100 --json databaseId,headSha,status,conclusion,workflowName,createdAt` | The latest run per workflow on each sha |
 | Jira sprint | `searchJiraIssuesUsingJql`: `(project in (…) AND sprint in openSprints()) OR key in (…)`, fields `summary, status, labels, statuscategorychangedate, <points field>`, 50 a page (halved down to 5 if an answer is too large), 4 pages at most | Status, points, parked (`needs-info` or a Needs Info status), time in status, the review verdict label (`dev-review-approved`, `dev-review-changes-requested`) |
 | Jira comments | The same search with `key = <key>` and `comment`, up to 4 tickets per refresh | The `agile:phase=<x>` markers: the latest, the set seen, and the `rework` count |
 | Tool calls | The `tool.call` hook (the call, not its result) | Which loop and stage started, train steps per PR, which ticket and `cloudId` a Jira call names |
 | The engine | `$.session.usage()`, `turn.step`, `$.agent.list()` | Spend, tokens and cache hits per stage and agent, the agents lane |
+
+**Ticket cost.** Counted from `turn.step`, which reports each request's tokens and model:
+
+| Part | Rule |
+|---|---|
+| Whose requests | A loop agent's only (`agile-execution`, `agile-merge-review`, `agile-sprint-drain` agents). The main session's are not counted per ticket |
+| Which ticket | The one ticket the agent's dispatch description names (or the PR it names). A `build-session` or `merge-session`, which work several tickets in turn, follow the one ticket their latest tool call names; a call naming several tickets, or none the board knows, moves nothing |
+| Price | USD per million tokens, input / output: `opus` 5 / 25, `sonnet` 3 / 15, `haiku` 1 / 5. Cache reads cost a tenth of input, cache writes 1.25 times. The model is the one the request reports; if it is not an opus, sonnet or haiku id, the one the agent's file declares. The table matches `session-audit`'s |
+| Overhead | The session's spend ledger minus the sum over tickets, never below 0 |
+| Working time | The gap between one agent's requests, a gap over 5 minutes counted as 0 |
+| Reset | A new run (a drain starting, or the first orchestrator call of a session outside a running drain) and `/agile-board reset` |
 
 **Build phase.** A marker is posted when its phase ends, so the latest marker is the phase just finished. The Flow and WIP tabs show the phase running now:
 

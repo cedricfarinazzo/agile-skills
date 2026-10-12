@@ -4,6 +4,7 @@
 // step was dispatched, and when. No answer or receipt the model writes is read.
 
 import type { PrRow, RunRow } from '../host.ts'
+import type { Cost } from './cost.ts'
 import { sameSha } from './review.ts'
 
 export type Loop = 'implement' | 'merge-train' | 'drain'
@@ -34,6 +35,8 @@ export type Ticket = {
   markedAt?: number
   /** When the latest marker comment was posted (its Jira `created`), not when it was read. */
   markAt?: number
+  /** What its agents cost this run (cost.ts). */
+  cost?: Cost
   /** When it entered its status category (Jira `statuscategorychangedate`): the start of its age in progress. */
   since?: number
 }
@@ -51,6 +54,9 @@ export type Pr = {
   step?: string
   /** How many times each train step was dispatched for this PR. */
   seen?: Record<string, number>
+  /** Lines the PR adds and deletes, as gh reports them for the head. */
+  additions?: number
+  deletions?: number
   /** Its files at `filesHead` (`gh api .../pulls/<n>/files`), for the overlap map. */
   files?: string[]
   filesHead?: string
@@ -260,6 +266,7 @@ export function applyPrs(prior: Board, rows: PrRow[], now: number): Board {
       ...(createdAt !== undefined && { createdAt }),
       ...(mergedAt !== undefined && { mergedAt }),
       ...(row.state === 'MERGED' && { step: 'merged' }),
+      ...(typeof row.additions === 'number' && typeof row.deletions === 'number' && { additions: row.additions, deletions: row.deletions }),
     })
   }
   return board

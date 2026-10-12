@@ -7,15 +7,15 @@ const SHA = 'a3f9c21'.padEnd(40, '0')
 const HOUR = 3_600_000, NOW = 30 * HOUR
 const board: any = {
   tickets: {
-    'SHOP-12': { key: 'SHOP-12', status: 'Done', category: 'done', pr: 40, points: 3 },
-    'SHOP-14': { key: 'SHOP-14', status: 'In Review', category: 'indeterminate', phase: 'status_change', pr: 42, points: 5, since: 20 * HOUR },
-    'SHOP-15': { key: 'SHOP-15', status: 'In Progress', category: 'indeterminate', phase: 'plan', points: 3, since: 26 * HOUR },
+    'SHOP-12': { key: 'SHOP-12', status: 'Done', category: 'done', pr: 40, points: 3, since: 2 * HOUR, cost: { usd: 2.1, build: 1.7, merge: 0.4, ms: 41 * 60_000, firstAt: 2 * HOUR } },
+    'SHOP-14': { key: 'SHOP-14', status: 'In Review', category: 'indeterminate', phase: 'status_change', pr: 42, points: 5, since: 20 * HOUR, cost: { usd: 3.4, build: 2.6, merge: 0.8, ms: 74 * 60_000, firstAt: 20 * HOUR } },
+    'SHOP-15': { key: 'SHOP-15', status: 'In Progress', category: 'indeterminate', phase: 'plan', points: 3, since: 26 * HOUR, cost: { usd: 1.55, build: 1.55, merge: 0, ms: 22 * 60_000, firstAt: 26 * HOUR } },
     'SHOP-16': { key: 'SHOP-16', status: 'To Do', category: 'new', points: 2 },
     'SHOP-17': { key: 'SHOP-17', status: 'Needs Info', category: 'indeterminate', parked: 'needs-info', points: 2 },
   },
   order: ['SHOP-12', 'SHOP-14', 'SHOP-15', 'SHOP-16', 'SHOP-17'],
   prs: {
-    40: { number: 40, key: 'SHOP-12', state: 'MERGED', merged: true, step: 'merged', createdAt: 2 * HOUR, mergedAt: 9 * HOUR },
+    40: { number: 40, key: 'SHOP-12', state: 'MERGED', merged: true, step: 'merged', createdAt: 2 * HOUR, mergedAt: 9 * HOUR, additions: 210, deletions: 60 },
     42: { number: 42, key: 'SHOP-14', state: 'OPEN', step: '3b review', seen: { '3a update': 1, '3b review': 1 }, head: SHA, createdAt: 22 * HOUR, files: ['src/cart.ts', 'src/cart.test.ts', 'docs/cart.md'], filesHead: SHA },
   },
   prOrder: [40, 42], loop: 'drain', stage: 'merge', drain: { pass: 2, outcome: 'running' }, since: 0,
@@ -96,7 +96,7 @@ function pane(tab: string): string {
   return frame(`/agile-board ${tab}`, body, n + 1)
 }
 const out = `${import.meta.dir}/`
-for (const t of ['board', 'flow', 'drain', 'guards']) await Bun.write(`${out}console-${t}.svg`, pane(t))
+for (const t of ['board', 'flow', 'cost', 'drain', 'guards']) await Bun.write(`${out}console-${t}.svg`, pane(t))
 // status + alert above the prompt
 {
   let y = 30 + PAD + 12, body = ''

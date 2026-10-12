@@ -10,7 +10,7 @@ agile-mods is a set of [Claude Mods](https://code.claude.com/docs/en/plugins/mod
 
 | | What it does | Page |
 |---|---|---|
-| **Console** | A status line, an alert row when something needs you, and a six-tab pane: board, flow, WIP, drain, guards, links | [Console](docs/console.md) |
+| **Console** | A status line, an alert row when something needs you, and a seven-tab pane: board, flow, cost, WIP, drain, guards, links | [Console](docs/console.md) |
 | **Guards** | Refuse a merge nobody reviewed, a push to `main`, a PR that keeps failing review, build work past your budget | [Guards](docs/guards.md) |
 | **Receipts** | Flag an agent whose report breaks the contract | [Receipts](docs/receipts.md) |
 | **Retro data** | Counts for the sprint retro, recorded as the loop runs | [Retro data](docs/retro.md) |

@@ -26,6 +26,12 @@ describe('retro counts', () => {
     ])
   })
 
+  test('a merged ticket\'s cost is a line of its own, once a ticket has merged', () => {
+    let board = applyJira(EMPTY, { issues: [issue('VC-3', ['plan'])] }, 'customfield_10016', 0)
+    board = { ...board, tickets: { 'VC-3': { ...board.tickets['VC-3']!, category: 'done', pr: 4, cost: { usd: 3, build: 3, merge: 0, ms: 1, firstAt: 0 } } }, prs: { 4: { number: 4, key: 'VC-3', merged: true, additions: 90, deletions: 10 } }, prOrder: [4], spend: { usd: 3, since: 0 } }
+    expect(retroText(EMPTY_RETRO, board, DAY)).toContain('- cost per merged ticket (estimate): median $3.00 over 1, $0.030 per changed line')
+  })
+
   test('nothing recorded means no block, and old stores load', () => {
     expect(retroText(EMPTY_RETRO, EMPTY, 0)).toBeUndefined()
     expect(loadRetro({ prs: {} })).toEqual(EMPTY_RETRO)

@@ -64,6 +64,13 @@ Don't reopen these without the maintainer.
 - `allowBypass: false` ignores stored bypasses.
 - Every refusal that offers a bypass ends by telling the loop to report blocked and wait, never to hand the command to the person.
 
+**Cost** (`hooks/state/cost.ts`)
+- A ticket's cost is its loop agents' request tokens times a price per model; the main session's requests are never a ticket's. Overhead is the ledger minus the tickets, so the run total always ties to the bill.
+- `AGENT_MODEL` and `PRICES` are tables checked by a test against `*/agents/*.md` and `session-audit`'s `DEFAULT_PRICES`: change a model or a price in one place and the test names the other.
+- A session agent has no ticket of its own: its latest call that names exactly one ticket the board knows moves it, and the request that made the call moves with it. Never infer a ticket from prose in a file or command output, only from the call's arguments.
+- The median and cost per line count merged tickets only; the run total counts all.
+- Lines come from `gh pr list` (`additions`, `deletions`), not the files call, so a PR merged before anyone read its files still has them.
+
 **Docs**
 - `docs/*.md` are user pages; exact rules and the command disclosure live in `docs/reference.md`.
 - The pictures in `docs/img/` are drawn from the views: rerun `bun docs/img/generate.ts` after a view changes.

@@ -1,7 +1,7 @@
 import type { AgentInfo } from 'claude-code'
 
-/** A PR as `gh pr list --json number,title,headRefName,headRefOid,state,createdAt,mergedAt,url` reports it. */
-export type PrRow = { number: number; title?: string; headRefName?: string; headRefOid?: string; state?: string; createdAt?: string; mergedAt?: string | null; url?: string }
+/** A PR as `gh pr list --json number,title,headRefName,headRefOid,state,createdAt,mergedAt,url,additions,deletions` reports it. */
+export type PrRow = { number: number; title?: string; headRefName?: string; headRefOid?: string; state?: string; createdAt?: string; mergedAt?: string | null; url?: string; additions?: number; deletions?: number }
 
 /** A workflow run as `gh run list --json databaseId,headSha,status,conclusion,workflowName,createdAt` reports it. */
 export type RunRow = { databaseId?: number; headSha?: string; status?: string; conclusion?: string; workflowName?: string; createdAt?: string }

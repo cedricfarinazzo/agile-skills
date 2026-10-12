@@ -8,8 +8,10 @@ import { configOf, modesLine, repoConfigOf, tightened, type GuardConfig } from '
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
 import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { liveOf } from './state/phase.ts'
+import { isSession, modelOf, modelOfId, movedCost, ticketOfCall, ticketOfText, usdOf, withCost } from './state/cost.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { agentTypeOf, allowancesNow, coverageOf, guardedCall, guardsAfter, guardsAllow, guardsCheck, guardsConfigure, guardsPrune, guardsReset, guardsStart, loopRunning } from './guards.ts'
+import type { Usage } from './state/flow.ts'
 import { argsOf, type Compare, type Finished, type Host, type PrRow, type RunRow } from './host.ts'
 import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsReset, receiptsStart } from './receipts.ts'
 
@@ -69,6 +71,8 @@ let configNotes: string[] = []
 /** Per open PR at its head: how each file counts as read, for the Guards tab; refreshed at most every 15 s. */
 let coverage: Record<number, { head: string; at: number; files: Record<string, string | undefined> }> = {}
 let agentStats: Stats = {}
+/** Per loop agent: the ticket it works, the last request counted and when, for the Cost tab. Memory only. */
+const workers = new Map<string, { ticket?: string; fixed: boolean; stage?: 'build' | 'merge'; last?: { ticket: string; usd: number }; at?: number }>()
 /** Bumped by /agile-board reset and a fresh drain: a read begun before it saves nothing. */
 let epoch = 0
 // the plugin store is shared by every repo: each key is scoped to the session's working directory
@@ -113,7 +117,7 @@ function hostOf($: EngineInterface): Host {
     now: () => $.clock.now(),
     branch: dir => $.process.run(['git', '-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD'], { timeoutMs: 5_000 })
       .then(r => (r.exitCode === 0 ? r.stdout.trim() : undefined), () => undefined),
-    prs: async () => parsed<PrRow[]>(await gh($.process.run(['gh', 'pr', 'list', '--state', 'all', '--limit', '100', '--json', 'number,title,headRefName,headRefOid,state,createdAt,mergedAt,url'], GH_TIMEOUT))),
+    prs: async () => parsed<PrRow[]>(await gh($.process.run(['gh', 'pr', 'list', '--state', 'all', '--limit', '100', '--json', 'number,title,headRefName,headRefOid,state,createdAt,mergedAt,url,additions,deletions'], GH_TIMEOUT))),
     runs: async () => parsed<RunRow[]>(await gh($.process.run(['gh', 'run', 'list', '--limit', '100', '--json', 'databaseId,headSha,status,conclusion,workflowName,createdAt'], GH_TIMEOUT))),
     prView: async pr => (PR_NUMBER.test(String(pr)) ? parsed(await gh($.process.run(['gh', 'pr', 'view', String(pr), '--json', 'headRefOid,state'], GH_TIMEOUT))) : undefined),
     runsOn: async sha => (SHA.test(sha) ? parsed<RunRow[]>(await gh($.process.run(['gh', 'run', 'list', '--commit', sha, '--limit', '50', '--json', 'databaseId,headSha,status,conclusion,workflowName,createdAt'], GH_TIMEOUT))) : undefined),
@@ -456,8 +460,8 @@ export const register: Register = (on, options) => {
     await receiptsStart(host)
     await $.command.register({
       name: 'agile-board',
-      description: 'Agile console: board, flow, wip, drain, guards and links tabs, plus show, hide, retro, reset, allow <n> (agile-mods)',
-      argumentHint: '[board | flow | wip | drain | guards | links | show | hide | retro | reset | allow <n>]',
+      description: 'Agile console: board, flow, cost, wip, drain, guards and links tabs, plus show, hide, retro, reset, allow <n> (agile-mods)',
+      argumentHint: '[board | flow | cost | wip | drain | guards | links | show | hide | retro | reset | allow <n>]',
       immediate: true,
     }).catch(err => $.ui.log(`agile-mods: /agile-board not registered: ${err}`))
     await $.command.register(RECEIPTS_COMMAND).catch(err => $.ui.log(`agile-mods: /receipts not registered: ${err}`))
@@ -564,6 +568,7 @@ export const register: Register = (on, options) => {
 
     const now = await $.clock.now()
     if (e.agentId) agentStats = noteCall(agentStats, e.agentId, e.tool, args, now)
+    if (e.agentId) await followTicket(e.agentId, e.tool, args)
     if (typeof args.cloudId === 'string' && /^mcp__.+__/.test(e.tool)) cloudId ??= args.cloudId
     // a drain that starts fresh (not resuming a running or STUCK one) empties the board: reads begun before it save nothing
     if (/(^|:)agile-sprint-drain$/.test(skill) && board.drain?.outcome !== 'running' && board.drain?.outcome !== 'STUCK') epoch += 1
@@ -617,6 +622,7 @@ export const register: Register = (on, options) => {
       const stage = type ? stageOf(type) : e.agentId ? undefined : board.stage
       const now = await $.clock.now()
       if (e.agentId) agentStats = noteTokens(agentStats, e.agentId, r.usage, now)
+      if (e.agentId && type) await countRequest(hostOf($), e.agentId, type, r.usage, now)
       // counted in memory on every request, written to the store at most every 10 s
       if (stage) {
         board = withTokens(board, stage, r.usage)
@@ -649,9 +655,9 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button } = ui
     const usage = await $.session.usage().catch(() => undefined)
     const now = await $.clock.now()
-    const agents = tab === 'drain' || tab === 'flow' || tab === 'wip' ? await $.agent.list().catch(() => []) : []
+    const agents = tab === 'drain' || tab === 'flow' || tab === 'cost' || tab === 'wip' ? await $.agent.list().catch(() => []) : []
     const lanes = tab === 'drain' ? laneOf(agents, agentStats, now) : undefined
-    const live = tab === 'flow' || tab === 'wip' ? liveOf(agents, board) : undefined
+    const live = tab === 'flow' || tab === 'cost' || tab === 'wip' ? liveOf(agents, board) : undefined
     const guard = tab === 'guards' ? { modes: modesLine(config), notes: configNotes, allowances: allowancesNow(), bypass: config.allowBypass, coverage: await coverageNow($, now) } : undefined
     const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, budget, ...(live && { live }), ...(guard && { guard }) }
     const w = Math.max(30, e.props.bodyColumns - 2)
@@ -684,6 +690,46 @@ async function coverageNow($: EngineInterface, now: number): Promise<Coverage> {
   }
   const open = new Set(board.prOrder.filter(n => board.prs[n]?.state === 'OPEN'))
   return Object.entries(coverage).filter(([n]) => open.has(Number(n))).map(([n, c]) => ({ pr: Number(n), head: c.head, files: c.files }))
+}
+
+/**
+ * The ticket a loop agent works: the one its dispatch description names, or for a session agent (one
+ * agent, many tickets, run in turn) the one its latest call named. Only loop agents have a cost.
+ */
+async function workerOf(host: Host, id: string, type: string) {
+  let w = workers.get(id)
+  if (!w) {
+    const info = (await host.agents().catch(() => [])).find(a => a.id === id)
+    const named = info?.description && !isSession(type) ? ticketOfText(board, info.description) : undefined
+    w = { ...(named && { ticket: named }), fixed: named !== undefined, ...(stageOf(type) && { stage: stageOf(type)! }) }
+    workers.set(id, w)
+    if (workers.size > 100) workers.delete(workers.keys().next().value!)
+  }
+  return w
+}
+
+/** Counts one request of a loop agent against its ticket: dollars from its tokens, working time since its last one. */
+async function countRequest(host: Host, id: string, type: string, usage: Usage & { model?: string }, now: number) {
+  // a loop agent only; the model the request reports, else the one its agent file declares
+  if (!modelOf(type)) return
+  const model = modelOfId(usage.model) ?? modelOf(type)!
+  const w = await workerOf(host, id, type)
+  const ms = w.at === undefined ? 0 : now - w.at
+  w.at = now
+  const usd = usdOf(usage, model)
+  if (w.ticket) board = withCost(board, w.ticket, usd, w.stage, ms, now)
+  w.last = { ticket: w.ticket ?? '', usd }
+}
+
+/** A session agent's call that names one ticket moves the agent onto it, and the request that made the call with it. */
+async function followTicket(id: string, tool: string, args: Record<string, unknown>) {
+  const w = workers.get(id)
+  if (!w || w.fixed) return
+  const named = ticketOfCall(board, tool, args)
+  if (!named || named === w.ticket) return
+  if (w.last?.usd) board = w.last.ticket ? movedCost(board, w.last.ticket, named, w.last.usd, w.stage) : withCost(board, named, w.last.usd, w.stage, 0, 0)
+  w.last = undefined
+  w.ticket = named
 }
 
 /** The stage a loop agent serves, by its type; undefined for an agent outside the loop. */
