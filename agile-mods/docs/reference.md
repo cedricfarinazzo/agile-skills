@@ -235,6 +235,8 @@ The projects come from the ticket keys the loop names. The points field is `stor
 
 gh is read at most every 10 s and Jira at most every 30 s, about 720 GitHub list calls an hour at most.
 
+**Drain passes.** A pass is a build and then a merge. With `dispatch=phase` the main loop's `agile-10-implement` call opens one and `agile-11-merge-train` marks its merge. With `dispatch=session` the dispatch of a `build-session` opens it (a second build session before any merge joins the same pass), and the dispatch of a `merge-session` is its merge, so the Drain tab fills in whether or not the session agents' own skill calls reach the hooks; when they do, they are not counted twice.
+
 **Drain outcome.**
 
 - **`DRAINED`** once Jira has answered, no ticket is left open, unparked and unmerged, and no ticket PR is open.

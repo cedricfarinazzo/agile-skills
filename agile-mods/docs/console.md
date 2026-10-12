@@ -32,7 +32,7 @@ The pane docks beside the transcript in a terminal of 110 columns or more, and s
 | **2 Flow** | Each open ticket's build phase now, and each PR's merge-train step and CI |
 | **3 Cost** | What each ticket cost: dollars, changed lines, cost per line, elapsed and working time, and the median of the merged ones |
 | **4 WIP** | How long each PR and ticket has been open against the repo's usual, and PRs touching the same files |
-| **5 Drain** | Each drain pass: build and merge time, what it moved, its cost and cache hit rate; the loop's agents |
+| **5 Drain** | Each drain pass (a build, then a merge, also under `dispatch=session`): build and merge time, what it moved, its cost and cache hit rate; the loop's agents |
 | **6 Guards** | Guard modes (any not enforcing) and limits (fix rounds, ticket cap, bypass), refusals with their **Allow once** button, review coverage per PR, agent receipts. See [Guards](guards.md) |
 | **7 Links** | Each ticket's Jira page and each PR |
 

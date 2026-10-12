@@ -1,6 +1,6 @@
 {
   "name": "agile-mods",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Claude Mods for the agile-skills loop: /agile-board opens the agile console pane (board with burnup and a Monte Carlo done-by forecast, ticket and PR flow, aging WIP and PR overlap, what each ticket cost with the median and cost per line, drain passes with cost, cache hit rate and the loop's agents, guards and receipts, links), read live from gh, the Jira MCP and the engine rather than from the model's answers, with a status-line entry (spend per hour and per merged PR, the 85% date) and an alert row above the prompt; guards that check GitHub at merge time (pinned live head, green CI on it, every file read by a reviewer in full or by a diff since a full read), enforce agent tool grants, cap the merge train's fix rounds after review, stop new build work on a ticket at an optional per-ticket cost cap, and refuse pushes to main and force pushes inside the loop, each set to enforce, warn or off, with a one-time bypass a person grants from the console; /receipts checks agent receipts against the contract; retro counts for agile-15. Needs Claude Code 2.1.287 or later.",
   "author": {
     "name": "cedricfarinazzo",

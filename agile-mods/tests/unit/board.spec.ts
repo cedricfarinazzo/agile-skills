@@ -233,3 +233,39 @@ describe('burndown and drain outcome', () => {
     expect(loadBoard({ nope: 1 })).toBeUndefined()
   })
 })
+
+describe('drain passes under dispatch=session', () => {
+  const drain = () => observeStart(EMPTY, 'Skill', { skill: 'agile-sprint-drain:agile-sprint-drain' }, 1)
+  const build = { subagent_type: 'agile-sprint-drain:build-session', description: 'build VC-1' }
+  const merge = { subagent_type: 'agile-sprint-drain:merge-session', description: 'merge' }
+
+  test('the dispatches are the passes: build opens one, merge marks it, the next build opens the next', () => {
+    let b = observeStart(drain(), 'Agent', build, 2)
+    expect(b).toMatchObject({ drain: { pass: 1, outcome: 'running' }, stage: 'build', loop: 'drain' })
+    expect(b.passes).toEqual([{ start: 2, armed: true }])
+    b = observeStart(b, 'Agent', merge, 5)
+    expect(b.passes).toEqual([{ start: 2, armed: true, merge: 5 }])
+    expect(b.stage).toBe('merge')
+    b = observeStart(b, 'Agent', build, 9)
+    expect(b.drain).toMatchObject({ pass: 2 })
+    expect(b.passes).toEqual([{ start: 2, armed: true, merge: 5, end: 9 }, { start: 9, armed: true }])
+  })
+
+  test('a second build session before any merge joins the pass; the session\'s own skill call is not another pass', () => {
+    let b = observeStart(observeStart(drain(), 'Agent', build, 2), 'Agent', build, 3)
+    expect(b.passes).toHaveLength(1)
+    expect(b.drain).toMatchObject({ pass: 1 })
+    b = observeStart(b, 'Skill', { skill: 'agile-execution:agile-10-implement' }, 4)
+    expect(b.passes).toEqual([{ start: 2, armed: false }])
+    expect(b.drain).toMatchObject({ pass: 1 })
+    // once the dispatch's own call has been seen, a phase-mode call opens a pass as before
+    b = observeStart(b, 'Skill', { skill: 'agile-execution:agile-10-implement' }, 6)
+    expect(b.passes).toHaveLength(2)
+    b = observeStart(b, 'Skill', { skill: 'agile-merge-review:agile-11-merge-train' }, 7)
+    expect(b.passes!.at(-1)!.merge).toBe(7)
+  })
+
+  test('a dispatch outside a running drain is not a pass', () => {
+    expect(observeStart(EMPTY, 'Agent', build, 2).passes).toBeUndefined()
+  })
+})
