@@ -62,7 +62,7 @@ The pane docks beside the transcript in a terminal of 110 columns or more, and s
 
 ```mermaid
 flowchart LR
-  R["a model request<br/>of a loop agent"] --> P{"phase mode or<br/>session agent?"}
+  R["a model request<br/>of a subagent"] --> P{"phase mode or<br/>session agent?"}
   P -- "one agent, one ticket" --> D["ticket named in<br/>its dispatch description"]
   P -- "build-session /<br/>merge-session" --> C["ticket its latest call named<br/>(Jira key, or the PR's ticket)"]
   D --> T["ticket cost += tokens x price<br/>of the request's model"]
