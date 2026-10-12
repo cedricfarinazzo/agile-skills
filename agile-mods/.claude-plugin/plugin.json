@@ -79,7 +79,7 @@
     "allowBypass": {
       "type": "boolean",
       "title": "Allow one-time bypasses",
-      "description": "Lets you allow a refused merge, an extra fix round, or a ticket over budget once, from the guards tab or /agile-board allow <n>. The model can never grant one itself.",
+      "description": "Lets you allow a refused merge, an extra fix round, or a ticket over its cost cap once, from the guards tab or /agile-board allow <n>. The model can never grant one itself.",
       "default": true
     }
   }
