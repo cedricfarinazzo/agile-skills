@@ -282,8 +282,8 @@ export async function guardsCheck(host: Host, tool: string, args: Record<string,
     inlineReviews.delete(agentId ?? '')
   }
   const now = await host.now()
-  // expired merge and fix bypasses go; budget ones end with their ticket (guardsPrune)
-  allowances = openOf(allowances, now, () => false, 0)
+  // expired merge and fix bypasses go; ticket-cap ones end with their ticket (guardsPrune)
+  allowances = openOf(allowances, now, () => false)
 
   if (config.fixRounds && isFixDispatch(tool, args) && (trainActive || MERGE_AGENT.test(type ?? ''))) {
     const deny = await fixDispatch(host, args)
@@ -419,14 +419,14 @@ export async function guardsAfter(host: Host, tool: string, args: Record<string,
 export const allowancesNow = () => openBypasses()
 
 /** A person allowed an offer from the Guards tab: kept until used, expired, or its ticket ends. */
-export function guardsAllow(host: Host, offer: Offer, now: number, merged: number) {
-  allowances = allow(allowances, offer, now, merged)
+export function guardsAllow(host: Host, offer: Offer, now: number) {
+  allowances = allow(allowances, offer, now)
   persist(host, BYPASS_KEY, allowances)
 }
 
-/** Drops budget allowances whose ticket is done or parked (or, naming none, once another PR merged), and expired ones. */
-export function guardsPrune(host: Host, now: number, ended: (ticket: string) => boolean, merged: number) {
-  const next = openOf(allowances, now, ended, merged)
+/** Drops ticket-cap allowances whose ticket is done or parked, and expired ones. */
+export function guardsPrune(host: Host, now: number, ended: (ticket: string) => boolean) {
+  const next = openOf(allowances, now, ended)
   if (next !== allowances) persist(host, BYPASS_KEY, (allowances = next))
 }
 

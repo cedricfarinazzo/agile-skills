@@ -8,8 +8,8 @@ Where the loop is, whether it is stuck, what it costs and when it will be done, 
 
 ![Alert row and status line around the prompt](img/status-and-alert.svg)
 
-- **Status line**, always there while a loop has run: stage, work left, merges, spend rate, budget, the date by which 85% of forecasts finish, and `⚑ n bypass` while a bypass is open.
-- **Alert row** above the prompt, only when something needs you: a parked ticket, work looping on the same step, a spent budget, a PR open far longer than usual, a drop in prompt-cache hits, or the drain ending `STUCK` (red) or `DRAINED` (green).
+- **Status line**, always there while a loop has run: stage, work left, merges, spend rate, the ticket cap and how many are over it, the date by which 85% of forecasts finish, and `⚑ n bypass` while a bypass is open.
+- **Alert row** above the prompt, only when something needs you: a parked ticket, work looping on the same step, a ticket past its cost cap, a PR open far longer than usual, a drop in prompt-cache hits, or the drain ending `STUCK` (red) or `DRAINED` (green).
 - **The console pane**, opened with `/agile-board`.
 
 ## The pane

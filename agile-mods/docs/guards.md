@@ -24,7 +24,7 @@ flowchart LR
 | **Merge: pin** | Merging a head other than the one reviewed | `guardMergePin` |
 | **Fix rounds** | A fourth round of fixes on a PR that keeps failing review | `fixRounds` |
 | **Push** | Pushing to `main`/`master`, or force pushing without a lease | `guardPush` |
-| **Budget** | Starting new build work once the run spent `budgetUsd` (open PRs still merge) | `budgetUsd` |
+| **Ticket cap** | Starting new build work on a ticket whose agents already cost `ticketBudgetUsd` (its open PR and the other tickets go on) | `guardTicketBudget`, `ticketBudgetUsd` |
 | **Tool grants** | A reviewer editing files or posting; the postmortem linking issues | `guardGrants` |
 | **Side doors** | Getting around the others: branch writes through the GitHub API or MCP, git aliases, config overrides | `guardSideDoor` |
 
@@ -101,15 +101,25 @@ These never count as a round:
 
 Run mutation checks (breaking the code on purpose to prove a test fails) locally. Never push them to the PR.
 
-## Budget
+## Ticket cap
 
-With `budgetUsd` set, once the loop run has spent that much, new build work is refused:
+With `ticketBudgetUsd` set, once the agents that worked a ticket have cost that much, new build work **on that ticket** is refused:
 
-- implementing tickets;
-- opening PRs;
-- dispatching build agents.
+- running `implement-*` for it;
+- opening its PR;
+- dispatching a build agent for it.
 
-The merge train goes on, so open PRs still land, and then the loop stops and reports `BUDGET`. The spend counts from the start of the run. Only a new session, or `/agile-board reset`, starts a new run.
+```mermaid
+flowchart LR
+  c["a build call<br/>naming one ticket"] --> k{"ticket cost so far<br/>≥ ticketBudgetUsd?"}
+  k -- no --> go["runs"]
+  k -- yes --> m{"guardTicketBudget"}
+  m -- enforce --> r["refused: the loop reports<br/>the ticket blocked (BUDGET)<br/>and goes on with the others"]
+  m -- warn --> w["runs, logged on<br/>the Guards tab"]
+  r -.-> a["Allow once<br/>(Guards tab)"] -.-> go
+```
+
+The cost is the [Cost tab](console.md)'s estimate: the ticket's agents' tokens at their model's price, counted from the start of the run. Its open PR still merges, the other tickets go on, and a drain that is left with only capped tickets ends `STUCK`, naming each with its cost. A call that names no single ticket, or several, is not held to the cap. The ticket's work can overshoot by the phase already running, since a guard acts on the next call.
 
 ## Bypass
 
@@ -135,7 +145,7 @@ sequenceDiagram
 |---|---|
 | A merge gate on PR #42 | One merge of PR #42 at the head it was refused at, within 30 minutes |
 | The fix-round cap on PR #42 | One more fix round on PR #42, within 30 minutes |
-| The budget | Build work for that ticket, until it is done, parked or merged |
+| A ticket's cost cap | Build work for that ticket, until it is done, parked or merged |
 
 Only you can grant one: the pane button, or `/agile-board allow <id>` typed at the prompt (or sent from your phone). The model, a skill or another plugin running the same command gets nothing. `/agile-board allow` lists what can be allowed. An allowed merge still has to pin the head you allowed, so nothing pushed after your click slips in.
 
@@ -151,7 +161,7 @@ Set in `/plugin configure agile-mods@agile-skills`; they apply from the next ses
 | `warn` | lets it through, with a toast and a `warned` entry on the Guards tab; the model is not told |
 | `off` | does not check, and reads nothing |
 
-`guardPush` has no `off`: a push to `main` cannot be undone. `fixRounds` is a number (`0` turns the cap off), `budgetUsd` an amount (`0` is none), and `allowBypass` shows or hides the button.
+`guardPush` has no `off`: a push to `main` cannot be undone. `fixRounds` is a number (`0` turns the cap off), `ticketBudgetUsd` an amount per ticket (`0` is none; `guardTicketBudget` sets what happens at it), and `allowBypass` shows or hides the button. The run-wide `budgetUsd` is gone: a stored value is ignored and the Guards tab says so once.
 
 **Per repo.** A repo's `CLAUDE.md` or `AGENTS.md` can set the same keys, but only to tighten them. The loop can edit those files, so a looser value there is ignored and flagged on the Guards tab.
 
@@ -159,6 +169,7 @@ Set in `/plugin configure agile-mods@agile-skills`; they apply from the next ses
 ## Skill configuration
 - guardMergeReview: enforce
 - fixRounds: 2
+- ticketBudgetUsd: 10
 - allowBypass: false
 ```
 
@@ -170,6 +181,7 @@ agile-mods: PR #42: CI on 3f1c0a9e2b7d has not finished (e2e in_progress). Wait 
 agile-mods: pin the reviewed head: gh pr merge 42 --squash --match-head-commit <reviewed sha> …
 agile-mods: PR #42: 3 fix rounds already pushed after a review (onto 1a2b3c4, 5d6e7f8, 9a0b1c2). …
 agile-mods: the loop never pushes to main: work lands through a PR and gh pr merge.
+agile-mods: ticket budget: SHOP-15 cost an estimated $10.20 of its $10.00 cap (agile-mods ticketBudgetUsd). …
 agile-mods: budget: the loop spent $20.40 of its $20.00 budget (agile-mods budgetUsd). …
 agile-mods: pr-reviewer reviews and never edits files: report the finding instead.
 ```

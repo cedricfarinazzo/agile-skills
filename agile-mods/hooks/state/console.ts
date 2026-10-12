@@ -62,8 +62,8 @@ export type Ctx = {
   lanes?: Lane[]
   /** The build phase each ticket's running agent is in, by ticket key. */
   live?: Record<string, Phase>
-  /** The `budgetUsd` option; 0 or absent is no budget. */
-  budget?: number
+  /** The `ticketBudgetUsd` option; 0 or absent is no cap. */
+  cap?: number
   /** For the Guards tab: each gate's mode, setting notes, open bypasses, and review coverage. */
   guard?: { modes: string; notes: string[]; allowances: Allowance[]; bypass: boolean; coverage?: Coverage }
 }
@@ -106,11 +106,20 @@ export function barSegs(frac: number, w: number, tone: string): Seg[] {
 
 const mergedPrs = (board: Board) => board.prOrder.filter(n => board.prs[n]?.merged).length
 
-/** The budget, once the loop's spend reached it. */
-const budgetFlag = (board: Board, budget = 0) => (budget > 0 && (board.spend?.usd ?? 0) >= budget ? [`budget spent ${usd(board.spend!.usd)} of ${usd(budget)}`] : [])
+/** The tickets whose agents cost their cap, dearest first, while their work is still open. */
+export const overCap = (board: Board, cap = 0): { key: string; usd: number }[] =>
+  cap > 0
+    ? board.order
+        .map(k => ({ key: k, usd: board.tickets[k]!.cost?.usd ?? 0, t: board.tickets[k]! }))
+        .filter(x => x.usd >= cap && x.t.category !== 'done' && !(x.t.pr && board.prs[x.t.pr]?.merged))
+        .sort((a, b) => b.usd - a.usd)
+        .map(({ key, usd }) => ({ key, usd }))
+    : []
 
-/** Everything that wants a person: parked and looping work, aging PRs, a cache drop, a spent budget. */
-const attention = (board: Board, now: number, budget?: number) => [...parkedOf(board), ...stallsOf(board), ...budgetFlag(board, budget), ...agingFlags(board, now), ...cacheFlags(board)]
+const capFlags = (board: Board, cap = 0) => overCap(board, cap).map(c => `${c.key} cost ${usd(c.usd)} of its ${usd(cap)} cap`)
+
+/** Everything that wants a person: parked and looping work, aging PRs, a cache drop, a ticket past its cap. */
+const attention = (board: Board, now: number, cap?: number) => [...parkedOf(board), ...stallsOf(board), ...capFlags(board, cap), ...agingFlags(board, now), ...cacheFlags(board)]
 
 let memo: { key: string; value: Forecast } | undefined
 
@@ -132,7 +141,7 @@ function elapsed(board: Board, now: number): number | undefined {
 function headerRow(board: Board, ctx: Ctx, w: number): Row {
   const time = elapsed(board, ctx.now)
   const right = time === undefined ? [] : text([fmtDur(time), 'd'])
-  const needs = attention(board, ctx.now, ctx.budget).length
+  const needs = attention(board, ctx.now, ctx.cap).length
   if (board.drain?.outcome === 'STUCK') return spread(text([' STUCK ', 'bgr b'], [` ${needs} item${needs === 1 ? '' : 's'} need a human`, 'r']), right, w)
   if (board.drain?.outcome === 'DRAINED') return spread(text([' DRAINED ', 'bgg b'], [' nothing left to build or merge', 'g']), right, w)
   if (board.drain) return spread(text(['● ', 'g b'], ['DRAIN', 'b'], [` pass ${board.drain.pass}${board.stage ? ` · ${board.stage}` : ''}`, 'd']), right, w)
@@ -250,11 +259,11 @@ function boardRows(board: Board, ctx: Ctx, w: number): Row[] {
   }
   rows.push(blank)
   rows.push(...forecastRows(forecast(board, ctx.now), ctx.now, w))
-  const flags = attention(board, ctx.now, ctx.budget)
+  const flags = attention(board, ctx.now, ctx.cap)
   if (flags.length) rows.push(blank)
   for (const f of parkedOf(board)) rows.push(line(['⏸ ', 'y'], [f, 'y']))
   for (const f of stallsOf(board)) rows.push(line(['⟳ ', 'y'], [f, 'y']))
-  for (const f of budgetFlag(board, ctx.budget)) rows.push(line(['$ ', 'r'], [f, 'r']))
+  for (const f of capFlags(board, ctx.cap)) rows.push(line(['$ ', 'r'], [f, 'r']))
   for (const f of agingFlags(board, ctx.now)) rows.push(line(['⌛ ', 'y'], [f, 'y']))
   for (const f of cacheFlags(board)) rows.push(line(['◔ ', 'y'], [f, 'y']))
   return rows
@@ -300,7 +309,7 @@ function costRows(board: Board, ctx: Ctx, w: number): Row[] {
   const spent = rateOf(board, ctx.now).spent
   const sum = summaryOf(rows, spent)
   if (!rows.length) return [line(['COST', 'c b'], ['  no ticket cost yet: agents are counted while a loop runs', 'd'])]
-  const out: Row[] = [spread(text(['COST', 'c b'], ['  est. per ticket: its agents\' tokens at their model\'s price', 'd']), text([`${rows.length} ticket${rows.length === 1 ? '' : 's'}`, 'd']), w)]
+  const out: Row[] = [spread(text(['COST', 'c b'], ['  est. per ticket: its agents\' tokens at their model\'s price', 'd']), text([ctx.cap ? `cap ${usd(ctx.cap)}/ticket` : `${rows.length} ticket${rows.length === 1 ? '' : 's'}`, 'd']), w)]
   const heads = [seg('ticket'.padEnd(10), 'd'), seg('cost'.padStart(8), 'd'), seg('  '), seg(''.padEnd(9)), seg('lines'.padStart(6), 'd'), seg('$/line'.padStart(8), 'd'), seg('elapsed'.padStart(9), 'd'), seg('working'.padStart(9), 'd'), seg('  now', 'd')]
   out.push({ kind: 'line', segs: heads.slice(0, w >= 80 ? 9 : w >= 56 ? 6 : 2) })
   const top = Math.max(0.01, ...rows.map(r => r.cost.usd))
@@ -311,7 +320,9 @@ function costRows(board: Board, ctx: Ctx, w: number): Row[] {
     const pr = t.pr ? board.prs[t.pr] : undefined
     const now = r.merged ? 'merged' : pr?.state === 'OPEN' && pr.step ? pr.step : phaseOf(t, ctx.live?.[r.key], ctx.now).now
     const fill = Math.max(1, Math.round((r.cost.usd / top) * bw))
-    const tone = mid !== undefined && r.cost.usd > mid * 2 ? 'y' : 'c'
+    const cap = ctx.cap ?? 0
+    const capped = cap > 0 && r.cost.usd >= cap && !r.merged
+    const tone = capped ? 'r' : cap > 0 ? (r.cost.usd >= cap * 0.8 ? 'y' : 'c') : mid !== undefined && r.cost.usd > mid * 2 ? 'y' : 'c'
     const cells = [
       seg(r.key.padEnd(10), 'b'),
       seg(usd(r.cost.usd).padStart(8), 'b'),
@@ -321,7 +332,7 @@ function costRows(board: Board, ctx: Ctx, w: number): Row[] {
       seg(r.lines ? `$${(r.cost.usd / r.lines).toFixed(3)}`.padStart(8) : '—'.padStart(8), 'd'),
       seg(fmtDur(r.elapsed ?? 0).padStart(9), 'd'),
       seg(fmtDur(r.cost.ms).padStart(9), 'd'),
-      seg(`  ${now}`, r.merged ? 'g' : 'd'),
+      seg(`  ${capped ? 'capped' : now}`, capped ? 'r b' : r.merged ? 'g' : 'd'),
     ]
     out.push({ kind: 'line', segs: cells.slice(0, w >= 80 ? 9 : w >= 56 ? 6 : 2) })
   }
@@ -418,7 +429,7 @@ function drainRows(board: Board, ctx: Ctx, w: number): Row[] {
   rows.push(spread(text(['total ', 'd'], [`${passes.length} pass${passes.length === 1 ? '' : 'es'} · ${fmtDur(total)}`, 'b']), known ? text([usd(spent), 'b']) : [], w))
   if (known && merged > 0) rows.push(spread(text(['per merged PR', 'd']), text([usd(spent / merged), 'b']), w))
   const rate = rateOf(board, ctx.now)
-  if (rate.perHour !== undefined) rows.push(spread(text(['spend rate', 'd']), text([`${usd(rate.perHour)}/h`, 'b'], [ctx.budget ? `  ·  ${usd(rate.spent)} of ${usd(ctx.budget)}` : '', rate.spent >= (ctx.budget || Infinity) ? 'r b' : 'd']), w))
+  if (rate.perHour !== undefined) rows.push(spread(text(['spend rate', 'd']), text([`${usd(rate.perHour)}/h`, 'b'], [`  ·  ${usd(rate.spent)} so far`, 'd']), w))
   rows.push(blank)
   rows.push(line(['cost = session spend between pass boundaries', 'd']))
   rows.push(line(['cache = prompt tokens read from the cache', 'd']))
@@ -445,7 +456,7 @@ function agentRows(ctx: Ctx, w: number): Row[] {
   return rows
 }
 
-const RULE_LABEL: Record<Refusal['rule'], string> = { grant: 'grant', '3f': '3f', push: 'push', fix: 'fix', budget: 'budget', side: 'side' }
+const RULE_LABEL: Record<Refusal['rule'], string> = { grant: 'grant', '3f': '3f', push: 'push', fix: 'fix', ticketBudget: 'cap', side: 'side' }
 
 /** The refusals a person can still allow, newest first; each is named by its id (`/agile-board allow <id>`). */
 export const offersOf = (refusals: Refusal[]) => [...refusals].reverse().filter(r => !r.kind && r.offer && r.id !== undefined)
@@ -531,7 +542,7 @@ export const consoleRows = (tab: Tab, board: Board, ctx: Ctx, w: number): Row[] 
 
 /** The single alert row above the prompt: what needs a person or just ended; undefined when nothing does. */
 export function alertRow(board: Board, ctx: Ctx, w: number): Row | undefined {
-  const flags = attention(board, ctx.now, ctx.budget)
+  const flags = attention(board, ctx.now, ctx.cap)
   const hint = text(['/agile-board', 'd'])
   if (board.drain?.outcome === 'STUCK') return spread(text([' STUCK ', 'bgr b'], [` ${flags.slice(0, 2).join(' · ') || 'no actionable work'}`, 'r']), hint, w)
   if (board.drain?.outcome === 'DRAINED') {
@@ -543,7 +554,7 @@ export function alertRow(board: Board, ctx: Ctx, w: number): Row | undefined {
 }
 
 /** The status-line entry: where the loop is, work left, merges, spend rate, and the 85% date; undefined when idle. */
-export function statusText(board: Board, now: number, budget = 0, bypasses = 0): string | undefined {
+export function statusText(board: Board, now: number, cap = 0, bypasses = 0): string | undefined {
   if (!board.loop && !board.order.length && !board.prOrder.length) return undefined
   const { left, total, unit } = leftOf(board)
   const where = board.drain
@@ -553,7 +564,7 @@ export function statusText(board: Board, now: number, budget = 0, bypasses = 0):
   const money = [
     rate.perHour !== undefined ? `$${rate.perHour.toFixed(2)}/h` : '',
     rate.perPr !== undefined ? `$${rate.perPr.toFixed(2)}/PR` : '',
-    budget > 0 ? `$${rate.spent.toFixed(2)}/$${budget.toFixed(0)}` : '',
+    cap > 0 ? `cap $${cap.toFixed(0)}${overCap(board, cap).length ? ` · ${overCap(board, cap).length} over` : ''}` : '',
   ].filter(Boolean).join(' ')
   const f = left ? forecast(board, now) : undefined
   return `agile ▸ ${where}${total ? ` · ${left}/${total} ${unitName(unit)}` : ''} · ${mergedPrs(board)} merged${money ? ` · ${money}` : ''}${f?.days ? ` · 85% by ${dayName(now, f.days.p85)}` : ''}${bypasses ? ` · ⚑ ${bypasses} bypass${bypasses === 1 ? '' : 'es'}` : ''}`

@@ -11,7 +11,7 @@ The exact rules behind the [console](console.md) and the [guards](guards.md), fo
   - [Fix rounds](#fix-rounds)
   - [How a push is read](#how-a-push-is-read)
   - [Side doors](#side-doors)
-  - [Budget](#budget)
+  - [Ticket cap](#ticket-cap)
   - [Tool grants](#tool-grants)
   - [Failing closed](#failing-closed)
   - [Keeping guards and skills in sync](#keeping-guards-and-skills-in-sync)
@@ -133,24 +133,24 @@ Inside a loop, `guardSideDoor` keeps every write where the other guards can read
   - `push_files`-style tools are refused on any server.
 - **Never:** `gh repo sync`, a merge through `gh api …/pulls/<n>/merge`, a `git` or `gh` word that is not one of their own commands (an alias could hide a push), `gh alias set`, `gh extension`, or a `GIT_CONFIG_*` override.
 
-### Budget
+### Ticket cap
 
-With `budgetUsd` set, once the run's spend reaches it these are refused:
+With `ticketBudgetUsd` set and `guardTicketBudget` not `off`, once one ticket's cost (the [ticket cost](#the-board) the Cost tab shows, an estimate) reaches it, these are refused for a call that names that one ticket among those on the board:
 
 - `agile-10-implement` and every `implement-*` skill;
 - `gh pr create`, `create_pull_request`, and a `gh api` POST to `pulls`;
 - every agent dispatch except the merge side's and the read-only types (`Explore`, `Plan`, `claude-code-guide`, `statusline-setup`).
 
-Open PRs still merge. A person can allow one ticket past the budget ([bypass](guards.md#bypass)): build calls naming that ticket and no other go on until it is done, parked or its PR merges. If the refused call named no single ticket, any build call goes on, until the next PR merges.
+Its open PR still merges, and so do the other tickets. A call that names none or several tickets is not held. A person can allow a ticket past its cap ([bypass](guards.md#bypass)): build calls naming that ticket and no other go on until it is done, parked or its PR merges. With `warn` the call goes on and is logged on the Guards tab.
 
-A run begins at a session's first loop call while no drain is running; a running drain keeps its run across sessions. Not covered: the main loop editing and pushing to an existing branch by hand, which the merge side needs for inline fixes.
+A ticket's cost counts from the run's start: a session's first loop call while no drain is running, or `/agile-board reset`; a running drain keeps its run across sessions. Not covered: the main loop editing and pushing to an existing branch by hand, which the merge side needs for inline fixes.
 
 ### Bypass
 
 - Only a person grants one: the pane's **Allow once** button, or `/agile-board allow <id>` with `command.run`'s origin `composer` (typed at the prompt) or `bridge` (sent from their phone). Run by the model, a plugin, a skill or a relay, the command grants nothing. `/agile-board reset` follows the same rule, since it drops reviews, rounds and bypasses.
 - Each refusal has an id that is never reused, and the button and the command name that id, so a refusal that lands while you read the list cannot change what you allow.
 - A merge bypass covers one PR at one head, for 30 minutes, and never waives the pin: the retried merge must pass `--match-head-commit <that head>`, so GitHub refuses it if anything was pushed since. A refusal that knew no head (gh down, no pin) offers none.
-- A fix bypass is one more round on that PR, for 30 minutes. A budget bypass is described [above](#budget).
+- A fix bypass is one more round on that PR, for 30 minutes. A ticket-cap bypass is described [above](#ticket-cap).
 - With `allowBypass` off, no refusal offers one, and those granted before are not honoured.
 
 ### Tool grants
@@ -185,7 +185,7 @@ Where each lives in the code:
 |---|---|
 | Default cap | `FIX_ROUNDS` |
 | Push form | `pushPlanOf` and `PUSH_FORM` |
-| What the budget stops | `isBuildWork` |
+| What the ticket cap stops | `isBuildWork` |
 | Options and their defaults | `hooks/state/config.ts` and the manifest's `userConfig` |
 
 ## The board

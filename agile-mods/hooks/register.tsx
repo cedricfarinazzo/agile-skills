@@ -2,8 +2,8 @@
 import type { EngineInterface, ProcessRunResult, Register, RenderNode } from 'claude-code'
 import { EMPTY, POINTS_FIELD, TICKET_KEY, applyJira, dispatchText, markerTargets, pruned, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, issuesOf, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, offersOf, rasterCells, statusText, tabOf, type Coverage, type Ctx, type Row, type Tab } from './state/console.ts'
-import { budgetDenial, isBuildWork, keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
-import { budgetOpen, offerText, type Offer } from './state/bypass.ts'
+import { keepRefusal, ruleOf, ticketBudgetDenial, type Refusal } from './state/guards.ts'
+import { offerText, ticketBudgetOpen, type Offer } from './state/bypass.ts'
 import { configOf, modesLine, repoConfigOf, tightened, type GuardConfig } from './state/config.ts'
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
 import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
@@ -65,7 +65,7 @@ let soonQueued = false
 let persistQueued = false
 const busy = { gh: false, jira: false }
 let ghError: string | undefined
-let budget = 0
+let cap = 0
 let config: GuardConfig
 let configNotes: string[] = []
 /** Per open PR at its head: how each file counts as read, for the Guards tab; refreshed at most every 15 s. */
@@ -338,7 +338,7 @@ async function meter($: EngineInterface) {
 /** Redraws the status line, which reads the clock for the spend rate and the forecast. */
 function showStatus($: EngineInterface) {
   if (!shown) return $.ui.status(undefined)
-  void $.clock.now().then(now => $.ui.status(statusText(board, now, budget, allowancesNow().length))).catch(() => undefined)
+  void $.clock.now().then(now => $.ui.status(statusText(board, now, cap, allowancesNow().length))).catch(() => undefined)
 }
 
 function save($: EngineInterface, next: Board) {
@@ -377,9 +377,7 @@ function saveRetro($: EngineInterface, next: Retro) {
   void $.store.set(scope + RETRO_KEY, retro).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
 }
 
-const mergedCount = () => board.prOrder.filter(n => board.prs[n]?.merged).length
-
-/** A ticket a budget bypass covered is over: done, parked, or its PR merged. */
+/** A ticket a cap bypass covered is over: done, parked, or its PR merged. */
 const ticketEnded = (key: string) => {
   const t = board.tickets[key]
   return t?.category === 'done' || !!t?.parked || board.prOrder.some(n => board.prs[n]?.key === key && board.prs[n]?.merged)
@@ -403,7 +401,7 @@ async function allowAt($: EngineInterface, n: number): Promise<string> {
   const r = offersOf(refusals).find(x => x.id === n)
   if (!r?.offer) return `no refusal [${n}] to allow: /agile-board allow lists them`
   const now = await $.clock.now()
-  guardsAllow(hostOf($), r.offer, now, mergedCount())
+  guardsAllow(hostOf($), r.offer, now)
   refusals = refusals.map(x => (x === r ? { ...x, offer: undefined, text: `${x.text} [allowed]` } : x))
   $.ui.toast(`agile: allowed ${offerText(r.offer)}, tell the loop to retry`, { timeoutMs: 10000 })
   showStatus($)
@@ -432,7 +430,7 @@ export const register: Register = (on, options) => {
   const given = configOf(options as Record<string, unknown> | undefined)
   config = given.config
   configNotes = given.notes
-  budget = config.budgetUsd
+  cap = config.ticketBudgetUsd
   guardsConfigure(config)
 
   on('session.start', async ($, e, next) => {
@@ -455,7 +453,7 @@ export const register: Register = (on, options) => {
       config = repo.config
       configNotes = [...configNotes, ...repo.notes.map(n => `${file}: ${n}`)]
     }
-    budget = config.budgetUsd
+    cap = config.ticketBudgetUsd
     guardsConfigure(config)
     await receiptsStart(host)
     await $.command.register({
@@ -524,29 +522,29 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     const host = hostOf($)
     const args = argsOf(e)
-    // a new run's spend, so a budget counts from it: a session's first loop call while no drain runs (a
-    // resumed drain keeps counting). Nothing the model can call inside a session resets it; a new
+    // a new run's spend and ticket costs count from here: a session's first loop call while no drain runs
+    // (a resumed drain keeps counting). Nothing the model can call inside a session resets it; a new
     // session or /agile-board reset starts over
     const skill = e.tool === 'Skill' ? String(args.skill ?? '') : ''
     if (ORCHESTRATOR.test(skill) && !loopRunning() && board.drain?.outcome !== 'running') {
       save($, withRun(board, await $.clock.now()))
       await meter($)
-    } else if (budget && isBuildWork(e.tool, args)) await meter($)
-    // the budget holds once a loop ran in this session, until /agile-board reset
-    const spent = loopRunning() ? (board.spend?.usd ?? 0) : 0
+    }
     const at = await $.clock.now()
-    guardsPrune(host, at, ticketEnded, mergedCount())
+    guardsPrune(host, at, ticketEnded)
     const type = e.agentId ? await agentTypeOf(host, e.agentId) : undefined
     const by = type ? { agent: type.split(':').at(-1) } : {}
     let deny: string | undefined
     let offer: Offer | undefined
-    const over = budgetDenial(spent, budget, e.tool, args)
+    // the one ticket a build call names, among those the board knows; the cost counted so far is an estimate
+    const named = [...new Set((dispatchText(args) + ' ' + String(args.command ?? '')).match(new RegExp(TICKET_KEY.source, 'g')) ?? [])].filter(k => board.tickets[k])
+    const gate = config.modes.ticketBudget
+    const over = gate === 'off' ? undefined : ticketBudgetDenial(k => board.tickets[k]?.cost?.usd ?? 0, cap, named, e.tool, args)
     if (over) {
-      // a person let this ticket's build and merge past the budget
-      const keys = [...new Set((dispatchText(args) + ' ' + String(args.command ?? '')).match(new RegExp(TICKET_KEY.source, 'g')) ?? [])]
-      if (budgetOpen(allowancesNow(), keys)) note($, { at, rule: 'budget', kind: 'bypassed', text: `past the budget on a person's bypass: ${over}`, ...by })
+      if (ticketBudgetOpen(allowancesNow(), named[0]!)) note($, { at, rule: 'ticketBudget', kind: 'bypassed', text: `past the ticket cap on a person's bypass: ${over}`, ...by })
+      else if (gate === 'warn') note($, { at, rule: 'ticketBudget', kind: 'warned', text: over, ...by })
       else {
-        offer = { rule: 'budget', ...(keys.length === 1 && { ticket: keys[0] }) }
+        offer = { rule: 'ticketBudget', ticket: named[0]! }
         deny = over + bypassTail(offer)
       }
     }
@@ -636,7 +634,7 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (!shown || e.props.hasSurvey) return next(e)
-    const row = alertRow(board, { now: await $.clock.now(), refusals, allowed, receipts: receiptsNow(), budget }, e.props.bodyColumns)
+    const row = alertRow(board, { now: await $.clock.now(), refusals, allowed, receipts: receiptsNow(), cap }, e.props.bodyColumns)
     if (!row) return next(e)
     const ui = await $.ui.resolve(e)
     const { Box } = ui
@@ -659,7 +657,7 @@ export const register: Register = (on, options) => {
     const lanes = tab === 'drain' ? laneOf(agents, agentStats, now) : undefined
     const live = tab === 'flow' || tab === 'cost' || tab === 'wip' ? liveOf(agents, board) : undefined
     const guard = tab === 'guards' ? { modes: modesLine(config), notes: configNotes, allowances: allowancesNow(), bypass: config.allowBypass, coverage: await coverageNow($, now) } : undefined
-    const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, budget, ...(live && { live }), ...(guard && { guard }) }
+    const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, cap, ...(live && { live }), ...(guard && { guard }) }
     const w = Math.max(30, e.props.bodyColumns - 2)
     return (
       <Box flexDirection="column">

@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { covers, END, howRead, parseReads, planChunks, readsOf, withReads, type Change } from '../../hooks/state/review.ts'
 import { configOf, modesLine, repoConfigOf, tightened } from '../../hooks/state/config.ts'
-import { allow, budgetOpen, openOf, take3f, takeFix, BYPASS_MS } from '../../hooks/state/bypass.ts'
+import { allow, ticketBudgetOpen, openOf, take3f, takeFix, BYPASS_MS } from '../../hooks/state/bypass.ts'
 import { guardedCall } from '../../hooks/guards.ts'
-import { sideDoorDenial, budgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeProblems, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
+import { sideDoorDenial, ticketBudgetDenial, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeProblems, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -339,17 +339,23 @@ describe('fail closed', () => {
   })
 })
 
-describe('budget stop', () => {
-  test('past the budget, build work is refused and the merge side is not', () => {
-    const impl = { skill: 'agile-execution:agile-10-implement' }
-    expect(budgetDenial(19.99, 20, 'Skill', impl)).toBeUndefined()
-    expect(budgetDenial(25, 0, 'Skill', impl)).toBeUndefined()
-    const deny = budgetDenial(20, 20, 'Skill', impl)!
-    expect(deny).toBe('agile-mods: budget: the loop spent $20.00 of its $20.00 budget (agile-mods budgetUsd). Start no build work: merge what is open, then stop and report BUDGET.')
-    expect(ruleOf(deny)).toBe('budget')
-    expect(budgetDenial(25, 20, 'Skill', { skill: 'agile-merge-review:agile-11-merge-train' })).toBeUndefined()
-    expect(budgetDenial(25, 20, 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer' })).toBeUndefined()
-    expect(budgetDenial(25, 20, 'Agent', { subagent_type: 'agile-sprint-drain:merge-session' })).toBeUndefined()
+describe('ticket cap', () => {
+  const impl = { skill: 'agile-execution:implement-code' }
+  const costs: Record<string, number> = { 'VC-1': 12, 'VC-2': 3 }
+  const cost = (k: string) => costs[k] ?? 0
+
+  test('a ticket at its cap gets no build work; the merge side, other tickets and calls naming several are not held', () => {
+    expect(ticketBudgetDenial(cost, 12, ['VC-2'], 'Skill', impl)).toBeUndefined()
+    expect(ticketBudgetDenial(cost, 0, ['VC-1'], 'Skill', impl)).toBeUndefined()
+    const deny = ticketBudgetDenial(cost, 12, ['VC-1'], 'Skill', impl)!
+    expect(deny).toBe('agile-mods: ticket budget: VC-1 cost an estimated $12.00 of its $12.00 cap (agile-mods ticketBudgetUsd). Start no build work on it: report VC-1 as blocked (BUDGET) and go on with the other tickets; its open PR can still merge.')
+    expect(ruleOf(deny)).toBe('ticketBudget')
+    expect(ticketBudgetDenial(cost, 12, ['VC-1', 'VC-2'], 'Skill', impl)).toBeUndefined()
+    expect(ticketBudgetDenial(cost, 12, [], 'Skill', impl)).toBeUndefined()
+    expect(ticketBudgetDenial(cost, 12, ['VC-1'], 'Skill', { skill: 'agile-merge-review:agile-11-merge-train' })).toBeUndefined()
+    expect(ticketBudgetDenial(cost, 12, ['VC-1'], 'Agent', { subagent_type: 'agile-merge-review:pr-reviewer' })).toBeUndefined()
+    expect(ticketBudgetDenial(cost, 12, ['VC-1'], 'Agent', { subagent_type: 'agile-sprint-drain:merge-session' })).toBeUndefined()
+    expect(ticketBudgetDenial(cost, 12, ['VC-1'], 'Bash', { command: 'gh pr create --fill' })).toContain('VC-1')
   })
 
   test('build work: an implement run or phase, opening a PR, any agent but the merge side and read-only types', () => {
@@ -367,25 +373,28 @@ describe('budget stop', () => {
 
 describe('guard config', () => {
   test('options are checked, and a bad value keeps its default with a note', () => {
-    const { config, notes } = configOf({ guardMergeReview: 'warn', guardPush: 'off', fixRounds: '5', budgetUsd: -1, allowBypass: 'no' })
+    const { config, notes } = configOf({ guardMergeReview: 'warn', guardPush: 'off', fixRounds: '5', ticketBudgetUsd: -1, budgetUsd: 20, allowBypass: 'no' })
     expect(config.modes.mergeReview).toBe('warn')
     expect(config.modes.push).toBe('enforce')
     expect(config.fixRounds).toBe(5)
-    expect(config.budgetUsd).toBe(0)
+    expect(config.ticketBudgetUsd).toBe(0)
+    expect(config.modes.ticketBudget).toBe('enforce')
     expect(config.allowBypass).toBe(true)
     expect(notes.join('\n')).toMatch(/guardPush.*enforce, warn/)
-    expect(notes.length).toBe(3)
+    expect(notes.length).toBe(4)
+    expect(notes.join('\n')).toMatch(/budgetUsd was removed/)
     expect(modesLine(config)).toContain('mergeReview warn')
   })
 
   test('a repo only tightens', () => {
-    const base = configOf({ guardMergeCi: 'warn', fixRounds: 3, budgetUsd: 20 }).config
-    const repo = repoConfigOf('## Skill configuration\n- guardMergeCi: enforce\n- guardGrants: off\n- fixRounds: 5\n- budgetUsd = 10\n- allowBypass: false\n')
+    const base = configOf({ guardMergeCi: 'warn', fixRounds: 3, ticketBudgetUsd: 20 }).config
+    const repo = repoConfigOf('## Skill configuration\n- guardMergeCi: enforce\n- guardGrants: off\n- fixRounds: 5\n- ticketBudgetUsd = 10\n- guardTicketBudget: warn\n- allowBypass: false\n')
     const { config, notes } = tightened(base, repo)
     expect(config.modes.mergeCi).toBe('enforce')
     expect(config.modes.grants).toBe('enforce')
     expect(config.fixRounds).toBe(3)
-    expect(config.budgetUsd).toBe(10)
+    expect(config.ticketBudgetUsd).toBe(10)
+    expect(config.modes.ticketBudget).toBe('enforce')
     expect(config.allowBypass).toBe(false)
     expect(notes.join('\n')).toMatch(/guardGrants: off is looser/)
     expect(notes.join('\n')).toMatch(/fixRounds: 5 is looser/)
@@ -398,31 +407,25 @@ describe('guard config', () => {
 
 describe('bypass', () => {
   test('a merge bypass covers one PR at its head, once, for 30 minutes', () => {
-    const list = allow([], { rule: '3f', pr: 7, head: SHA }, 0, 0)
+    const list = allow([], { rule: '3f', pr: 7, head: SHA }, 0)
     expect(take3f(list, 8, [SHA], 1)).toBeUndefined()
     expect(take3f(list, 7, [OTHER], 1)).toBeUndefined()
     expect(take3f(list, 7, [SHA.slice(0, 12)], 1)).toEqual([])
     expect(take3f(list, 7, [SHA], BYPASS_MS + 1)).toBeUndefined()
-    expect(openOf(list, BYPASS_MS + 1, () => false, 0)).toEqual([])
+    expect(openOf(list, BYPASS_MS + 1, () => false)).toEqual([])
   })
 
   test('a fix bypass is one more round on that PR', () => {
-    const list = allow([], { rule: 'fix', pr: 7 }, 0, 0)
+    const list = allow([], { rule: 'fix', pr: 7 }, 0)
     expect(takeFix(list, 7, 1)).toEqual([])
     expect(takeFix(list, 9, 1)).toBeUndefined()
   })
 
-  test('a budget bypass lasts until its ticket ends; one naming no ticket until the next merge', () => {
-    const list = allow(allow([], { rule: 'budget', ticket: 'VC-1' }, 0, 2), { rule: 'budget' }, 0, 2)
-    expect(budgetOpen([list[0]!], ['VC-1'])).toBe(true)
-    expect(budgetOpen([list[0]!], ['VC-2'])).toBe(false)
-    // naming the allowed ticket beside another does not build the other
-    expect(budgetOpen([list[0]!], ['VC-1', 'VC-2'])).toBe(false)
-    // a ticket's bypass never lets through a call that does not name it
-    expect(budgetOpen([list[0]!], [])).toBe(false)
-    expect(budgetOpen([list[1]!], [])).toBe(true)
-    expect(openOf(list, BYPASS_MS * 10, () => false, 2)).toBe(list)
-    expect(openOf(list, 0, t => t === 'VC-1', 2)).toEqual([list[1]!])
-    expect(openOf(list, 0, () => false, 3)).toEqual([list[0]!])
+  test('a ticket-cap bypass is that ticket\'s and lasts until it ends', () => {
+    const list = allow([], { rule: 'ticketBudget', ticket: 'VC-1' }, 0)
+    expect(ticketBudgetOpen(list, 'VC-1')).toBe(true)
+    expect(ticketBudgetOpen(list, 'VC-2')).toBe(false)
+    expect(openOf(list, BYPASS_MS * 10, () => false)).toBe(list)
+    expect(openOf(list, 0, t => t === 'VC-1')).toEqual([])
   })
 })

@@ -130,37 +130,30 @@ describe('board sources through the engine', () => {
 })
 
 describe('loop limits through the engine', () => {
-  test('past budgetUsd, a new implement run is refused and the merge train goes on', { options: { budgetUsd: 5 } }, async ($, on) => {
-    const usd = { now: 1 }
-    world(on, { usd })
+  const capped = { tickets: { 'VC-3': { key: 'VC-3', cost: { usd: 6, build: 6, merge: 0, ms: 0, firstAt: 0 } }, 'VC-4': { key: 'VC-4', cost: { usd: 1, build: 1, merge: 0, ms: 0, firstAt: 0 } } }, order: ['VC-3', 'VC-4'], prs: {}, prOrder: [], drain: { pass: 1, outcome: 'running' } }
+
+  test('a ticket past ticketBudgetUsd gets no new build work, the others and the merge train go on', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    world(on, { stored: { '/repo:board': capped } })
     await start($)
-    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
-    // the first reading is the baseline
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toBe('ok')
-    usd.now = 7
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toMatch(/^agile-mods: budget: the loop spent \$6\.00 of its \$5\.00 budget/)
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never))).toBe('ok')
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-3' } as never))).toMatch(/^agile-mods: ticket budget: VC-3 cost an estimated \$6\.00 of its \$5\.00 cap/)
+    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-execution:build-implementer', description: 'implement VC-3' } as never))).toContain('ticket budget')
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-4' } as never))).toBe('ok')
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-merge-review:agile-11-merge-train', args: 'VC-3' } as never))).toBe('ok')
   })
 
-  test('inside a running drain, re-invoking a skill never resets the budget; a session agent is refused too', { options: { budgetUsd: 5 } }, async ($, on) => {
-    const usd = { now: 1 }
-    world(on, { usd })
+  test('guardTicketBudget warn lets the call through; off checks nothing', { options: { ticketBudgetUsd: 5, guardTicketBudget: 'warn' } }, async ($, on) => {
+    world(on, { stored: { '/repo:board': capped } })
     await start($)
-    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
-    usd.now = 7
-    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
-    await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never)
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toContain('budget')
-    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-sprint-drain:build-session', description: 'build' } as never))).toContain('budget')
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-3' } as never))).toBe('ok')
   })
 
-  test('no budget set: nothing is refused for spend', async ($, on) => {
-    const usd = { now: 1 }
-    world(on, { usd })
+  test('no cap set: nothing is refused for a ticket\'s cost', async ($, on) => {
+    world(on, { stored: { '/repo:board': capped } })
     await start($)
-    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
-    usd.now = 500
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toBe('ok')
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-3' } as never))).toBe('ok')
   })
 
   test('a fourth fix round pushing to a PR is refused: the PR from the branch, a round per reviewed head', async ($, on) => {

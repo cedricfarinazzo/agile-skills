@@ -11,7 +11,7 @@ agile-mods is a set of [Claude Mods](https://code.claude.com/docs/en/plugins/mod
 | | What it does | Page |
 |---|---|---|
 | **Console** | A status line, an alert row when something needs you, and a seven-tab pane: board, flow, cost, WIP, drain, guards, links | [Console](docs/console.md) |
-| **Guards** | Refuse a merge nobody reviewed, a push to `main`, a PR that keeps failing review, build work past your budget | [Guards](docs/guards.md) |
+| **Guards** | Refuse a merge nobody reviewed, a push to `main`, a PR that keeps failing review, build work on a ticket past its cost cap | [Guards](docs/guards.md) |
 | **Receipts** | Flag an agent whose report breaks the contract | [Receipts](docs/receipts.md) |
 | **Retro data** | Counts for the sprint retro, recorded as the loop runs | [Retro data](docs/retro.md) |
 
@@ -41,7 +41,7 @@ Before the first run:
 
 ## When a guard stops the loop
 
-A guard refuses the call and tells the model why and what to do instead, so most refusals fix themselves. When one cannot (a review that keeps missing a file, a PR past its fix rounds, the budget), the loop reports the PR or ticket as blocked and moves on.
+A guard refuses the call and tells the model why and what to do instead, so most refusals fix themselves. When one cannot (a review that keeps missing a file, a PR past its fix rounds, a ticket's cost cap), the loop reports the PR or ticket as blocked and moves on.
 
 1. Read the toast, or open `/agile-board guards`.
 2. Fix the cause, or press **Allow once** under the refusal to let that one merge, fix round or ticket through.
@@ -56,7 +56,8 @@ Set in `/plugin configure agile-mods@agile-skills`. They apply from the next ses
 | Setting | Default | What it does |
 |---|---|---|
 | `autoOpen` | `true` | Open the console when a drain starts |
-| `budgetUsd` | `0` (none) | Stop new build work once a loop run has spent this much; open PRs still merge |
+| `ticketBudgetUsd` | `0` (none) | Stop new build work on a ticket once its agents have cost this much; its open PR still merges and the other tickets go on |
+| `guardTicketBudget` | `enforce` | What happens at the cap: refuse, `warn`, or `off` |
 | `guardMergeReview` | `enforce` | A merge needs every changed file read by a reviewer |
 | `guardMergeCi` | `enforce` | A merge needs green CI on the head it merges |
 | `guardMergePin` | `enforce` | A merge must pin the reviewed head |

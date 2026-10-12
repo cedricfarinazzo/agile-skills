@@ -565,7 +565,7 @@ function graphqlQueries(command: string): string | undefined {
 }
 const GRAPHQL_WRITE_OK = /^(addPullRequestReviewThreadReply|addPullRequestReviewComment|addPullRequestReview|submitPullRequestReview|addComment|updateIssueComment|resolveReviewThread|unresolveReviewThread|addLabelsToLabelable|removeLabelsFromLabelable)$/
 
-// the GitHub MCP writes the loop may make: comments, reviews, PR edits; merge and create are gated by 3f and the budget
+// the GitHub MCP writes the loop may make: comments, reviews, PR edits; merge and create are gated by 3f and the ticket cap
 const GITHUB_MCP_WRITE_OK = new Set(['add_issue_comment', 'add_comment_to_pending_review', 'add_reply_to_pull_request_comment', 'pull_request_review_write',
   'update_pull_request', 'create_pull_request', 'merge_pull_request', 'issue_write', 'sub_issue_write', 'update_issue_comment', 'request_copilot_review'])
 const isReadTool = (name: string) => /^(get|list|search)_|_read$/.test(name)
@@ -637,30 +637,34 @@ export function sideDoorDenial(tool: string, args: Record<string, unknown>): str
   return undefined
 }
 
-/** The merge side's agents and the read-only agent types, which go on past the budget. */
 export const PUSH_FORM = 'run the push as [cd <dir> &&] [git add … && git commit … &&] git push [-u|--force-with-lease] <remote> <branch>'
 
-const PAST_BUDGET = /^agile-merge-review:|:merge-session$|^(Explore|Plan|claude-code-guide|statusline-setup)$/
+/** The merge side's agents and the read-only agent types, which go on past a ticket's cap. */
+const PAST_CAP = /^agile-merge-review:|:merge-session$|^(Explore|Plan|claude-code-guide|statusline-setup)$/
 
 /**
- * Build work the budget stops: an implement run or any of its phases, opening a PR, and any agent
+ * Build work a ticket's cap stops: an implement run or any of its phases, opening a PR, and any agent
  * but the merge side's and the read-only types. The merge train goes on, so open PRs land.
  */
 export const isBuildWork = (tool: string, args: Record<string, unknown>) =>
   (tool === 'Skill' && /(^|:)(agile-10-implement|implement-[a-z]+)$/.test(str(args.skill))) ||
-  (tool === 'Agent' && !PAST_BUDGET.test(str(args.subagent_type))) ||
+  (tool === 'Agent' && !PAST_CAP.test(str(args.subagent_type))) ||
   (tool === 'Bash' && (/\bgh\s+pr\s+create\b/.test(str(args.command)) || ghApiCalls(str(args.command)).some(c => c.writes && /^\/?repos\/[^/]+\/[^/]+\/pulls$/.test(c.endpoint)))) ||
   mcpName(tool) === 'create_pull_request'
 
 /**
- * The budget stop: once the run has spent its budget, no build work starts; the merge side goes on.
+ * The ticket cap: once a ticket's agents cost its cap, no build work starts on it; its open PR still
+ * merges and the other tickets go on. Only a call that names exactly one ticket is held to it.
  *
- * @param spent USD the run spent, from the engine's cost ledger
- * @param budget the `budgetUsd` option; 0 or less is no budget
+ * @param cost USD the ticket's agents cost this run (an estimate, from their tokens)
+ * @param cap the `ticketBudgetUsd` option; 0 or less is no cap
+ * @param keys the tickets the call names, among those the board knows
  */
-export function budgetDenial(spent: number, budget: number, tool: string, args: Record<string, unknown>): string | undefined {
-  if (budget <= 0 || spent < budget || !isBuildWork(tool, args)) return undefined
-  return `agile-mods: budget: the loop spent $${spent.toFixed(2)} of its $${budget.toFixed(2)} budget (agile-mods budgetUsd). Start no build work: merge what is open, then stop and report BUDGET.`
+export function ticketBudgetDenial(cost: (key: string) => number, cap: number, keys: string[], tool: string, args: Record<string, unknown>): string | undefined {
+  if (cap <= 0 || keys.length !== 1 || !isBuildWork(tool, args)) return undefined
+  const spent = cost(keys[0]!)
+  if (spent < cap) return undefined
+  return `agile-mods: ticket budget: ${keys[0]} cost an estimated $${spent.toFixed(2)} of its $${cap.toFixed(2)} cap (agile-mods ticketBudgetUsd). Start no build work on it: report ${keys[0]} as blocked (BUDGET) and go on with the other tickets; its open PR can still merge.`
 }
 
 /** A call a guard refused, warned about, or let through on a person's bypass, kept for the console's Guards tab. */
@@ -668,7 +672,7 @@ export type Refusal = {
   /** A number no other refusal of the session has: what the Allow once button and /agile-board allow name. */
   id?: number
   at: number
-  rule: 'grant' | '3f' | 'push' | 'fix' | 'budget' | 'side'
+  rule: 'grant' | '3f' | 'push' | 'fix' | 'ticketBudget' | 'side'
   text: string
   agent?: string
   /** Refused (the default), let through by a gate set to warn, or let through on a bypass. */
@@ -687,7 +691,7 @@ export const keepRefusal = (list: Refusal[], refusal: Refusal): Refusal[] => [..
 export function ruleOf(text: string): Refusal['rule'] {
   if (/where the guards read it|where the 3f gates read it|git's own commands|gh's own commands|gh aliases|override git config/.test(text)) return 'side'
   if (/never pushes to|never force-pushes|names the branch it pushes/.test(text)) return 'push'
-  if (/^(agile-mods: )?budget:/.test(text)) return 'budget'
+  if (/^(agile-mods: )?ticket budget:/.test(text)) return 'ticketBudget'
   if (/fix rounds already|fix-round cap/.test(text)) return 'fix'
   if (/--match-head-commit|expectedHeadSha|merge guard|CI |no review read|pinned head/.test(text)) return '3f'
   return 'grant'

@@ -56,11 +56,11 @@ Don't reopen these without the maintainer.
 
 **Bypass** (`hooks/state/bypass.ts`)
 - Only a person grants one: the pane button, or `/agile-board allow <id>` with origin `composer` or `bridge`. `/agile-board reset` is person-only too.
-- Only the 3f gates, the fix cap and the budget can be bypassed. Push, grant and side-door changes go through config only.
+- Only the 3f gates, the fix cap and a ticket's cost cap can be bypassed. Push, grant and side-door changes go through config only.
 - Refusals carry ids that are never reused, and the button and the command name that id, never a position in the list.
 - A merge bypass covers one PR at one head, for 30 minutes, and never waives the pin: the merge must pin the allowed head. No head known means no offer.
 - A fix bypass is one round, for 30 minutes.
-- A budget bypass covers calls naming that one ticket until it is done, parked or merged. A ticketless one lasts until the next merge.
+- A ticket-cap bypass covers calls naming that one ticket until it is done, parked or merged. There is no run-wide budget, so no ticketless bypass.
 - `allowBypass: false` ignores stored bypasses.
 - Every refusal that offers a bypass ends by telling the loop to report blocked and wait, never to hand the command to the person.
 
