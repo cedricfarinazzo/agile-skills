@@ -3,7 +3,7 @@ import { ciOf, applyRuns, dispatchText, EMPTY, PR_REF } from './state/board.ts'
 import { allow, loadAllowances, offerText, openOf, take3f, takeFix, type Allowance, type Offer } from './state/bypass.ts'
 import { DEFAULTS, type Gate, type GuardConfig } from './state/config.ts'
 import { PUSH_FORM, fixDenial, grantDenial, isFixDispatch, mergeProblems, mergeTargetOf, pushDenial, pushesIn, pushPlanOf, sideDoorDenial, type MergeChecks, type MergeFacts, type Refusal, type Rounds } from './state/guards.ts'
-import { CHUNK, addDiffs, addParts, addReads, chunkText, failedIn, howRead, parseReads, planChunks, reviewedAt, sameSha, truncated, type Change, type Diffs, type How, type Know, type Parts, type Reads, type Spec } from './state/review.ts'
+import { CHUNK, addDiffs, addParts, addReads, chunkText, failedIn, howRead, outputLines, parseReads, planChunks, reviewedAt, sameSha, showedDiff, showedFile, truncated, type Change, type Diffs, type How, type Know, type Parts, type Reads, type Spec } from './state/review.ts'
 
 // Guards: the rules the skills state in prose, enforced on the call that would break them.
 // - a subagent's tool grant: review-lens and pr-reviewer never edit or post, jira-postmortem never links;
@@ -59,6 +59,9 @@ export function guardsConfigure(next: GuardConfig) {
   config = next
 }
 
+/** The open bypasses, none while `allowBypass` is off (stored ones from before are not honoured). */
+const openBypasses = () => (config.allowBypass ? allowances : [])
+
 export const guardConfig = () => config
 
 /** The branch checked out where a push runs: its `git -C <dir>` or leading `cd <dir> &&`, else the session's. */
@@ -84,7 +87,7 @@ export async function guardsStart(host: Host, sessionCwd: string) {
 /** Whether a caller's reads are a review: pr-reviewer, merge-session, the main loop on the merge side, or an inline merge-review-pr. */
 function reviewing(type: string | undefined, agentId: string | undefined): boolean {
   if (REVIEWER.test(type ?? '')) return true
-  if (BUILD_SIDE.test(type ?? '')) return false
+  if (BUILD_SIDE.test(type ?? '') || (!agentId && loopStage.get('') === 'build')) return false
   if (inlineReviews.has(agentId ?? '')) return true
   return !agentId && loopStage.get('') === 'merge'
 }
@@ -92,6 +95,7 @@ function reviewing(type: string | undefined, agentId: string | undefined): boole
 /** What git says changed between two trees, from the local repository, else GitHub's compare for a head that descends. */
 function knowOf(host: Host): Know {
   const cache = new Map<string, Promise<Change[] | undefined>>()
+  const ancestry = new Map<string, Promise<boolean | undefined>>()
   return {
     changes: (from, to) => {
       const key = `${from}..${to}`
@@ -100,12 +104,25 @@ function knowOf(host: Host): Know {
           const local = await host.changes(cwd ?? '.', from, to)
           if (local) return local
           const cmp = await host.compare(from, to)
-          return cmp && (cmp.status === 'ahead' || cmp.status === 'identical') ? cmp.files.map(path => ({ status: 'M', path })) : undefined
+          // GitHub lists at most 300 files: a longer list may leave out a changed file, so it says nothing
+          return cmp && cmp.files.length < 300 && (cmp.status === 'ahead' || cmp.status === 'identical') ? cmp.files.map(path => ({ status: 'M', path })) : undefined
         })())
       }
       return cache.get(key)!
     },
     lines: (sha, path) => host.lines(cwd ?? '.', sha, path),
+    descends: (from, to) => {
+      const key = `${from}<${to}`
+      if (!ancestry.has(key)) {
+        ancestry.set(key, (async () => {
+          const local = await host.descends(cwd ?? '.', from, to)
+          if (local !== undefined) return local
+          const cmp = await host.compare(from, to)
+          return cmp ? cmp.status === 'ahead' || cmp.status === 'identical' : undefined
+        })())
+      }
+      return ancestry.get(key)!
+    },
   }
 }
 
@@ -143,12 +160,18 @@ async function mergeFacts(host: Host, pr: number, checks: MergeChecks, inline: b
   return { live, ci, unread, plans, skipped: [...new Set(skipped)].slice(-3), inline }
 }
 
-/** Whether the ref a push sends has the tree of a reviewed sha or of a head a round already pushed onto: a restore. */
-async function restores(host: Host, dir: string, ref: string, known: Rounds | undefined): Promise<boolean> {
+/**
+ * Whether the ref a push sends has the tree of this PR's own history: the live head, a head a round
+ * pushed onto, or a reviewed sha the live head descends from. Another PR's reviewed tree is not this
+ * PR's to restore.
+ */
+async function restores(host: Host, dir: string, ref: string, head: string, known: Rounds | undefined): Promise<boolean> {
   const tree = await host.tree(dir, ref)
   if (!tree) return false
-  const candidates = [...new Set([...(known?.heads ?? []), ...Object.keys(reads), ...Object.keys(diffs), ...Object.keys(parts)])].slice(-12)
-  for (const sha of candidates) if ((await host.tree(dir, sha)) === tree) return true
+  const reviewed = [...new Set([...Object.keys(reads), ...Object.keys(diffs), ...Object.keys(parts)])].slice(-12)
+  const own = [head, ...(known?.heads ?? [])]
+  for (const sha of reviewed) if (!own.includes(sha) && (await host.descends(dir, sha, head)) === true) own.push(sha)
+  for (const sha of own) if ((await host.tree(dir, sha)) === tree) return true
   return false
 }
 
@@ -156,7 +179,7 @@ async function restores(host: Host, dir: string, ref: string, known: Rounds | un
 export type Verdict = { deny?: string; offer?: Offer; notes: { kind: 'warned' | 'bypassed'; text: string; rule: Refusal['rule'] }[] }
 
 const bypassTail = (offer: Offer) =>
-  config.allowBypass ? ` A person can allow this once from /agile-board guards (${offerText(offer)}): return blocked (guard, bypass available) and wait; do not ask them to run the command themselves.` : ''
+  config.allowBypass ? ` A person can allow this once from /agile-board guards (${offerText(offer)}): return blocked (guard, bypass available) and wait; do not ask them to run the command themselves.${offer.rule === '3f' ? ` Once allowed, the retried merge pins --match-head-commit ${offer.head}.` : ''}` : ''
 
 /**
  * The fix-round cap at the push. Each branch the push sends is read from the command (or, for a bare
@@ -195,11 +218,11 @@ async function fixPush(host: Host, command: string, now: number, verdict: Verdic
     if (!reviewedAt(reads, parts, diffs, head)) continue
     const known = rounds[pr.number]
     if (known?.heads.some(h => sameSha(h, head))) continue
-    if (!plan.commits && (await restores(host, dir, ref.src, known))) continue
+    if (!plan.commits && (await restores(host, dir, ref.src, head, known))) continue
     let next: Rounds = known ?? { heads: [] }
     const deny = fixDenial(pr.number, next, config.fixRounds)
     if (deny) {
-      const left = takeFix(allowances, pr.number, now)
+      const left = takeFix(openBypasses(), pr.number, now)
       if (!left) {
         const offer: Offer = { rule: 'fix', pr: pr.number }
         const restore = plan.commits ? ' A push that restores a reviewed tree is free: commit first, then push in a command of its own so the cap can see the tree.' : ''
@@ -227,7 +250,7 @@ async function fixDispatch(host: Host, args: Record<string, unknown>): Promise<s
   if (named.size !== 1) return undefined
   const [pr] = named
   const known = rounds[pr!]
-  if (!fixDenial(pr!, known, config.fixRounds) || allowances.some(a => a.rule === 'fix' && a.pr === pr)) return undefined
+  if (!fixDenial(pr!, known, config.fixRounds) || openBypasses().some(a => a.rule === 'fix' && a.pr === pr)) return undefined
   const live = await host.prView(pr!)
   if (!live || !reviewedAt(reads, parts, diffs, live.headRefOid) || known!.heads.some(h => sameSha(h, live.headRefOid))) return undefined
   return fixDenial(pr!, known, config.fixRounds)
@@ -253,11 +276,10 @@ export async function guardsCheck(host: Host, tool: string, args: Record<string,
   if (tool === 'Skill') {
     if (/(^|:)(agile-11-merge-train|agile-sprint-drain)$/.test(skill)) trainActive = true
     if (/(^|:)(agile-10-implement|agile-11-merge-train|agile-sprint-drain)$/.test(skill)) loopActive = true
-    if (/(^|:)agile-11-merge-train$/.test(skill)) loopStage.set(agentId ?? '', 'merge')
+    // what credits reads (the merge stage, an inline review) waits for the Skill call to run (guardsAfter);
+    // what withholds credit applies at once. An inline review lasts until its loop invokes the next skill
     if (/(^|:)(agile-10-implement|implement-[a-z]+)$/.test(skill)) loopStage.set(agentId ?? '', 'build')
-    // an inline review lasts until its loop invokes the next skill
-    if (/(^|:)merge-review-pr$/.test(skill)) inlineReviews.add(agentId ?? '')
-    else inlineReviews.delete(agentId ?? '')
+    inlineReviews.delete(agentId ?? '')
   }
   const now = await host.now()
   // expired merge and fix bypasses go; budget ones end with their ticket (guardsPrune)
@@ -299,16 +321,19 @@ export async function guardsCheck(host: Host, tool: string, args: Record<string,
   for (const p of problems.filter(p => config.modes[p.gate] === 'warn')) verdict.notes.push({ kind: 'warned', text: p.text, rule: '3f' })
   const enforced = problems.filter(p => config.modes[p.gate] === 'enforce')
   if (!enforced.length) return verdict
-  const heads = [target.head, facts.live?.headRefOid].filter((h): h is string => !!h)
-  const left = take3f(allowances, target.pr, heads, now)
+  // a bypass waives the gates for one head, never the pin: the merge must pin the allowed head, so
+  // GitHub refuses it if anything was pushed since
+  const left = target.head ? take3f(openBypasses(), target.pr, [target.head], now) : undefined
   if (left) {
     allowances = left
     persist(host, BYPASS_KEY, allowances)
     for (const p of enforced) verdict.notes.push({ kind: 'bypassed', text: p.text, rule: '3f' })
     return verdict
   }
-  verdict.offer = { rule: '3f', pr: target.pr, ...((facts.live?.headRefOid ?? target.head) && { head: facts.live?.headRefOid ?? target.head }) }
-  verdict.deny = enforced[0]!.text + bypassTail(verdict.offer)
+  // a merge bypass names the head it allows: with no head known (gh down, no pin), none is offered
+  const head = facts.live?.headRefOid ?? target.head
+  if (head) verdict.offer = { rule: '3f', pr: target.pr, head }
+  verdict.deny = enforced[0]!.text + (verdict.offer ? bypassTail(verdict.offer) : '')
   return verdict
 }
 
@@ -325,6 +350,12 @@ export async function guardsBefore(host: Host, tool: string, args: Record<string
  * within the same review.
  */
 export async function guardsAfter(host: Host, tool: string, args: Record<string, unknown>, agentId: string | undefined, output: string | undefined, isError = false): Promise<string | undefined> {
+  if (tool === 'Skill' && output !== undefined && !isError) {
+    const skill = typeof args.skill === 'string' ? args.skill : ''
+    if (/(^|:)agile-11-merge-train$/.test(skill)) loopStage.set(agentId ?? '', 'merge')
+    if (/(^|:)merge-review-pr$/.test(skill)) inlineReviews.add(agentId ?? '')
+    return undefined
+  }
   if (tool !== 'Bash' || typeof args.command !== 'string') return undefined
   const type = agentId ? await agentTypeOf(host, agentId) : undefined
   if (!reviewing(type, agentId)) return undefined
@@ -354,15 +385,26 @@ export async function guardsAfter(host: Host, tool: string, args: Record<string,
     if (!found && !problems.some(p => p.includes(sha))) problems.push(`${sha} is not a commit in this repository`)
     return found
   }
+  // each read is checked against git's own text: its lines must be in what the command printed
+  const seen = outputLines(output)
   const specs: Spec[] = []
   for (const r of counted.reads) {
     const sha = await resolve(r.sha, r.dir)
-    if (sha) specs.push({ ...r, sha })
+    if (!sha) continue
+    const text = await host.show(r.dir ?? cwd ?? '.', sha, r.path)
+    if (text !== undefined && showedFile(text, seen, r.range)) specs.push({ ...r, sha })
+    else problems.push(`${r.path} at ${sha.slice(0, 7)} is not in the output as git has it, so it did not count: print it plainly`)
   }
   const diffReads = []
   for (const d of counted.diffs) {
     const [from, to] = [await resolve(d.from, d.dir), await resolve(d.to, d.dir)]
-    if (from && to) diffReads.push({ ...d, from, to })
+    if (!from || !to) continue
+    const diff = await host.diffText(d.dir ?? cwd ?? '.', from, to, d.paths)
+    const shown = diff === undefined ? [] : showedDiff(diff, seen)
+    // the diff covers only the paths whose changed lines are in the output, named one by one
+    if (diff !== undefined && (shown.length || !/^diff --git/m.test(diff))) diffReads.push({ ...d, from, to, paths: shown })
+    const missed = diff === undefined ? ['the diff'] : [...diff.matchAll(/^diff --git a\/.+ b\/(.+)$/gm)].map(m => m[1]!).filter(p => !shown.includes(p))
+    if (missed.length) problems.push(`git diff ${from.slice(0, 7)}..${to.slice(0, 7)}: ${missed.slice(0, 3).join(', ')}${missed.length > 3 ? ` and ${missed.length - 3} more` : ''} not in the output as git has it (an external diff, textconv, -w or a cut), so not counted`)
   }
   const nextReads = addReads(reads, specs)
   if (nextReads !== reads) persist(host, READS_KEY, (reads = nextReads))
@@ -374,7 +416,7 @@ export async function guardsAfter(host: Host, tool: string, args: Record<string,
 }
 
 /** The bypasses a person allowed that are still open. */
-export const allowancesNow = () => allowances
+export const allowancesNow = () => openBypasses()
 
 /** A person allowed an offer from the Guards tab: kept until used, expired, or its ticket ends. */
 export function guardsAllow(host: Host, offer: Offer, now: number, merged: number) {

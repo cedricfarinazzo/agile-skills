@@ -4,6 +4,8 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { Board } from '../../hooks/state/board.ts'
 import { CLOUD, OTHER, SHA, said, start, world } from './world.ts'
 
+const PANE = { title: 'agile console', isFocused: true, bodyColumns: 120, placement: 'dock' } as never
+
 describe('merge guard through the engine', () => {
   test('a train merge with a wrong pin is refused from the live head, and never reaches the tool', async ($, on) => {
     const w = world(on, { gh: { 'gh pr view 7': { stdout: JSON.stringify({ headRefOid: SHA, state: 'OPEN' }) } } })
@@ -22,6 +24,8 @@ describe('merge guard through the engine', () => {
         'gh pr view 7': { stdout: JSON.stringify({ headRefOid: SHA, state: 'OPEN' }) },
         [`gh run list --commit ${SHA}`]: { stdout: JSON.stringify([{ databaseId: 3, headSha: SHA, status: 'completed', conclusion: 'success', workflowName: 'ci' }]) },
         'gh api --paginate repos/{owner}/{repo}/pulls/7/files': { stdout: 'src/a.ts\n' },
+        // git's own text of the file, which the reviewer's read must have printed (the stub tool prints "ok")
+        [`git -C /repo show ${SHA}:src/a.ts`]: { stdout: 'ok\n' },
       },
     })
     await start($)
@@ -95,28 +99,18 @@ describe('board sources through the engine', () => {
     expect(order()).toEqual(['VC-1'])
   })
 
-  test('/agile-board reset clears the receipts with the board, and a read in flight saves nothing', async ($, on) => {
-    const answer = JSON.stringify({ issues: { nodes: [{ key: 'VC-1', fields: { summary: 's', status: { name: 'To Do', statusCategory: { key: 'new' } } } }], pageInfo: { hasNextPage: false } } })
-    let resetDone: Promise<unknown> | undefined
+  test('/agile-board reset run by anything but a person (the model, a plugin, a relay) clears nothing', async ($, on) => {
     const w = world(on, {
-      files: { 'AGENTS.md': `cloudId: ${CLOUD}` },
-      jiraAllowed: true,
       stored: {
         '/repo:board': { tickets: { 'VC-1': { key: 'VC-1' } }, order: ['VC-1'], prs: {}, prOrder: [] },
         '/repo:receipts': [{ agent: 'agile-merge-review:pr-reviewer', at: 1, issues: ['preamble'] }],
       },
-      // the reset lands while the Jira read is out
-      jira: () => ((resetDone ??= $.command.run({ command: 'agile-board', args: 'reset' } as never)), answer),
-      gh: { 'gh pr list': { stdout: '[]' }, 'gh run list --limit': { stdout: '[]' } },
     })
     await start($)
-    await $.command.run({ command: 'agile-board', args: 'board' } as never)
-    for (let i = 0; i < 50 && !resetDone; i++) await new Promise(r => setTimeout(r, 10))
-    await resetDone
-    await new Promise(r => setTimeout(r, 50))
-    expect(w.stored.get('/repo:receipts')).toEqual([])
-    expect((w.stored.get('/repo:board') as { order: string[] }).order).toEqual([])
-    expect(said(await $.command.run({ command: 'receipts', args: 'all' } as never))).not.toContain('pr-reviewer')
+    // the test kit's command carries no person's origin, as the model's or a plugin's would not
+    expect(said(await $.command.run({ command: 'agile-board', args: 'reset' } as never))).toContain('run only by a person')
+    expect((w.stored.get('/repo:board') as { order: string[] }).order).toEqual(['VC-1'])
+    expect(said(await $.command.run({ command: 'receipts', args: 'all' } as never))).toContain('pr-reviewer')
   })
 
   test('a Jira page past the output limit is asked again at half the size', async ($, on) => {
@@ -172,7 +166,7 @@ describe('loop limits through the engine', () => {
   test('a fourth fix round pushing to a PR is refused: the PR from the branch, a round per reviewed head', async ($, on) => {
     const pr = { stdout: '' }
     const fixers = [1, 2, 3, 4].map(n => ({ id: `f${n}`, type: 'agile-merge-review:fix-until-satisfied' }))
-    const w = world(on, { agents: [...fixers, { id: 'r1', type: 'agile-merge-review:pr-reviewer' }], gh: { 'gh pr list --head VC-7': pr } })
+    const w = world(on, { agents: [...fixers, { id: 'r1', type: 'agile-merge-review:pr-reviewer' }], gh: { 'gh pr list --head VC-7': pr, 'git -C /repo show': { stdout: 'ok\n' } } })
     await start($)
     await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never)
     const push = (agentId: string) => $.tool.call({ tool: 'Bash', command: 'git push origin VC-7', agentId } as never)
@@ -193,7 +187,9 @@ describe('loop limits through the engine', () => {
     // what a push adds is read against the PR head, less what the base already has
     expect(w.ran).toContain(`git -C /repo rev-list --no-merges ${'1'.repeat(40)}..VC-7 ^origin/main`)
     // a person allows one more round from the Guards tab
-    await $.command.run({ command: 'agile-board', args: 'allow 1' } as never)
+    const ui = await $.ui.mount({ plugin: 'agile-mods', surface: 'terminal', component: 'Pane', props: PANE, requestId: 'agile-console' })
+    await ui.press({ key: 'tab-guards' })
+    await ui.press({ key: (await ui.find({ type: 'Button', text: /Allow once/ }))!.key! })
     expect(said(await push('f4'))).toBe('ok')
   })
 
@@ -210,8 +206,16 @@ describe('loop limits through the engine', () => {
     const merge = () => $.tool.call({ tool: 'Bash', command: `gh pr merge 7 --squash --match-head-commit ${SHA}` } as never)
     expect(said(await merge())).toContain('A person can allow this once')
     expect(w.tools.filter(t => t.startsWith('gh pr merge'))).toHaveLength(0)
-    const allowed = await $.command.run({ command: 'agile-board', args: 'allow 1' } as never) as { text?: string }
-    expect(allowed.text).toContain('allowed once: merge PR #7')
+    // a command run by anything but the person (here a plugin) grants nothing, and resets nothing
+    const byPlugin = await $.command.run({ command: 'agile-board', args: 'allow 1' } as never) as { text?: string }
+    expect(byPlugin.text).toContain('run only by a person')
+    const reset = await $.command.run({ command: 'agile-board', args: 'reset' } as never) as { text?: string }
+    expect(reset.text).toContain('run only by a person')
+    expect(said(await merge())).toContain('A person can allow this once')
+    const ui = await $.ui.mount({ plugin: 'agile-mods', surface: 'terminal', component: 'Pane', props: PANE, requestId: 'agile-console' })
+    await ui.press({ key: 'tab-guards' })
+    expect(await ui.find({ text: /merge PR #7 at dddddd/ })).toBeDefined()
+    await ui.press({ key: (await ui.find({ type: 'Button', text: /Allow once/ }))!.key! })
     expect(said(await merge())).toBe('ok')
     expect(said(await merge())).toContain('could not read CI')
   })

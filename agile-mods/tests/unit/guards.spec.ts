@@ -31,7 +31,12 @@ describe('grant backstop', () => {
 
 describe('review coverage', () => {
   test('counts whole git show and cat-file reads, not partial or computed ones', () => {
-    expect(readsOf(`git show ${SHA}:src/a.ts && git -C /w show ${SHA}:./b.ts | cat -n`)).toEqual([{ sha: SHA, path: 'src/a.ts' }, { sha: SHA, path: 'b.ts' }])
+    expect(readsOf(`git show ${SHA}:src/a.ts && git -C /w show ${SHA}:b.ts | cat -n`)).toEqual([{ sha: SHA, path: 'src/a.ts' }, { sha: SHA, path: 'b.ts' }])
+    // ./ and ../ are read by git from the current directory, not the repo root
+    expect(parseReads(`cd pkg && git show ${SHA}:./index.ts`).skipped[0]).toContain('relative to the current directory')
+    // a quoted spec, and brackets, as git gets them; a size check is not a read and says nothing
+    expect(readsOf(`git show '${SHA}:app/(shop)/$id.tsx' && git show ${SHA}:app/[id]/page.tsx`)).toEqual([{ sha: SHA, path: 'app/(shop)/$id.tsx' }, { sha: SHA, path: 'app/[id]/page.tsx' }])
+    expect(parseReads(`git show ${SHA}:a.ts | wc -c`).skipped).toEqual([])
     expect(readsOf(`git cat-file -p ${SHA}:c.ts`)).toEqual([{ sha: SHA, path: 'c.ts' }])
     expect(readsOf(`git show ${SHA}:a.ts | head -40`)).toEqual([{ sha: SHA, path: 'a.ts', range: [1, 40] }])
     expect(readsOf(`git show $SHA:a.ts; git show ${SHA}:$f`)).toEqual([])
@@ -97,7 +102,7 @@ describe('review coverage', () => {
 
   test('a diff counts when it shows every changed line between two shas', () => {
     expect(parseReads(`git diff ${SHA}..${OTHER}`).diffs).toEqual([{ from: SHA, to: OTHER }])
-    expect(parseReads(`git -C /w diff -U20 ${SHA.slice(0, 8)} ${OTHER} -- a.ts ./b.ts | cat`).diffs).toEqual([{ from: SHA.slice(0, 8), to: OTHER, paths: ['a.ts', 'b.ts'], dir: '/w' }])
+    expect(parseReads(`git -C /w diff -U20 ${SHA.slice(0, 8)} ${OTHER} -- a.ts b.ts | cat`).diffs).toEqual([{ from: SHA.slice(0, 8), to: OTHER, paths: ['a.ts', 'b.ts'], dir: '/w' }])
     for (const flag of ['--stat', '--name-only', '--name-status', '--shortstat', '-w', '--ignore-all-space', '--diff-filter=M']) {
       const parsed = parseReads(`git diff ${flag} ${SHA}..${OTHER}`)
       expect(parsed.diffs).toEqual([])
@@ -113,6 +118,12 @@ describe('review coverage', () => {
     expect(parseReads(`git show ${SHA}:a.ts > /tmp/x`).skipped[0]).toContain('not a plain read')
     expect(parseReads(`false || git show ${SHA}:a.ts`).skipped[0]).toContain('fails')
     expect(parseReads('ls && echo ok').skipped).toEqual([])
+    // the shell ends at a comment, and an ANSI-C quote hides its escapes: nothing on such a line counts
+    expect(readsOf(`echo x # ; git show ${SHA}:a.ts`)).toEqual([])
+    expect(readsOf(`echo $'\\'; git show ${SHA}:a.ts'`)).toEqual([])
+    // a variable or cd after a command that may have failed is not followed
+    expect(readsOf(`false && S=${SHA}; git show $S:a.ts`)).toEqual([])
+    expect(parseReads(`false && cd /x; git show ${SHA}:a.ts`).reads).toEqual([{ sha: SHA, path: 'a.ts' }])
   })
 
   test('the chunk plan keeps each chunk under the limit', () => {
@@ -128,7 +139,7 @@ describe('review coverage', () => {
       [`${MID}..${OTHER}`]: [{ status: 'M', path: 'b.ts' }],
       [`${SHA}..${OTHER}`]: [{ status: 'M', path: 'b.ts' }, { status: 'A', path: 'n.ts' }, { status: 'R', from: 'old.ts', path: 'r.ts' }],
     }
-    const know = { changes: async (a: string, b: string) => changes[`${a}..${b}`], lines: async () => undefined }
+    const know = { changes: async (a: string, b: string) => changes[`${a}..${b}`], lines: async () => undefined, descends: async () => true }
     const reads = withReads({}, `git show ${SHA}:a.ts ${SHA}:b.ts ${SHA}:old.ts`, '')
     const at = (diffs: Record<string, { from: string; paths: string[] | '*' }[]>, sha: string, path: string) => howRead({ reads, parts: {}, diffs }, know, sha, path)
     // unchanged since a full read: carried, whatever the history
@@ -145,6 +156,10 @@ describe('review coverage', () => {
     expect(await at(chain, OTHER, 'n.ts')).toBe('delta')
     // a diff from a sha nobody read proves nothing
     expect(await at({ [OTHER]: [{ from: MID, paths: '*' as const }] }, OTHER, 'b.ts')).toBeUndefined()
+    // off the head's history, an identical file carries only through a diff read from that sha
+    const offHistory = { ...know, descends: async () => false }
+    expect(await howRead({ reads, parts: {}, diffs: {} }, offHistory, OTHER, 'a.ts')).toBeUndefined()
+    expect(await howRead({ reads, parts: {}, diffs: one }, offHistory, OTHER, 'a.ts')).toBe('delta')
   })
 
   test('the same read twice keeps one entry', () => {
@@ -372,6 +387,8 @@ describe('guard config', () => {
     expect(notes.join('\n')).toMatch(/fixRounds: 5 is looser/)
     expect(tightened(configOf({ fixRounds: 0 }).config, { fixRounds: '2' }).config.fixRounds).toBe(2)
     expect(tightened(base, { fixRounds: '0' }).notes[0]).toContain('turn it off')
+    // floored before it is compared: 0.5 cannot turn the cap off
+    expect(tightened(base, { fixRounds: '0.5' }).config.fixRounds).toBe(3)
   })
 })
 
@@ -395,7 +412,11 @@ describe('bypass', () => {
     const list = allow(allow([], { rule: 'budget', ticket: 'VC-1' }, 0, 2), { rule: 'budget' }, 0, 2)
     expect(budgetOpen([list[0]!], ['VC-1'])).toBe(true)
     expect(budgetOpen([list[0]!], ['VC-2'])).toBe(false)
-    expect(budgetOpen([list[0]!], [])).toBe(true)
+    // naming the allowed ticket beside another does not build the other
+    expect(budgetOpen([list[0]!], ['VC-1', 'VC-2'])).toBe(false)
+    // a ticket's bypass never lets through a call that does not name it
+    expect(budgetOpen([list[0]!], [])).toBe(false)
+    expect(budgetOpen([list[1]!], [])).toBe(true)
     expect(openOf(list, BYPASS_MS * 10, () => false, 2)).toBe(list)
     expect(openOf(list, 0, t => t === 'VC-1', 2)).toEqual([list[1]!])
     expect(openOf(list, 0, () => false, 3)).toEqual([list[0]!])

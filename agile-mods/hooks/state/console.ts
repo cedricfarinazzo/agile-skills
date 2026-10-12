@@ -42,7 +42,7 @@ export type Row =
   | { kind: 'tiles'; tiles: Tile[] }
   | { kind: 'chart'; chart: Chart }
   | { kind: 'link'; label: string; href: string }
-  /** A button that allows the n-th open refusal once (`/agile-board allow <n>`). */
+  /** A button that allows refusal `n` (its id) once, as `/agile-board allow <n>` does. */
   | { kind: 'allow'; n: number; label: string }
 
 /** How each file of an open PR counts as read at its head (`full`, `ranges`, `carried`, `delta`); undefined: not read. */
@@ -403,8 +403,8 @@ function agentRows(ctx: Ctx, w: number): Row[] {
 
 const RULE_LABEL: Record<Refusal['rule'], string> = { grant: 'grant', '3f': '3f', push: 'push', fix: 'fix', budget: 'budget', side: 'side' }
 
-/** The refusals a person can still allow, newest first: the numbers `/agile-board allow <n>` takes. */
-export const offersOf = (refusals: Refusal[]) => [...refusals].reverse().filter(r => !r.kind && r.offer)
+/** The refusals a person can still allow, newest first; each is named by its id (`/agile-board allow <id>`). */
+export const offersOf = (refusals: Refusal[]) => [...refusals].reverse().filter(r => !r.kind && r.offer && r.id !== undefined)
 
 const KIND_MARK: Record<string, [string, string]> = { refused: ['✖ ', 'r'], warned: ['⚠ ', 'y'], bypassed: ['➜ ', 'm'] }
 
@@ -422,13 +422,11 @@ function guardRows(ctx: Ctx, w: number): Row[] {
   }
   rows.push(blank)
   if (!ctx.refusals.length) rows.push(line(['no call refused', 'd']))
-  const offers = offersOf(ctx.refusals)
   for (const r of [...ctx.refusals].reverse().slice(0, 6)) {
     const [mark, tone] = KIND_MARK[r.kind ?? 'refused']!
     rows.push(line([fmtAgo(ctx.now - r.at).padEnd(9), 'd'], [mark, tone], [RULE_LABEL[r.rule].padEnd(6), 'y'], r.text.replace(/^agile-mods:\s*/, '').replace(/ A person can allow.*$/, '').slice(0, Math.max(10, w - 18))))
     if (r.agent) rows.push(line('          ', [`by ${r.agent}`, 'd']))
-    const n = offers.indexOf(r) + 1
-    if (n && ctx.guard?.bypass !== false) rows.push({ kind: 'allow', n, label: offerText(r.offer!) })
+    if (!r.kind && r.offer && r.id !== undefined && ctx.guard?.bypass !== false) rows.push({ kind: 'allow', n: r.id, label: offerText(r.offer) })
   }
   const coverage = ctx.guard?.coverage ?? []
   if (coverage.length) {

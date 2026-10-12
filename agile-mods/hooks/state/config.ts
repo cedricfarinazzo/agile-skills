@@ -101,12 +101,14 @@ export function tightened(config: GuardConfig, repo: Record<string, string>): { 
   }
   const lower = (key: 'fixRounds' | 'budgetUsd', current: number) => {
     if (repo[key] === undefined) return current
-    const n = count(repo[key])
+    const raw = count(repo[key])
+    // the cap is whole rounds: floored first, so 0.5 cannot turn it off
+    const n = raw === undefined ? undefined : key === 'fixRounds' ? Math.floor(raw) : raw
     if (n === undefined || n === 0) {
       notes.push(`repo ${key}: "${repo[key]}" ${n === 0 ? 'would turn it off, which a repo cannot do' : 'is not a number'}; ignored`)
       return current
     }
-    if (current === 0 || n < current) return key === 'fixRounds' ? Math.floor(n) : n
+    if (current === 0 || n < current) return n
     if (n > current) notes.push(`repo ${key}: ${n} is looser than ${current}; a repo can only tighten, ignored`)
     return current
   }

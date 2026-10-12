@@ -4,7 +4,7 @@
 
 /** What a refusal can be allowed for: one merge of a PR at a head, one more fix round, or a ticket past the budget. */
 export type Offer =
-  | { rule: '3f'; pr: number; head?: string }
+  | { rule: '3f'; pr: number; head: string }
   | { rule: 'fix'; pr: number }
   | { rule: 'budget'; ticket?: string }
 
@@ -14,7 +14,7 @@ export type Allowance = Offer & { at: number; until?: number; merged?: number }
 export const BYPASS_MS = 30 * 60_000
 
 export const offerText = (o: Offer) =>
-  o.rule === '3f' ? `merge PR #${o.pr}${o.head ? ` at ${o.head.slice(0, 7)}` : ''}` : o.rule === 'fix' ? `one more fix round on PR #${o.pr}` : `build ${o.ticket ?? 'the current ticket'} past the budget`
+  o.rule === '3f' ? `merge PR #${o.pr} at ${o.head.slice(0, 7)}` : o.rule === 'fix' ? `one more fix round on PR #${o.pr}` : `build ${o.ticket ?? 'the current ticket'} past the budget`
 
 /** Adds an allowance; a budget one notes how many PRs had merged, to end at the next when it names no ticket. */
 export function allow(list: Allowance[], offer: Offer, now: number, merged: number): Allowance[] {
@@ -31,7 +31,7 @@ export function openOf(list: Allowance[], now: number, ended: (ticket: string) =
 
 /** Takes the merge allowance for a PR at one of `heads` (the pin and the live head); undefined when none is open. */
 export function take3f(list: Allowance[], pr: number, heads: string[], now: number): Allowance[] | undefined {
-  const i = list.findIndex(a => a.rule === '3f' && a.pr === pr && (a.until ?? Infinity) > now && (!a.head || heads.some(h => h.startsWith(a.head!) || a.head!.startsWith(h))))
+  const i = list.findIndex(a => a.rule === '3f' && a.pr === pr && (a.until ?? Infinity) > now && !!a.head && heads.some(h => h.length >= 7 && (h.startsWith(a.head) || a.head.startsWith(h))))
   return i < 0 ? undefined : list.filter((_, j) => j !== i)
 }
 
@@ -41,9 +41,13 @@ export function takeFix(list: Allowance[], pr: number, now: number): Allowance[]
   return i < 0 ? undefined : list.filter((_, j) => j !== i)
 }
 
-/** Whether a build call naming `keys` may pass the budget: an open budget allowance names one of them, or one names no ticket. */
+/**
+ * Whether a build call naming `keys` may pass the budget: an open allowance for one of its tickets, or
+ * one a person granted for a call that named no single ticket (until the next merge). A ticket's
+ * allowance lets through only a call that names that ticket and no other.
+ */
 export const budgetOpen = (list: Allowance[], keys: string[]) =>
-  list.some(a => a.rule === 'budget' && (!a.ticket || !keys.length || keys.includes(a.ticket)))
+  list.some(a => a.rule === 'budget' && (a.ticket ? keys.length === 1 && keys[0] === a.ticket : true))
 
 export function loadAllowances(value: unknown): Allowance[] {
   return Array.isArray(value) ? value.filter((a): a is Allowance => typeof a === 'object' && a !== null && ['3f', 'fix', 'budget'].includes((a as Allowance).rule) && typeof (a as Allowance).at === 'number') : []

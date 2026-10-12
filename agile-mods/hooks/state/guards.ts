@@ -665,6 +665,8 @@ export function budgetDenial(spent: number, budget: number, tool: string, args: 
 
 /** A call a guard refused, warned about, or let through on a person's bypass, kept for the console's Guards tab. */
 export type Refusal = {
+  /** A number no other refusal of the session has: what the Allow once button and /agile-board allow name. */
+  id?: number
   at: number
   rule: 'grant' | '3f' | 'push' | 'fix' | 'budget' | 'side'
   text: string
@@ -677,7 +679,9 @@ export type Refusal = {
 
 export const MAX_REFUSALS = 20
 
-export const keepRefusal = (list: Refusal[], refusal: Refusal): Refusal[] => [...list, refusal].slice(-MAX_REFUSALS)
+let lastId = 0
+/** Keeps a refusal, giving it the next id: an id is never reused, so a new refusal cannot change what an old number allows. */
+export const keepRefusal = (list: Refusal[], refusal: Refusal): Refusal[] => [...list, { ...refusal, id: ++lastId }].slice(-MAX_REFUSALS)
 
 /** Which guard wrote a refusal, read from its text. */
 export function ruleOf(text: string): Refusal['rule'] {

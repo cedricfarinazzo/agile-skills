@@ -158,7 +158,13 @@ function hostOf($: EngineInterface): Host {
     show: async (dir, sha, path) => {
       if (!/^[0-9a-f]{40}$/.test(sha) || path.startsWith('-')) return undefined
       const r = await $.process.run(['git', '-C', dir, 'show', `${sha}:${path}`], { timeoutMs: 10_000 }).catch(() => undefined)
-      return r?.exitCode === 0 ? r.stdout : undefined
+      return r?.exitCode === 0 && !r.isStdoutTruncated ? r.stdout : undefined
+    },
+    diffText: async (dir, from, to, paths) => {
+      if (!SHA.test(from) || !SHA.test(to) || paths?.some(p => p.startsWith('-'))) return undefined
+      // the guard's own diff: no external driver or textconv a repo set, binary files as text
+      const r = await $.process.run(['git', '-C', dir, 'diff', '--no-ext-diff', '--no-textconv', '--text', '--no-color', '-M', from, to, ...(paths?.length ? ['--', ...paths] : [])], { timeoutMs: 15_000 }).catch(() => undefined)
+      return r?.exitCode === 0 && !r.isStdoutTruncated ? r.stdout : undefined
     },
     resolve: async (dir, rev) => {
       if (!SHA.test(rev)) return undefined
@@ -168,7 +174,8 @@ function hostOf($: EngineInterface): Host {
     },
     changes: async (dir, from, to) => {
       if (!SHA.test(from) || !SHA.test(to)) return undefined
-      const r = await $.process.run(['git', '-C', dir, 'diff', '--name-status', '-M', '-z', from, to], { timeoutMs: 10_000 }).catch(() => undefined)
+      // -C: a file the model's diff could show as a copy (hunks only) must not read here as an add (shown whole)
+      const r = await $.process.run(['git', '-C', dir, 'diff', '--name-status', '-C', '-z', from, to], { timeoutMs: 10_000 }).catch(() => undefined)
       if (r?.exitCode !== 0) return undefined
       // -z: status, then one path (two for a rename or copy), each NUL-terminated
       const words = r.stdout.split('\0')
@@ -177,10 +184,15 @@ function hostOf($: EngineInterface): Host {
         const status = words[i++]!.charAt(0)
         if (status === 'R' || status === 'C') {
           const old = words[i++]!
-          out.push({ status: status === 'C' ? 'A' : 'R', path: words[i++]!, ...(status === 'R' && { from: old }) })
+          out.push({ status: 'R', path: words[i++]!, from: old })
         } else out.push({ status, path: words[i++]! })
       }
       return out
+    },
+    descends: async (dir, from, to) => {
+      if (!SHA.test(from) || !SHA.test(to)) return undefined
+      const r = await $.process.run(['git', '-C', dir, 'merge-base', '--is-ancestor', from, to], { timeoutMs: 5_000 }).catch(() => undefined)
+      return r?.exitCode === 0 ? true : r?.exitCode === 1 ? false : undefined
     },
     tree: async (dir, ref) => {
       if (!(SHA.test(ref) || ref === 'HEAD' || BRANCH.test(ref))) return undefined
@@ -382,8 +394,9 @@ function note($: EngineInterface, entry: Refusal) {
 /** /agile-board allow <n> and the Guards tab's button: a person allows the n-th open refusal once. */
 async function allowAt($: EngineInterface, n: number): Promise<string> {
   if (!config.allowBypass) return 'bypass is off (agile-mods allowBypass)'
-  const r = offersOf(refusals)[n - 1]
-  if (!r?.offer) return `no refusal [${n}] to allow: /agile-board guards lists them`
+  // by id, not by position: a refusal that lands while the person reads the list changes nothing they press
+  const r = offersOf(refusals).find(x => x.id === n)
+  if (!r?.offer) return `no refusal [${n}] to allow: /agile-board allow lists them`
   const now = await $.clock.now()
   guardsAllow(hostOf($), r.offer, now, mergedCount())
   refusals = refusals.map(x => (x === r ? { ...x, offer: undefined, text: `${x.text} [allowed]` } : x))
@@ -458,6 +471,13 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'agile-board' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
+    const allowArg = arg.match(/^allow(?:\s+(\d+))?$/)
+    // a bypass and a reset (which drops reviews, rounds and bypasses and turns the guards off until the next loop)
+    // are a person's decisions: typed at the prompt or sent from their phone, never run by the model, a plugin or a relay
+    const person = e.origin?.kind === 'composer' || e.origin?.kind === 'bridge'
+    if ((allowArg?.[1] || arg === 'reset') && !person) {
+      return { text: `agile-mods: /agile-board ${arg} is run only by a person, at the prompt${allowArg ? ' or from the Guards tab' : ''}` }
+    }
     if (arg === 'reset') {
       epoch += 1
       save($, EMPTY)
@@ -470,11 +490,10 @@ export const register: Register = (on, options) => {
       agentStats = {}
       return { text: 'agile board and retro counts cleared' }
     }
-    const allowArg = arg.match(/^allow(?:\s+(\d+))?$/)
     if (allowArg) {
       if (!allowArg[1]) {
         const open = offersOf(refusals)
-        return { text: open.length ? open.map((r, i) => `[${i + 1}] ${offerText(r.offer!)}: ${r.text.replace(/^agile-mods:\s*/, '').slice(0, 100)}`).join('\n') : 'no refusal to allow' }
+        return { text: open.length ? open.map(r => `[${r.id}] ${offerText(r.offer!)}: ${r.text.replace(/^agile-mods:\s*/, '').slice(0, 100)}`).join('\n') : 'no refusal to allow' }
       }
       return { text: await allowAt($, Number(allowArg[1])) }
     }
@@ -678,7 +697,7 @@ function renderRow(ui: Elements, row: Row, key: string, onAllow?: (n: number) =>
     return (
       <Box key={key} flexDirection="row" columnGap={1}>
         <Text dimColor>{'          '}</Text>
-        <Button label={`Allow once [${row.n}]`} plain onPress={() => onAllow?.(row.n)} />
+        <Button key={`allow-${row.n}`} label={`Allow once [${row.n}]`} plain onPress={() => onAllow?.(row.n)} />
         <Text dimColor wrap="truncate">{row.label}</Text>
       </Box>
     )

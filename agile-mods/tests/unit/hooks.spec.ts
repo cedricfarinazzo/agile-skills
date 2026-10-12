@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { allowancesNow, guardsAfter, guardsAllow, guardsBefore, guardsCheck, guardsConfigure, guardsReset, guardsStart } from '../../hooks/guards.ts'
 import { DEFAULTS, configOf } from '../../hooks/state/config.ts'
 import { receiptsAfter, receiptsCommand, receiptsStart } from '../../hooks/receipts.ts'
-import { fakeHost, type Answers } from './fake-host.ts'
+import { diffOf, fakeHost, type Answers } from './fake-host.ts'
 
 const OLD = 'a'.repeat(40)
 const SHA = 'd'.repeat(40)
@@ -65,7 +65,10 @@ describe('merge guard', () => {
     await guardsAfter(host, 'Bash', { command: `git show ${SHA}:src/a.ts` }, undefined, 'text')
     await read(host, `git show ${SHA}:src/b.ts`, 'b1')
     await guardsBefore(host, ...skill('agile-merge-review:agile-11-merge-train'), undefined)
+    // the merge stage starts once the Skill call ran, not when it is asked for
+    expect(await guardsAfter(host, 'Bash', { command: `git show ${SHA}:src/a.ts` }, undefined, 'text')).toBeUndefined()
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('no review read 2 file(s)')
+    await guardsAfter(host, ...skill('agile-merge-review:agile-11-merge-train'), undefined, 'loaded')
     await guardsAfter(host, 'Bash', { command: `git show ${SHA}:src/a.ts && git show ${SHA}:src/b.ts` }, undefined, 'text')
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
   })
@@ -99,15 +102,45 @@ describe('merge guard', () => {
   })
 
   test('after a fix, the diff from the reviewed sha covers the files it changed', async () => {
-    const { host } = fakeHost(github({ changes: { [`${OLD}..${SHA}`]: [{ status: 'M', path: 'src/b.ts' }] } }))
+    const { host } = fakeHost(github({ changes: { [`${OLD}..${SHA}`]: [{ status: 'M', path: 'src/b.ts' }] }, descends: { [`${OLD}..${SHA}`]: true } }))
     await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
     await read(host, `git show ${OLD}:src/a.ts ${OLD}:src/b.ts`)
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain(': src/b.ts.')
     // a summary shows no lines
     expect(await read(host, `git diff --stat ${OLD}..${SHA}`)).toContain('hides changed lines')
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain(': src/b.ts.')
-    await read(host, `git diff ${OLD}..${SHA} -- src/b.ts`)
+    // a diff whose output is not git's (an external driver, a function named git) counts nothing
+    expect(await read(host, `git diff ${OLD}..${SHA} -- src/b.ts`, 'r1', 'Binary files differ')).toContain('not in the output as git has it')
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain(': src/b.ts.')
+    await read(host, `git diff ${OLD}..${SHA} -- src/b.ts`, 'r1', diffOf(['src/b.ts']))
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('a read whose output is not the file counts nothing', async () => {
+    const { host } = fakeHost(github({ show: { [`${SHA}:src/a.ts`]: 'export const a = 1\n', [`${SHA}:src/b.ts`]: 'export const b = 2\n' } }))
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    expect(await read(host, `exec >/dev/null; git show ${SHA}:src/a.ts`, 'r1', '')).toContain('not in the output as git has it')
+    await read(host, `git show ${SHA}:src/a.ts | cat -n`, 'r1', '     1\texport const a = 1\n')
+    await read(host, `git show '${SHA}:src/b.ts'`, 'r1', 'export const b = 2\n')
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('an identical file at a sha off the head\'s history (another PR, a replaced head) carries only through a diff read from it', async () => {
+    const { host } = fakeHost(github({ changes: { [`${OLD}..${SHA}`]: [] }, descends: { [`${OLD}..${SHA}`]: false } }))
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    await read(host, `git show ${OLD}:src/a.ts ${OLD}:src/b.ts`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('no review read 2 file(s)')
+    await read(host, `git diff ${OLD} ${SHA}`, 'r1', '')
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('a comment, a failed cd or a variable set behind a failure credits nothing', async () => {
+    const { host } = fakeHost(github())
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    expect(await read(host, `echo x # ; git show ${SHA}:src/a.ts`)).toContain('heredoc')
+    await read(host, `cd /nope; git show ${SHA}:src/a.ts`, 'r1', 'bash: cd: /nope: No such file or directory\ntext')
+    await read(host, `false && S=${SHA}; git show $S:src/b.ts`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('no review read 2 file(s)')
   })
 
   test('chained fixes need only the latest diff; a file the fix added is read by its diff', async () => {
@@ -117,9 +150,9 @@ describe('merge guard', () => {
     }))
     await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
     await read(host, `git show ${OLD}:src/a.ts ${OLD}:src/b.ts`)
-    await read(host, `git diff ${OLD}..${MID}`)
+    await read(host, `git diff ${OLD}..${MID}`, 'r1', diffOf(['src/b.ts']))
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('src/b.ts, src/n.ts')
-    await read(host, `git diff ${MID} ${SHA}`)
+    await read(host, `git diff ${MID} ${SHA}`, 'r1', diffOf(['src/b.ts', 'src/n.ts']))
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
   })
 
@@ -141,6 +174,11 @@ describe('merge guard', () => {
     await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
     const refused = await guardsCheck(host, 'Bash', merge(), undefined)
     expect(refused.offer).toEqual({ rule: '3f', pr: 7, head: SHA })
+    // with no head known (gh down, no pin), no bypass is offered
+    const blind = fakeHost(github({ prView: {} })).host
+    const noHead = await guardsCheck(blind, 'Bash', { command: 'gh pr merge 7 --squash' }, undefined)
+    expect(noHead.deny).toContain('pin the reviewed head')
+    expect(noHead.offer).toBeUndefined()
     expect(refused.deny).toContain('A person can allow this once from /agile-board guards')
     guardsAllow(host, refused.offer!, 1_000, 0)
     const passed = await guardsCheck(host, 'Bash', merge(), undefined)
@@ -148,9 +186,15 @@ describe('merge guard', () => {
     expect(passed.notes[0]).toMatchObject({ kind: 'bypassed' })
     expect(allowancesNow()).toEqual([])
     expect((await guardsCheck(host, 'Bash', merge(), undefined)).deny).toContain('no review read')
-    // with the bypass off, the refusal does not offer one
+    // a bypass waives the gates for that head, never the pin
+    guardsAllow(host, refused.offer!, 1_000, 0)
+    expect((await guardsCheck(host, 'Bash', { command: 'gh pr merge 7 --squash' }, undefined)).deny).toContain('pin the reviewed head')
+    // with the bypass off, the refusal offers none, and one granted before is not honoured
     guardsConfigure(configOf({ allowBypass: false }).config)
-    expect((await guardsCheck(host, 'Bash', merge(), undefined)).deny).not.toContain('A person can allow')
+    expect(allowancesNow()).toEqual([])
+    const off = await guardsCheck(host, 'Bash', merge(), undefined)
+    expect(off.deny).not.toContain('A person can allow')
+    expect(off.deny).toContain('no review read')
   })
 
   test('a file too large for one read counts when line ranges at the head cover every line', async () => {
@@ -179,7 +223,7 @@ describe('merge guard', () => {
     await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
     await read(host, `git show ${SHA}:src/a.ts && git show ${SHA}:src/b.ts | cat -n`)
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
-    expect(calls).toEqual(['gh pr view 7', 'gh run list --commit ddddddd', 'gh api pulls/7/files'])
+    expect(calls.filter(c => c.startsWith('gh'))).toEqual(['gh pr view 7', 'gh run list --commit ddddddd', 'gh api pulls/7/files'])
   })
 
   test('a receipt naming a reviewed sha proves nothing: only the reads count', async () => {
@@ -204,6 +248,7 @@ describe('merge guard', () => {
   test('an inline merge-review-pr counts its loop reads until that loop invokes the next skill', async () => {
     const { host } = fakeHost(github())
     await guardsBefore(host, ...skill('agile-merge-review:merge-review-pr', 'PR 7'), 'g1')
+    await guardsAfter(host, ...skill('agile-merge-review:merge-review-pr', 'PR 7'), 'g1', 'loaded')
     await read(host, `git show ${SHA}:src/a.ts`, 'g1')
     await guardsBefore(host, ...skill('agile-merge-review:merge-fix-until-satisfied', 'PR 7'), 'g1')
     await read(host, `git show ${SHA}:src/b.ts`, 'g1')
@@ -217,6 +262,14 @@ describe('merge guard', () => {
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain(': src/b.ts.')
     await read(host, `git show ${SHA}:src/b.ts`)
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()
+  })
+
+  test('GitHub\'s compare past its 300-file limit says nothing', async () => {
+    const files = Array.from({ length: 300 }, (_, i) => `f${i}.ts`)
+    const { host } = fakeHost(github({ compare: { [`${OLD}...${SHA}`]: { status: 'ahead', files } } }))
+    await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
+    await read(host, `git show ${OLD}:src/a.ts ${OLD}:src/b.ts`)
+    expect(await guardsBefore(host, 'Bash', merge(), undefined)).toContain('no review read 2 file(s)')
   })
 
   test('a rebase that rewrote the history voids the older reads', async () => {

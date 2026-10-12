@@ -56,7 +56,8 @@ type Segment = { text: string; join: '' | ';' | '&&' | '||' }
  * heredoc or leaves a quote open, since then the output cannot be tied to a command.
  */
 function segmentsOf(command: string): Segment[] | undefined {
-  if (/<</.test(command)) return undefined
+  // a heredoc's body, an ANSI-C quote's escapes, and a comment (a # starting a word) end where the splitter cannot follow
+  if (/<<|\$'|(^|[\s;&|(])#/.test(command)) return undefined
   const out: Segment[] = []
   let cur = ''
   let join: Segment['join'] = ''
@@ -128,24 +129,32 @@ export function parseReads(command: string): Parsed {
   for (const seg of segments) {
     if (seg.join === ';' || seg.join === '') sure = true
     let text = seg.text
+    // a cd or a variable set after a command that may have failed may not have run: what follows is not read
     const cd = text.match(CD)
     if (cd) {
-      dir = cd[1]!.startsWith('/') || !dir ? cd[1]! : `${dir}/${cd[1]!}`
+      if (seg.join === '||' || !sure) {
+        dir = undefined
+        sure = false
+      } else dir = cd[1]!.startsWith('/') || !dir ? cd[1]! : `${dir}/${cd[1]!}`
       continue
     }
     const assign = text.match(ASSIGN)
     if (assign) {
-      if (HEX.test(assign[2]!)) vars.set(assign[1]!, assign[2]!)
+      if (HEX.test(assign[2]!) && seg.join !== '||' && sure) vars.set(assign[1]!, assign[2]!)
       else vars.delete(assign[1]!)
       continue
     }
     if (QUIET.test(text)) continue
+    // a quoted word that is a whole argument is set aside first: the shell expands nothing in '…', nor
+    // in "…" with no $, backquote or backslash
+    const quoted: string[] = []
+    text = text.replace(/(^|\s)(?:'([^']*)'|"([^"$`\\]*)")(?=\s|$)/g, (_, pre, a, b) => `${pre}\u0001${quoted.push(a ?? b) - 1}`)
     // a sha set in a variable earlier on the line: `$S` and `${S}` read as that sha
     text = text.replace(/\$\{(\w+)\}|\$(\w+)/g, (m, a, b) => vars.get(a ?? b) ?? m)
     const names = /\bgit\b.*\b(show|cat-file|diff)\b/.test(text) && /[0-9a-f]{7}/.test(text)
-    const read = readOf(text, dir)
+    const read = readOf(text, dir, quoted)
     if (typeof read === 'string') {
-      if (names) parsed.skipped.push(`\`${seg.text.slice(0, 80)}\` ${read}`)
+      if (names && read !== SIZE_CHECK) parsed.skipped.push(`\`${seg.text.slice(0, 80)}\` ${read}`)
       sure = false
       continue
     }
@@ -159,10 +168,14 @@ export function parseReads(command: string): Parsed {
   return parsed
 }
 
+/** A size check (`| wc -c`, `| wc -l`): not a read, and not worth a note. */
+export const SIZE_CHECK = 'size check'
+
 /** One command as a read: its files and diffs, or why it is not one. */
-function readOf(text: string, dir: string | undefined): { reads: Spec[]; diffs: DiffRead[] } | string {
-  if (UNMODELLED.test(text)) return 'is not a plain read (quotes, $, redirection or a subshell): run git show <sha>:<path> on its own'
+function readOf(text: string, dir: string | undefined, quoted: string[] = []): { reads: Spec[]; diffs: DiffRead[] } | string {
+  if (UNMODELLED.test(text)) return 'is not a plain read (quotes, $, redirection or a subshell): run git show <sha>:<path> on its own, quoting a path with special characters in single quotes'
   const [head, ...pipes] = text.split('|').map(s => s.trim())
+  if (pipes.length && pipes.every(p => /^wc(\s+-[clmw]+)?$/.test(p))) return SIZE_CHECK
   const ranges = pipes.map(rangeOf)
   const range = ranges.find(Boolean)
   if (ranges.filter(Boolean).length > 1 || pipes.some((p, i) => !ranges[i] && !WHOLE.test(p))) {
@@ -173,10 +186,15 @@ function readOf(text: string, dir: string | undefined): { reads: Spec[]; diffs: 
     const words = show[2]!.split(/\s+/)
     if (range && words.length !== 1) return 'cuts a range out of several files: read one file per range'
     const reads: Spec[] = []
-    for (const word of words) {
+    for (const raw of words) {
+      // a quoted spec was set aside before the checks: its text is read as git gets it
+      const word = raw.replace(/^\u0001(\d+)$/, (_, n) => quoted[Number(n)]!)
       const spec = word.match(SPEC)
-      if (!spec || /[*?\[]/.test(spec[2]!)) return 'names something other than <sha>:<path>'
-      reads.push({ sha: spec[1]!, path: spec[2]!.replace(/^\.\//, ''), ...(range && { range }), ...((show[1] ?? dir) && { dir: show[1] ?? dir }) })
+      // `[ ]` in a path is literal to git (app/[id]/page.tsx); `*` and `?` would be a shell glob unquoted
+      if (!spec || (word === raw && /[*?]/.test(spec[2]!))) return 'names something other than <sha>:<path>'
+      // git reads ./ and ../ from the directory the command runs in, not the repo root
+      if (/^\.\.?\//.test(spec[2]!) || /\/\.\.?\//.test(spec[2]!)) return 'names a path relative to the current directory: write it from the repo root'
+      reads.push({ sha: spec[1]!, path: spec[2]!, ...(range && { range }), ...((show[1] ?? dir) && { dir: show[1] ?? dir }) })
     }
     return { reads, diffs: [] }
   }
@@ -193,9 +211,12 @@ function readOf(text: string, dir: string | undefined): { reads: Spec[]; diffs: 
     const revs = opts.filter(w => !w.startsWith('-'))
     const pair = revs.length === 1 ? revs[0]!.match(/^([0-9a-f]{7,40})\.\.([0-9a-f]{7,40})$/) : revs.length === 2 && HEX.test(revs[0]!) && HEX.test(revs[1]!) ? [, revs[0], revs[1]] : null
     if (!pair) return 'does not diff two shas: use git diff <reviewed sha>..<head> (two dots, two shas)'
-    if (paths && (!paths.length || paths.some(p => /[*?\[]/.test(p)))) return 'limits the diff with a pattern: name each path'
+    const named = paths?.map(p => p.replace(/^\u0001(\d+)$/, (_, n) => quoted[Number(n)]!))
+    // git reads a diff path as a pathspec, quoted or not: a pattern or `:` magic is not one file
+    if (named && (!named.length || named.some(p => /[*?\[]/.test(p) || /^:/.test(p)))) return 'limits the diff with a pattern: name each path'
+    if (named?.some(p => /^\.\.?\//.test(p) || /\/\.\.?\//.test(p))) return 'names a path relative to the current directory: write it from the repo root'
     const where = diff[1] ?? dir
-    return { reads: [], diffs: [{ from: pair[1]!, to: pair[2]!, ...(paths && { paths: paths.map(p => p.replace(/^\.\//, '')) }), ...(where && { dir: where }) }] }
+    return { reads: [], diffs: [{ from: pair[1]!, to: pair[2]!, ...(named && { paths: named }), ...(where && { dir: where }) }] }
   }
   return 'is not a read'
 }
@@ -215,6 +236,11 @@ export const truncated = (output: string) => output.length > MAX_OUTPUT || PERSI
  * names, or every read when an error names none of them.
  */
 export function failedIn(output: string, parsed: Parsed): Parsed {
+  // a cd that failed leaves the reads after it in another directory than the one recorded
+  if (/\bcd: .*(No such file|Not a directory|Permission denied)/.test(output)) {
+    const lost = parsed.reads.length + parsed.diffs.length
+    return { reads: [], diffs: [], skipped: [...parsed.skipped, ...(lost ? ['a cd in the command failed, so none of its reads counted'] : [])] }
+  }
   const errors = output.split('\n').filter(l => /^(fatal|error): /.test(l))
   if (!errors.length) return parsed
   const named = (sha: string, path: string) => errors.some(l => l.includes(path.split('/').at(-1)!) || l.includes(sha.slice(0, 7)))
@@ -249,7 +275,9 @@ export function addParts(parts: Parts, specs: Spec[]): Parts {
   for (const { sha, path, range } of specs) {
     if (!range) continue
     const files = next[sha] ?? {}
-    next = { ...next, [sha]: { ...files, [path]: [...(files[path] ?? []), range].slice(-200) } }
+    // re-inserted last, so a sha still being read is the last one evicted
+    const { [sha]: _, ...rest } = next
+    next = { ...rest, [sha]: { ...files, [path]: [...(files[path] ?? []), range].slice(-200) } }
   }
   return next === parts ? parts : capShas(next)
 }
@@ -261,7 +289,8 @@ export function addDiffs(diffs: Diffs, list: DiffRead[]): Diffs {
     const known = next[to] ?? []
     const covered = paths ?? '*'
     if (known.some(d => d.from === from && (d.paths === '*' || (covered !== '*' && covered.every(p => (d.paths as string[]).includes(p)))))) continue
-    next = { ...next, [to]: [...known, { from, paths: covered }].slice(-50) }
+    const { [to]: _, ...rest } = next
+    next = { ...rest, [to]: [...known, { from, paths: covered }].slice(-50) }
   }
   return next === diffs ? diffs : capShas(next)
 }
@@ -319,7 +348,7 @@ export function planChunks(text: string, limit = CHUNK): [number, number][] {
 export const chunkText = (sha: string, path: string, plan: [number, number][]) =>
   `git show ${sha}:${path} | sed -n ${plan.map(([a, b]) => `${a},${b}p`).join(' · ')}`
 
-/** One changed path between two trees (`git diff --name-status -M`): A added, M modified, D deleted, R renamed from `from`. */
+/** One changed path between two trees (`git diff --name-status -C`): A added, M modified, D deleted, R renamed or copied from `from`. */
 export type Change = { status: string; path: string; from?: string }
 
 /** What the coverage check asks git, cached by the caller. */
@@ -328,6 +357,8 @@ export type Know = {
   changes: (from: string, to: string) => Promise<Change[] | undefined>
   /** The line count of a file at a sha; undefined when git cannot say. */
   lines: (sha: string, path: string) => Promise<number | undefined>
+  /** Whether `to` descends from `from` (or is it); undefined when git cannot say. */
+  descends: (from: string, to: string) => Promise<boolean | undefined>
 }
 
 /** How a file counts as read at a sha: in full, by ranges, unchanged since a read, or by a diff since one. */
@@ -382,12 +413,66 @@ async function howReadOnce(state: { reads: Reads; parts: Parts; diffs: Diffs }, 
       }
     }
   }
-  // unchanged since a sha where it was read: the same content, so the same review
-  const sources = [...new Set([...Object.keys(state.reads), ...Object.keys(state.parts), ...Object.keys(state.diffs)])].filter(s => !sameSha(s, sha)).slice(-SOURCES)
+  // unchanged since a sha this head descends from where it was read: the same content, reviewed for this
+  // PR's history. A sha off that history (another PR's, or one a force push replaced) counts only
+  // through a diff the reviewer read from it, above
+  // ancestors are picked first and the window taken after, so other PRs' reviews do not push this one's out
+  const sources: string[] = []
+  for (const from of [...new Set([...Object.keys(state.reads), ...Object.keys(state.parts), ...Object.keys(state.diffs)])].filter(s => !sameSha(s, sha)).reverse()) {
+    if (sources.length >= SOURCES) break
+    if ((await know.descends(from, sha)) === true) sources.push(from)
+  }
   for (const from of sources) {
     const changes = await know.changes(from, sha)
     if (!changes || changes.some(x => x.path === path || x.from === path)) continue
     if (await howRead(state, know, from, path, depth + 1, seen)) return 'carried'
   }
   return undefined
+}
+
+/**
+ * The output's lines, each also without a `cat -n` / `nl` line number, so a read's lines can be looked
+ * up whatever the reviewer piped it through.
+ */
+export function outputLines(output: string): Set<string> {
+  const lines = new Set<string>()
+  for (const raw of output.split('\n')) {
+    const line = raw.trimEnd()
+    lines.add(line)
+    const bare = line.match(/^\s*\d+[\t ](.*)$/)
+    if (bare) lines.add(bare[1]!.trimEnd())
+  }
+  return lines
+}
+
+/**
+ * Whether a file's lines (all of them, or one range) are in the output: what the reviewer was shown,
+ * checked against git's own text, so a line that printed something else (output sent away, a `git`
+ * function, an external diff driver) credits nothing. Blank lines prove nothing either way.
+ */
+export function showedFile(text: string, seen: Set<string>, range?: [number, number]): boolean {
+  const lines = text.split('\n')
+  if (text.endsWith('\n')) lines.pop()
+  const part = range ? lines.slice(range[0] - 1, Math.min(range[1], lines.length)) : lines
+  return part.every(l => !l.trim() || seen.has(l.trimEnd()))
+}
+
+/**
+ * The paths whose every changed line (`+` / `-`) in git's own diff is in the output. A path whose diff
+ * has no changed lines (a pure rename, a mode change) counts when its `diff --git` header is there.
+ */
+export function showedDiff(diff: string, seen: Set<string>): string[] {
+  const files = new Map<string, { lines: string[]; header: string }>()
+  let current: { lines: string[]; header: string } | undefined
+  for (const line of diff.split('\n')) {
+    const head = line.match(/^diff --git a\/(.+) b\/(.+)$/)
+    if (head) {
+      current = { lines: [], header: line }
+      files.set(head[2]!, current)
+      continue
+    }
+    if (!current || /^(\+\+\+|---) /.test(line)) continue
+    if (/^[+-]/.test(line) && line.slice(1).trim()) current.lines.push(line.trimEnd())
+  }
+  return [...files].filter(([, f]) => (f.lines.length ? f.lines.every(l => seen.has(l)) : seen.has(f.header))).map(([p]) => p)
 }

@@ -45,10 +45,14 @@ export type Host = {
   lines: (dir: string, sha: string, path: string) => Promise<number | undefined>
   /** The text of `<sha>:<path>` (`git -C <dir> show`), for the chunk plan of a file too large for one read. */
   show: (dir: string, sha: string, path: string) => Promise<string | undefined>
+  /** git's own diff of two commits, every line as text (`git -C <dir> diff --no-ext-diff --no-textconv --text --no-color -M <from> <to> [-- <paths>]`). */
+  diffText: (dir: string, from: string, to: string, paths?: string[]) => Promise<string | undefined>
   /** The full sha of a commit named by 7 to 40 hex (`git -C <dir> rev-parse --verify --quiet <rev>^{commit}`). */
   resolve: (dir: string, rev: string) => Promise<string | undefined>
-  /** The paths that differ between two trees (`git -C <dir> diff --name-status -M -z <from> <to>`). */
+  /** The paths that differ between two trees (`git -C <dir> diff --name-status -C -z <from> <to>`): a copy reads as a rename, never an add. */
   changes: (dir: string, from: string, to: string) => Promise<{ status: string; path: string; from?: string }[] | undefined>
+  /** Whether `to` descends from `from` (`git -C <dir> merge-base --is-ancestor <from> <to>`): undefined when git cannot say. */
+  descends: (dir: string, from: string, to: string) => Promise<boolean | undefined>
   /** The tree a commit or branch points at (`git -C <dir> rev-parse --verify --quiet <ref>^{tree}`). */
   tree: (dir: string, ref: string) => Promise<string | undefined>
   agents: () => Promise<AgentInfo[]>
