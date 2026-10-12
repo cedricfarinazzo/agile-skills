@@ -2,15 +2,15 @@
 // loosened) by the consumer repo's CLAUDE.md / AGENTS.md, which the loop itself can edit.
 
 export type Mode = 'enforce' | 'warn' | 'off'
-export type Gate = 'grants' | 'mergePin' | 'mergeCi' | 'mergeReview' | 'push' | 'sideDoor'
+export type Gate = 'grants' | 'mergePin' | 'mergeCi' | 'mergeReview' | 'push' | 'sideDoor' | 'ticketBudget'
 
 export type GuardConfig = {
   modes: Record<Gate, Mode>
   /** Fix rounds per PR after a review; 0 is no cap. */
   fixRounds: number
   allowBypass: boolean
-  /** USD; 0 is no budget. */
-  budgetUsd: number
+  /** USD one ticket's agents may cost; 0 is no cap. Applies under the `ticketBudget` gate's mode. */
+  ticketBudgetUsd: number
 }
 
 /** Each gate's option name, as the plugin's userConfig and a repo's config spell it. */
@@ -21,15 +21,16 @@ export const OPTION: Record<Gate, string> = {
   mergeReview: 'guardMergeReview',
   push: 'guardPush',
   sideDoor: 'guardSideDoor',
+  ticketBudget: 'guardTicketBudget',
 }
 
 export const GATES = Object.keys(OPTION) as Gate[]
 
 export const DEFAULTS: GuardConfig = {
-  modes: { grants: 'enforce', mergePin: 'enforce', mergeCi: 'enforce', mergeReview: 'enforce', push: 'enforce', sideDoor: 'enforce' },
+  modes: { grants: 'enforce', mergePin: 'enforce', mergeCi: 'enforce', mergeReview: 'enforce', push: 'enforce', sideDoor: 'enforce', ticketBudget: 'enforce' },
   fixRounds: 3,
   allowBypass: true,
-  budgetUsd: 0,
+  ticketBudgetUsd: 0,
 }
 
 /** The modes a gate takes: a push to main cannot be undone, so the push guard has no off. */
@@ -55,24 +56,26 @@ export function configOf(options: Record<string, unknown> | undefined): { config
     if (modesOf(gate).includes(mode)) modes[gate] = mode
     else notes.push(`${OPTION[gate]}: "${value}" is not ${modesOf(gate).join(', ')}; ${DEFAULTS.modes[gate]} applies`)
   }
-  const numberOf = (key: 'fixRounds' | 'budgetUsd') => {
+  const numberOf = (key: 'fixRounds' | 'ticketBudgetUsd') => {
     if (o[key] === undefined || o[key] === '') return DEFAULTS[key]
     const n = count(o[key])
     if (n === undefined) notes.push(`${key}: "${o[key]}" is not a number of 0 or more; ${DEFAULTS[key]} applies`)
     return n ?? DEFAULTS[key]
   }
   const fixRounds = Math.floor(numberOf('fixRounds'))
-  const budgetUsd = numberOf('budgetUsd')
+  const ticketBudgetUsd = numberOf('ticketBudgetUsd')
+  // the run-level budget is gone: say so once rather than ignore it silently
+  if (o.budgetUsd !== undefined && o.budgetUsd !== '' && o.budgetUsd !== 0 && o.budgetUsd !== '0') notes.push('budgetUsd was removed: the loop is no longer stopped on its total spend. Set ticketBudgetUsd to cap one ticket')
   let allowBypass = DEFAULTS.allowBypass
   if (o.allowBypass !== undefined && o.allowBypass !== '') {
     const b = flag(o.allowBypass)
     if (b === undefined) notes.push(`allowBypass: "${o.allowBypass}" is not true or false; ${DEFAULTS.allowBypass} applies`)
     else allowBypass = b
   }
-  return { config: { modes, fixRounds, allowBypass, budgetUsd }, notes }
+  return { config: { modes, fixRounds, allowBypass, ticketBudgetUsd }, notes }
 }
 
-const KEYS = [...Object.values(OPTION), 'fixRounds', 'budgetUsd', 'allowBypass']
+const KEYS = [...Object.values(OPTION), 'fixRounds', 'ticketBudgetUsd', 'allowBypass']
 
 /** The guard keys a repo's AGENTS.md / CLAUDE.md sets (`guardPush: enforce`, `- fixRounds = 2`), the first of each. */
 export function repoConfigOf(text: string): Record<string, string> {
@@ -99,7 +102,7 @@ export function tightened(config: GuardConfig, repo: Record<string, string>): { 
     else if (RANK[mode] > RANK[modes[gate]]) modes[gate] = mode
     else if (RANK[mode] < RANK[modes[gate]]) notes.push(`repo ${OPTION[gate]}: ${mode} is looser than ${modes[gate]}; a repo can only tighten, ignored`)
   }
-  const lower = (key: 'fixRounds' | 'budgetUsd', current: number) => {
+  const lower = (key: 'fixRounds' | 'ticketBudgetUsd', current: number) => {
     if (repo[key] === undefined) return current
     const raw = count(repo[key])
     // the cap is whole rounds: floored first, so 0.5 cannot turn it off
@@ -113,15 +116,22 @@ export function tightened(config: GuardConfig, repo: Record<string, string>): { 
     return current
   }
   const fixRounds = lower('fixRounds', config.fixRounds)
-  const budgetUsd = lower('budgetUsd', config.budgetUsd)
+  const ticketBudgetUsd = lower('ticketBudgetUsd', config.ticketBudgetUsd)
   let allowBypass = config.allowBypass
   if (repo.allowBypass === 'false') allowBypass = false
   else if (repo.allowBypass === 'true' && !config.allowBypass) notes.push('repo allowBypass: true is looser than false; a repo can only tighten, ignored')
-  return { config: { modes, fixRounds, allowBypass, budgetUsd }, notes }
+  return { config: { modes, fixRounds, allowBypass, ticketBudgetUsd }, notes }
 }
 
-/** One line for the Guards tab header: every gate's mode, the cap, the budget and the bypass. */
+/** The Guards tab's first header line: `all enforce`, or each gate that is not. */
 export function modesLine(config: GuardConfig): string {
-  const modes = GATES.map(g => `${OPTION[g].replace(/^guard/, '').replace(/^./, c => c.toLowerCase())} ${config.modes[g]}`).join(' · ')
-  return `${modes} · fixRounds ${config.fixRounds || 'off'} · budget ${config.budgetUsd ? `$${config.budgetUsd}` : 'off'} · bypass ${config.allowBypass ? 'on' : 'off'}`
+  const gates = GATES.filter(g => g !== 'ticketBudget')
+  const off = gates.filter(g => config.modes[g] !== 'enforce').map(g => `${OPTION[g].replace(/^guard/, '').replace(/^./, c => c.toLowerCase())} ${config.modes[g]}`)
+  return off.length ? off.join(' · ') + (off.length < gates.length ? ' · the rest enforce' : '') : 'all enforce'
+}
+
+/** Its second: the fix-round cap, the ticket cap with its mode, and the bypass. */
+export function limitsLine(config: GuardConfig): string {
+  const cap = config.ticketBudgetUsd ? `$${config.ticketBudgetUsd} (${config.modes.ticketBudget})` : 'off'
+  return `fixRounds ${config.fixRounds || 'off'} · ticket cap ${cap} · bypass ${config.allowBypass ? 'on' : 'off'}`
 }

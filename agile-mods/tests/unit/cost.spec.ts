@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Glob } from 'bun'
 import { EMPTY, type Board } from '../../hooks/state/board.ts'
-import { AGENT_MODEL, GAP, PRICES, isSession, median, modelOf, modelOfId, movedCost, rowsOf, summaryOf, ticketOfCall, ticketOfText, usdOf, withCost, withoutCosts } from '../../hooks/state/cost.ts'
+import { AGENT_MODEL, GAP, commandsOf, PRICES, median, modelOf, modelOfId, movedCost, rowsOf, strongTicket, summaryOf, ticketOfText, ticketsOfText, usdOf, withCost, withoutCosts } from '../../hooks/state/cost.ts'
 import { withRun } from '../../hooks/state/flow.ts'
 
 const ROOT = `${import.meta.dir}/../../..`
@@ -29,8 +29,6 @@ describe('request dollars', () => {
     expect(modelOfId('m')).toBeUndefined()
     expect(modelOf('agile-execution:build-implementer')).toBe('opus')
     expect(modelOf('general-purpose')).toBeUndefined()
-    expect(isSession('agile-sprint-drain:build-session')).toBe(true)
-    expect(isSession('agile-execution:build-implementer')).toBe(false)
   })
 
   test('the tables match the agent files and session-audit', async () => {
@@ -70,20 +68,52 @@ describe('ticket cost', () => {
     expect(movedCost(board(), 'VC-1', 'VC-2', 1, 'build', 1)).toEqual(board())
     expect(withRun(b, 5).tickets['VC-2']!.cost).toBeUndefined()
     expect(withoutCosts(board())).toEqual(board())
+    expect(withoutCosts({ ...board(), unattributed: 3 }).unattributed).toBeUndefined()
   })
 })
 
 describe('which ticket', () => {
   const b = board()
-  test('a description or a call that names exactly one ticket the board knows', () => {
+  test('a text names the tickets on the board it carries, or the PR it names', () => {
     expect(ticketOfText(b, 'implement VC-1')).toBe('VC-1')
     expect(ticketOfText(b, 'review PR #7')).toBe('VC-2')
     expect(ticketOfText(b, 'build VC-1 and VC-2')).toBeUndefined()
+    expect(ticketsOfText(b, 'build VC-1 and VC-2')).toEqual(['VC-1', 'VC-2'])
     expect(ticketOfText(b, 'UTF-8 OTHER-4')).toBeUndefined()
-    expect(ticketOfCall(b, 'mcp__atlassian__getJiraIssue', { issueIdOrKey: 'VC-2' })).toBe('VC-2')
-    expect(ticketOfCall(b, 'Bash', { command: 'gh pr view 7 --json state' })).toBe('VC-2')
-    expect(ticketOfCall(b, 'Bash', { command: 'git log' })).toBeUndefined()
-    expect(ticketOfCall(b, 'mcp__atlassian__searchJiraIssuesUsingJql', { jql: 'key in (VC-1, VC-2)' })).toBeUndefined()
+  })
+
+  test('only a call that changes something shows what an agent works: a read names a ticket and shows nothing', () => {
+    expect(strongTicket(b, 'mcp__atlassian__addCommentToJiraIssue', { issueIdOrKey: 'VC-2' })).toBe('VC-2')
+    expect(strongTicket(b, 'mcp__atlassian__transitionJiraIssue', { issueIdOrKey: 'VC-9' })).toBeUndefined()
+    expect(strongTicket(b, 'mcp__atlassian__getJiraIssue', { issueIdOrKey: 'VC-2' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'git push origin VC-1-cart' })).toBe('VC-1')
+    expect(strongTicket(b, 'Bash', { command: 'git -C /w checkout -b VC-2-x' })).toBe('VC-2')
+    expect(strongTicket(b, 'Bash', { command: 'gh pr merge 7 --squash' })).toBe('VC-2')
+    expect(strongTicket(b, 'Bash', { command: 'gh pr view 7 --json state' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'git log VC-1' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'git push origin VC-1-a VC-2-b' })).toBeUndefined()
+    expect(strongTicket(b, 'mcp__github__create_pull_request', { head: 'VC-2-x' })).toBe('VC-2')
+    // a word in a string, a comment or an echo is no command
+    expect(strongTicket(b, 'Bash', { command: 'echo "git push origin VC-1-a"' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: "printf 'gh pr merge 7' > notes" })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'git status # git push origin VC-1-a' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'cd /w && git push origin VC-1-a' })).toBe('VC-1')
+    expect(strongTicket(b, 'Bash', { command: 'git add . && git commit -m "VC-2 done" && git push -u origin VC-1-a' })).toBe('VC-1')
+    expect(strongTicket(b, 'Bash', { command: 'git push origin VC-1-a; git push origin VC-2-b' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'gh pr merge 7 --squash 2>&1 | tee out' })).toBe('VC-2')
+  })
+})
+
+describe('commands of a shell line', () => {
+  test('split outside quotes; a comment is dropped', () => {
+    expect(commandsOf('cd /w && git push origin VC-1 || echo "a;b" | tee x')).toEqual(['cd /w', 'git push origin VC-1', 'echo "a;b"', 'tee x'])
+    expect(commandsOf('git push origin x # git push origin y')).toEqual(['git push origin x'])
+    expect(commandsOf("echo 'it''s'; ls")).toEqual(["echo 'it''s'", 'ls'])
+    // a redirection's & is no separator, and a single quote has no backslash escape
+    expect(commandsOf('gh pr merge 12 2>&1 | tee f')).toEqual(['gh pr merge 12 2>&1', 'tee f'])
+    expect(commandsOf('git push -u origin br &> log && ls')).toEqual(['git push -u origin br &> log', 'ls'])
+    expect(commandsOf("echo 'a\\'; git push origin VC-4")).toEqual(["echo 'a\\'", 'git push origin VC-4'])
+    expect(commandsOf('echo "a \\" ; b"; ls')).toEqual(['echo "a \\" ; b"', 'ls'])
   })
 })
 
@@ -100,6 +130,8 @@ describe('the tab\'s numbers', () => {
     expect(s).toMatchObject({ tickets: 13, overhead: 2, median: 4, merged: 2, mergedUsd: 8, drift: false })
     expect(s.perLine).toBeCloseTo(8 / 300)
     expect(summaryOf(rows, 12).drift).toBe(false)
+    // agents that named no ticket sit beside the tickets, not in overhead
+    expect(summaryOf(rows, 15, 1.5)).toMatchObject({ tickets: 13, unattributed: 1.5, overhead: 0.5 })
     expect(summaryOf(rows, 10).drift).toBe(true)
     expect(median([])).toBeUndefined()
     expect(median([3, 1, 2])).toBe(2)

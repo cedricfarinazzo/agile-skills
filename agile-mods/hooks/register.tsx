@@ -2,15 +2,15 @@
 import type { EngineInterface, ProcessRunResult, Register, RenderNode } from 'claude-code'
 import { EMPTY, POINTS_FIELD, TICKET_KEY, applyJira, dispatchText, markerTargets, pruned, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, issuesOf, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, offersOf, rasterCells, statusText, tabOf, type Coverage, type Ctx, type Row, type Tab } from './state/console.ts'
-import { budgetDenial, isBuildWork, keepRefusal, ruleOf, type Refusal } from './state/guards.ts'
-import { budgetOpen, offerText, type Offer } from './state/bypass.ts'
-import { configOf, modesLine, repoConfigOf, tightened, type GuardConfig } from './state/config.ts'
+import { isBuildWork, keepRefusal, prHeadOf, ruleOf, ticketBudgetDenial, type Refusal } from './state/guards.ts'
+import { offerText, ticketBudgetOpen, type Offer } from './state/bypass.ts'
+import { configOf, limitsLine, modesLine, repoConfigOf, tightened, type GuardConfig } from './state/config.ts'
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
 import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { liveOf } from './state/phase.ts'
-import { isSession, modelOf, modelOfId, movedCost, ticketOfCall, ticketOfText, usdOf, withCost } from './state/cost.ts'
+import { modelOf, modelOfId, movedCost, strongTicket, ticketOfText, ticketsOfText, usdOf, withCost } from './state/cost.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
-import { agentTypeOf, allowancesNow, coverageOf, guardedCall, guardsAfter, guardsAllow, guardsCheck, guardsConfigure, guardsPrune, guardsReset, guardsStart, loopRunning } from './guards.ts'
+import { agentTypeOf, allowancesNow, branchOf, coverageOf, guardedCall, guardsAfter, guardsAllow, guardsCheck, guardsConfigure, guardsPrune, guardsReset, guardsStart, loopRunning } from './guards.ts'
 import type { Usage } from './state/flow.ts'
 import { argsOf, type Compare, type Finished, type Host, type PrRow, type RunRow } from './host.ts'
 import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsReset, receiptsStart } from './receipts.ts'
@@ -65,14 +65,22 @@ let soonQueued = false
 let persistQueued = false
 const busy = { gh: false, jira: false }
 let ghError: string | undefined
-let budget = 0
+let cap = 0
 let config: GuardConfig
 let configNotes: string[] = []
 /** Per open PR at its head: how each file counts as read, for the Guards tab; refreshed at most every 15 s. */
 let coverage: Record<number, { head: string; at: number; files: Record<string, string | undefined> }> = {}
 let agentStats: Stats = {}
 /** Per loop agent: the ticket it works, the last request counted and when, for the Cost tab. Memory only. */
-const workers = new Map<string, { ticket?: string; fixed: boolean; stage?: 'build' | 'merge'; last?: { ticket: string; usd: number }; at?: number }>()
+/** Agent dispatches whose ticket the prompt named, waiting for the agent they start: the description may not carry the key. */
+const dispatches: { type: string; tickets: string[]; at: number }[] = []
+/**
+ * A subagent's cost. `claim` is what it was dispatched for (its description and prompt, model-written
+ * text, so only a claim); `shown` the ticket its own state-changing calls last named, which outranks
+ * the claim. `accrued` is what it has cost by ticket, so a claim its work contradicts is moved whole.
+ */
+type Worker = { claim: string[]; shown?: string; stage?: 'build' | 'merge'; accrued: Record<string, number>; last?: { parts: Record<string, number>; usd: number }; at?: number; unattributed: number; branchTries: number }
+const workers = new Map<string, Worker>()
 /** Bumped by /agile-board reset and a fresh drain: a read begun before it saves nothing. */
 let epoch = 0
 // the plugin store is shared by every repo: each key is scoped to the session's working directory
@@ -338,7 +346,7 @@ async function meter($: EngineInterface) {
 /** Redraws the status line, which reads the clock for the spend rate and the forecast. */
 function showStatus($: EngineInterface) {
   if (!shown) return $.ui.status(undefined)
-  void $.clock.now().then(now => $.ui.status(statusText(board, now, budget, allowancesNow().length))).catch(() => undefined)
+  void $.clock.now().then(now => $.ui.status(statusText(board, now, cap, allowancesNow().length))).catch(() => undefined)
 }
 
 function save($: EngineInterface, next: Board) {
@@ -377,9 +385,7 @@ function saveRetro($: EngineInterface, next: Retro) {
   void $.store.set(scope + RETRO_KEY, retro).catch(err => $.ui.log(`agile-mods: store write failed: ${err}`))
 }
 
-const mergedCount = () => board.prOrder.filter(n => board.prs[n]?.merged).length
-
-/** A ticket a budget bypass covered is over: done, parked, or its PR merged. */
+/** A ticket a cap bypass covered is over: done, parked, or its PR merged. */
 const ticketEnded = (key: string) => {
   const t = board.tickets[key]
   return t?.category === 'done' || !!t?.parked || board.prOrder.some(n => board.prs[n]?.key === key && board.prs[n]?.merged)
@@ -403,7 +409,7 @@ async function allowAt($: EngineInterface, n: number): Promise<string> {
   const r = offersOf(refusals).find(x => x.id === n)
   if (!r?.offer) return `no refusal [${n}] to allow: /agile-board allow lists them`
   const now = await $.clock.now()
-  guardsAllow(hostOf($), r.offer, now, mergedCount())
+  guardsAllow(hostOf($), r.offer, now)
   refusals = refusals.map(x => (x === r ? { ...x, offer: undefined, text: `${x.text} [allowed]` } : x))
   $.ui.toast(`agile: allowed ${offerText(r.offer)}, tell the loop to retry`, { timeoutMs: 10000 })
   showStatus($)
@@ -432,7 +438,7 @@ export const register: Register = (on, options) => {
   const given = configOf(options as Record<string, unknown> | undefined)
   config = given.config
   configNotes = given.notes
-  budget = config.budgetUsd
+  cap = config.ticketBudgetUsd
   guardsConfigure(config)
 
   on('session.start', async ($, e, next) => {
@@ -455,7 +461,7 @@ export const register: Register = (on, options) => {
       config = repo.config
       configNotes = [...configNotes, ...repo.notes.map(n => `${file}: ${n}`)]
     }
-    budget = config.budgetUsd
+    cap = config.ticketBudgetUsd
     guardsConfigure(config)
     await receiptsStart(host)
     await $.command.register({
@@ -524,30 +530,53 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     const host = hostOf($)
     const args = argsOf(e)
-    // a new run's spend, so a budget counts from it: a session's first loop call while no drain runs (a
-    // resumed drain keeps counting). Nothing the model can call inside a session resets it; a new
+    // a new run's spend and ticket costs count from here: a session's first loop call while no drain runs
+    // (a resumed drain keeps counting). Nothing the model can call inside a session resets it; a new
     // session or /agile-board reset starts over
     const skill = e.tool === 'Skill' ? String(args.skill ?? '') : ''
     if (ORCHESTRATOR.test(skill) && !loopRunning() && board.drain?.outcome !== 'running') {
       save($, withRun(board, await $.clock.now()))
       await meter($)
-    } else if (budget && isBuildWork(e.tool, args)) await meter($)
-    // the budget holds once a loop ran in this session, until /agile-board reset
-    const spent = loopRunning() ? (board.spend?.usd ?? 0) : 0
+    }
     const at = await $.clock.now()
-    guardsPrune(host, at, ticketEnded, mergedCount())
+    guardsPrune(host, at, ticketEnded)
     const type = e.agentId ? await agentTypeOf(host, e.agentId) : undefined
     const by = type ? { agent: type.split(':').at(-1) } : {}
     let deny: string | undefined
     let offer: Offer | undefined
-    const over = budgetDenial(spent, budget, e.tool, args)
+    // the tickets a build call names, among those the board knows; with none named, the ticket its agent
+    // works, or the branch a PR is opened for. A cost counted so far is an estimate
+    const named = [...new Set((dispatchText(args) + ' ' + String(args.command ?? '')).match(new RegExp(TICKET_KEY.source, 'g')) ?? [])].filter(k => board.tickets[k])
+    const gate = config.modes.ticketBudget
+    let over: ReturnType<typeof ticketBudgetDenial>
+    if (cap > 0 && gate !== 'off') {
+      // the ticket its agent works counts beside the ones the call names: a call that names another ticket too is no way round
+      let own: string | undefined
+      if (e.agentId && type) own = ticketOfWorker(await workerOf(host, e.agentId, type))
+      // a call that opens a PR: the branch it names, else the one checked out where it runs (a leading `cd <dir> &&`)
+      if (!named.length && !own && isBuildWork(e.tool, args) && e.tool !== 'Agent' && e.tool !== 'Skill') {
+        const head = prHeadOf(e.tool, args) ?? (e.tool === 'Bash' ? await branchOf(host, String(args.command ?? '')) : undefined)
+        own = ticketOfText(board, head ?? '')
+      }
+      const allowed = allowancesNow()
+      const input = {
+        cost: (k: string) => board.tickets[k]?.cost?.usd ?? 0,
+        cap,
+        named,
+        ...(own && { own }),
+        capped: board.order.filter(k => (board.tickets[k]?.cost?.usd ?? 0) >= cap && !ticketEnded(k)),
+      }
+      over = ticketBudgetDenial({ ...input, allowed: k => ticketBudgetOpen(allowed, k) }, e.tool, args)
+      // let through only because a person allowed it: logged and counted, never told to the model
+      const without = over ? undefined : ticketBudgetDenial({ ...input, allowed: () => false }, e.tool, args)
+      if (without) note($, { at, rule: 'ticketBudget', kind: 'bypassed', text: `past the ticket cap on a person's bypass: ${without.text}`, ...by })
+    }
     if (over) {
-      // a person let this ticket's build and merge past the budget
-      const keys = [...new Set((dispatchText(args) + ' ' + String(args.command ?? '')).match(new RegExp(TICKET_KEY.source, 'g')) ?? [])]
-      if (budgetOpen(allowancesNow(), keys)) note($, { at, rule: 'budget', kind: 'bypassed', text: `past the budget on a person's bypass: ${over}`, ...by })
+      if (gate === 'warn') note($, { at, rule: 'ticketBudget', kind: 'warned', text: over.text, ...by })
       else {
-        offer = { rule: 'budget', ...(keys.length === 1 && { ticket: keys[0] }) }
-        deny = over + bypassTail(offer)
+        // a refusal naming one ticket can be allowed once; one that names none cannot, since there is no ticket to allow
+        if (over.tickets.length === 1) offer = { rule: 'ticketBudget', ticket: over.tickets[0]! }
+        deny = over.text + (offer ? bypassTail(offer) : '')
       }
     }
     if (!deny) {
@@ -568,7 +597,8 @@ export const register: Register = (on, options) => {
 
     const now = await $.clock.now()
     if (e.agentId) agentStats = noteCall(agentStats, e.agentId, e.tool, args, now)
-    if (e.agentId) await followTicket(e.agentId, e.tool, args, now)
+    if (e.agentId) await followTicket($, host, e.agentId, e.tool, args, now)
+    if (e.tool === 'Agent') noteDispatch(args, now)
     if (typeof args.cloudId === 'string' && /^mcp__.+__/.test(e.tool)) cloudId ??= args.cloudId
     // a drain that starts fresh (not resuming a running or STUCK one) empties the board: reads begun before it save nothing
     if (/(^|:)agile-sprint-drain$/.test(skill) && board.drain?.outcome !== 'running' && board.drain?.outcome !== 'STUCK') epoch += 1
@@ -636,7 +666,7 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (!shown || e.props.hasSurvey) return next(e)
-    const row = alertRow(board, { now: await $.clock.now(), refusals, allowed, receipts: receiptsNow(), budget }, e.props.bodyColumns)
+    const row = alertRow(board, { now: await $.clock.now(), refusals, allowed, receipts: receiptsNow(), cap }, e.props.bodyColumns)
     if (!row) return next(e)
     const ui = await $.ui.resolve(e)
     const { Box } = ui
@@ -658,8 +688,8 @@ export const register: Register = (on, options) => {
     const agents = tab === 'drain' || tab === 'flow' || tab === 'cost' || tab === 'wip' ? await $.agent.list().catch(() => []) : []
     const lanes = tab === 'drain' ? laneOf(agents, agentStats, now) : undefined
     const live = tab === 'flow' || tab === 'cost' || tab === 'wip' ? liveOf(agents, board) : undefined
-    const guard = tab === 'guards' ? { modes: modesLine(config), notes: configNotes, allowances: allowancesNow(), bypass: config.allowBypass, coverage: await coverageNow($, now) } : undefined
-    const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, budget, ...(live && { live }), ...(guard && { guard }) }
+    const guard = tab === 'guards' ? { modes: modesLine(config), limits: limitsLine(config), notes: configNotes, allowances: allowancesNow(), bypass: config.allowBypass, coverage: await coverageNow($, now) } : undefined
+    const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, cap, ...(live && { live }), ...(guard && { guard }) }
     const w = Math.max(30, e.props.bodyColumns - 2)
     return (
       <Box flexDirection="column">
@@ -692,44 +722,105 @@ async function coverageNow($: EngineInterface, now: number): Promise<Coverage> {
   return Object.entries(coverage).filter(([n]) => open.has(Number(n))).map(([n, c]) => ({ pr: Number(n), head: c.head, files: c.files }))
 }
 
-/**
- * The ticket a loop agent works: the one its dispatch description names, or for a session agent (one
- * agent, many tickets, run in turn) the one its latest call named. Only loop agents have a cost.
- */
-async function workerOf(host: Host, id: string, type: string) {
+/** Remembers the tickets a dispatch's prompt or description names, for the agent it starts. */
+function noteDispatch(args: Record<string, unknown>, now: number) {
+  const tickets = ticketsOfText(board, dispatchText(args))
+  const type = String(args.subagent_type ?? '')
+  if (!tickets.length || !type) return
+  dispatches.push({ type, tickets, at: now })
+  while (dispatches.length > 50 || (dispatches[0] && now - dispatches[0].at > 3_600_000)) dispatches.shift()
+}
+
+/** The oldest waiting dispatch of this agent type, taken so another agent of the type does not reuse it. */
+function claimDispatch(type: string): string[] {
+  const i = dispatches.findIndex(d => d.type === type || type.endsWith(`:${d.type}`) || d.type.endsWith(`:${type}`))
+  return i < 0 ? [] : dispatches.splice(i, 1)[0]!.tickets
+}
+
+/** The ticket a subagent is shown to work, else the one ticket it was dispatched for. */
+const ticketOfWorker = (w: Worker) => w.shown ?? (w.claim.length === 1 ? w.claim[0] : undefined)
+
+/** A subagent's tracking, made when its first request or call is seen. */
+async function workerOf(host: Host, id: string, type: string): Promise<Worker> {
   let w = workers.get(id)
   if (!w) {
     const info = (await host.agents().catch(() => [])).find(a => a.id === id)
-    const named = info?.description && !isSession(type) ? ticketOfText(board, info.description) : undefined
-    w = { ...(named && { ticket: named }), fixed: named !== undefined, ...(stageOf(type) && { stage: stageOf(type)! }) }
+    // its description and the prompt of the dispatch that started it
+    const claim = [...new Set([...(info?.description ? ticketsOfText(board, info.description) : []), ...claimDispatch(type)])]
+    w = { claim, accrued: {}, unattributed: 0, branchTries: 0, ...(stageOf(type) && { stage: stageOf(type)! }) }
     workers.set(id, w)
     if (workers.size > 100) workers.delete(workers.keys().next().value!)
   }
   return w
 }
 
-/** Counts one request of a loop agent against its ticket: dollars from its tokens, working time since its last one. */
+/**
+ * Counts one request of a subagent: dollars from its tokens, working time since its last one. Any
+ * subagent counts, not only the loop's own: build work dispatched as a general-purpose agent must not
+ * escape the cap. The model is the one the request reports, else the one its agent file declares, else
+ * the dearest tier, so a model nobody priced is never counted too low. It goes to the ticket the agent
+ * is shown to work, else is shared by the tickets it was dispatched for.
+ */
 async function countRequest(host: Host, id: string, type: string, usage: Usage & { model?: string }, now: number) {
-  // a loop agent only; the model the request reports, else the one its agent file declares
-  if (!modelOf(type)) return
-  const model = modelOfId(usage.model) ?? modelOf(type)!
+  const model = modelOfId(usage.model) ?? modelOf(type) ?? 'opus'
   const w = await workerOf(host, id, type)
   const ms = w.at === undefined ? 0 : now - w.at
   w.at = now
   const usd = usdOf(usage, model)
-  if (w.ticket) board = withCost(board, w.ticket, usd, w.stage, ms, now)
-  w.last = { ticket: w.ticket ?? '', usd }
+  const to = w.shown ? [w.shown] : w.claim
+  const parts: Record<string, number> = {}
+  // an agent that named no ticket and showed none: counted and shown, on no ticket, until its work shows one
+  if (!to.length) {
+    w.unattributed += usd
+    board = { ...board, unattributed: (board.unattributed ?? 0) + usd }
+  }
+  for (const t of to) {
+    board = withCost(board, t, usd / to.length, w.stage, ms / to.length, now)
+    w.accrued[t] = (w.accrued[t] ?? 0) + usd / to.length
+    parts[t] = usd / to.length
+  }
+  w.last = { parts, usd }
 }
 
-/** A session agent's call that names one ticket moves the agent onto it, and the request that made the call with it. */
-async function followTicket(id: string, tool: string, args: Record<string, unknown>, now: number) {
+/**
+ * A subagent's call that changes something for one ticket (a Jira write, a push, a PR) shows what it
+ * works, whatever its dispatch said. The first such call that contradicts the claim moves all it has
+ * cost so far onto that ticket, so naming another ticket in a prompt never moves cost off the one the
+ * work is on. Later calls on another ticket (a session working its tickets in turn) move the request
+ * that made them.
+ */
+async function followTicket($: EngineInterface, host: Host, id: string, tool: string, args: Record<string, unknown>, now: number) {
   const w = workers.get(id)
-  if (!w || w.fixed) return
-  const named = ticketOfCall(board, tool, args)
-  if (!named || named === w.ticket) return
-  if (w.last?.usd) board = w.last.ticket ? movedCost(board, w.last.ticket, named, w.last.usd, w.stage, now) : withCost(board, named, w.last.usd, w.stage, 0, now)
+  if (!w) return
+  let shown = strongTicket(board, tool, args)
+  // an agent with no claim at all: the branch a git or gh command runs on says which ticket it works
+  const command = tool === 'Bash' && typeof args.command === 'string' ? args.command : ''
+  if (!shown && !w.shown && !w.claim.length && w.branchTries < 5 && /^\s*(?:cd\s+\S+\s*&&\s*)?(?:git|gh)\b/.test(command)) {
+    w.branchTries += 1
+    shown = ticketOfText(board, (await branchOf(host, command)) ?? '')
+  }
+  if (!shown || shown === w.shown) return
+  const contradicted = w.shown === undefined && w.claim.length > 0 && !w.claim.includes(shown)
+  if (contradicted) {
+    for (const [from, usd] of Object.entries(w.accrued)) board = movedCost(board, from, shown, usd, w.stage, now)
+    w.accrued = { [shown]: Object.values(w.accrued).reduce((n, x) => n + x, 0) }
+    note($, { at: now, rule: 'ticketBudget', kind: 'warned', text: `agent dispatched for ${w.claim.join(', ')} worked ${shown} (${tool}): its cost counts on ${shown}` })
+  } else if (w.last) {
+    // the request that made this call is its ticket's, whatever it was shared by before
+    for (const [from, usd] of Object.entries(w.last.parts).filter(([t]) => t !== shown)) {
+      board = movedCost(board, from, shown, usd, w.stage, now)
+      w.accrued[from] = (w.accrued[from] ?? 0) - usd
+      w.accrued[shown] = (w.accrued[shown] ?? 0) + usd
+    }
+  }
+  // what it cost before it showed a ticket moves onto it
+  if (w.unattributed > 0) {
+    board = withCost({ ...board, unattributed: Math.max(0, (board.unattributed ?? 0) - w.unattributed) }, shown, w.unattributed, w.stage, 0, now)
+    w.accrued[shown] = (w.accrued[shown] ?? 0) + w.unattributed
+    w.unattributed = 0
+  }
   w.last = undefined
-  w.ticket = named
+  w.shown = shown
 }
 
 /** The stage a loop agent serves, by its type; undefined for an agent outside the loop. */

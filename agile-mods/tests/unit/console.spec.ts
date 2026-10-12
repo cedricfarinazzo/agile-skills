@@ -92,6 +92,11 @@ describe('console rows', () => {
     expect(out).toContain('loop overhead $1.50')
     expect(out).toMatch(/merged 1 ticket\s+·\s+median \$2\.00\s+·\s+\$0\.020\/line/)
     expect(plain(consoleRows('cost', sample(), ctx(), 90))).toContain('no ticket cost yet')
+    // subagents that named no ticket are shown, in the run total
+    const loose = plain(consoleRows('cost', { ...b, unattributed: 0.75 }, ctx(), 100))
+    expect(loose).toContain('unattributed $0.75')
+    expect(loose).toContain('loop overhead $0.75')
+    expect(plain(consoleRows('cost', { ...sample(), unattributed: 0.5 }, ctx(), 100))).toContain('unattributed $0.50')
   })
 
   test('drain tab: a row per pass, cost from the stamped boundaries, live cost for the running pass', () => {
@@ -202,10 +207,10 @@ describe('wip and drain tabs', () => {
   test('drain: cache by stage per pass, spend rate, and the agents lane', () => {
     const passes = [{ start: 0, merge: 120_000, end: 300_000, cost0: 0, cost1: 1.5, tokens: { build: { input: 10, read: 900, write: 90, output: 5 } } }, { start: 300_000, cost0: 1.5 }]
     const lanes = [{ id: 'a', name: 'merge-session', work: 'PR #42', status: 'running', age: 300_000, idle: 10_000, tokens: 1_500_000, hit: 0.92, wait: 'run 77' }]
-    const out = plain(consoleRows('drain', sample({ spend: { usd: 2, since: 0 }, passes }), ctx({ lanes, budget: 10 }), 120))
+    const out = plain(consoleRows('drain', sample({ spend: { usd: 2, since: 0 }, passes }), ctx({ lanes }), 120))
     expect(out).toContain('cache build 90%')
     expect(out).toContain('$12.00/h')
-    expect(out).toContain('$2.00 of $10.00')
+    expect(out).toContain('$2.00 so far')
     expect(out).toMatch(/merge-session +PR #42 +running +5m 00s +1\.5M tok +cache 92% +⏳ run 77/)
     expect(plain(consoleRows('drain', sample(), ctx(), 60))).toContain('none in this session')
   })
@@ -253,24 +258,27 @@ describe('alert row and status', () => {
     expect(statusText(sample({ drain: { pass: 2, outcome: 'DRAINED' } }), 600_000)).toContain('drain DRAINED')
   })
 
-  test('status line: spend per hour and per merged PR, the budget, and the 85% date', () => {
+  test('status line: spend per hour and per merged PR, the ticket cap, and the 85% date', () => {
     const HOUR = 3_600_000
     const now = 2 * HOUR
     const merges = Array.from({ length: 20 }, (_, d) => now - d * 86_400_000 - 1_000)
     const b = sample({ spend: { usd: 6, since: 0 }, history: { merges, cycles: [] }, prs: { ...sample().prs, 40: { ...sample().prs[40]!, mergedAt: HOUR } } })
     // 1 ticket left (VC-3 merged, VC-9 parked), one merge a day: 1 day in every trial
     expect(statusText(b, now)).toBe('agile ▸ drain p2 merge · 5/10 pts · 1 merged · $3.00/h $6.00/PR · 85% by ' + ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(now + 86_400_000).getDay()])
-    expect(statusText(b, now, 20)).toContain('$6.00/$20')
+    expect(statusText(b, now, 20)).toContain('cap $20')
+    const dear = { ...b, tickets: { ...b.tickets, 'VC-9': { ...b.tickets['VC-9']!, cost: { usd: 21, build: 21, merge: 0, ms: 0, firstAt: 0 } } } }
+    expect(statusText(dear, now, 20)).toContain('cap $20 · 1 over')
   })
 
-  test('a spent budget and a PR past the 85th percentile need you', () => {
+  test('a ticket past its cap and a PR past the 85th percentile need you', () => {
     const text = (row: Row | undefined) => (row?.kind === 'line' ? row.segs.map(s => s.t).join('') : '')
-    const b = sample({ spend: { usd: 21, since: 0 }, history: { merges: [], cycles: [1, 1, 1, 1, 1].map(x => x * 60_000) } })
-    const row = text(alertRow(b, ctx({ budget: 20 }), 200))
+    const base = sample({ history: { merges: [], cycles: [1, 1, 1, 1, 1].map(x => x * 60_000) } })
+    const b = { ...base, tickets: { ...base.tickets, 'VC-7': { ...base.tickets['VC-7']!, cost: { usd: 21, build: 21, merge: 0, ms: 0, firstAt: 0 } } } }
+    const row = text(alertRow(b, ctx({ cap: 20 }), 200))
     expect(row).toContain('4 need you')
     expect(row).toContain('VC-9 Needs Info · PR #42 3b review ×3')
-    const board = plain(consoleRows('board', b, ctx({ budget: 20 }), 80))
-    expect(board).toContain('budget spent $21.00 of $20.00')
+    const board = plain(consoleRows('board', b, ctx({ cap: 20 }), 80))
+    expect(board).toContain('VC-7 cost $21.00 of its $20.00 cap')
     expect(board).toContain('PR #42 open 8m (p85 1m)')
   })
 
@@ -330,7 +338,7 @@ describe('refusals', () => {
 
 describe('guards tab', () => {
   const offer = { rule: '3f' as const, pr: 42, head: SHA }
-  const guard = { modes: 'grants enforce · mergeReview warn', notes: ['CLAUDE.md: repo guardGrants: off is looser than enforce; a repo can only tighten, ignored'], allowances: [], bypass: true }
+  const guard = { modes: 'grants enforce · mergeReview warn', limits: 'fixRounds 3 · ticket cap $5 (enforce) · bypass on', notes: ['CLAUDE.md: repo guardGrants: off is looser than enforce; a repo can only tighten, ignored'], allowances: [], bypass: true }
 
   test('modes, notes, kinds, and an allow button numbered as /agile-board allow takes it', () => {
     const refusals = [
@@ -341,7 +349,8 @@ describe('guards tab', () => {
     const rows = consoleRows('guards', EMPTY, ctx({ refusals, guard }), 120)
     const text = plain(rows.filter(r => r.kind !== 'allow'))
     expect(text).toContain('1 refused  1 warned  1 bypassed')
-    expect(text).toContain('modes  grants enforce · mergeReview warn')
+    expect(text).toContain('modes   grants enforce · mergeReview warn')
+    expect(text).toContain('limits  fixRounds 3 · ticket cap $5 (enforce) · bypass on')
     expect(text).toContain('a repo can only tighten')
     expect(text).not.toContain('A person can allow')
     // the button carries the refusal's id, so a later refusal cannot change what it allows
@@ -350,11 +359,11 @@ describe('guards tab', () => {
   })
 
   test('open bypasses and each open PR\'s review coverage', () => {
-    const allowances = [{ ...offer, at: 0, until: 600_000 + 20 * 60_000 }, { rule: 'budget' as const, ticket: 'VC-7', at: 0, merged: 1 }]
+    const allowances = [{ ...offer, at: 0, until: 600_000 + 20 * 60_000 }, { rule: 'ticketBudget' as const, ticket: 'VC-7', at: 0 }]
     const coverage = [{ pr: 42, head: SHA, files: { 'a.ts': 'full', 'b.ts': 'delta', 'c.ts': undefined } }]
     const text = plain(consoleRows('guards', EMPTY, ctx({ guard: { ...guard, allowances, coverage } }), 120))
     expect(text).toContain('allowed: merge PR #42 at aaaaaaa  20 min left')
-    expect(text).toContain('allowed: build VC-7 past the budget  until its ticket ends')
+    expect(text).toContain('allowed: build VC-7 past its cost cap  until its ticket ends')
     expect(text).toContain('#42 aaaaaaa  2/3 read')
     expect(text).toContain('✖ c.ts  not read')
     expect(text).toContain('1 full · 1 delta')

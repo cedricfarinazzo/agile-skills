@@ -2,30 +2,30 @@
 // grants one (a pane button or /agile-board allow, never a tool call), each covers exactly the facts
 // refused, and none leaves the machine.
 
-/** What a refusal can be allowed for: one merge of a PR at a head, one more fix round, or a ticket past the budget. */
+/** What a refusal can be allowed for: one merge of a PR at a head, one more fix round, or a ticket past its cap. */
 export type Offer =
   | { rule: '3f'; pr: number; head: string }
   | { rule: 'fix'; pr: number }
-  | { rule: 'budget'; ticket?: string }
+  | { rule: 'ticketBudget'; ticket: string }
 
-/** An offer a person allowed: a merge or fix bypass expires, a budget one ends with its ticket. */
-export type Allowance = Offer & { at: number; until?: number; merged?: number }
+/** An offer a person allowed: a merge or fix bypass expires, a ticket-cap one ends with its ticket. */
+export type Allowance = Offer & { at: number; until?: number }
 
 export const BYPASS_MS = 30 * 60_000
 
 export const offerText = (o: Offer) =>
-  o.rule === '3f' ? `merge PR #${o.pr} at ${o.head.slice(0, 7)}` : o.rule === 'fix' ? `one more fix round on PR #${o.pr}` : `build ${o.ticket ?? 'the current ticket'} past the budget`
+  o.rule === '3f' ? `merge PR #${o.pr} at ${o.head.slice(0, 7)}` : o.rule === 'fix' ? `one more fix round on PR #${o.pr}` : `build ${o.ticket} past its cost cap`
 
-/** Adds an allowance; a budget one notes how many PRs had merged, to end at the next when it names no ticket. */
-export function allow(list: Allowance[], offer: Offer, now: number, merged: number): Allowance[] {
-  const same = (a: Allowance) => JSON.stringify({ ...a, at: 0, until: 0, merged: 0 }) === JSON.stringify({ ...offer, at: 0, until: 0, merged: 0 })
+/** Adds an allowance. */
+export function allow(list: Allowance[], offer: Offer, now: number): Allowance[] {
+  const same = (a: Allowance) => JSON.stringify({ ...a, at: 0, until: 0 }) === JSON.stringify({ ...offer, at: 0, until: 0 })
   const kept = list.filter(a => !same(a))
-  return [...kept, offer.rule === 'budget' ? { ...offer, at: now, merged } : { ...offer, at: now, until: now + BYPASS_MS }]
+  return [...kept, offer.rule === 'ticketBudget' ? { ...offer, at: now } : { ...offer, at: now, until: now + BYPASS_MS }]
 }
 
-/** The allowances still open: merge and fix ones within their time, budget ones whose ticket is not done or parked. */
-export function openOf(list: Allowance[], now: number, ended: (ticket: string) => boolean, merged: number): Allowance[] {
-  const next = list.filter(a => (a.until === undefined || a.until > now) && !(a.rule === 'budget' && (a.ticket ? ended(a.ticket) : merged > (a.merged ?? 0))))
+/** The allowances still open: merge and fix ones within their time, ticket-cap ones whose ticket is not done or parked. */
+export function openOf(list: Allowance[], now: number, ended: (ticket: string) => boolean): Allowance[] {
+  const next = list.filter(a => (a.until === undefined || a.until > now) && !(a.rule === 'ticketBudget' && ended(a.ticket)))
   return next.length === list.length ? list : next
 }
 
@@ -41,14 +41,9 @@ export function takeFix(list: Allowance[], pr: number, now: number): Allowance[]
   return i < 0 ? undefined : list.filter((_, j) => j !== i)
 }
 
-/**
- * Whether a build call naming `keys` may pass the budget: an open allowance for one of its tickets, or
- * one a person granted for a call that named no single ticket (until the next merge). A ticket's
- * allowance lets through only a call that names that ticket and no other.
- */
-export const budgetOpen = (list: Allowance[], keys: string[]) =>
-  list.some(a => a.rule === 'budget' && (a.ticket ? keys.length === 1 && keys[0] === a.ticket : true))
+/** Whether a build call on `ticket` may pass its cap: a person allowed that ticket. */
+export const ticketBudgetOpen = (list: Allowance[], ticket: string) => list.some(a => a.rule === 'ticketBudget' && a.ticket === ticket)
 
 export function loadAllowances(value: unknown): Allowance[] {
-  return Array.isArray(value) ? value.filter((a): a is Allowance => typeof a === 'object' && a !== null && ['3f', 'fix', 'budget'].includes((a as Allowance).rule) && typeof (a as Allowance).at === 'number') : []
+  return Array.isArray(value) ? value.filter((a): a is Allowance => typeof a === 'object' && a !== null && ['3f', 'fix', 'ticketBudget'].includes((a as Allowance).rule) && ((a as Allowance).rule !== 'ticketBudget' || typeof (a as { ticket?: unknown }).ticket === 'string') && typeof (a as Allowance).at === 'number') : []
 }

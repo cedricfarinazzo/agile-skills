@@ -11,7 +11,7 @@ The exact rules behind the [console](console.md) and the [guards](guards.md), fo
   - [Fix rounds](#fix-rounds)
   - [How a push is read](#how-a-push-is-read)
   - [Side doors](#side-doors)
-  - [Budget](#budget)
+  - [Ticket cap](#ticket-cap)
   - [Tool grants](#tool-grants)
   - [Failing closed](#failing-closed)
   - [Keeping guards and skills in sync](#keeping-guards-and-skills-in-sync)
@@ -133,24 +133,24 @@ Inside a loop, `guardSideDoor` keeps every write where the other guards can read
   - `push_files`-style tools are refused on any server.
 - **Never:** `gh repo sync`, a merge through `gh api …/pulls/<n>/merge`, a `git` or `gh` word that is not one of their own commands (an alias could hide a push), `gh alias set`, `gh extension`, or a `GIT_CONFIG_*` override.
 
-### Budget
+### Ticket cap
 
-With `budgetUsd` set, once the run's spend reaches it these are refused:
+With `ticketBudgetUsd` set and `guardTicketBudget` not `off`, once one ticket's cost (the [ticket cost](#the-board) the Cost tab shows, an estimate) reaches it, these are refused for a call that names a ticket on the board over its cap, or whose agent works one that is (naming another ticket beside it changes nothing), or that opens a PR for a branch carrying one (`--head`, a `gh api` `head=` field, an MCP `head`, else the branch checked out where it runs, a leading `cd <dir> &&` followed):
 
 - `agile-10-implement` and every `implement-*` skill;
 - `gh pr create`, `create_pull_request`, and a `gh api` POST to `pulls`;
 - every agent dispatch except the merge side's and the read-only types (`Explore`, `Plan`, `claude-code-guide`, `statusline-setup`).
 
-Open PRs still merge. A person can allow one ticket past the budget ([bypass](guards.md#bypass)): build calls naming that ticket and no other go on until it is done, parked or its PR merges. If the refused call named no single ticket, any build call goes on, until the next PR merges.
+Its open PR still merges, and so do the other tickets. A call naming several tickets is refused if any is over. A call that can be tied to no ticket is refused while any ticket is over its cap, except `agile-10-implement`, whose phases each name theirs; the refusal offers no bypass, since it names no ticket. A person can allow a ticket past its cap ([bypass](guards.md#bypass)): build calls naming that ticket and no other go on until it is done, parked or its PR merges. With `warn` the call goes on and is logged on the Guards tab.
 
-A run begins at a session's first loop call while no drain is running; a running drain keeps its run across sessions. Not covered: the main loop editing and pushing to an existing branch by hand, which the merge side needs for inline fixes.
+A ticket's cost counts from the run's start: a session's first loop call while no drain is running, or `/agile-board reset`; a running drain keeps its run across sessions. Not covered: the main loop editing and pushing to an existing branch by hand, which the merge side needs for inline fixes.
 
 ### Bypass
 
 - Only a person grants one: the pane's **Allow once** button, or `/agile-board allow <id>` with `command.run`'s origin `composer` (typed at the prompt) or `bridge` (sent from their phone). Run by the model, a plugin, a skill or a relay, the command grants nothing. `/agile-board reset` follows the same rule, since it drops reviews, rounds and bypasses.
 - Each refusal has an id that is never reused, and the button and the command name that id, so a refusal that lands while you read the list cannot change what you allow.
 - A merge bypass covers one PR at one head, for 30 minutes, and never waives the pin: the retried merge must pass `--match-head-commit <that head>`, so GitHub refuses it if anything was pushed since. A refusal that knew no head (gh down, no pin) offers none.
-- A fix bypass is one more round on that PR, for 30 minutes. A budget bypass is described [above](#budget).
+- A fix bypass is one more round on that PR, for 30 minutes. A ticket-cap bypass is described [above](#ticket-cap).
 - With `allowBypass` off, no refusal offers one, and those granted before are not honoured.
 
 ### Tool grants
@@ -177,7 +177,7 @@ Each guard mirrors a rule written in a skill or in `CLAUDE.md`. If you change on
 - the 3f `gh pr merge --match-head-commit` command;
 - the fix-round cap, or what counts as a round;
 - the push form in the `agile-10-implement` and `agile-11-merge-train` Rules;
-- what BUDGET stops.
+- what the ticket cap stops (a capped ticket reported `blocked (BUDGET)`).
 
 Where each lives in the code:
 
@@ -185,7 +185,7 @@ Where each lives in the code:
 |---|---|
 | Default cap | `FIX_ROUNDS` |
 | Push form | `pushPlanOf` and `PUSH_FORM` |
-| What the budget stops | `isBuildWork` |
+| What the ticket cap stops | `isBuildWork` |
 | Options and their defaults | `hooks/state/config.ts` and the manifest's `userConfig` |
 
 ## The board
@@ -204,10 +204,11 @@ Where each lives in the code:
 
 | Part | Rule |
 |---|---|
-| Whose requests | A loop agent's only (`agile-execution`, `agile-merge-review`, `agile-sprint-drain` agents). The main session's are not counted per ticket |
-| Which ticket | The one ticket the agent's dispatch description names (or the PR it names). A `build-session` or `merge-session`, which work several tickets in turn, follow the one ticket their latest tool call names; a call naming several tickets, or none the board knows, moves nothing |
-| Price | USD per million tokens, input / output: `opus` 5 / 25, `sonnet` 3 / 15, `haiku` 1 / 5. Cache reads cost a tenth of input, cache writes 1.25 times. The model is the one the request reports; if it is not an opus, sonnet or haiku id, the one the agent's file declares. The table matches `session-audit`'s |
-| Overhead | The session's spend ledger minus the sum over tickets, never below 0 |
+| Whose requests | Any subagent's, so build work dispatched as a `general-purpose` agent counts too. The main session's own requests are not counted per ticket |
+| Which ticket | The tickets the agent's dispatch description names (or the PR it names) and its dispatch prompt named, taken by the next agent of that type: a claim, shared evenly among them. What it is **shown** to work outranks the claim: its own call that names exactly one ticket on the board and changes something (`addCommentToJiraIssue`, `editJiraIssue`, `transitionJiraIssue`; `git push`, `checkout`, `switch`, `branch`, `worktree add`; `gh pr create`, `edit`, `merge`, `ready`, `checkout`; an MCP `create_pull_request` head). The first one that is not in the claim moves everything the agent has cost to that ticket and logs a `warned` entry; a later one on another ticket (a `build-session` working its tickets in turn) moves the request that made it. A shell line is split into its commands outside quotes and comments, and only a command that starts with `git` or `gh` counts, so `echo "git push VC-4"` shows nothing. Reads show nothing |
+| Price | USD per million tokens, input / output: `opus` 5 / 25, `sonnet` 3 / 15, `haiku` 1 / 5. Cache reads cost a tenth of input, cache writes 1.25 times. The model is the one the request reports; if it is not an opus, sonnet or haiku id, the one the agent's file declares, and for an agent with no file the `opus` tier, so a model nobody priced is never counted low. The table matches `session-audit`'s |
+| Overhead | The session's spend ledger minus the sum over tickets and the unattributed, never below 0 |
+| Unattributed | A subagent that named no ticket and has shown none: its requests are counted on no ticket and shown in the run total. The first state-changing call that names a ticket, or (with no claim at all) a `git`/`gh` command whose branch carries one, moves all it cost onto that ticket; at most 5 branch lookups per agent |
 | Working time | The gap between one agent's requests, a gap over 5 minutes counted as 0 |
 | Reset | A new run (a drain starting, or the first orchestrator call of a session outside a running drain) and `/agile-board reset` |
 
@@ -260,7 +261,7 @@ Nothing goes to any host but GitHub (through your `gh` login) and Atlassian (thr
 | `gh run list --commit <sha> --json …` | Merge gate: CI on the head | At a merge |
 | `gh api repos/{owner}/{repo}/compare/<sha>...<head>` | Merge gate: changed files and ancestry, when local git cannot say | At a merge, as a fallback |
 | `gh pr list --head <branch> --state open --json number,headRefOid,baseRefName` | Fix-round cap: the PR a push sends to | Before a push in a loop |
-| `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard and cap: the branch a bare push sends | Before such a push |
+| `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard and cap: the branch a bare push sends; ticket cap: the branch a PR is opened from, when the call names none | Before such a push or PR |
 | `git -C <dir> rev-parse --abbrev-ref --symbolic-full-name @{push}` | Cap: where a bare push goes | Before such a push |
 | `git -C <dir> rev-list --no-merges <head>..<ref> ^origin/<base>` | Cap: is the push only an update | Before a push to an open PR's branch |
 | `git -C <dir> rev-parse --verify --quiet <sha>^{commit}` | Review: the full sha of a short one | After such a read |

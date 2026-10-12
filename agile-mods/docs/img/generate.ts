@@ -23,15 +23,15 @@ const board: any = {
   burnUnit: 'points',
   passes: [{ start: 0, merge: 6 * HOUR, end: 12 * HOUR, cost0: 0, cost1: 4.2, built: 1, merged: 1 }, { start: 12 * HOUR, merge: 25 * HOUR, cost0: 4.2 }],
   history: { merges: Array.from({ length: 24 }, (_, d) => NOW - d * 86_400_000 * 1.2), cycles: [5, 8, 12, 20, 26, 30].map(h => h * HOUR) },
-  spend: { usd: 7.9, since: 0 }, site: 'https://acme.atlassian.net', repo: 'https://github.com/acme/shop', gh: { at: NOW - 40_000 }, jira: { at: NOW - 90_000 },
+  spend: { usd: 7.9, since: 0 }, unattributed: 0.4, site: 'https://acme.atlassian.net', repo: 'https://github.com/acme/shop', gh: { at: NOW - 40_000 }, jira: { at: NOW - 90_000 },
 }
 const refusals: any[] = [
   { id: 1, at: NOW - 900_000, rule: 'push', text: 'agile-mods: the loop never pushes to main: work lands through a PR and gh pr merge.', agent: 'build-implementer' },
   { id: 2, at: NOW - 300_000, rule: '3f', text: 'agile-mods: PR #42: no review read 1 file(s) as they land at a3f9c2100000: docs/cart.md. Then read what is missing yourself (3b).', agent: 'merge-session', offer: { rule: '3f', pr: 42, head: SHA } },
 ]
-const guard = { modes: 'grants enforce · mergeReview enforce · push enforce · fixRounds 3 · budget $25 · bypass on', notes: [], allowances: [], bypass: true, coverage: [{ pr: 42, head: SHA, files: { 'src/cart.ts': 'full', 'src/cart.test.ts': 'delta', 'docs/cart.md': undefined } }] }
+const guard = { modes: 'mergeReview warn · the rest enforce', limits: 'fixRounds 3 · ticket cap $3 (enforce) · bypass on', notes: [], allowances: [], bypass: true, coverage: [{ pr: 42, head: SHA, files: { 'src/cart.ts': 'full', 'src/cart.test.ts': 'delta', 'docs/cart.md': undefined } }] }
 const lanes = [{ name: 'merge-session', work: 'PR #42', status: 'running', age: 840_000, tokens: 1_240_000, hit: 0.93, idle: 20_000 }, { name: 'build-session', work: 'SHOP-15', status: 'running', age: 2_300_000, tokens: 2_800_000, hit: 0.88, wait: 'run 8812', idle: 60_000 }, { name: 'build-session', work: 'SHOP-14', status: 'completed', age: 5_100_000, tokens: 3_900_000, hit: 0.9, idle: 0 }]
-const ctx: any = { lanes, now: NOW, usd: 7.9, refusals, allowed: 214, receipts: [{ agent: 'agile-merge-review:pr-reviewer', at: 0, pr: 42, issues: [] }], budget: 25, guard, live: { 'SHOP-15': 'implement' } }
+const ctx: any = { lanes, now: NOW, usd: 7.9, refusals, allowed: 214, receipts: [{ agent: 'agile-merge-review:pr-reviewer', at: 0, pr: 42, issues: [] }], cap: 3, guard, live: { 'SHOP-15': 'implement' } }
 
 const W = 92, CW = 8.4, LH = 19, PAD = 18
 const C: Record<string, string> = { fg: '#cdd6f4', d: '#7f849c', c: '#89dceb', m: '#f5c2e7', g: '#a6e3a1', y: '#f9e2af', r: '#f38ba8', bl: '#89b4fa' }
@@ -105,7 +105,7 @@ for (const t of ['board', 'flow', 'cost', 'drain', 'guards']) await Bun.write(`$
   body += lineSvg(alert.segs, PAD, y); y += LH
   body += `<rect x="${PAD - 4}" y="${y - 12}" width="${W * CW + 8}" height="${LH + 8}" rx="4" fill="none" stroke="#585b70"/>`
   body += lineSvg([{ t: '> ', c: 'd' }, { t: 'drain the sprint', c: '' }], PAD + 4, y + 6); y += LH * 2
-  body += lineSvg([{ t: statusText(board, NOW, 25, 0)!, c: 'd' }], PAD, y)
+  body += lineSvg([{ t: statusText(board, NOW, 3, 0)!, c: 'd' }], PAD, y)
   await Bun.write(`${out}status-and-alert.svg`, frame('the prompt area', body, 7))
 }
 console.log('ok')

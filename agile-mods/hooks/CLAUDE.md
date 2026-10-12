@@ -56,18 +56,21 @@ Don't reopen these without the maintainer.
 
 **Bypass** (`hooks/state/bypass.ts`)
 - Only a person grants one: the pane button, or `/agile-board allow <id>` with origin `composer` or `bridge`. `/agile-board reset` is person-only too.
-- Only the 3f gates, the fix cap and the budget can be bypassed. Push, grant and side-door changes go through config only.
+- Only the 3f gates, the fix cap and a ticket's cost cap can be bypassed. Push, grant and side-door changes go through config only.
 - Refusals carry ids that are never reused, and the button and the command name that id, never a position in the list.
 - A merge bypass covers one PR at one head, for 30 minutes, and never waives the pin: the merge must pin the allowed head. No head known means no offer.
 - A fix bypass is one round, for 30 minutes.
-- A budget bypass covers calls naming that one ticket until it is done, parked or merged. A ticketless one lasts until the next merge.
+- The ticket cap holds every build call to the tickets it names; the ticket its agent works counts beside them, so naming a decoy gets nothing; one opening a PR is held to the branch it opens (`--head`, `head=`, else the checked-out branch where it runs), and is refused when it can be tied to no ticket while any is over. Never let "names no ticket" mean "not held": that is how a model gets past it.
+- A ticket-cap bypass covers calls naming that one ticket until it is done, parked or merged. There is no run-wide budget, so no ticketless bypass.
 - `allowBypass: false` ignores stored bypasses.
 - Every refusal that offers a bypass ends by telling the loop to report blocked and wait, never to hand the command to the person.
 
 **Cost** (`hooks/state/cost.ts`)
-- A ticket's cost is its loop agents' request tokens times a price per model; the main session's requests are never a ticket's. Overhead is the ledger minus the tickets, so the run total always ties to the bill.
+- A ticket's cost is its subagents' request tokens times a price per model (any subagent, not only the loop's own, and the dearest tier when the model is unknown); the main session's requests are never a ticket's. Overhead is the ledger minus the tickets, so the run total always ties to the bill.
 - `AGENT_MODEL` and `PRICES` are tables checked by a test against `*/agents/*.md` and `session-audit`'s `DEFAULT_PRICES`: change a model or a price in one place and the test names the other.
-- A session agent has no ticket of its own: its latest call that names exactly one ticket the board knows moves it, and the request that made the call moves with it. Never infer a ticket from prose in a file or command output, only from the call's arguments.
+- A dispatch's description and prompt are model-written, so only a claim. What a subagent is shown to work (a state-changing call naming exactly one ticket: a Jira write, a push or checkout of a branch, a PR create/edit/merge) outranks it, and the first call that contradicts the claim moves all the agent has cost onto that ticket. Reads never move cost: a decoy mention would otherwise park an agent's cost on another ticket. Evidence from a shell line comes only from a command that itself starts with `git` or `gh` (`commandsOf` splits outside quotes and comments): a word in an `echo`, a string or a comment is no evidence. A Jira write on a decoy is still a real, visible side effect the model can fabricate; the Guards-tab warning is how that is seen, not a proof. Never infer a ticket from prose in a file or command output, only from the call's arguments.
+- A subagent that names no ticket and shows none is counted as unattributed, never dropped: a cost nobody can see is worse than one that is visible and on no ticket. It moves onto a ticket the moment its work shows one.
+- The cap reads the cost counted so far, which is updated per request: a build call can overshoot by the request in flight. That is the "acts on the next call" limit, not a gap to close.
 - The median and cost per line count merged tickets only; the run total counts all.
 - Lines come from `gh pr list` (`additions`, `deletions`), not the files call, so a PR merged before anyone read its files still has them.
 

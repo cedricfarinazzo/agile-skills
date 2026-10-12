@@ -8,8 +8,8 @@ Where the loop is, whether it is stuck, what it costs and when it will be done, 
 
 ![Alert row and status line around the prompt](img/status-and-alert.svg)
 
-- **Status line**, always there while a loop has run: stage, work left, merges, spend rate, budget, the date by which 85% of forecasts finish, and `⚑ n bypass` while a bypass is open.
-- **Alert row** above the prompt, only when something needs you: a parked ticket, work looping on the same step, a spent budget, a PR open far longer than usual, a drop in prompt-cache hits, or the drain ending `STUCK` (red) or `DRAINED` (green).
+- **Status line**, always there while a loop has run: stage, work left, merges, spend rate, the ticket cap and how many are over it, the date by which 85% of forecasts finish, and `⚑ n bypass` while a bypass is open.
+- **Alert row** above the prompt, only when something needs you: a parked ticket, work looping on the same step, a ticket past its cost cap, a PR open far longer than usual, a drop in prompt-cache hits, or the drain ending `STUCK` (red) or `DRAINED` (green).
 - **The console pane**, opened with `/agile-board`.
 
 ## The pane
@@ -33,7 +33,7 @@ The pane docks beside the transcript in a terminal of 110 columns or more, and s
 | **3 Cost** | What each ticket cost: dollars, changed lines, cost per line, elapsed and working time, and the median of the merged ones |
 | **4 WIP** | How long each PR and ticket has been open against the repo's usual, and PRs touching the same files |
 | **5 Drain** | Each drain pass: build and merge time, what it moved, its cost and cache hit rate; the loop's agents |
-| **6 Guards** | Guard modes, refusals with their **Allow once** button, review coverage per PR, agent receipts. See [Guards](guards.md) |
+| **6 Guards** | Guard modes (any not enforcing) and limits (fix rounds, ticket cap, bypass), refusals with their **Allow once** button, review coverage per PR, agent receipts. See [Guards](guards.md) |
 | **7 Links** | Each ticket's Jira page and each PR |
 
 ![Flow tab](img/console-flow.svg)
@@ -54,23 +54,24 @@ The pane docks beside the transcript in a terminal of 110 columns or more, and s
   - **lines** are the additions and deletions of the merged PR; **$/line** divides the ticket's cost by them.
   - **elapsed** runs from when Jira moved the ticket in progress to the PR's merge; **working** is the time between an agent's requests, with waits over 5 minutes left out, so a CI wait is not counted.
   - **median** and **$/line** at the foot count merged tickets only, so half-built work doesn't pull them down. The **run total** counts everything.
-  - A bar in amber is a ticket costing over twice the merged median.
+  - With a cap set, a bar turns amber at 80% of it and red once the ticket is `capped`; the header shows the cap. Without one, amber marks a ticket costing over twice the merged median.
   - A `⚠` line means the tickets add up to more than the session spent: the price table is above what you pay.
+  - **unattributed** (in yellow) is what subagents that named no ticket cost; if it keeps growing, a dispatch is missing its ticket key.
 - **Cache.** The share of prompt tokens read from the prompt cache, per stage. A long CI wait or a changed prompt makes it drop, and every request costs more.
 
 ## How a ticket's cost is counted
 
 ```mermaid
 flowchart LR
-  R["a model request<br/>of a loop agent"] --> P{"phase mode or<br/>session agent?"}
-  P -- "one agent, one ticket" --> D["ticket named in<br/>its dispatch description"]
-  P -- "build-session /<br/>merge-session" --> C["ticket its latest call named<br/>(Jira key, or the PR's ticket)"]
-  D --> T["ticket cost += tokens x price<br/>of the request's model"]
+  R["a model request<br/>of a subagent"] --> W{"has its own work<br/>shown a ticket?"}
+  W -- "yes: a Jira write, a push,<br/>or a PR on that ticket" --> S["that ticket<br/>(all it cost so far moves there)"]
+  W -- "not yet" --> C["the tickets it was<br/>dispatched for<br/>(description, prompt)"]
+  S --> T["ticket cost += tokens x price<br/>of the request's model"]
   C --> T
   M["main session's own requests"] -.-> O["loop overhead =<br/>session spend - tickets"]
 ```
 
-A session agent works its tickets one after another, so the request that makes the call naming the next ticket counts for that ticket. Requests before its first named ticket count as overhead.
+What an agent was told it works is only a claim. Its own calls that change something for a ticket (a Jira comment or transition, a push or checkout of its branch, a PR create or merge) show what it works, and outrank the claim: naming another ticket in a prompt moves no cost off the ticket the work is on, and the first call that contradicts a claim moves everything the agent has cost so far, with a warning on the Guards tab. A session agent working its tickets in turn follows the one each of those calls names; the request that made the call counts for it. Reads name a ticket without working on it, so they show nothing. An agent dispatched for several tickets shares its cost evenly among them until its work shows which. An agent that named no ticket and has shown none is counted as **unattributed**: in the run total, on no ticket and under no cap, until a git or gh command on a branch that carries a ticket (or a state-changing call) shows which, when everything it cost so far moves there. The main session's own requests are overhead.
 
 ## Where the data comes from
 

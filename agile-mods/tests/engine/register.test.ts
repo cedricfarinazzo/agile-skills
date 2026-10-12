@@ -130,37 +130,59 @@ describe('board sources through the engine', () => {
 })
 
 describe('loop limits through the engine', () => {
-  test('past budgetUsd, a new implement run is refused and the merge train goes on', { options: { budgetUsd: 5 } }, async ($, on) => {
-    const usd = { now: 1 }
-    world(on, { usd })
+  const capped = { tickets: { 'VC-3': { key: 'VC-3', cost: { usd: 6, build: 6, merge: 0, ms: 0, firstAt: 0 } }, 'VC-4': { key: 'VC-4', cost: { usd: 1, build: 1, merge: 0, ms: 0, firstAt: 0 } } }, order: ['VC-3', 'VC-4'], prs: {}, prOrder: [], drain: { pass: 1, outcome: 'running' } }
+
+  test('a ticket past ticketBudgetUsd gets no new build work, the others and the merge train go on', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    world(on, { stored: { '/repo:board': capped } })
     await start($)
-    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
-    // the first reading is the baseline
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toBe('ok')
-    usd.now = 7
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toMatch(/^agile-mods: budget: the loop spent \$6\.00 of its \$5\.00 budget/)
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never))).toBe('ok')
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-3' } as never))).toMatch(/^agile-mods: ticket budget: VC-3 cost an estimated \$6\.00 of its \$5\.00 cap/)
+    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-execution:build-implementer', description: 'implement VC-3' } as never))).toContain('ticket budget')
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-4' } as never))).toBe('ok')
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-merge-review:agile-11-merge-train', args: 'VC-3' } as never))).toBe('ok')
   })
 
-  test('inside a running drain, re-invoking a skill never resets the budget; a session agent is refused too', { options: { budgetUsd: 5 } }, async ($, on) => {
-    const usd = { now: 1 }
-    world(on, { usd })
+  test('a build call that names no ticket cannot get past a capped one: its agent\'s ticket, then the branch, then a refusal', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    world(on, {
+      agents: [
+        { id: 'b3', type: 'agile-execution:build-implementer', description: 'implement VC-3' },
+        { id: 'b4', type: 'agile-execution:build-implementer', description: 'implement VC-4' },
+      ],
+      stored: { '/repo:board': capped },
+    })
     await start($)
-    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
-    usd.now = 7
-    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
-    await $.tool.call({ tool: 'Skill', skill: 'agile-11-merge-train' } as never)
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toContain('budget')
-    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-sprint-drain:build-session', description: 'build' } as never))).toContain('budget')
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    const step = async (agentId: string) => {
+      const s = $.turn.step({ turnId: 't', index: 0, model: 'm', messageCount: 1, agentId })
+      let n = await s.next()
+      while (!n.done) n = await s.next()
+    }
+    await step('b3')
+    await step('b4')
+    // the PR VC-3's agent opens names no ticket: it is held to VC-3's cap, the other agent's is not
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill', agentId: 'b3' } as never))).toContain('ticket budget: VC-3')
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill', agentId: 'b4' } as never))).toBe('ok')
+    // the main loop dispatching a build agent with no key while VC-3 is over: refused, and nothing to allow once
+    const r = said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-execution:build-implementer', description: 'implement the next one' } as never))
+    expect(r).toContain('this call names no ticket, and VC-3 is over the $5.00 cap')
+    expect(r).not.toContain('A person can allow')
+    // naming a ticket that is not over goes on; naming several, one of them over, does not
+    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-execution:build-implementer', description: 'implement VC-4' } as never))).toBe('ok')
+    expect(said(await $.tool.call({ tool: 'Agent', subagent_type: 'agile-execution:build-implementer', description: 'implement VC-4 and VC-3' } as never))).toContain('ticket budget: VC-3')
   })
 
-  test('no budget set: nothing is refused for spend', async ($, on) => {
-    const usd = { now: 1 }
-    world(on, { usd })
+  test('guardTicketBudget warn lets the call through; off checks nothing', { options: { ticketBudgetUsd: 5, guardTicketBudget: 'warn' } }, async ($, on) => {
+    world(on, { stored: { '/repo:board': capped } })
     await start($)
-    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
-    usd.now = 500
-    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never))).toBe('ok')
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-3' } as never))).toBe('ok')
+  })
+
+  test('no cap set: nothing is refused for a ticket\'s cost', async ($, on) => {
+    world(on, { stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    expect(said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-3' } as never))).toBe('ok')
   })
 
   test('a fourth fix round pushing to a PR is refused: the PR from the branch, a round per reviewed head', async ($, on) => {
@@ -285,16 +307,109 @@ describe('ticket cost through the engine', () => {
     await step('b1')
     // the session agent's first request names no ticket yet; the call it makes names VC-4
     await step('s1')
-    await $.tool.call({ tool: 'mcp__atlassian__getJiraIssue', issueIdOrKey: 'VC-4', agentId: 's1' } as never)
+    await $.tool.call({ tool: 'mcp__atlassian__addCommentToJiraIssue', issueIdOrKey: 'VC-4', agentId: 's1' } as never)
     await step('s1')
-    // the next request's call names VC-3: that request is VC-3's
-    await $.tool.call({ tool: 'mcp__atlassian__getJiraIssue', issueIdOrKey: 'VC-3', agentId: 's1' } as never)
+    // the next request's call works VC-3: that request is VC-3's
+    await $.tool.call({ tool: 'mcp__atlassian__addCommentToJiraIssue', issueIdOrKey: 'VC-3', agentId: 's1' } as never)
     await w.clock.advance(10_000)
     const b = w.stored.get('/repo:board') as Board
     const near = (x: number, y: number) => Math.abs(x - y) < 1e-9
     expect(near(b.tickets['VC-4']!.cost!.usd, one)).toBe(true)
     expect(near(b.tickets['VC-3']!.cost!.usd, 2 * one)).toBe(true)
     expect(near(b.tickets['VC-3']!.cost!.build, 2 * one)).toBe(true)
+  })
+})
+
+describe('the cap through the engine: no way round', () => {
+  const capped = { tickets: { 'VC-3': { key: 'VC-3', cost: { usd: 6, build: 6, merge: 0, ms: 0, firstAt: 0 } }, 'VC-4': { key: 'VC-4' } }, order: ['VC-3', 'VC-4'], prs: {}, prOrder: [], drain: { pass: 1, outcome: 'running' } }
+  const step = async ($: Parameters<typeof start>[0], agentId: string) => {
+    const s = $.turn.step({ turnId: 't', index: 0, model: 'm', messageCount: 1, agentId })
+    let n = await s.next()
+    while (!n.done) n = await s.next()
+  }
+
+  test('naming another ticket beside the agent\'s own does not get a capped ticket built', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    world(on, { agents: [{ id: 'b3', type: 'agile-execution:build-implementer', description: 'implement VC-3' }], stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await step($, 'b3')
+    const r = said(await $.tool.call({ tool: 'Skill', skill: 'agile-execution:implement-code', args: 'VC-4 (the work for VC-4)', agentId: 'b3' } as never))
+    expect(r).toContain('ticket budget: VC-3')
+  })
+
+  test('an agent whose description names no ticket takes the one the dispatch prompt named', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    const w = world(on, { agents: [{ id: 'g1', type: 'general-purpose', description: 'do the work' }], stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await $.tool.call({ tool: 'Agent', subagent_type: 'general-purpose', description: 'do the work', prompt: 'Implement VC-4 as planned.' } as never)
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    const b = w.stored.get('/repo:board') as Board
+    expect(b.tickets['VC-4']!.cost!.usd).toBeGreaterThan(0)
+  })
+
+  test('naming another ticket in a dispatch moves nothing off the ticket the agent works: its first push or Jira write shows it, and all it cost so far moves there', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    const one = (100 * 5 + 900 * 0.5 + 5 * 25) / 1e6
+    const w = world(on, { agents: [{ id: 'g1', type: 'general-purpose', description: 'implement VC-4' }], stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await step($, 'g1')
+    await step($, 'g1')
+    // dispatched for VC-4, but the ticket it comments on is VC-3
+    await $.tool.call({ tool: 'mcp__atlassian__addCommentToJiraIssue', issueIdOrKey: 'VC-3', agentId: 'g1' } as never)
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    const b = w.stored.get('/repo:board') as Board
+    const near = (x: number, y: number) => Math.abs(x - y) < 1e-9
+    expect(b.tickets['VC-4']!.cost?.usd ?? 0).toBeLessThan(1e-12)
+    // VC-3 already held 6, and now carries the agent's three requests
+    expect(near(b.tickets['VC-3']!.cost!.usd, 6 + 3 * one)).toBe(true)
+  })
+
+  test('an agent that names no ticket is counted as unattributed, and moves onto the ticket its branch carries', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    const one = (100 * 5 + 900 * 0.5 + 5 * 25) / 1e6
+    const near = (x: number, y: number) => Math.abs(x - y) < 1e-9
+    const w = world(on, {
+      agents: [{ id: 'g1', type: 'general-purpose', description: 'do the work' }],
+      stored: { '/repo:board': capped },
+      gh: { 'git -C /repo rev-parse --abbrev-ref HEAD': { stdout: 'VC-4-cart\n' } },
+    })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await step($, 'g1')
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    let b = w.stored.get('/repo:board') as Board
+    expect(near(b.unattributed ?? 0, 2 * one)).toBe(true)
+    expect(b.tickets['VC-4']!.cost).toBeUndefined()
+    // a git command on the VC-4 branch shows what it works: what it cost so far moves there
+    await $.tool.call({ tool: 'Bash', command: 'git status', agentId: 'g1' } as never)
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    b = w.stored.get('/repo:board') as Board
+    expect(near(b.unattributed ?? 0, 0)).toBe(true)
+    expect(near(b.tickets['VC-4']!.cost!.usd, 3 * one)).toBe(true)
+  })
+
+  test('a PR opened with no ticket named is held to the branch it opens: --head, or the directory it runs in', { options: { ticketBudgetUsd: 5 }, }, async ($, on) => {
+    world(on, { stored: { '/repo:board': capped }, gh: { 'git -C /other rev-parse --abbrev-ref HEAD': { stdout: 'VC-3-cart\n' }, 'git -C /repo rev-parse --abbrev-ref HEAD': { stdout: 'VC-4-x\n' } } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill --head VC-3-cart' } as never))).toContain('ticket budget: VC-3')
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'cd /other && gh pr create --fill' } as never))).toContain('ticket budget: VC-3')
+    // the session's own branch is VC-4's, which is under its cap
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' } as never))).toBe('ok')
+  })
+
+  test('a subagent that is not one of the loop\'s own still counts against the ticket it names, priced at the dearest tier when its model is unknown', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    const w = world(on, { agents: [{ id: 'g1', type: 'general-purpose', description: 'build VC-4' }], stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    const b = w.stored.get('/repo:board') as Board
+    // 100 input, 900 cache read, 5 output at the opus price
+    expect(Math.abs(b.tickets['VC-4']!.cost!.usd - (100 * 5 + 900 * 0.5 + 5 * 25) / 1e6) < 1e-9).toBe(true)
   })
 })
 

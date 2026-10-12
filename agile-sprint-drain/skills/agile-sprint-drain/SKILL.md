@@ -90,6 +90,8 @@ Each iteration is one **pass**, computed from the live board, never from memory.
          build_torun = non-parked in-flight tickets (already hold a slot)
                        + first free_slots eligible To-Do tickets
                        MINUS anything retired HUMAN-BLOCKED in the LEDGER
+                       MINUS any ticket reported `blocked (BUDGET)` (an `agile-mods: ticket budget:`
+                         refusal): retired from the BUILD set only, its open PR stays in merge_torun
          if non-empty:
            call agile-10-implement keys=<build_torun>
              concurrency=0 on Codex or inline/session execution
@@ -190,15 +192,13 @@ Never bypasses an orchestrator's pause (a parked ticket is human-blocked here; t
 
 ## Reports
 
-**BUDGET** — agile-mods refused build work (`agile-mods: budget:`): the loop spent its `budgetUsd`. Run the merge train once more on what is open, then stop. Report what merged, what is left, and the spend the refusal names.
-
 **PAUSED** — `max-merges` reached with actionable items left. One line: merged this invocation, items remaining, `re-invoke to continue`. Not a healthy stop and not a failure.
 
 **DRAINED** — the only healthy stop: every sprint ticket `Done` + merged or legitimately exited (out-of-scope, Needs Info); any human-blocked item left means STUCK. List Done tickets and exits with reasons, **the audit-trail result (`N/N complete` or exceptions)**, then point at `agile-sprint-close`.
 
-**STUCK** — actionable set empty (or `MAX_PASSES` hit) with items remaining. Classify each: **parked critical decision**; **Needs Info / under-spec**; **dead blocker chain** (name the blocker); **CI failed identically K passes** (check + fingerprint); **unconverged review** (cycles exhausted, or awaiting a human); **persistent conflict**. On a ceiling stop, list still-actionable items separately — re-invoking handles them.
+**STUCK** — actionable set empty (or `MAX_PASSES` hit) with items remaining. Classify each: **parked critical decision**; **Needs Info / under-spec**; **dead blocker chain** (name the blocker); **CI failed identically K passes** (check + fingerprint); **unconverged review** (cycles exhausted, or awaiting a human); **persistent conflict**; **over its cost cap** (the ticket, its estimated cost and the cap the `agile-mods: ticket budget:` refusal names; raising `ticketBudgetUsd` or a person's allow-once in agile-mods lets it build again). On a ceiling stop, list still-actionable items separately — re-invoking handles them.
 
-**Notify on a stop.** At the top level, on DRAINED, STUCK or BUDGET, send one `PushNotification` a person can act on (`STUCK: VC-12 awaiting a decision, VC-9 Needs Info`), never for progress. No such tool (e.g. Codex) → the report alone.
+**Notify on a stop.** At the top level, on DRAINED or STUCK, send one `PushNotification` a person can act on (`STUCK: VC-12 awaiting a decision, VC-9 Needs Info`), never for progress. No such tool (e.g. Codex) → the report alone.
 
 ## Output discipline
 
