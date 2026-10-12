@@ -1,6 +1,6 @@
 # agile-mods: decisions and gotchas
 
-Read before changing `hooks/`. The root `CLAUDE.md` covers the engine limits and the mirror rule (a guard mirrors a skill's prose: change both in one commit). The exact rules users see are in `docs/reference.md`; keep it in step with the code.
+Read before changing a guard (this folder, `../tests/`, `../docs/`). The root `CLAUDE.md` covers the engine limits and the mirror rule (a guard mirrors a skill's prose: change both in one commit). The exact rules users see are in `../docs/reference.md`; keep it in step with the code.
 
 ## Locked decisions
 

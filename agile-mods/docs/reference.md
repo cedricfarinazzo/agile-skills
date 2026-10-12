@@ -276,6 +276,7 @@ Nothing goes to any host but GitHub (through your `gh` login) and Atlassian (thr
 ## Code layout
 
 ```
+hooks/CLAUDE.md           locked decisions and gotchas, for whoever changes a guard
 hooks/hooks.json          the one module
 hooks/register.tsx        every hook; binds $ into a Host for the modules below
 hooks/host.ts             the Host type: every program and MCP call the mod makes
