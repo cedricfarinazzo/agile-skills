@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Glob } from 'bun'
 import { EMPTY, type Board } from '../../hooks/state/board.ts'
-import { AGENT_MODEL, GAP, PRICES, median, modelOf, modelOfId, movedCost, rowsOf, strongTicket, summaryOf, ticketOfText, ticketsOfText, usdOf, withCost, withoutCosts } from '../../hooks/state/cost.ts'
+import { AGENT_MODEL, GAP, commandsOf, PRICES, median, modelOf, modelOfId, movedCost, rowsOf, strongTicket, summaryOf, ticketOfText, ticketsOfText, usdOf, withCost, withoutCosts } from '../../hooks/state/cost.ts'
 import { withRun } from '../../hooks/state/flow.ts'
 
 const ROOT = `${import.meta.dir}/../../..`
@@ -92,6 +92,21 @@ describe('which ticket', () => {
     expect(strongTicket(b, 'Bash', { command: 'git log VC-1' })).toBeUndefined()
     expect(strongTicket(b, 'Bash', { command: 'git push origin VC-1-a VC-2-b' })).toBeUndefined()
     expect(strongTicket(b, 'mcp__github__create_pull_request', { head: 'VC-2-x' })).toBe('VC-2')
+    // a word in a string, a comment or an echo is no command
+    expect(strongTicket(b, 'Bash', { command: 'echo "git push origin VC-1-a"' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: "printf 'gh pr merge 7' > notes" })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'git status # git push origin VC-1-a' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'cd /w && git push origin VC-1-a' })).toBe('VC-1')
+    expect(strongTicket(b, 'Bash', { command: 'git add . && git commit -m "VC-2 done" && git push -u origin VC-1-a' })).toBe('VC-1')
+    expect(strongTicket(b, 'Bash', { command: 'git push origin VC-1-a; git push origin VC-2-b' })).toBeUndefined()
+  })
+})
+
+describe('commands of a shell line', () => {
+  test('split outside quotes; a comment is dropped', () => {
+    expect(commandsOf('cd /w && git push origin VC-1 || echo "a;b" | tee x')).toEqual(['cd /w', 'git push origin VC-1', 'echo "a;b"', 'tee x'])
+    expect(commandsOf('git push origin x # git push origin y')).toEqual(['git push origin x'])
+    expect(commandsOf("echo 'it''s'; ls")).toEqual(["echo 'it''s'", 'ls'])
   })
 })
 

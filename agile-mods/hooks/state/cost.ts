@@ -104,7 +104,38 @@ export function ticketOfText(board: Board, text: string): string | undefined {
 }
 
 const JIRA_WRITE = /^mcp__.+__(editJiraIssue|addCommentToJiraIssue|transitionJiraIssue)$/
-const BRANCH_WORK = /\bgit\s+(?:-C\s+\S+\s+)?(?:push|checkout|switch|branch|worktree\s+add)\b|\bgh\s+pr\s+(?:create|edit|merge|ready|checkout)\b/
+/** A command that starts with git or gh doing branch or PR work (after any `VAR=x` words). */
+const BRANCH_WORK = /^\s*(?:\w+=\S*\s+)*(?:git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:push|checkout|switch|branch|worktree\s+add)\b|gh\s+pr\s+(?:create|edit|merge|ready|checkout)\b)/
+
+/**
+ * The commands a shell line runs: split on `&&`, `||`, `;`, `|` and newlines that are outside quotes,
+ * with an unquoted `#` comment dropped. A word in a quoted string (`echo "git push VC-4"`) or a
+ * comment is no command, so it is no evidence of work.
+ */
+export function commandsOf(line: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let quote = ''
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]!
+    if (quote) {
+      cur += c
+      if (c === quote && line[i - 1] !== '\\') quote = ''
+      continue
+    }
+    if (c === '"' || c === "'") { quote = c; cur += c; continue }
+    if (c === '#' && (i === 0 || /\s/.test(line[i - 1]!))) { while (i < line.length && line[i] !== '\n') i++; i--; continue }
+    if (c === ';' || c === '|' || c === '&' || c === '\n') {
+      if (cur.trim()) out.push(cur.trim())
+      cur = ''
+      while (line[i + 1] === c) i++
+      continue
+    }
+    cur += c
+  }
+  if (cur.trim()) out.push(cur.trim())
+  return out
+}
 
 /**
  * The one ticket a call that changes something names: a write to its Jira issue, a push, checkout or
@@ -118,10 +149,15 @@ export function strongTicket(board: Board, tool: string, args: Record<string, un
     return board.tickets[key] ? key : undefined
   }
   if (/^mcp__.+__create_pull_request$/.test(tool)) return ticketOfText(board, typeof args.head === 'string' ? args.head : '')
-  const command = tool === 'Bash' && typeof args.command === 'string' ? args.command : ''
-  if (!BRANCH_WORK.test(command)) return undefined
-  const pr = command.match(/\bgh\s+pr\s+(?:merge|edit|ready|checkout)\s+(?:-\S+\s+)*#?(\d+)/)?.[1]
-  return ticketOfText(board, command) ?? (pr ? board.prs[pr]?.key : undefined)
+  if (tool !== 'Bash' || typeof args.command !== 'string') return undefined
+  // each command of the line that is itself branch or PR work, and the one ticket they all name
+  const tickets = new Set<string>()
+  for (const cmd of commandsOf(args.command).filter(c => BRANCH_WORK.test(c))) {
+    const pr = cmd.match(/\bgh\s+pr\s+(?:merge|edit|ready|checkout)\s+(?:-\S+\s+)*#?(\d+)/)?.[1]
+    const key = ticketOfText(board, cmd) ?? (pr ? board.prs[pr]?.key : undefined)
+    if (key) tickets.add(key)
+  }
+  return tickets.size === 1 ? [...tickets][0] : undefined
 }
 
 export type Row = { key: string; cost: Cost; lines?: number; elapsed?: number; merged: boolean }
