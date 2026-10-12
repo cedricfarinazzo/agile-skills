@@ -82,6 +82,7 @@ A size check (`git show <sha>:<path> | wc -c`) is not a read and gets no note.
 
 - it comes after `||`, or after `&&` behind a command the guard cannot see succeed. A variable or `cd` set there doesn't apply either;
 - the line has a heredoc, a `$'…'` quote, a comment (`#` starting a word) or a backgrounded command;
+- it comes after a command that changes how the shell runs what follows: `set` (`set -e` makes `;` stop at a failure), `exec`, `trap`, `alias`, `shopt`, `eval`, `source`, or a function definition;
 - the output shows a failed `cd`.
 
 **The reviewer is told at once.** When a reviewer's command names a sha and a read in it does not count, the tool result gets one line, `agile-mods: not counted for review: …`, with the reason and what to run instead. For output that was cut, that is a chunk plan measured by git, each chunk at most 25,000 characters (`git show <sha>:<path> | sed -n 1,212p · 213,398p · …`). A merge refusal for unread files repeats the chunk plan of each large one and the latest reasons.

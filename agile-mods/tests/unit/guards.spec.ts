@@ -121,6 +121,10 @@ describe('review coverage', () => {
     // the shell ends at a comment, and an ANSI-C quote hides its escapes: nothing on such a line counts
     expect(readsOf(`echo x # ; git show ${SHA}:a.ts`)).toEqual([])
     expect(readsOf(`echo $'\\'; git show ${SHA}:a.ts'`)).toEqual([])
+    // after a command that changes how the shell runs what follows, nothing counts
+    for (const pre of ['set -e', 'set -o errexit', 'exec >/dev/null', 'trap x EXIT', 'alias git=x', 'git() { :; }', 'function git { :; }', 'eval x', 'source x', '. x', 'shopt -s expand_aliases']) {
+      expect(readsOf(`${pre}; false; git show ${SHA}:a.ts`)).toEqual([])
+    }
     // a variable or cd after a command that may have failed is not followed
     expect(readsOf(`false && S=${SHA}; git show $S:a.ts`)).toEqual([])
     expect(parseReads(`false && cd /x; git show ${SHA}:a.ts`).reads).toEqual([{ sha: SHA, path: 'a.ts' }])

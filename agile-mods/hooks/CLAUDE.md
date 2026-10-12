@@ -23,6 +23,8 @@ Don't reopen these without the maintainer.
   - after `||`;
   - after `&&` behind a command not known to succeed;
   - on a line with a heredoc, a `$'…'` quote, a `#` comment, a backgrounded command or a failed `cd`.
+  - after a command that reshapes the shell (`set -e`, `exec`, `trap`, `alias`, `eval`, `source`, a function definition).
+- When a parser differential is suspected, test it against real bash: stub `git(){ echo SHOWN:$2; }` and compare which shows ran with what `parseReads` credits.
 - A `cd` or a sha variable is followed only when it surely ran.
 - A path must be written from the repo root: `./` and `../` are refused. A quoted spec and `[ ]` in a path are read as git gets them.
 - Coverage of a file at the head:

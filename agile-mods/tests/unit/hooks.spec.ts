@@ -119,7 +119,9 @@ describe('merge guard', () => {
   test('a read whose output is not the file counts nothing', async () => {
     const { host } = fakeHost(github({ show: { [`${SHA}:src/a.ts`]: 'export const a = 1\n', [`${SHA}:src/b.ts`]: 'export const b = 2\n' } }))
     await guardsBefore(host, ...skill('agile-11-merge-train'), undefined)
-    expect(await read(host, `exec >/dev/null; git show ${SHA}:src/a.ts`, 'r1', '')).toContain('not in the output as git has it')
+    expect(await read(host, `exec >/dev/null; git show ${SHA}:src/a.ts`, 'r1', '')).toContain('changes how the shell runs')
+    // whatever the line looked like, output that is not the file counts nothing
+    expect(await read(host, `git show ${SHA}:src/a.ts`, 'r1', 'something else')).toContain('not in the output as git has it')
     await read(host, `git show ${SHA}:src/a.ts | cat -n`, 'r1', '     1\texport const a = 1\n')
     await read(host, `git show '${SHA}:src/b.ts'`, 'r1', 'export const b = 2\n')
     expect(await guardsBefore(host, 'Bash', merge(), undefined)).toBeUndefined()

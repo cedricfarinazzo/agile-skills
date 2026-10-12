@@ -110,6 +110,11 @@ function segmentsOf(command: string): Segment[] | undefined {
 /** A command that always succeeds and prints nothing a reviewer reads: separators between reads. */
 const QUIET = /^(echo(\s+('[^']*'|"[^"$`\\]*"|[\w=.:\/+-]+))*|true|:)$/
 const CD = /^cd\s+([^\s"'`$\\<>()#{};&|]+)$/
+/**
+ * A command that changes how the shell runs what follows (`set -e` makes `;` stop at a failure,
+ * `exec` and `trap` redirect or intercept, an alias or a function can stand in for git): no read after it counts.
+ */
+const RESHAPES = /^(set|exec|trap|alias|unalias|shopt|eval|source|\.|enable|builtin|command|function|declare|typeset|local|readonly)(\s|$)|^[\w.-]+\s*\(\s*\)/
 const ASSIGN = /^(?:export\s+)?([A-Za-z_]\w*)=(\S*)$/
 
 /** Every file a command read, in full or as one line range, and every diff it read; a part naming a sha that did not count says why. */
@@ -126,9 +131,15 @@ export function parseReads(command: string): Parsed {
   let dir: string | undefined
   // whether every command since the last `;` is one that succeeds: a read after `&&` runs only then
   let sure = true
+  let reshaped = false
   for (const seg of segments) {
     if (seg.join === ';' || seg.join === '') sure = true
     let text = seg.text
+    if (RESHAPES.test(text)) reshaped = true
+    if (reshaped) {
+      if (/\bgit\b.*\b(show|cat-file|diff)\b/.test(text) && !RESHAPES.test(text)) parsed.skipped.push(`\`${seg.text.slice(0, 80)}\` comes after a command that changes how the shell runs (set, exec, trap, alias, a function): run the read on a line of its own`)
+      continue
+    }
     // a cd or a variable set after a command that may have failed may not have run: what follows is not read
     const cd = text.match(CD)
     if (cd) {
