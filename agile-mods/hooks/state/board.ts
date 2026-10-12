@@ -20,6 +20,10 @@ export type Ticket = {
   phase?: string
   /** `agile:phase=rework` markers in its comments. */
   reworks?: number
+  /** Every marker phase its comments carry, once each, in the order they were last posted. */
+  marks?: string[]
+  /** The review verdict label: `dev-review-approved` or `dev-review-changes-requested`. */
+  review?: 'approved' | 'changes'
   /** Labelled `needs-info`, or in a Needs Info status. */
   parked?: 'needs-info'
   points?: number
@@ -325,6 +329,7 @@ export function applyJira(prior: Board, answer: unknown, field: string, now: num
     const points = f[field]
     const site = str(issue.webUrl).match(/^(https:\/\/[^/]+)\/browse\//)?.[1]
     if (site && !board.site) board = { ...board, site }
+    const review = f.labels === undefined ? undefined : labels.includes('dev-review-changes-requested') ? 'changes' as const : labels.includes('dev-review-approved') ? 'approved' as const : null
     const parked = labels.includes('needs-info') || /needs?.?info/i.test(str(status?.name))
     const since = time(f.statuscategorychangedate)
     board = withTicket(board, key, {
@@ -334,7 +339,8 @@ export function applyJira(prior: Board, answer: unknown, field: string, now: num
         category: str(status.statusCategory?.key),
         parked: parked ? 'needs-info' as const : undefined,
       }),
-      ...(phases && { phase: phases.at(-1), reworks: phases.filter(p => p === 'rework').length, markedAt: now }),
+      ...(phases && { phase: phases.at(-1), reworks: phases.filter(p => p === 'rework').length, marks: [...new Set(phases)], markedAt: now }),
+      ...(review !== undefined && { review: review ?? undefined }),
       ...(typeof points === 'number' && { points }),
       ...(since !== undefined && { since }),
     })

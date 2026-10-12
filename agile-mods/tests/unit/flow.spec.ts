@@ -86,7 +86,7 @@ describe('aging', () => {
     history: { merges: [], cycles },
     order: ['VC-1', 'VC-2', 'VC-3'],
     tickets: {
-      'VC-1': { key: 'VC-1', category: 'indeterminate', since: NOW - 3 * HOUR, phase: 'implement' },
+      'VC-1': { key: 'VC-1', category: 'indeterminate', since: NOW - 3 * HOUR, phase: 'plan' },
       'VC-2': { key: 'VC-2', category: 'indeterminate', since: NOW - HOUR, pr: 7 },
       'VC-3': { key: 'VC-3', category: 'indeterminate', since: NOW - HOUR, parked: 'needs-info' },
     },
@@ -98,6 +98,11 @@ describe('aging', () => {
     const { items, p50 } = agingOf(board([]), NOW)
     expect(items.map(i => `${i.id} ${i.where} ${span(i.age)}`)).toEqual(['#7 VC-2 3b review 30h', 'VC-1 implement 3h'])
     expect(p50).toBeUndefined()
+  })
+
+  test('where is the phase now, not the marker just posted: the next one, or the running agent\'s', () => {
+    expect(agingOf(board([]), NOW).items.at(-1)!.where).toBe('implement')
+    expect(agingOf(board([]), NOW, { 'VC-1': 'review' }).items.at(-1)!.where).toBe('review')
   })
 
   test('percentile lines from the repo history, and PRs past the 85th flagged', () => {
