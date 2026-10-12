@@ -69,10 +69,15 @@ export function withCost(board: Board, key: string, usd: number, stage: Stage | 
   return { ...board, tickets: { ...board.tickets, [key]: { ...t, cost } } }
 }
 
-/** Moves a request already counted from one ticket to another: the call that named the new ticket was made by it. */
-export function movedCost(board: Board, from: string, to: string, usd: number, stage: Stage | undefined): Board {
-  if (from === to) return board
-  return withCost(withCost(board, from, -usd, stage, 0, 0), to, usd, stage, 0, 0)
+/**
+ * Moves a request already counted from one ticket to another: the call that named the new ticket was
+ * made by it. Never more than the first holds, and nothing when it holds no cost (a new run cleared it).
+ */
+export function movedCost(board: Board, from: string, to: string, usd: number, stage: Stage | undefined, now: number): Board {
+  const held = board.tickets[from]?.cost?.usd
+  if (from === to || held === undefined || !board.tickets[to]) return board
+  const amount = Math.max(0, Math.min(usd, held))
+  return withCost(withCost(board, from, -amount, stage, 0, now), to, amount, stage, 0, now)
 }
 
 /** A new run: every ticket's cost starts again with the spend ledger. */

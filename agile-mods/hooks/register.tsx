@@ -568,7 +568,7 @@ export const register: Register = (on, options) => {
 
     const now = await $.clock.now()
     if (e.agentId) agentStats = noteCall(agentStats, e.agentId, e.tool, args, now)
-    if (e.agentId) await followTicket(e.agentId, e.tool, args)
+    if (e.agentId) await followTicket(e.agentId, e.tool, args, now)
     if (typeof args.cloudId === 'string' && /^mcp__.+__/.test(e.tool)) cloudId ??= args.cloudId
     // a drain that starts fresh (not resuming a running or STUCK one) empties the board: reads begun before it save nothing
     if (/(^|:)agile-sprint-drain$/.test(skill) && board.drain?.outcome !== 'running' && board.drain?.outcome !== 'STUCK') epoch += 1
@@ -722,12 +722,12 @@ async function countRequest(host: Host, id: string, type: string, usage: Usage &
 }
 
 /** A session agent's call that names one ticket moves the agent onto it, and the request that made the call with it. */
-async function followTicket(id: string, tool: string, args: Record<string, unknown>) {
+async function followTicket(id: string, tool: string, args: Record<string, unknown>, now: number) {
   const w = workers.get(id)
   if (!w || w.fixed) return
   const named = ticketOfCall(board, tool, args)
   if (!named || named === w.ticket) return
-  if (w.last?.usd) board = w.last.ticket ? movedCost(board, w.last.ticket, named, w.last.usd, w.stage) : withCost(board, named, w.last.usd, w.stage, 0, 0)
+  if (w.last?.usd) board = w.last.ticket ? movedCost(board, w.last.ticket, named, w.last.usd, w.stage, now) : withCost(board, named, w.last.usd, w.stage, 0, now)
   w.last = undefined
   w.ticket = named
 }

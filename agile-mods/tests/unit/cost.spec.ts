@@ -58,9 +58,16 @@ describe('ticket cost', () => {
 
   test('a request moves to the ticket its call named, and a new run starts every cost again', () => {
     let b = withCost(board(), 'VC-1', 1, 'build', 0, 0)
-    b = movedCost(b, 'VC-1', 'VC-2', 0.4, 'build')
+    b = movedCost(b, 'VC-1', 'VC-2', 0.4, 'build', 77)
     expect(b.tickets['VC-1']!.cost!.usd).toBeCloseTo(0.6)
     expect(b.tickets['VC-2']!.cost!.usd).toBeCloseTo(0.4)
+    // a ticket whose first cost arrives by a move starts at that moment, not at 0
+    expect(b.tickets['VC-2']!.cost!.firstAt).toBe(77)
+    // never more than the source holds, and nothing from a ticket that holds none
+    const over = movedCost(b, 'VC-1', 'VC-2', 5, 'build', 80)
+    expect(over.tickets['VC-1']!.cost!.usd).toBeCloseTo(0)
+    expect(over.tickets['VC-2']!.cost!.usd).toBeCloseTo(1)
+    expect(movedCost(board(), 'VC-1', 'VC-2', 1, 'build', 1)).toEqual(board())
     expect(withRun(b, 5).tickets['VC-2']!.cost).toBeUndefined()
     expect(withoutCosts(board())).toEqual(board())
   })
