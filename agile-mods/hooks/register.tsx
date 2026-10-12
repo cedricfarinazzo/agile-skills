@@ -79,7 +79,7 @@ const dispatches: { type: string; tickets: string[]; at: number }[] = []
  * text, so only a claim); `shown` the ticket its own state-changing calls last named, which outranks
  * the claim. `accrued` is what it has cost by ticket, so a claim its work contradicts is moved whole.
  */
-type Worker = { claim: string[]; shown?: string; stage?: 'build' | 'merge'; accrued: Record<string, number>; last?: { parts: Record<string, number>; usd: number }; at?: number }
+type Worker = { claim: string[]; shown?: string; stage?: 'build' | 'merge'; accrued: Record<string, number>; last?: { parts: Record<string, number>; usd: number }; at?: number; unattributed: number; branchTries: number }
 const workers = new Map<string, Worker>()
 /** Bumped by /agile-board reset and a fresh drain: a read begun before it saves nothing. */
 let epoch = 0
@@ -597,7 +597,7 @@ export const register: Register = (on, options) => {
 
     const now = await $.clock.now()
     if (e.agentId) agentStats = noteCall(agentStats, e.agentId, e.tool, args, now)
-    if (e.agentId) followTicket($, e.agentId, e.tool, args, now)
+    if (e.agentId) await followTicket($, host, e.agentId, e.tool, args, now)
     if (e.tool === 'Agent') noteDispatch(args, now)
     if (typeof args.cloudId === 'string' && /^mcp__.+__/.test(e.tool)) cloudId ??= args.cloudId
     // a drain that starts fresh (not resuming a running or STUCK one) empties the board: reads begun before it save nothing
@@ -747,7 +747,7 @@ async function workerOf(host: Host, id: string, type: string): Promise<Worker> {
     const info = (await host.agents().catch(() => [])).find(a => a.id === id)
     // its description and the prompt of the dispatch that started it
     const claim = [...new Set([...(info?.description ? ticketsOfText(board, info.description) : []), ...claimDispatch(type)])]
-    w = { claim, accrued: {}, ...(stageOf(type) && { stage: stageOf(type)! }) }
+    w = { claim, accrued: {}, unattributed: 0, branchTries: 0, ...(stageOf(type) && { stage: stageOf(type)! }) }
     workers.set(id, w)
     if (workers.size > 100) workers.delete(workers.keys().next().value!)
   }
@@ -769,6 +769,11 @@ async function countRequest(host: Host, id: string, type: string, usage: Usage &
   const usd = usdOf(usage, model)
   const to = w.shown ? [w.shown] : w.claim
   const parts: Record<string, number> = {}
+  // an agent that named no ticket and showed none: counted and shown, on no ticket, until its work shows one
+  if (!to.length) {
+    w.unattributed += usd
+    board = { ...board, unattributed: (board.unattributed ?? 0) + usd }
+  }
   for (const t of to) {
     board = withCost(board, t, usd / to.length, w.stage, ms / to.length, now)
     w.accrued[t] = (w.accrued[t] ?? 0) + usd / to.length
@@ -784,27 +789,35 @@ async function countRequest(host: Host, id: string, type: string, usage: Usage &
  * work is on. Later calls on another ticket (a session working its tickets in turn) move the request
  * that made them.
  */
-function followTicket($: EngineInterface, id: string, tool: string, args: Record<string, unknown>, now: number) {
+async function followTicket($: EngineInterface, host: Host, id: string, tool: string, args: Record<string, unknown>, now: number) {
   const w = workers.get(id)
-  const shown = w && strongTicket(board, tool, args)
-  if (!w || !shown || shown === w.shown) return
+  if (!w) return
+  let shown = strongTicket(board, tool, args)
+  // an agent with no claim at all: the branch a git or gh command runs on says which ticket it works
+  const command = tool === 'Bash' && typeof args.command === 'string' ? args.command : ''
+  if (!shown && !w.shown && !w.claim.length && w.branchTries < 5 && /^\s*(?:cd\s+\S+\s*&&\s*)?(?:git|gh)\b/.test(command)) {
+    w.branchTries += 1
+    shown = ticketOfText(board, (await branchOf(host, command)) ?? '')
+  }
+  if (!shown || shown === w.shown) return
   const contradicted = w.shown === undefined && w.claim.length > 0 && !w.claim.includes(shown)
   if (contradicted) {
-    for (const [from, usd] of Object.entries(w.accrued)) board = movedCost(board, from, shown, usd, w.stage)
+    for (const [from, usd] of Object.entries(w.accrued)) board = movedCost(board, from, shown, usd, w.stage, now)
     w.accrued = { [shown]: Object.values(w.accrued).reduce((n, x) => n + x, 0) }
     note($, { at: now, rule: 'ticketBudget', kind: 'warned', text: `agent dispatched for ${w.claim.join(', ')} worked ${shown} (${tool}): its cost counts on ${shown}` })
   } else if (w.last) {
     // the request that made this call is its ticket's, whatever it was shared by before
-    const parts = Object.entries(w.last.parts).filter(([t]) => t !== shown)
-    for (const [from, usd] of parts) {
-      board = movedCost(board, from, shown, usd, w.stage)
+    for (const [from, usd] of Object.entries(w.last.parts).filter(([t]) => t !== shown)) {
+      board = movedCost(board, from, shown, usd, w.stage, now)
       w.accrued[from] = (w.accrued[from] ?? 0) - usd
       w.accrued[shown] = (w.accrued[shown] ?? 0) + usd
     }
-    if (!Object.keys(w.last.parts).length && w.last.usd) {
-      board = withCost(board, shown, w.last.usd, w.stage, 0, 0)
-      w.accrued[shown] = (w.accrued[shown] ?? 0) + w.last.usd
-    }
+  }
+  // what it cost before it showed a ticket moves onto it
+  if (w.unattributed > 0) {
+    board = withCost({ ...board, unattributed: Math.max(0, (board.unattributed ?? 0) - w.unattributed) }, shown, w.unattributed, w.stage, 0, now)
+    w.accrued[shown] = (w.accrued[shown] ?? 0) + w.unattributed
+    w.unattributed = 0
   }
   w.last = undefined
   w.shown = shown

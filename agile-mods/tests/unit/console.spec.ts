@@ -92,6 +92,11 @@ describe('console rows', () => {
     expect(out).toContain('loop overhead $1.50')
     expect(out).toMatch(/merged 1 ticket\s+·\s+median \$2\.00\s+·\s+\$0\.020\/line/)
     expect(plain(consoleRows('cost', sample(), ctx(), 90))).toContain('no ticket cost yet')
+    // subagents that named no ticket are shown, in the run total
+    const loose = plain(consoleRows('cost', { ...b, unattributed: 0.75 }, ctx(), 100))
+    expect(loose).toContain('unattributed $0.75')
+    expect(loose).toContain('loop overhead $0.75')
+    expect(plain(consoleRows('cost', { ...sample(), unattributed: 0.5 }, ctx(), 100))).toContain('unattributed $0.50')
   })
 
   test('drain tab: a row per pass, cost from the stamped boundaries, live cost for the running pass', () => {

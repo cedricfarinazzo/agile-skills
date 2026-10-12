@@ -347,6 +347,9 @@ describe('the branch a PR call opens', () => {
     expect(prHeadOf('Bash', { command: 'gh api -X POST repos/o/r/pulls -f head=VC-3-cart -f base=main' })).toBe('VC-3-cart')
     expect(prHeadOf('mcp__github__create_pull_request', { head: 'VC-3-cart' })).toBe('VC-3-cart')
     expect(prHeadOf('Bash', { command: 'gh pr create --fill' })).toBeUndefined()
+    // -H is a request header for gh api, not a head
+    expect(prHeadOf('Bash', { command: 'gh api -X POST repos/o/r/pulls -H "Accept: application/vnd.github+json" -f head=VC-3-cart' })).toBe('VC-3-cart')
+    expect(prHeadOf('Bash', { command: 'gh api -X POST repos/o/r/pulls -H "Accept: application/vnd.github+json"' })).toBeUndefined()
   })
 })
 

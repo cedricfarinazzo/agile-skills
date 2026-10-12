@@ -56,6 +56,7 @@ The pane docks beside the transcript in a terminal of 110 columns or more, and s
   - **median** and **$/line** at the foot count merged tickets only, so half-built work doesn't pull them down. The **run total** counts everything.
   - With a cap set, a bar turns amber at 80% of it and red once the ticket is `capped`; the header shows the cap. Without one, amber marks a ticket costing over twice the merged median.
   - A `⚠` line means the tickets add up to more than the session spent: the price table is above what you pay.
+  - **unattributed** (in yellow) is what subagents that named no ticket cost; if it keeps growing, a dispatch is missing its ticket key.
 - **Cache.** The share of prompt tokens read from the prompt cache, per stage. A long CI wait or a changed prompt makes it drop, and every request costs more.
 
 ## How a ticket's cost is counted
@@ -70,7 +71,7 @@ flowchart LR
   M["main session's own requests"] -.-> O["loop overhead =<br/>session spend - tickets"]
 ```
 
-What an agent was told it works is only a claim. Its own calls that change something for a ticket (a Jira comment or transition, a push or checkout of its branch, a PR create or merge) show what it works, and outrank the claim: naming another ticket in a prompt moves no cost off the ticket the work is on, and the first call that contradicts a claim moves everything the agent has cost so far, with a warning on the Guards tab. A session agent working its tickets in turn follows the one each of those calls names; the request that made the call counts for it. Reads name a ticket without working on it, so they show nothing. An agent dispatched for several tickets shares its cost evenly among them until its work shows which. Requests with nothing to attach to count as overhead.
+What an agent was told it works is only a claim. Its own calls that change something for a ticket (a Jira comment or transition, a push or checkout of its branch, a PR create or merge) show what it works, and outrank the claim: naming another ticket in a prompt moves no cost off the ticket the work is on, and the first call that contradicts a claim moves everything the agent has cost so far, with a warning on the Guards tab. A session agent working its tickets in turn follows the one each of those calls names; the request that made the call counts for it. Reads name a ticket without working on it, so they show nothing. An agent dispatched for several tickets shares its cost evenly among them until its work shows which. An agent that named no ticket and has shown none is counted as **unattributed**: in the run total, on no ticket and under no cap, until a git or gh command on a branch that carries a ticket (or a state-changing call) shows which, when everything it cost so far moves there. The main session's own requests are overhead.
 
 ## Where the data comes from
 

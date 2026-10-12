@@ -366,6 +366,31 @@ describe('the cap through the engine: no way round', () => {
     expect(near(b.tickets['VC-3']!.cost!.usd, 6 + 3 * one)).toBe(true)
   })
 
+  test('an agent that names no ticket is counted as unattributed, and moves onto the ticket its branch carries', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    const one = (100 * 5 + 900 * 0.5 + 5 * 25) / 1e6
+    const near = (x: number, y: number) => Math.abs(x - y) < 1e-9
+    const w = world(on, {
+      agents: [{ id: 'g1', type: 'general-purpose', description: 'do the work' }],
+      stored: { '/repo:board': capped },
+      gh: { 'git -C /repo rev-parse --abbrev-ref HEAD': { stdout: 'VC-4-cart\n' } },
+    })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await step($, 'g1')
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    let b = w.stored.get('/repo:board') as Board
+    expect(near(b.unattributed ?? 0, 2 * one)).toBe(true)
+    expect(b.tickets['VC-4']!.cost).toBeUndefined()
+    // a git command on the VC-4 branch shows what it works: what it cost so far moves there
+    await $.tool.call({ tool: 'Bash', command: 'git status', agentId: 'g1' } as never)
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    b = w.stored.get('/repo:board') as Board
+    expect(near(b.unattributed ?? 0, 0)).toBe(true)
+    expect(near(b.tickets['VC-4']!.cost!.usd, 3 * one)).toBe(true)
+  })
+
   test('a PR opened with no ticket named is held to the branch it opens: --head, or the directory it runs in', { options: { ticketBudgetUsd: 5 }, }, async ($, on) => {
     world(on, { stored: { '/repo:board': capped }, gh: { 'git -C /other rev-parse --abbrev-ref HEAD': { stdout: 'VC-3-cart\n' }, 'git -C /repo rev-parse --abbrev-ref HEAD': { stdout: 'VC-4-x\n' } } })
     await start($)

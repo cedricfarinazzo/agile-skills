@@ -23,7 +23,7 @@ const board: any = {
   burnUnit: 'points',
   passes: [{ start: 0, merge: 6 * HOUR, end: 12 * HOUR, cost0: 0, cost1: 4.2, built: 1, merged: 1 }, { start: 12 * HOUR, merge: 25 * HOUR, cost0: 4.2 }],
   history: { merges: Array.from({ length: 24 }, (_, d) => NOW - d * 86_400_000 * 1.2), cycles: [5, 8, 12, 20, 26, 30].map(h => h * HOUR) },
-  spend: { usd: 7.9, since: 0 }, site: 'https://acme.atlassian.net', repo: 'https://github.com/acme/shop', gh: { at: NOW - 40_000 }, jira: { at: NOW - 90_000 },
+  spend: { usd: 7.9, since: 0 }, unattributed: 0.4, site: 'https://acme.atlassian.net', repo: 'https://github.com/acme/shop', gh: { at: NOW - 40_000 }, jira: { at: NOW - 90_000 },
 }
 const refusals: any[] = [
   { id: 1, at: NOW - 900_000, rule: 'push', text: 'agile-mods: the loop never pushes to main: work lands through a PR and gh pr merge.', agent: 'build-implementer' },

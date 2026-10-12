@@ -716,7 +716,9 @@ export function prHeadOf(tool: string, args: Record<string, unknown>): string | 
   const clean = (b: string | undefined) => b?.replace(/^["']|["']$/g, '').replace(/^[^:\s]+:/, '') || undefined
   if (mcpName(tool) === 'create_pull_request') return clean(typeof args.head === 'string' ? args.head : undefined)
   const command = str(args.command)
-  return clean(command.match(/(?:--head|-H)[ =]+("[^"]+"|'[^']+'|\S+)/)?.[1] ?? command.match(/\bhead=("[^"]+"|'[^']+'|[^\s&|;]+)/)?.[1])
+  // `-H` is gh pr create's short --head; for `gh api` it is a request header
+  const flag = /\bgh\s+pr\s+create\b/.test(command) ? '--head|-H' : '--head'
+  return clean(command.match(new RegExp(`(?:${flag})[ =]+("[^"]+"|'[^']+'|\\S+)`))?.[1] ?? command.match(/\bhead=("[^"]+"|'[^']+'|[^\s&|;]+)/)?.[1])
 }
 
 /** A call a guard refused, warned about, or let through on a person's bypass, kept for the console's Guards tab. */

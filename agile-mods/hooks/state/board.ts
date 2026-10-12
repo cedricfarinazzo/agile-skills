@@ -98,6 +98,8 @@ export type Board = {
    * throughput, in tickets), and how long every one was open (the aging percentiles).
    */
   history?: { merges: number[]; cycles: number[] }
+  /** USD of subagent requests that named no ticket and showed none (cost.ts). */
+  unattributed?: number
   /** USD spent since the loop run began at `since`; `last` is the ledger reading it counted up to. */
   spend?: { usd: number; since: number; last?: number }
   /** Model requests by stage over the whole loop. */

@@ -307,8 +307,9 @@ const MAX_COST_ROWS = 14
 function costRows(board: Board, ctx: Ctx, w: number): Row[] {
   const rows = rowsOf(board, ctx.now)
   const spent = rateOf(board, ctx.now).spent
-  const sum = summaryOf(rows, spent)
-  if (!rows.length) return [line(['COST', 'c b'], ['  no ticket cost yet: agents are counted while a loop runs', 'd'])]
+  const loose = board.unattributed ?? 0
+  const sum = summaryOf(rows, spent, loose)
+  if (!rows.length && !loose) return [line(['COST', 'c b'], ['  no ticket cost yet: agents are counted while a loop runs', 'd'])]
   const out: Row[] = [spread(text(['COST', 'c b'], ['  est. per ticket: its agents\' tokens at their model\'s price', 'd']), text([ctx.cap ? `cap ${usd(ctx.cap)}/ticket` : `${rows.length} ticket${rows.length === 1 ? '' : 's'}`, 'd']), w)]
   const heads = [seg('ticket'.padEnd(10), 'd'), seg('cost'.padStart(8), 'd'), seg('  '), seg(''.padEnd(9)), seg('lines'.padStart(6), 'd'), seg('$/line'.padStart(8), 'd'), seg('elapsed'.padStart(9), 'd'), seg('working'.padStart(9), 'd'), seg('  now', 'd')]
   out.push({ kind: 'line', segs: heads.slice(0, w >= 80 ? 9 : w >= 56 ? 6 : 2) })
@@ -338,7 +339,7 @@ function costRows(board: Board, ctx: Ctx, w: number): Row[] {
   }
   if (rows.length > MAX_COST_ROWS) out.push(line([`… ${rows.length - MAX_COST_ROWS} more`, 'd']))
   out.push(blank)
-  out.push(spread(text(['run total ', 'd'], [`tickets ${usd(sum.tickets)}`, 'b'], [`  ·  loop overhead ${usd(sum.overhead)}`, 'd']), text([usd(Math.max(spent, sum.tickets)), 'b']), w))
+  out.push(spread(text(['run total ', 'd'], [`tickets ${usd(sum.tickets)}`, 'b'], [loose > 0 ? `  ·  unattributed ${usd(loose)}` : '', 'y'], [`  ·  loop overhead ${usd(sum.overhead)}`, 'd']), text([usd(Math.max(spent, sum.tickets + loose)), 'b']), w))
   if (sum.merged) {
     out.push(spread(text(['merged ', 'd'], [`${sum.merged} ticket${sum.merged === 1 ? '' : 's'}  ·  median ${sum.median === undefined ? '—' : usd(sum.median)}`, 'b'], [sum.perLine === undefined ? '' : `  ·  ${`$${sum.perLine.toFixed(3)}`}/line`, 'b']), text([usd(sum.mergedUsd), 'b']), w))
   }
@@ -347,6 +348,7 @@ function costRows(board: Board, ctx: Ctx, w: number): Row[] {
   out.push(line(['cost = tokens × the model price its agent file declares (an estimate)', 'd']))
   out.push(line(['working = time between an agent\'s requests, waits over 5 min left out', 'd']))
   out.push(line(['lines = additions + deletions of the merged PR · overhead = the orchestrator\'s own requests', 'd']))
+  if (loose > 0) out.push(line(['unattributed = subagents that named and showed no ticket (under no cap)', 'y']))
   return out
 }
 

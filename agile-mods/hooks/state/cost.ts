@@ -79,13 +79,14 @@ export function movedCost(board: Board, from: string, to: string, usd: number, s
 
 /** A new run: every ticket's cost starts again with the spend ledger. */
 export function withoutCosts(board: Board): Board {
-  if (!Object.values(board.tickets).some(t => t.cost)) return board
+  if (!Object.values(board.tickets).some(t => t.cost) && board.unattributed === undefined) return board
   const tickets: Board['tickets'] = {}
   for (const [k, t] of Object.entries(board.tickets)) {
     const { cost: _, ...rest } = t
     tickets[k] = rest
   }
-  return { ...board, tickets }
+  const { unattributed: _u, ...rest } = board
+  return { ...rest, tickets }
 }
 
 /** The tickets on the board that a text names, in order: keys it carries, or the PR it names. */
@@ -116,24 +117,40 @@ export function commandsOf(line: string): string[] {
   const out: string[] = []
   let cur = ''
   let quote = ''
+  const flush = () => {
+    if (cur.trim()) out.push(cur.trim())
+    cur = ''
+  }
   for (let i = 0; i < line.length; i++) {
     const c = line[i]!
     if (quote) {
       cur += c
-      if (c === quote && line[i - 1] !== '\\') quote = ''
+      // a double quote has backslash escapes; a single quote has none
+      if (quote === '"' && c === '\\' && i + 1 < line.length) cur += line[++i]
+      else if (c === quote) quote = ''
       continue
     }
-    if (c === '"' || c === "'") { quote = c; cur += c; continue }
-    if (c === '#' && (i === 0 || /\s/.test(line[i - 1]!))) { while (i < line.length && line[i] !== '\n') i++; i--; continue }
-    if (c === ';' || c === '|' || c === '&' || c === '\n') {
-      if (cur.trim()) out.push(cur.trim())
-      cur = ''
+    if (c === '"' || c === "'") {
+      quote = c
+      cur += c
+    } else if (c === '\\' && i + 1 < line.length) {
+      cur += c + line[++i]
+    } else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]!))) {
+      while (i + 1 < line.length && line[i + 1] !== '\n') i++
+    } else if (c === ';' || c === '|' || c === '\n') {
+      flush()
       while (line[i + 1] === c) i++
-      continue
-    }
-    cur += c
+    } else if (c === '&') {
+      // `2>&1`, `>&2` and `&>file` are redirections, not a separator
+      const redirect = line[i - 1] === '>' || line[i - 1] === '<' || line[i + 1] === '>'
+      if (redirect) cur += c
+      else {
+        flush()
+        while (line[i + 1] === '&') i++
+      }
+    } else cur += c
   }
-  if (cur.trim()) out.push(cur.trim())
+  flush()
   return out
 }
 
@@ -188,6 +205,8 @@ export const median = (xs: number[]): number | undefined => {
 export type Summary = {
   /** Every ticket's cost, and the ledger's spend beyond them: the orchestrator, `overhead`. */
   tickets: number
+  /** What subagents that named no ticket cost: counted, but on no ticket and under no cap. */
+  unattributed: number
   overhead: number
   /** The merged tickets' median cost, their cost per changed line, and what they cost in all. */
   median?: number
@@ -199,18 +218,19 @@ export type Summary = {
 }
 
 /** The totals of the Cost tab; `spent` is the run's ledger spend. */
-export function summaryOf(rows: Row[], spent: number): Summary {
+export function summaryOf(rows: Row[], spent: number, unattributed = 0): Summary {
   const tickets = rows.reduce((n, r) => n + r.cost.usd, 0)
   const merged = rows.filter(r => r.merged)
   const lined = merged.filter(r => r.lines)
   const lines = lined.reduce((n, r) => n + r.lines!, 0)
   return {
     tickets,
-    overhead: Math.max(0, spent - tickets),
+    overhead: Math.max(0, spent - tickets - unattributed),
+    unattributed,
     ...(merged.length && { median: median(merged.map(r => r.cost.usd)) }),
     ...(lines && { perLine: lined.reduce((n, r) => n + r.cost.usd, 0) / lines }),
     merged: merged.length,
     mergedUsd: merged.reduce((n, r) => n + r.cost.usd, 0),
-    drift: spent > 1 && tickets > spent * 1.1,
+    drift: spent > 1 && tickets + unattributed > spent * 1.1,
   }
 }

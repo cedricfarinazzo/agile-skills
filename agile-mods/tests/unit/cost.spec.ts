@@ -68,6 +68,7 @@ describe('ticket cost', () => {
     expect(movedCost(board(), 'VC-1', 'VC-2', 1, 'build', 1)).toEqual(board())
     expect(withRun(b, 5).tickets['VC-2']!.cost).toBeUndefined()
     expect(withoutCosts(board())).toEqual(board())
+    expect(withoutCosts({ ...board(), unattributed: 3 }).unattributed).toBeUndefined()
   })
 })
 
@@ -99,6 +100,7 @@ describe('which ticket', () => {
     expect(strongTicket(b, 'Bash', { command: 'cd /w && git push origin VC-1-a' })).toBe('VC-1')
     expect(strongTicket(b, 'Bash', { command: 'git add . && git commit -m "VC-2 done" && git push -u origin VC-1-a' })).toBe('VC-1')
     expect(strongTicket(b, 'Bash', { command: 'git push origin VC-1-a; git push origin VC-2-b' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'gh pr merge 7 --squash 2>&1 | tee out' })).toBe('VC-2')
   })
 })
 
@@ -107,6 +109,11 @@ describe('commands of a shell line', () => {
     expect(commandsOf('cd /w && git push origin VC-1 || echo "a;b" | tee x')).toEqual(['cd /w', 'git push origin VC-1', 'echo "a;b"', 'tee x'])
     expect(commandsOf('git push origin x # git push origin y')).toEqual(['git push origin x'])
     expect(commandsOf("echo 'it''s'; ls")).toEqual(["echo 'it''s'", 'ls'])
+    // a redirection's & is no separator, and a single quote has no backslash escape
+    expect(commandsOf('gh pr merge 12 2>&1 | tee f')).toEqual(['gh pr merge 12 2>&1', 'tee f'])
+    expect(commandsOf('git push -u origin br &> log && ls')).toEqual(['git push -u origin br &> log', 'ls'])
+    expect(commandsOf("echo 'a\\'; git push origin VC-4")).toEqual(["echo 'a\\'", 'git push origin VC-4'])
+    expect(commandsOf('echo "a \\" ; b"; ls')).toEqual(['echo "a \\" ; b"', 'ls'])
   })
 })
 
@@ -123,6 +130,8 @@ describe('the tab\'s numbers', () => {
     expect(s).toMatchObject({ tickets: 13, overhead: 2, median: 4, merged: 2, mergedUsd: 8, drift: false })
     expect(s.perLine).toBeCloseTo(8 / 300)
     expect(summaryOf(rows, 12).drift).toBe(false)
+    // agents that named no ticket sit beside the tickets, not in overhead
+    expect(summaryOf(rows, 15, 1.5)).toMatchObject({ tickets: 13, unattributed: 1.5, overhead: 0.5 })
     expect(summaryOf(rows, 10).drift).toBe(true)
     expect(median([])).toBeUndefined()
     expect(median([3, 1, 2])).toBe(2)
