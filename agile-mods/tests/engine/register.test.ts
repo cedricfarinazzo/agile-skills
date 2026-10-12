@@ -263,6 +263,41 @@ describe('usage through the engine', () => {
   })
 })
 
+describe('ticket cost through the engine', () => {
+  test('a phase agent counts against the ticket its description names; a session agent follows the ticket its calls name', async ($, on) => {
+    // 100 input, 900 cache read, 5 output at the opus price
+    const one = (100 * 5 + 900 * 0.5 + 5 * 25) / 1e6
+    const w = world(on, {
+      agents: [
+        { id: 'b1', type: 'agile-execution:build-implementer', description: 'implement VC-3' },
+        { id: 's1', type: 'agile-sprint-drain:build-session', description: 'build VC-3 VC-4' },
+      ],
+      stored: { '/repo:board': { tickets: { 'VC-3': { key: 'VC-3' }, 'VC-4': { key: 'VC-4' } }, order: ['VC-3', 'VC-4'], prs: {}, prOrder: [] } },
+    })
+    await start($)
+    // a drain would start a fresh board
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    const step = async (agentId: string) => {
+      const s = $.turn.step({ turnId: 't', index: 0, model: 'm', messageCount: 1, agentId })
+      let n = await s.next()
+      while (!n.done) n = await s.next()
+    }
+    await step('b1')
+    // the session agent's first request names no ticket yet; the call it makes names VC-4
+    await step('s1')
+    await $.tool.call({ tool: 'mcp__atlassian__getJiraIssue', issueIdOrKey: 'VC-4', agentId: 's1' } as never)
+    await step('s1')
+    // the next request's call names VC-3: that request is VC-3's
+    await $.tool.call({ tool: 'mcp__atlassian__getJiraIssue', issueIdOrKey: 'VC-3', agentId: 's1' } as never)
+    await w.clock.advance(10_000)
+    const b = w.stored.get('/repo:board') as Board
+    const near = (x: number, y: number) => Math.abs(x - y) < 1e-9
+    expect(near(b.tickets['VC-4']!.cost!.usd, one)).toBe(true)
+    expect(near(b.tickets['VC-3']!.cost!.usd, 2 * one)).toBe(true)
+    expect(near(b.tickets['VC-3']!.cost!.build, 2 * one)).toBe(true)
+  })
+})
+
 describe('refresh through the engine', () => {
   test('the loop\'s own calls refresh the board 3 s later, at most every 10 s, and the timer waits 5 minutes', async ($, on) => {
     const w = world(on, { gh: { 'gh pr list': { stdout: '[]' }, 'gh run list --limit': { stdout: '[]' } } })

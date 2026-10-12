@@ -3,6 +3,7 @@
 // dispatch them; tickets' phase markers and reworks come from the board's Jira sync.
 
 import { PR_REF, stepOf, type Board } from './board.ts'
+import { rowsOf, summaryOf } from './cost.ts'
 
 export type Retro = {
   since?: number
@@ -63,11 +64,14 @@ export function retroText(r: Retro, board: Board, now: number): string | undefin
   const reworked = tickets.filter(([, t]) => (t.reworks ?? 0) > 0)
   const refixed = prs.filter(([, p]) => p.fixes > 1 || p.reviews > 1)
   const retried = prs.filter(([, p]) => p.merges > 1)
+  const sum = summaryOf(rowsOf(board, now), board.spend?.usd ?? 0)
+  const costLine = sum.merged && sum.median !== undefined ? `- cost per merged ticket (estimate): median $${sum.median.toFixed(2)} over ${sum.merged}${sum.perLine === undefined ? '' : `, $${sum.perLine.toFixed(3)} per changed line`}` : undefined
   return [
     `agile-mods loop data (recorded by the mod over ${days} day(s); counts, not judgements):`,
     `- tickets with phase markers (Jira): ${tickets.length}; with rework cycles: ${reworked.length}${reworked.length ? ` (${reworked.map(([k, t]) => `${k}×${t.reworks}`).join(', ')})` : ''}`,
     `- PRs through the merge train: ${prs.length}; re-reviewed or re-fixed: ${refixed.length}${refixed.length ? ` (${refixed.map(([n, p]) => `#${n} review×${p.reviews} fix×${p.fixes}`).join(', ')})` : ''}`,
     `- merge attempts retried: ${retried.length}${retried.length ? ` (${retried.map(([n, p]) => `#${n}×${p.merges}`).join(', ')})` : ''}`,
+    ...(costLine ? [costLine] : []),
     `- agent receipts that reported blocked: ${r.blocked}`,
     ...(r.bypassed ? [`- guard refusals a person bypassed: ${r.bypassed}`] : []),
     r.drainPasses ? `- sprint drain: ${r.drainPasses} pass(es), ${r.drainOutcome ?? 'running'}` : '- sprint drain: not run',

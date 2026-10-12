@@ -3,6 +3,7 @@
 // register.tsx only maps rows onto elements.
 
 import type { Lane } from './agents.ts'
+import { rowsOf, summaryOf } from './cost.ts'
 import { BUILD_PHASES, dotsDone, phaseOf, type Phase } from './phase.ts'
 import { laneRows, leftOf, linksOf, movesOf, parkedOf, passCost, stallsOf, type Board, type Cell, type Pass, type Sync } from './board.ts'
 import { MIN_CYCLES, agingFlags, agingOf, cacheFlags, dayName, forecastOf, hitRate, overlapOf, pct, rateOf, span, type Forecast } from './flow.ts'
@@ -11,15 +12,16 @@ import { offerText } from './bypass.ts'
 import type { Refusal } from './guards.ts'
 import type { Receipt } from './receipts.ts'
 
-export type Tab = 'board' | 'flow' | 'wip' | 'drain' | 'guards' | 'links'
+export type Tab = 'board' | 'flow' | 'cost' | 'wip' | 'drain' | 'guards' | 'links'
 
 export const TABS: { id: Tab; label: string; hotkey: string }[] = [
   { id: 'board', label: 'Board', hotkey: '1' },
   { id: 'flow', label: 'Flow', hotkey: '2' },
-  { id: 'wip', label: 'WIP', hotkey: '3' },
-  { id: 'drain', label: 'Drain', hotkey: '4' },
-  { id: 'guards', label: 'Guards', hotkey: '5' },
-  { id: 'links', label: 'Links', hotkey: '6' },
+  { id: 'cost', label: 'Cost', hotkey: '3' },
+  { id: 'wip', label: 'WIP', hotkey: '4' },
+  { id: 'drain', label: 'Drain', hotkey: '5' },
+  { id: 'guards', label: 'Guards', hotkey: '6' },
+  { id: 'links', label: 'Links', hotkey: '7' },
 ]
 
 export const tabOf = (name: string): Tab | undefined => TABS.find(t => t.id === name)?.id
@@ -290,6 +292,53 @@ function flowRows(board: Board, ctx: Ctx): Row[] {
   return rows
 }
 
+const MAX_COST_ROWS = 14
+
+/** What each ticket cost this run, from its agents' tokens, with the run's median and cost per line. */
+function costRows(board: Board, ctx: Ctx, w: number): Row[] {
+  const rows = rowsOf(board, ctx.now)
+  const spent = rateOf(board, ctx.now).spent
+  const sum = summaryOf(rows, spent)
+  if (!rows.length) return [line(['COST', 'c b'], ['  no ticket cost yet: agents are counted while a loop runs', 'd'])]
+  const out: Row[] = [spread(text(['COST', 'c b'], ['  est. per ticket: its agents\' tokens at their model\'s price', 'd']), text([`${rows.length} ticket${rows.length === 1 ? '' : 's'}`, 'd']), w)]
+  const heads = [seg('ticket'.padEnd(10), 'd'), seg('cost'.padStart(8), 'd'), seg('  '), seg(''.padEnd(9)), seg('lines'.padStart(6), 'd'), seg('$/line'.padStart(8), 'd'), seg('elapsed'.padStart(9), 'd'), seg('working'.padStart(9), 'd'), seg('  now', 'd')]
+  out.push({ kind: 'line', segs: heads.slice(0, w >= 80 ? 9 : w >= 56 ? 6 : 2) })
+  const top = Math.max(0.01, ...rows.map(r => r.cost.usd))
+  const mid = sum.median
+  const bw = 8
+  for (const r of rows.slice(0, MAX_COST_ROWS)) {
+    const t = board.tickets[r.key]!
+    const pr = t.pr ? board.prs[t.pr] : undefined
+    const now = r.merged ? 'merged' : pr?.state === 'OPEN' && pr.step ? pr.step : phaseOf(t, ctx.live?.[r.key], ctx.now).now
+    const fill = Math.max(1, Math.round((r.cost.usd / top) * bw))
+    const tone = mid !== undefined && r.cost.usd > mid * 2 ? 'y' : 'c'
+    const cells = [
+      seg(r.key.padEnd(10), 'b'),
+      seg(usd(r.cost.usd).padStart(8), 'b'),
+      seg('  '),
+      seg(rep('▇', fill).padEnd(bw + 1), tone),
+      seg(r.lines === undefined ? '—'.padStart(6) : String(r.lines).padStart(6), 'd'),
+      seg(r.lines ? `$${(r.cost.usd / r.lines).toFixed(3)}`.padStart(8) : '—'.padStart(8), 'd'),
+      seg(fmtDur(r.elapsed ?? 0).padStart(9), 'd'),
+      seg(fmtDur(r.cost.ms).padStart(9), 'd'),
+      seg(`  ${now}`, r.merged ? 'g' : 'd'),
+    ]
+    out.push({ kind: 'line', segs: cells.slice(0, w >= 80 ? 9 : w >= 56 ? 6 : 2) })
+  }
+  if (rows.length > MAX_COST_ROWS) out.push(line([`… ${rows.length - MAX_COST_ROWS} more`, 'd']))
+  out.push(blank)
+  out.push(spread(text(['run total ', 'd'], [`tickets ${usd(sum.tickets)}`, 'b'], [`  ·  loop overhead ${usd(sum.overhead)}`, 'd']), text([usd(Math.max(spent, sum.tickets)), 'b']), w))
+  if (sum.merged) {
+    out.push(spread(text(['merged ', 'd'], [`${sum.merged} ticket${sum.merged === 1 ? '' : 's'}  ·  median ${sum.median === undefined ? '—' : usd(sum.median)}`, 'b'], [sum.perLine === undefined ? '' : `  ·  ${`$${sum.perLine.toFixed(3)}`}/line`, 'b']), text([usd(sum.mergedUsd), 'b']), w))
+  }
+  if (sum.drift) out.push(line(['⚠ ', 'y'], ['tickets add up to more than the session spent: the price table is above what you pay', 'y']))
+  out.push(blank)
+  out.push(line(['cost = tokens × the model price its agent file declares (an estimate)', 'd']))
+  out.push(line(['working = time between an agent\'s requests, waits over 5 min left out', 'd']))
+  out.push(line(['lines = additions + deletions of the merged PR · overhead = the orchestrator\'s own requests', 'd']))
+  return out
+}
+
 const MAX_AGING_ROWS = 12
 
 function wipRows(board: Board, ctx: Ctx, w: number): Row[] {
@@ -469,6 +518,7 @@ function clip(row: Row, w: number): Row {
 
 function tabRows(tab: Tab, board: Board, ctx: Ctx, w: number): Row[] {
   if (tab === 'flow') return flowRows(board, ctx)
+  if (tab === 'cost') return costRows(board, ctx, w)
   if (tab === 'wip') return wipRows(board, ctx, w)
   if (tab === 'drain') return drainRows(board, ctx, w)
   if (tab === 'guards') return guardRows(ctx, w)

@@ -13,7 +13,7 @@ export type World = {
   gh?: Record<string, { exitCode?: number; stdout: string }>
   jiraAllowed?: boolean
   jira?: unknown | ((args: Record<string, unknown>) => string)
-  agents?: { id: string; type: string }[]
+  agents?: { id: string; type: string; description?: string }[]
   files?: Record<string, string>
   /** The session's cost so far, as the engine's ledger reports it. */
   usd?: { now: number }

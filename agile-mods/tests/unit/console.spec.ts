@@ -74,6 +74,26 @@ describe('console rows', () => {
     expect(plain(consoleRows('flow', b, ctx({ live: { 'VC-5': 'plan' } }), 60))).toMatch(/VC-5\s+●◐○○○\s+plan/)
   })
 
+  test('cost tab: a row per ticket, dearest first, then the run total, merged median and cost per line', () => {
+    const b = sample({
+      tickets: {
+        'VC-3': { key: 'VC-3', pr: 40, category: 'done', since: 0, cost: { usd: 2, build: 1.5, merge: 0.5, ms: 600_000, firstAt: 0 } },
+        'VC-7': { key: 'VC-7', pr: 42, category: 'indeterminate', since: 0, phase: 'pr', cost: { usd: 6.5, build: 6, merge: 0.5, ms: 3_600_000, firstAt: 0 } },
+      },
+      order: ['VC-3', 'VC-7'],
+      prs: { 40: { number: 40, key: 'VC-3', merged: true, mergedAt: 7_200_000, additions: 80, deletions: 20 }, 42: { number: 42, key: 'VC-7', state: 'OPEN', step: '3b review' } },
+      spend: { usd: 10, since: 0 },
+    })
+    const out = plain(consoleRows('cost', b, ctx(), 90))
+    expect(out.indexOf('VC-7')).toBeLessThan(out.indexOf('VC-3'))
+    expect(out).toMatch(/VC-3\s+\$2\.00\s+\S+\s+100\s+\$0\.020\s+2h 00m\s+10m 00s\s+merged/)
+    expect(out).toMatch(/VC-7\s+\$6\.50\s+\S+\s+—\s+—\s+.*3b review/)
+    expect(out).toContain('tickets $8.50')
+    expect(out).toContain('loop overhead $1.50')
+    expect(out).toMatch(/merged 1 ticket\s+·\s+median \$2\.00\s+·\s+\$0\.020\/line/)
+    expect(plain(consoleRows('cost', sample(), ctx(), 90))).toContain('no ticket cost yet')
+  })
+
   test('drain tab: a row per pass, cost from the stamped boundaries, live cost for the running pass', () => {
     const out = plain(consoleRows('drain', sample(), ctx({ usd: 4 }), 48))
     expect(out).toContain('p1')

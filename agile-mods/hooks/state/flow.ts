@@ -4,6 +4,7 @@
 // model's answers.
 
 import type { Board, Pass, Stage, Tokens, Ticket } from './board.ts'
+import { withoutCosts } from './cost.ts'
 import { phaseOf, type Phase } from './phase.ts'
 
 const HOUR = 3_600_000
@@ -60,7 +61,7 @@ export const pct = (x: number) => `${Math.round(x * 100)}%`
  * A new loop run: a drain starting, or the first orchestrator call of a session outside a running
  * drain. Its spend counts from 0, from the next ledger reading.
  */
-export const withRun = (board: Board, now: number): Board => ({ ...board, spend: { usd: 0, since: now } })
+export const withRun = (board: Board, now: number): Board => withoutCosts({ ...board, spend: { usd: 0, since: now } })
 
 /** Counts the ledger up to `usd` for the run; a lower reading is a new session, counted from 0. */
 export function withSpend(board: Board, usd: number): Board {

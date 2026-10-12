@@ -11,6 +11,7 @@ agile-mods loop data (recorded by the mod over 9 day(s); counts, not judgements)
 - tickets with phase markers (Jira): 12; with rework cycles: 2 (SHOP-7×2, SHOP-9×1)
 - PRs through the merge train: 10; re-reviewed or re-fixed: 3 (#42 review×3 fix×2, …)
 - merge attempts retried: 1 (#40×2)
+- cost per merged ticket (estimate): median $4.80 over 8, $0.031 per changed line
 - agent receipts that reported blocked: 1
 - guard refusals a person bypassed: 1
 - sprint drain: 4 pass(es), DRAINED
@@ -20,6 +21,7 @@ agile-mods loop data (recorded by the mod over 9 day(s); counts, not judgements)
 |---|---|
 | Phase and rework markers per ticket | The board's own Jira read, not the comments the loop says it posted |
 | Reviews, fixes, updates and merge attempts per PR | The loop's dispatches and `gh pr merge` calls |
+| Cost per merged ticket | The Cost tab's figures: agents' tokens at their model's price, over the merged tickets |
 | Blocked receipts | Agent receipts with a `blocked:` field |
 | Bypasses | Calls the guards let through on your **Allow once** |
 | Drain passes and outcome | The drain's passes, judged by the board |
