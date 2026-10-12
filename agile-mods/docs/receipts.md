@@ -2,28 +2,30 @@
 
 [← agile-mods](../README.md)
 
-`/receipts [all | clear]` · also on the Guards tab of the [agile console](console.md) · always active · code: `hooks/receipts.ts`, checks in `hooks/state/receipts.ts`
+Every loop agent ends with a receipt: a short structured report the orchestrator acts on. The [contract](../../CLAUDE.md) says what a receipt holds and what it must not. The inspector checks each receipt as it comes back, so you don't have to read them all to spot a bad one.
 
-Checks each agent's receipt against the shared receipt contract in `CLAUDE.md` as it returns, so a bad receipt is visible without reading every one.
+A flagged receipt shows a toast and a `✖` on the Guards tab; a clean one shows `✔`.
 
-Each `agile-execution:*` / `agile-merge-review:*` / `agile-sprint-drain:*` agent receipt is checked as it returns. A flagged receipt toasts and shows `✖` on the Guards tab (a clean one shows `✔`); `/receipts` lists flagged ones, `/receipts all` every one (last 40, kept in `$.store`); `/receipts clear` and `/agile-board reset` clear them.
-
-Flags: `no receipt`, `preamble`, `summary/praise section`, `blocked: …`, `unapplied_mutations: …`, `no reviewed sha` (pr-reviewer), `agent errored`.
-
-| Flag | Meaning |
-|---|---|
-| `no receipt` | The agent returned nothing |
-| `preamble` | The receipt opens with prose ("I'll…", "Here is…") instead of its fields |
-| `summary/praise section` | A `Summary`, `Overview` or `Praise` heading, which the contract forbids |
-| `blocked: …` | The agent stopped; the orchestrator must act on the named blocker |
-| `unapplied_mutations: …` | A side effect (transition, comment, push) the agent could not apply |
-| `no reviewed sha` | A `pr-reviewer` receipt without its `Reviewed sha:` line, which the contract asks for (the 3f guard does not read it: it checks the reviewer's own `git show` reads) |
-| `agent errored` | The dispatch itself failed |
-
-Example:
-
+```text
+/receipts          flagged receipts
+/receipts all      every receipt (the last 40)
+/receipts clear    forget them
 ```
+
+```text
 2 of 9 receipt(s) flagged
 pr-reviewer          PR #42    no reviewed sha
 ticket-validator               blocked: Jira returned 403 on transition
 ```
+
+| Flag | Meaning |
+|---|---|
+| `no receipt` | The agent returned nothing |
+| `preamble` | It opens with prose ("I'll…", "Here is…") instead of its fields |
+| `summary/praise section` | A `Summary`, `Overview` or `Praise` heading, which the contract forbids |
+| `blocked: …` | The agent stopped; the orchestrator must act on the blocker |
+| `unapplied_mutations: …` | A side effect (transition, comment, push) the agent could not apply |
+| `no reviewed sha` | A `pr-reviewer` receipt without its `Reviewed sha:` line. The merge guard doesn't rely on it: it checks the reviewer's own reads |
+| `agent errored` | The dispatch itself failed |
+
+Only `agile-execution`, `agile-merge-review` and `agile-sprint-drain` agents are checked. `/agile-board reset` clears the list too.

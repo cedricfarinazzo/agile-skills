@@ -10,6 +10,8 @@ export type Retro = {
   blocked: number
   drainPasses: number
   drainOutcome?: string
+  /** Calls a guard let through on a person's one-time bypass. */
+  bypassed?: number
 }
 
 export const EMPTY_RETRO: Retro = { prs: {}, blocked: 0, drainPasses: 0 }
@@ -67,6 +69,7 @@ export function retroText(r: Retro, board: Board, now: number): string | undefin
     `- PRs through the merge train: ${prs.length}; re-reviewed or re-fixed: ${refixed.length}${refixed.length ? ` (${refixed.map(([n, p]) => `#${n} review×${p.reviews} fix×${p.fixes}`).join(', ')})` : ''}`,
     `- merge attempts retried: ${retried.length}${retried.length ? ` (${retried.map(([n, p]) => `#${n}×${p.merges}`).join(', ')})` : ''}`,
     `- agent receipts that reported blocked: ${r.blocked}`,
+    ...(r.bypassed ? [`- guard refusals a person bypassed: ${r.bypassed}`] : []),
     r.drainPasses ? `- sprint drain: ${r.drainPasses} pass(es), ${r.drainOutcome ?? 'running'}` : '- sprint drain: not run',
   ].join('\n')
 }

@@ -1,7 +1,7 @@
 {
   "name": "agile-mods",
-  "version": "0.9.2",
-  "description": "Claude Mods for the agile-skills loop: /agile-board opens the agile console pane (board with burnup and a Monte Carlo done-by forecast, ticket and PR flow, aging WIP and PR overlap, drain passes with cost, cache hit rate and the loop's agents, guards and receipts, links), read live from gh, the Jira MCP and the engine rather than from the model's answers, with a status-line entry (spend per hour and per merged PR, the 85% date) and an alert row above the prompt; guards that check GitHub at merge time (pinned live head, green CI on it, every file read by a reviewer), enforce agent tool grants, cap the merge train's fix rounds, stop new build work at an optional budget, and refuse pushes to main and force pushes inside the loop; /receipts checks agent receipts against the contract; retro counts for agile-15. Needs Claude Code 2.1.287 or later.",
+  "version": "0.10.0",
+  "description": "Claude Mods for the agile-skills loop: /agile-board opens the agile console pane (board with burnup and a Monte Carlo done-by forecast, ticket and PR flow, aging WIP and PR overlap, drain passes with cost, cache hit rate and the loop's agents, guards and receipts, links), read live from gh, the Jira MCP and the engine rather than from the model's answers, with a status-line entry (spend per hour and per merged PR, the 85% date) and an alert row above the prompt; guards that check GitHub at merge time (pinned live head, green CI on it, every file read by a reviewer in full or by a diff since a full read), enforce agent tool grants, cap the merge train's fix rounds after review, stop new build work at an optional budget, and refuse pushes to main and force pushes inside the loop, each set to enforce, warn or off, with a one-time bypass a person grants from the console; /receipts checks agent receipts against the contract; retro counts for agile-15. Needs Claude Code 2.1.287 or later.",
   "author": {
     "name": "cedricfarinazzo",
     "email": "cedric.farinazzo@gmail.com"
@@ -25,8 +25,56 @@
     "budgetUsd": {
       "type": "number",
       "title": "Loop budget in USD",
-      "description": "Once a loop run has spent this much, the guards refuse build work: open PRs still merge, then the loop stops and reports BUDGET. 0 is no budget.",
+      "description": "Spend limit for one loop run, in USD. Once reached, the loop starts no new build work: open PRs still merge, then it stops and reports BUDGET. You can lift it for one ticket from the guards tab. 0 = no budget.",
       "default": 0
+    },
+    "guardGrants": {
+      "type": "string",
+      "title": "Guard: agent tool grants",
+      "description": "Keeps each loop agent to the tools its job needs: reviewers never edit files or post to GitHub/Jira, and the Jira postmortem never links issues. enforce = refuse the call, warn = allow it and log a warning, off = no check.",
+      "default": "enforce"
+    },
+    "guardMergePin": {
+      "type": "string",
+      "title": "Guard: merge pins the reviewed head",
+      "description": "At merge, requires --match-head-commit <reviewed sha> and that sha to be the PR's live head, so a commit pushed after the review cannot slip in. enforce = refuse the call, warn = allow it and log a warning, off = no check.",
+      "default": "enforce"
+    },
+    "guardMergeCi": {
+      "type": "string",
+      "title": "Guard: merge needs green CI",
+      "description": "At merge, requires every CI run on the pinned head to have finished green, checked with gh, not taken from the model's word. enforce = refuse the call, warn = allow it and log a warning, off = no check.",
+      "default": "enforce"
+    },
+    "guardMergeReview": {
+      "type": "string",
+      "title": "Guard: merge needs every file reviewed",
+      "description": "At merge, requires a reviewer to have read every changed file at the reviewed sha (in full, or as the diff since an earlier full read). The refusal lists what is missing and how to read it. enforce = refuse the call, warn = allow it and log a warning, off = no check.",
+      "default": "enforce"
+    },
+    "guardPush": {
+      "type": "string",
+      "title": "Guard: no push to main, no force push",
+      "description": "Inside the loop, refuses pushes to main/master, force pushes without --force-with-lease, and pushes whose target is computed ($VAR). enforce or warn; there is no off, because a push to main cannot be undone.",
+      "default": "enforce"
+    },
+    "guardSideDoor": {
+      "type": "string",
+      "title": "Guard: no way around the guards",
+      "description": "Inside the loop, refuses ways around the other guards: branch writes or merges through the GitHub API or MCP, git/gh aliases, and git config overrides. enforce = refuse the call, warn = allow it and log a warning, off = no check.",
+      "default": "enforce"
+    },
+    "fixRounds": {
+      "type": "number",
+      "title": "Fix rounds per PR",
+      "description": "Fix rounds allowed per PR after a review before the loop must block it (3d) and leave it to you. Resuming after a CI wait and restoring pushes do not count. You can grant one more round from the guards tab. 0 = no cap.",
+      "default": 3
+    },
+    "allowBypass": {
+      "type": "boolean",
+      "title": "Allow one-time bypasses",
+      "description": "Lets you allow a refused merge, an extra fix round, or a ticket over budget once, from the guards tab or /agile-board allow <n>. The model can never grant one itself.",
+      "default": true
     }
   }
 }

@@ -298,3 +298,41 @@ describe('refusals', () => {
     expect(list.at(-1)!.at).toBe(MAX_REFUSALS + 4)
   })
 })
+
+describe('guards tab', () => {
+  const offer = { rule: '3f' as const, pr: 42, head: SHA }
+  const guard = { modes: 'grants enforce · mergeReview warn', notes: ['CLAUDE.md: repo guardGrants: off is looser than enforce; a repo can only tighten, ignored'], allowances: [], bypass: true }
+
+  test('modes, notes, kinds, and an allow button numbered as /agile-board allow takes it', () => {
+    const refusals = [
+      { id: 7, at: 0, rule: '3f' as const, text: 'agile-mods: PR #42: no review read 1 file(s). A person can allow this once from /agile-board guards (merge PR #42 at aaaaaaa): wait.', offer },
+      { at: 1, rule: '3f' as const, text: 'PR #42: CI on x is red', kind: 'warned' as const },
+      { at: 2, rule: 'fix' as const, text: 'PR #41: fix round 4 allowed', kind: 'bypassed' as const },
+    ]
+    const rows = consoleRows('guards', EMPTY, ctx({ refusals, guard }), 120)
+    const text = plain(rows.filter(r => r.kind !== 'allow'))
+    expect(text).toContain('1 refused  1 warned  1 bypassed')
+    expect(text).toContain('modes  grants enforce · mergeReview warn')
+    expect(text).toContain('a repo can only tighten')
+    expect(text).not.toContain('A person can allow')
+    // the button carries the refusal's id, so a later refusal cannot change what it allows
+    expect(rows.filter(r => r.kind === 'allow')).toEqual([{ kind: 'allow', n: 7, label: 'merge PR #42 at aaaaaaa' }])
+    expect(consoleRows('guards', EMPTY, ctx({ refusals, guard: { ...guard, bypass: false } }), 120).some(r => r.kind === 'allow')).toBe(false)
+  })
+
+  test('open bypasses and each open PR\'s review coverage', () => {
+    const allowances = [{ ...offer, at: 0, until: 600_000 + 20 * 60_000 }, { rule: 'budget' as const, ticket: 'VC-7', at: 0, merged: 1 }]
+    const coverage = [{ pr: 42, head: SHA, files: { 'a.ts': 'full', 'b.ts': 'delta', 'c.ts': undefined } }]
+    const text = plain(consoleRows('guards', EMPTY, ctx({ guard: { ...guard, allowances, coverage } }), 120))
+    expect(text).toContain('allowed: merge PR #42 at aaaaaaa  20 min left')
+    expect(text).toContain('allowed: build VC-7 past the budget  until its ticket ends')
+    expect(text).toContain('#42 aaaaaaa  2/3 read')
+    expect(text).toContain('✖ c.ts  not read')
+    expect(text).toContain('1 full · 1 delta')
+  })
+
+  test('the status line marks open bypasses', () => {
+    expect(statusText(sample(), 600_000, 0, 2)).toContain('⚑ 2 bypasses')
+    expect(statusText(sample(), 600_000, 0, 0)).not.toContain('⚑')
+  })
+})

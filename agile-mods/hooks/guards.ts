@@ -1,33 +1,48 @@
 import type { Host } from './host.ts'
 import { ciOf, applyRuns, dispatchText, EMPTY, PR_REF } from './state/board.ts'
-import { FIX_ROUNDS, PUSH_FORM, fixDenial, grantDenial, isFixDispatch, mergeDenial, mergeTargetOf, pushDenial, pushesIn, pushPlanOf, sideDoorDenial, type Rounds } from './state/guards.ts'
-import { covers, earlierShas, partsAt, sameSha, unreadFiles, withParts, withReads, type Parts, type Reads } from './state/review.ts'
+import { allow, loadAllowances, offerText, openOf, take3f, takeFix, type Allowance, type Offer } from './state/bypass.ts'
+import { DEFAULTS, type Gate, type GuardConfig } from './state/config.ts'
+import { PUSH_FORM, fixDenial, grantDenial, isFixDispatch, mergeProblems, mergeTargetOf, pushDenial, pushesIn, pushPlanOf, sideDoorDenial, type MergeChecks, type MergeFacts, type Refusal, type Rounds } from './state/guards.ts'
+import { CHUNK, addDiffs, addParts, addReads, chunkText, failedIn, howRead, outputLines, parseReads, planChunks, reviewedAt, sameSha, showedDiff, showedFile, truncated, type Change, type Diffs, type How, type Know, type Parts, type Reads, type Spec } from './state/review.ts'
 
 // Guards: the rules the skills state in prose, enforced on the call that would break them.
 // - a subagent's tool grant: review-lens and pr-reviewer never edit or post, jira-postmortem never links;
 // - the 3f merge gates, checked against GitHub at the merge call: a pinned live head, green CI on it,
-//   and every file read by a reviewer as it lands;
+//   and every file read by a reviewer as it lands, in full or by a diff since a full read;
 // - the push guard: no push to main/master, no force push without a lease, no computed push target;
-// - the fix-round cap: at most FIX_ROUNDS fix rounds push to one open PR's branch, from any phase.
+// - the fix-round cap: at most `fixRounds` pushes onto a reviewed head per open PR, from any phase.
+// Each gate is enforced, warned about or off by the plugin's options (config.ts). A refused merge
+// or fix round can be allowed once by a person from the Guards tab (bypass.ts).
 // Nothing here reads what the model wrote: a guard turns on with the orchestrator's Skill call (or the
 // calling agent's type) and stays on until /agile-board reset.
 
 const READS_KEY = 'reads'
 const PARTS_KEY = 'parts'
-const FIXES_KEY = 'fixes'
+const DIFFS_KEY = 'diffs'
+const ROUNDS_KEY = 'rounds'
+const BYPASS_KEY = 'bypass'
 const LOOP_AGENT = /^agile-(execution|merge-review|sprint-drain):/
 const MERGE_AGENT = /^agile-(merge-review|sprint-drain):/
+// whose reads are a review: the independent reviewer, and the session agent that runs the train inline
+const REVIEWER = /(^|:)(pr-reviewer|merge-session)$/
+// the author's side: its reads are never the review of its own work
+const BUILD_SIDE = /^agile-execution:|:build-session$/
+const SESSION = /:(build|merge)-session$/
 
 let cwd: string | undefined
+let config: GuardConfig = DEFAULTS
 let trainActive = false
 let loopActive = false
 let reads: Reads = {}
 let parts: Parts = {}
-// per PR, the fix rounds that pushed to it
-let fixRounds: Record<string, Rounds> = {}
-// per loop ('' is the main loop): a number that moves at each of its Skill or Agent calls
-const loopSeq = new Map<string, number>()
-let seq = 0
+let diffs: Diffs = {}
+// per PR, the reviewed heads its fix rounds pushed onto
+let rounds: Record<string, Rounds> = {}
+let allowances: Allowance[] = []
+// why recent reads by a reviewer did not count, for the merge refusal
+let skipped: string[] = []
+// per loop ('' is the main loop): the orchestrator it last invoked, so the main loop's reads count only on the merge side
+const loopStage = new Map<string, 'build' | 'merge'>()
 // the loops running merge-review-pr inline: '' is the main loop, else a subagent's id
 const inlineReviews = new Set<string>()
 const agentTypes = new Map<string, string>()
@@ -39,125 +54,249 @@ export async function agentTypeOf(host: Host, id: string): Promise<string | unde
   return agentTypes.get(id)
 }
 
+/** The plugin options, already checked and tightened (config.ts). */
+export function guardsConfigure(next: GuardConfig) {
+  config = next
+}
+
+/** The open bypasses, none while `allowBypass` is off (stored ones from before are not honoured). */
+const openBypasses = () => (config.allowBypass ? allowances : [])
+
+export const guardConfig = () => config
+
 /** The branch checked out where a push runs: its `git -C <dir>` or leading `cd <dir> &&`, else the session's. */
 async function branchOf(host: Host, command: string): Promise<string | undefined> {
   const dir = command.match(/\bgit\s+-C\s+("[^"]+"|'[^']+'|\S+)/)?.[1] ?? command.match(/^\s*cd\s+("[^"]+"|'[^']+'|\S+)\s*&&/)?.[1]
   return host.branch(dir?.replace(/^["']|["']$/g, '') ?? cwd ?? '.')
 }
 
+const persist = (host: Host, key: string, value: unknown) => void host.storeSet(key, value).catch(err => host.log(`agile-mods: store write failed: ${err}`))
+const objectOr = <T,>(value: unknown, fallback: T): T => (value && typeof value === 'object' && !Array.isArray(value) ? (value as T) : fallback)
+
 export async function guardsStart(host: Host, sessionCwd: string) {
   cwd = sessionCwd
-  const stored = await host.storeGet(READS_KEY).catch(() => undefined)
-  if (stored && typeof stored === 'object') reads = stored as Reads
-  const storedParts = await host.storeGet(PARTS_KEY).catch(() => undefined)
-  if (storedParts && typeof storedParts === 'object') parts = storedParts as Parts
-  const fixes = await host.storeGet(FIXES_KEY).catch(() => undefined)
-  // an older version kept a list of heads per PR: not rounds, so not carried over
-  if (fixes && typeof fixes === 'object') fixRounds = Object.fromEntries(Object.entries(fixes as Record<string, unknown>).filter(([, r]) => Array.isArray((r as Rounds)?.ids) && Array.isArray((r as Rounds)?.heads))) as Record<string, Rounds>
+  reads = objectOr(await host.storeGet(READS_KEY).catch(() => undefined), reads)
+  parts = objectOr(await host.storeGet(PARTS_KEY).catch(() => undefined), parts)
+  diffs = objectOr(await host.storeGet(DIFFS_KEY).catch(() => undefined), diffs)
+  const stored = objectOr<Record<string, unknown>>(await host.storeGet(ROUNDS_KEY).catch(() => undefined), {})
+  // only this shape: rounds kept per agent run by an older version are not review rounds
+  rounds = Object.fromEntries(Object.entries(stored).filter(([, r]) => Array.isArray((r as Rounds)?.heads))) as Record<string, Rounds>
+  allowances = loadAllowances(await host.storeGet(BYPASS_KEY).catch(() => undefined))
+}
+
+/** Whether a caller's reads are a review: pr-reviewer, merge-session, the main loop on the merge side, or an inline merge-review-pr. */
+function reviewing(type: string | undefined, agentId: string | undefined): boolean {
+  if (REVIEWER.test(type ?? '')) return true
+  if (BUILD_SIDE.test(type ?? '') || (!agentId && loopStage.get('') === 'build')) return false
+  if (inlineReviews.has(agentId ?? '')) return true
+  return !agentId && loopStage.get('') === 'merge'
+}
+
+/** What git says changed between two trees, from the local repository, else GitHub's compare for a head that descends. */
+function knowOf(host: Host): Know {
+  const cache = new Map<string, Promise<Change[] | undefined>>()
+  const ancestry = new Map<string, Promise<boolean | undefined>>()
+  return {
+    changes: (from, to) => {
+      const key = `${from}..${to}`
+      if (!cache.has(key)) {
+        cache.set(key, (async () => {
+          const local = await host.changes(cwd ?? '.', from, to)
+          if (local) return local
+          const cmp = await host.compare(from, to)
+          // GitHub lists at most 300 files: a longer list may leave out a changed file, so it says nothing
+          return cmp && cmp.files.length < 300 && (cmp.status === 'ahead' || cmp.status === 'identical') ? cmp.files.map(path => ({ status: 'M', path })) : undefined
+        })())
+      }
+      return cache.get(key)!
+    },
+    lines: (sha, path) => host.lines(cwd ?? '.', sha, path),
+    descends: (from, to) => {
+      const key = `${from}<${to}`
+      if (!ancestry.has(key)) {
+        ancestry.set(key, (async () => {
+          const local = await host.descends(cwd ?? '.', from, to)
+          if (local !== undefined) return local
+          const cmp = await host.compare(from, to)
+          return cmp ? cmp.status === 'ahead' || cmp.status === 'identical' : undefined
+        })())
+      }
+      return ancestry.get(key)!
+    },
+  }
+}
+
+/** How each file of a PR counts as read at its head; undefined for a file no review covers. */
+export async function coverageOf(host: Host, head: string, files: string[]): Promise<Record<string, How | undefined>> {
+  const know = knowOf(host)
+  const state = { reads, parts, diffs }
+  const out: Record<string, How | undefined> = {}
+  for (const f of files) out[f] = await howRead(state, know, head, f)
+  return out
+}
+
+/** The facts the 3f gates need, read from GitHub and git now; a gate that is off is not read. */
+async function mergeFacts(host: Host, pr: number, checks: MergeChecks, inline: boolean): Promise<MergeFacts> {
+  const live = await host.prView(pr)
+  if (!live || live.state !== 'OPEN') return { live }
+  const sha = live.headRefOid
+  let ci: MergeFacts['ci']
+  if (checks.mergeCi) {
+    const runs = await host.runsOn(sha)
+    ci = runs ? ciOf(applyRuns(EMPTY, runs, 0).runs?.[sha]) : undefined
+    // an enforced red or missing CI refuses anyway: the review is not read
+    if (ci?.state !== 'green' && config.modes.mergeCi === 'enforce') return { live, ci }
+  }
+  if (!checks.mergeReview) return { live, ci }
+  const files = await host.prFiles(pr)
+  if (!files) return { live, ci }
+  const how = await coverageOf(host, sha, files)
+  const unread = files.filter(f => !how[f])
+  const plans: string[] = []
+  for (const f of unread.slice(0, 3)) {
+    const text = await host.show(cwd ?? '.', sha, f)
+    if (text !== undefined && text.length > CHUNK) plans.push(chunkText(sha, f, planChunks(text)))
+  }
+  return { live, ci, unread, plans, skipped: [...new Set(skipped)].slice(-3), inline }
 }
 
 /**
- * Which fix round a push belongs to, from facts about the caller: a dispatched agent's whole run is
- * one round (its id, from the engine); in the main loop or a session agent, which run many phases,
- * the pushes between two of its Skill or Agent calls are one, so a review in between ends a round.
+ * Whether the ref a push sends has the tree of this PR's own history: the live head, a head a round
+ * pushed onto, or a reviewed sha the live head descends from. Another PR's reviewed tree is not this
+ * PR's to restore.
  */
-function roundOf(type: string, agentId: string | undefined): string {
-  if (agentId && !/:(build|merge)-session$/.test(type)) return `agent:${agentId}`
-  return `loop:${agentId ?? ''}:${loopSeq.get(agentId ?? '') ?? 0}`
+async function restores(host: Host, dir: string, ref: string, head: string, known: Rounds | undefined): Promise<boolean> {
+  const tree = await host.tree(dir, ref)
+  if (!tree) return false
+  const reviewed = [...new Set([...Object.keys(reads), ...Object.keys(diffs), ...Object.keys(parts)])].slice(-12)
+  const own = [head, ...(known?.heads ?? [])]
+  for (const sha of reviewed) if (!own.includes(sha) && (await host.descends(dir, sha, head)) === true) own.push(sha)
+  for (const sha of own) if ((await host.tree(dir, sha)) === tree) return true
+  return false
 }
+
+/** One call's verdict: a refusal (with what a person could allow), and notes for warned or bypassed gates. */
+export type Verdict = { deny?: string; offer?: Offer; notes: { kind: 'warned' | 'bypassed'; text: string; rule: Refusal['rule'] }[] }
+
+const bypassTail = (offer: Offer) =>
+  config.allowBypass ? ` A person can allow this once from /agile-board guards (${offerText(offer)}): return blocked (guard, bypass available) and wait; do not ask them to run the command themselves.${offer.rule === '3f' ? ` Once allowed, the retried merge pins --match-head-commit ${offer.head}.` : ''}` : ''
 
 /**
  * The fix-round cap at the push. Each branch the push sends is read from the command (or, for a bare
- * push, from git's own push target); a branch with an open PR (`gh pr list --head`) takes a round,
- * unless what it sends is merge commits alone (`git rev-list --no-merges`), which is an update.
- * Nothing the model wrote decides the branch, the PR, the head or the round.
+ * push, from git's own push target); a branch with an open PR (`gh pr list --head`) whose head a
+ * review read starts a new round, unless a round already started there, it sends merge commits
+ * alone (`git rev-list --no-merges`, an update), or it restores a reviewed tree. A push onto a head
+ * no review read continues the round it is in. Nothing the model wrote decides the branch, the PR,
+ * the head or the round.
  */
-async function fixPush(host: Host, command: string, type: string, agentId: string | undefined): Promise<string | undefined> {
+async function fixPush(host: Host, command: string, now: number, verdict: Verdict): Promise<void> {
   const plan = pushPlanOf(command)
-  if ('error' in plan) return `the fix-round cap reads every push in the loop, and ${plan.error}: ${PUSH_FORM}.`
-  if (plan.delete) return undefined
+  if ('error' in plan) {
+    verdict.deny = `the fix-round cap reads every push in the loop, and ${plan.error}: ${PUSH_FORM}.`
+    return
+  }
+  if (plan.delete) return
   const dir = plan.dir ?? cwd ?? '.'
   const refs = plan.refs.length ? plan.refs : [{ src: 'HEAD', dst: (await host.pushBranch(dir)) ?? (await host.branch(dir)) ?? '' }]
   for (const ref of refs) {
     // a ref that deletes sends no commit
     if (ref.src === '') continue
     const dst = ref.dst === 'HEAD' ? await host.branch(dir) : ref.dst
-    if (!dst) return `the fix-round cap could not tell which branch this push sends (git rev-parse failed in ${dir}): ${PUSH_FORM}.`
+    if (!dst) {
+      verdict.deny = `the fix-round cap could not tell which branch this push sends (git rev-parse failed in ${dir}): ${PUSH_FORM}.`
+      return
+    }
     const pr = await host.prOfBranch(dst)
     if (pr === null) continue
-    if (!pr) return `the fix-round cap could not read the PR of ${dst} (gh pr list --head failed), so it refuses. Retry once gh answers.`
-    // a commit in the same command lands after this check could see it: no update exemption
+    if (!pr) {
+      verdict.deny = `the fix-round cap could not read the PR of ${dst} (gh pr list --head failed), so it refuses. Retry once gh answers.`
+      return
+    }
+    // a commit in the same command lands after this check could see it: no update or restore exemption
     if (!plan.commits && (await host.onlyMerges(dir, pr.headRefOid, ref.src, pr.baseRefName)) === true) continue
-    const round = roundOf(type, agentId)
-    const known = fixRounds[pr.number]
-    const deny = fixDenial(pr.number, known, round)
-    if (deny) return deny
-    if (known?.ids.includes(round)) continue
-    fixRounds = { ...fixRounds, [pr.number]: { ids: [...(known?.ids ?? []), round], heads: [...(known?.heads ?? []), pr.headRefOid] } }
-    void host.storeSet(FIXES_KEY, fixRounds).catch(err => host.log(`agile-mods: store write failed: ${err}`))
+    const head = pr.headRefOid
+    if (!reviewedAt(reads, parts, diffs, head)) continue
+    const known = rounds[pr.number]
+    if (known?.heads.some(h => sameSha(h, head))) continue
+    if (!plan.commits && (await restores(host, dir, ref.src, head, known))) continue
+    let next: Rounds = known ?? { heads: [] }
+    const deny = fixDenial(pr.number, next, config.fixRounds)
+    if (deny) {
+      const left = takeFix(openBypasses(), pr.number, now)
+      if (!left) {
+        const offer: Offer = { rule: 'fix', pr: pr.number }
+        const restore = plan.commits ? ' A push that restores a reviewed tree is free: commit first, then push in a command of its own so the cap can see the tree.' : ''
+        verdict.deny = deny + restore + bypassTail(offer)
+        verdict.offer = offer
+        return
+      }
+      allowances = left
+      persist(host, BYPASS_KEY, allowances)
+      next = { ...next, extra: (next.extra ?? 0) + 1 }
+      verdict.notes.push({ kind: 'bypassed', text: `PR #${pr.number}: fix round ${next.heads.length + 1} allowed by a person past the cap of ${config.fixRounds}`, rule: 'fix' })
+    }
+    rounds = { ...rounds, [pr.number]: { ...next, heads: [...next.heads, head] } }
+    persist(host, ROUNDS_KEY, rounds)
   }
-  return undefined
 }
 
 /**
- * A 3c dispatch for a PR whose rounds are spent is refused before it does the work. The PR is read
- * from the dispatch text, so this check can only refuse sooner; the push is where the cap holds.
+ * A 3c dispatch for a PR whose rounds are spent, while its live head is reviewed and no round started
+ * there, is refused before it does the work. The PR is read from the dispatch text, so this check can
+ * only refuse sooner; the push is where the cap holds.
  */
-function fixDispatch(args: Record<string, unknown>): string | undefined {
+async function fixDispatch(host: Host, args: Record<string, unknown>): Promise<string | undefined> {
   const named = new Set([...dispatchText(args).matchAll(new RegExp(PR_REF.source, 'gi'))].map(m => Number(m[1])))
   if (named.size !== 1) return undefined
   const [pr] = named
-  return fixRounds[pr!] && fixRounds[pr!]!.ids.length >= FIX_ROUNDS ? fixDenial(pr!, fixRounds[pr!], 'dispatch') : undefined
+  const known = rounds[pr!]
+  if (!fixDenial(pr!, known, config.fixRounds) || openBypasses().some(a => a.rule === 'fix' && a.pr === pr)) return undefined
+  const live = await host.prView(pr!)
+  if (!live || !reviewedAt(reads, parts, diffs, live.headRefOid) || known!.heads.some(h => sameSha(h, live.headRefOid))) return undefined
+  return fixDenial(pr!, known, config.fixRounds)
 }
 
-/** The facts the 3f gates need, read from GitHub now. */
-async function mergeFacts(host: Host, pr: number, pin: string) {
-  const live = await host.prView(pr)
-  if (!live || live.state !== 'OPEN' || !sameSha(live.headRefOid, pin)) return { live }
-  const runs = await host.runsOn(live.headRefOid)
-  const ci = runs ? ciOf(applyRuns(EMPTY, runs, 0).runs?.[live.headRefOid]) : undefined
-  if (ci?.state !== 'green') return { live, ci }
-  const files = await host.prFiles(pr)
-  if (!files) return { live, ci }
-  const deltas: Record<string, string[] | undefined> = {}
-  for (const sha of earlierShas(reads, live.headRefOid, files).slice(-6)) {
-    const cmp = await host.compare(sha, live.headRefOid)
-    // only a head that descends from the read sha keeps those reads
-    deltas[sha] = cmp && (cmp.status === 'ahead' || cmp.status === 'identical') ? cmp.files : undefined
+/** Applies a gate's mode to what it found: enforce refuses, warn notes, off was not checked. */
+function gated(verdict: Verdict, gate: Gate, rule: Refusal['rule'], text: string | undefined): boolean {
+  if (!text || config.modes[gate] === 'off') return false
+  if (config.modes[gate] === 'warn') {
+    verdict.notes.push({ kind: 'warned', text, rule })
+    return false
   }
-  const unread: string[] = []
-  for (const f of unreadFiles(reads, live.headRefOid, files, deltas)) {
-    // a file too large for one read counts when its line ranges at the head cover it, measured by git
-    const ranges = partsAt(parts, live.headRefOid, f)
-    const lines = ranges.length ? await host.lines(cwd ?? '.', live.headRefOid, f) : undefined
-    if (lines === undefined || !covers(ranges, lines)) unread.push(f)
-  }
-  return { live, ci, unread }
+  verdict.deny = text
+  return true
 }
 
-/** Before a tool call: the refusal, when a grant, a 3f gate or the push guard forbids it. */
-export async function guardsBefore(host: Host, tool: string, args: Record<string, unknown>, agentId: string | undefined): Promise<string | undefined> {
+/** Before a tool call: what a grant, a 3f gate, the push guard or the fix-round cap says of it. */
+export async function guardsCheck(host: Host, tool: string, args: Record<string, unknown>, agentId: string | undefined): Promise<Verdict> {
+  const verdict: Verdict = { notes: [] }
   const type = agentId ? await agentTypeOf(host, agentId) : undefined
-  const grant = type ? grantDenial(type, tool, args) : undefined
-  if (grant) return `agile-mods: ${grant}`
+  if (type && gated(verdict, 'grants', 'grant', grantDenial(type, tool, args))) return verdict
   const skill = typeof args.skill === 'string' ? args.skill : ''
   if (tool === 'Skill') {
     if (/(^|:)(agile-11-merge-train|agile-sprint-drain)$/.test(skill)) trainActive = true
     if (/(^|:)(agile-10-implement|agile-11-merge-train|agile-sprint-drain)$/.test(skill)) loopActive = true
-    // an inline review lasts until its loop invokes the next skill
-    if (/(^|:)merge-review-pr$/.test(skill)) inlineReviews.add(agentId ?? '')
-    else inlineReviews.delete(agentId ?? '')
+    // what credits reads (the merge stage, an inline review) waits for the Skill call to run (guardsAfter);
+    // what withholds credit applies at once. An inline review lasts until its loop invokes the next skill
+    if (/(^|:)(agile-10-implement|implement-[a-z]+)$/.test(skill)) loopStage.set(agentId ?? '', 'build')
+    inlineReviews.delete(agentId ?? '')
   }
-  if (tool === 'Skill' || tool === 'Agent') loopSeq.set(agentId ?? '', ++seq)
+  const now = await host.now()
+  // expired merge and fix bypasses go; budget ones end with their ticket (guardsPrune)
+  allowances = openOf(allowances, now, () => false, 0)
 
-  if (isFixDispatch(tool, args) && (trainActive || MERGE_AGENT.test(type ?? ''))) {
-    const deny = fixDispatch(args)
-    if (deny) return `agile-mods: ${deny}`
+  if (config.fixRounds && isFixDispatch(tool, args) && (trainActive || MERGE_AGENT.test(type ?? ''))) {
+    const deny = await fixDispatch(host, args)
+    if (deny) {
+      const pr = Number(deny.match(/^PR #(\d+)/)?.[1])
+      verdict.offer = { rule: 'fix', pr }
+      verdict.deny = deny + bypassTail(verdict.offer)
+      return verdict
+    }
   }
 
   const inLoop = loopActive || LOOP_AGENT.test(type ?? '')
-  const side = inLoop ? sideDoorDenial(tool, args) : undefined
-  if (side) return `agile-mods: ${side}`
+  if (inLoop && gated(verdict, 'sideDoor', 'side', sideDoorDenial(tool, args))) return verdict
 
   const command = tool === 'Bash' && typeof args.command === 'string' ? args.command : ''
   if (inLoop && pushesIn(command)) {
@@ -166,33 +305,129 @@ export async function guardsBefore(host: Host, tool: string, args: Record<string
     // read only for a push that names no branch, or HEAD
     const named = !('error' in plan) && plan.refs.length > 0 && !plan.refs.some(r => r.src === 'HEAD' || r.dst === 'HEAD') && !/\bHEAD\b/.test(command)
     const branch = named ? undefined : 'error' in plan || !plan.dir ? await branchOf(host, command) : await host.branch(plan.dir)
-    const deny = pushDenial(command, branch)
-    if (deny) return `agile-mods: ${deny}`
-    const cap = await fixPush(host, command, type ?? '', agentId)
-    if (cap) return `agile-mods: ${cap}`
+    if (gated(verdict, 'push', 'push', pushDenial(command, branch))) return verdict
+    if (config.fixRounds) {
+      await fixPush(host, command, now, verdict)
+      if (verdict.deny) return verdict
+    }
   }
 
   const target = mergeTargetOf(tool, args)
-  if (!target || !(trainActive || MERGE_AGENT.test(type ?? ''))) return undefined
-  const deny = mergeDenial(target.pr, target.head, target.head ? await mergeFacts(host, target.pr, target.head) : {})
+  if (!target || !(trainActive || MERGE_AGENT.test(type ?? ''))) return verdict
+  const checks: MergeChecks = { mergePin: config.modes.mergePin !== 'off', mergeCi: config.modes.mergeCi !== 'off', mergeReview: config.modes.mergeReview !== 'off' }
+  if (!checks.mergePin && !checks.mergeCi && !checks.mergeReview) return verdict
+  const facts = await mergeFacts(host, target.pr, checks, SESSION.test(type ?? '') || (!agentId && loopStage.get('') === 'merge'))
+  const problems = mergeProblems(target.pr, target.head, facts, checks)
+  for (const p of problems.filter(p => config.modes[p.gate] === 'warn')) verdict.notes.push({ kind: 'warned', text: p.text, rule: '3f' })
+  const enforced = problems.filter(p => config.modes[p.gate] === 'enforce')
+  if (!enforced.length) return verdict
+  // a bypass waives the gates for one head, never the pin: the merge must pin the allowed head, so
+  // GitHub refuses it if anything was pushed since
+  const left = target.head ? take3f(openBypasses(), target.pr, [target.head], now) : undefined
+  if (left) {
+    allowances = left
+    persist(host, BYPASS_KEY, allowances)
+    for (const p of enforced) verdict.notes.push({ kind: 'bypassed', text: p.text, rule: '3f' })
+    return verdict
+  }
+  // a merge bypass names the head it allows: with no head known (gh down, no pin), none is offered
+  const head = facts.live?.headRefOid ?? target.head
+  if (head) verdict.offer = { rule: '3f', pr: target.pr, head }
+  verdict.deny = enforced[0]!.text + (verdict.offer ? bypassTail(verdict.offer) : '')
+  return verdict
+}
+
+/** Before a tool call: the refusal, when a gate refuses it. */
+export async function guardsBefore(host: Host, tool: string, args: Record<string, unknown>, agentId: string | undefined): Promise<string | undefined> {
+  const { deny } = await guardsCheck(host, tool, args, agentId)
   return deny ? `agile-mods: ${deny}` : undefined
 }
 
-/** After a successful tool call: a reviewer's `git show <sha>:<path>` reads count toward 3f. */
-export async function guardsAfter(host: Host, tool: string, args: Record<string, unknown>, agentId: string | undefined, output: string | undefined) {
-  if (output === undefined || tool !== 'Bash' || typeof args.command !== 'string') return
+/**
+ * After a shell call by a reviewer: the `git show <sha>:<path>` and `git diff <a>..<b>` reads that
+ * count toward 3f, each sha resolved to the full one in the repository the read ran in. Returns a
+ * one-line note for the model when a read in the command did not count, so the reviewer fixes it
+ * within the same review.
+ */
+export async function guardsAfter(host: Host, tool: string, args: Record<string, unknown>, agentId: string | undefined, output: string | undefined, isError = false): Promise<string | undefined> {
+  if (tool === 'Skill' && output !== undefined && !isError) {
+    const skill = typeof args.skill === 'string' ? args.skill : ''
+    if (/(^|:)agile-11-merge-train$/.test(skill)) loopStage.set(agentId ?? '', 'merge')
+    if (/(^|:)merge-review-pr$/.test(skill)) inlineReviews.add(agentId ?? '')
+    return undefined
+  }
+  if (tool !== 'Bash' || typeof args.command !== 'string') return undefined
   const type = agentId ? await agentTypeOf(host, agentId) : undefined
-  if (!/(^|:)pr-reviewer$/.test(type ?? '') && !inlineReviews.has(agentId ?? '')) return
-  const next = withReads(reads, args.command, output)
-  if (next !== reads) {
-    reads = next
-    void host.storeSet(READS_KEY, reads).catch(err => host.log(`agile-mods: store write failed: ${err}`))
+  if (!reviewing(type, agentId)) return undefined
+  const parsed = parseReads(args.command)
+  if (!parsed.reads.length && !parsed.diffs.length && !parsed.skipped.length) return undefined
+  const note = (problems: string[]) => {
+    if (!problems.length) return undefined
+    skipped = [...skipped, ...problems].slice(-10)
+    return `agile-mods: not counted for review: ${problems.join('; ')}.`
   }
-  const nextParts = withParts(parts, args.command, output)
-  if (nextParts !== parts) {
-    parts = nextParts
-    void host.storeSet(PARTS_KEY, parts).catch(err => host.log(`agile-mods: store write failed: ${err}`))
+  if (output === undefined) return isError && (parsed.reads.length || parsed.diffs.length) ? note(['the command exited with an error, so none of its reads counted: run each read as a command of its own']) : undefined
+  if (truncated(output)) {
+    const plans: string[] = []
+    for (const r of parsed.reads.slice(0, 3)) {
+      const text = await host.show(r.dir ?? cwd ?? '.', r.sha, r.path)
+      if (text !== undefined) plans.push(`read ${r.path} as ${chunkText(r.sha, r.path, planChunks(text))}`)
+    }
+    return note([`the output passed 30,000 characters and was cut, so nothing in it counted${plans.length ? `: ${plans.join('; ')}` : ': read one file per command, in chunks of at most 25,000 characters'}`])
   }
+  const counted = failedIn(output, parsed)
+  const problems = [...counted.skipped]
+  const full = new Map<string, string | undefined>()
+  const resolve = async (sha: string, dir: string | undefined) => {
+    const key = `${dir ?? ''}:${sha}`
+    if (!full.has(key)) full.set(key, sha.length === 40 ? sha : await host.resolve(dir ?? cwd ?? '.', sha))
+    const found = full.get(key)
+    if (!found && !problems.some(p => p.includes(sha))) problems.push(`${sha} is not a commit in this repository`)
+    return found
+  }
+  // each read is checked against git's own text: its lines must be in what the command printed
+  const seen = outputLines(output)
+  const specs: Spec[] = []
+  for (const r of counted.reads) {
+    const sha = await resolve(r.sha, r.dir)
+    if (!sha) continue
+    const text = await host.show(r.dir ?? cwd ?? '.', sha, r.path)
+    if (text !== undefined && showedFile(text, seen, r.range)) specs.push({ ...r, sha })
+    else problems.push(`${r.path} at ${sha.slice(0, 7)} is not in the output as git has it, so it did not count: print it plainly`)
+  }
+  const diffReads = []
+  for (const d of counted.diffs) {
+    const [from, to] = [await resolve(d.from, d.dir), await resolve(d.to, d.dir)]
+    if (!from || !to) continue
+    const diff = await host.diffText(d.dir ?? cwd ?? '.', from, to, d.paths)
+    const shown = diff === undefined ? [] : showedDiff(diff, seen)
+    // the diff covers only the paths whose changed lines are in the output, named one by one
+    if (diff !== undefined && (shown.length || !/^diff --git/m.test(diff))) diffReads.push({ ...d, from, to, paths: shown })
+    const missed = diff === undefined ? ['the diff'] : [...diff.matchAll(/^diff --git a\/.+ b\/(.+)$/gm)].map(m => m[1]!).filter(p => !shown.includes(p))
+    if (missed.length) problems.push(`git diff ${from.slice(0, 7)}..${to.slice(0, 7)}: ${missed.slice(0, 3).join(', ')}${missed.length > 3 ? ` and ${missed.length - 3} more` : ''} not in the output as git has it (an external diff, textconv, -w or a cut), so not counted`)
+  }
+  const nextReads = addReads(reads, specs)
+  if (nextReads !== reads) persist(host, READS_KEY, (reads = nextReads))
+  const nextParts = addParts(parts, specs)
+  if (nextParts !== parts) persist(host, PARTS_KEY, (parts = nextParts))
+  const nextDiffs = addDiffs(diffs, diffReads)
+  if (nextDiffs !== diffs) persist(host, DIFFS_KEY, (diffs = nextDiffs))
+  return note(problems)
+}
+
+/** The bypasses a person allowed that are still open. */
+export const allowancesNow = () => openBypasses()
+
+/** A person allowed an offer from the Guards tab: kept until used, expired, or its ticket ends. */
+export function guardsAllow(host: Host, offer: Offer, now: number, merged: number) {
+  allowances = allow(allowances, offer, now, merged)
+  persist(host, BYPASS_KEY, allowances)
+}
+
+/** Drops budget allowances whose ticket is done or parked (or, naming none, once another PR merged), and expired ones. */
+export function guardsPrune(host: Host, now: number, ended: (ticket: string) => boolean, merged: number) {
+  const next = openOf(allowances, now, ended, merged)
+  if (next !== allowances) persist(host, BYPASS_KEY, (allowances = next))
 }
 
 /** Whether a guard covers this call (a merge, a push, an edit or post): checked from the call alone, for a hook that could not run. */
@@ -202,16 +437,17 @@ export const guardedCall = (tool: string, args: Record<string, unknown>) =>
 /** Whether a loop has started in this session, for the board's refresh. */
 export const loopRunning = () => loopActive
 
-/** /agile-board reset: no loop is running, and no review is on record. */
+/** /agile-board reset: no loop is running, and no review, round or bypass is on record. */
 export function guardsReset(host?: Host) {
   trainActive = false
   loopActive = false
   inlineReviews.clear()
+  loopStage.clear()
   reads = {}
   parts = {}
-  fixRounds = {}
-  loopSeq.clear()
-  if (host) void host.storeSet(READS_KEY, reads).catch(() => undefined)
-  if (host) void host.storeSet(PARTS_KEY, parts).catch(() => undefined)
-  if (host) void host.storeSet(FIXES_KEY, fixRounds).catch(() => undefined)
+  diffs = {}
+  rounds = {}
+  allowances = []
+  skipped = []
+  if (host) for (const [key, value] of [[READS_KEY, reads], [PARTS_KEY, parts], [DIFFS_KEY, diffs], [ROUNDS_KEY, rounds], [BYPASS_KEY, allowances]] as const) void host.storeSet(key, value).catch(() => undefined)
 }

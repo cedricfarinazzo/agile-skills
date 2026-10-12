@@ -2,76 +2,176 @@
 
 [← agile-mods](../README.md)
 
-Shown on the console's Guards tab (`/agile-board guards`) · always active · code: `hooks/guards.ts`, checks in `hooks/state/guards.ts` and `hooks/state/review.ts`
+The skills tell the loop what not to do: never merge code nobody reviewed, never push to `main`, stop fixing a PR that won't converge. Guards make those rules hold. Each one checks a tool call before it runs, against GitHub, git and the engine, and refuses it when it breaks a rule.
 
-Rules the skills state in prose, enforced on the call that would break them. A refused call returns an error to the model that names the rule and what to do instead, so the loop corrects itself rather than stalling.
+A refusal comes back to the model as the tool's error, saying what was wrong and what to do instead, so the loop usually corrects itself. When it can't, the loop marks that PR or ticket blocked and goes on with the rest. You can then fix the cause, or allow that one call once.
 
-**A guard never takes the model's word.** What it checks comes from GitHub, git or the engine at the moment of the call: the PR's live head, the CI runs on that sha, the files of the PR, the commands a reviewer actually ran, the type of the agent making the call. No receipt, answer, banner or report line the model writes turns a guard on, off, or green.
-
-| Rule (where the prose lives) | Enforcement |
-|---|---|
-| `review-lens` and `pr-reviewer` never edit or post; `review-lens` never invokes `implement-review` (CLAUDE.md, tool grants) | A call from inside that agent's loop to `Write`/`Edit`/`NotebookEdit`, a posting GitHub or Atlassian MCP tool (matched by tool name on any server), `gh pr comment/review/merge/edit`, `gh issue comment/…`, `gh api -X POST/PATCH/PUT/DELETE` or `git push` is refused |
-| `jira-postmortem` never creates issue links | `createIssueLink` from that agent is refused |
-| 3f merge gates (`agile-11-merge-train` 3b, 3e and 3f) | `gh pr merge <n>` / `merge_pull_request` is refused unless, read at that moment: the head is pinned (`--match-head-commit <sha>` / `expectedHeadSha`); the pin is the PR's live head (`gh pr view <n>`); every workflow run on that sha finished `success`, `skipped` or `neutral`, with at least one `success` (`gh run list --commit <sha>`); and every file of the PR (`gh api …/pulls/<n>/files`) was read by a reviewer as it lands (below) |
-| A PR's fixes stop after 3 rounds (`agile-11-merge-train` Stop conditions, `agile-10-implement` Stop conditions) | Counted at the push, from any phase and across train runs. A push to a branch with an open PR (`gh pr list --head <branch>`) takes a round, unless it adds only merges and commits the base already has (`git rev-list --no-merges <PR head>..<ref> ^origin/<base>` is empty: a 3a update). A round is one dispatched agent's run; in the main loop or a session agent, the pushes between two of its Skill or Agent calls. A 4th round's push is refused, and so is a fix dispatch whose text names only a PR with 3 rounds. Inside a loop, a push the cap cannot read is refused: see [How a push is read](#how-a-push-is-read) |
-| The loop writes to GitHub where the guards read it (`agile-11-merge-train` and `agile-10-implement` Rules) | Inside a loop, writes through the API are an allowlist: `gh api` with a write method or fields may reach only comments, replies, reviews, review requests and labels on issues and PRs (the endpoint read from its place in the command, not from field values); `gh api graphql` only with the query written out on the line (not `$VAR`, `@file` or `--input`; a single-quoted `-f query='…'` is judged by itself, whatever else the line holds) and, for a mutation, only the comment, reply, review, thread-resolve and label mutations, every one of them read; a write the endpoint reader cannot place is refused. On an MCP server named for GitHub, every tool but the read ones (`get_*`, `list_*`, `search_*`, `*_read`) and the comment, review and PR writes the loop uses is refused (default-deny); on any other server, so is a snake_case write tool (`create_*`, `update_*`, `delete_*`, `push_*`, `merge_*`, `fork_*`, `assign_*`, `run_*`, `dispatch_*`, `cancel_*`, `*_write`, …), which catches a GitHub server registered under another name. That last rule also refuses another connector's writes inside a loop (a `linear` server's `create_issue`); Atlassian's camelCase tools are not affected (`create_pull_request` and `merge_pull_request` then meet the budget and the 3f gates). Anything else, an endpoint or tool nobody listed included, is refused, as are `push_files`-style tools on any server, `gh repo sync`, and a merge through `gh api …/pulls/<n>/merge`, which would skip the 3f gates; so is any `git <word>`, read as in [How a push is read](#how-a-push-is-read), that is not one of git's own commands or is computed (an alias, however it was set, could hide a push), a `GIT_CONFIG_*` override in the command, any `gh <word>` that is not one of gh's own commands (after gh's options, `-R`/`--repo <repo>` included), `gh alias set` and `gh extension` (an alias or extension could hide a push). A git hook that pushes is a script file, in the limit above. Reads (`gh api` with no write method, or `-X GET`) and comment replies through the API go on |
-| No build work past the budget (`agile-10-implement` and `agile-sprint-drain`, BUDGET) | With the `budgetUsd` option set, once the run's spend (the engine's cost ledger, counted from the run's start; see [Cost and spend](console.md)) reaches it, `agile-10-implement` and every `implement-*` skill are refused, and so are `gh pr create`, `create_pull_request` and a `gh api` POST to `pulls`, and every agent dispatch but the merge side's (`agile-merge-review` agents, `merge-session`) and the read-only types (`Explore`, `Plan`, `claude-code-guide`, `statusline-setup`). Open PRs still merge. It holds for the rest of the session once a loop ran in it, until `/agile-board reset`. Not covered: the main loop editing and pushing to an existing branch by hand, which the merge side needs for inline fixes. A run begins at a session's first loop call while no drain is running; a running drain keeps its run across sessions, and only `/agile-board reset` starts a new one then |
-| Work reaches the base branch only through a PR; force push only with a lease (`agile-11-merge-train` Rules) | A `git push` to `main`/`master` (by refspec, or with none from a checkout of it, read with `git rev-parse` where the push runs), a push whose target is computed (`$BRANCH`, `$(…)`), and `--force` / `-f` / `--mirror` or a `+<ref>` without `--force-with-lease` are refused. The refs are read both from the raw text and from the words as the shell resolves them, so a quoted or escaped `main` is caught |
-
-**When a guard is on.** The push guard, the fix-round cap and the side-door checks turn on with the orchestrator's `Skill` call (`agile-10-implement`, `agile-11-merge-train`, `agile-sprint-drain`), the merge guard with `agile-11-merge-train` or `agile-sprint-drain`, and stay on until `/agile-board reset` or a new session. Inside an `agile-execution` / `agile-merge-review` / `agile-sprint-drain` agent they are on whatever the main loop did, by the agent type the engine reports. No text ends them: a model that wrote a final report early would otherwise switch them off.
-
-**What counts as a review.** The reviewer reads every file in full at the reviewed sha (`merge-review-pr` step 4). The guard records those reads from the commands themselves, when they succeed, for a `pr-reviewer` agent and for a loop running `merge-review-pr` inline (main loop or a drain's `merge-session`, from that `Skill` call until its next skill). A file counts as read when it was shown at the head, or at an earlier sha the head descends from (`gh api …/compare/<sha>...<head>` says `ahead`) with the file unchanged since. So a delta review after a fix needs only the files the fix touched, and a rebase voids the older reads. Reads are kept in `$.store`, so a fresh `merge-session` resuming at 3e merges against an earlier one's reads.
-
-A command counts when:
-
-- each read is `git [-C <dir>] [--no-pager] show <sha>:<path>` or `git cat-file -p <sha>:<path>`, with the full 40-character sha (an abbreviated one could match an object made to collide);
-- reads are joined by `&&` or `;`, after an optional leading `cd <dir>`, with plain `echo` separators between them;
-- each read is piped only into `cat`, `cat -n`, `nl` or `tee <file>`, or, for a file too large for one read, into one line range: `sed -n A,Bp` (quoted or not), `head -n N` or `tail -n +A`;
-- the output is under the Bash tool's limit (30,000 characters, no `<persisted-output>` preview), and, for reads joined by `;`, shows no `fatal:` or `error:` line.
-
-A file read in ranges counts once its ranges at the head cover every line with no gap; the guard takes the line count from git. Anything else on the line voids it: `$`, quotes outside an `echo`, redirection, `||`, a subshell, a newline, an option, or another filter. Also not counted: a read from any other agent, and the `Reviewed sha:` line of a receipt.
-
-### How a push is read
-
-Inside a loop the fix-round cap must know which branch each push sends. It reads:
-
-- **A plain command:** an optional `cd <dir> &&`, then `git add`, `git commit` (a message in a quoted heredoc too) or git reads joined by `&&`, then one `git [-C <dir>] push` with known flags (`-u`, `--force-with-lease[=<ref>]`, `--no-verify`, `-q`, `-v`, `--porcelain`, `--delete`) and named refs. A bare push sends git's own `@{push}`.
-- **Any longer line** (`;`, newlines, pipes, `$`): push by push. Each `git push` must name its remote and branch plainly. One push that names no branch is read only when the line follows its `cd`s plainly (no loop, subshell or `git -C`) and nothing in it moves the branch or its push target (`checkout`, `switch`, `branch -u`, `config`, `gh pr checkout`, …).
-- **Output plumbing:** `2>&1` and `| tail` with a line count change nothing a push sends. `| head` is refused, since it can end the push early.
-- **A delete** (`--delete`, or `:<branch>`) sends no commit and takes no round.
-
-A push read from a longer line, or after a commit in the same command, always takes a round: the commit lands after the cap's check, so it cannot be told apart from a 3a update.
-
-What counts as a push: any `git` word whose subcommand is `push` or computed, wherever it stands (behind `timeout` or `sudo`, in a brace group, inside `$(…)`), with quotes and escapes resolved (`"git"`, `g\it`, `$'git'`). A line also counts as pushing when:
-
-- it runs a computed command beside a `push` word (`$G push`);
-- a quoted word names git and push outside a `git`/`gh` message (`awk 'BEGIN{system("git push")}'`, `ssh host 'git push'`);
-- git and push appear within a few words of each other in text another program gets (heredoc bodies included), and the line runs a program other than `git`, `gh`, `cd` or a print/search one. Commit and PR messages, heredocs written by `cat`/`tee` or read by `git`/`gh`, and `gh`'s arguments (`--event push`) are data. So is a line that is one command of a print/search program with nothing the shell expands (`grep -rn git src/`; `rg` without `--pre`).
-
-Not seen: a push from a script file, or from a command built at run time out of encoded text. GitHub branch protection on `main` is the backstop there. When gh or git cannot say which branch or PR, the push is refused. A merge commit that carries a change of its own counts as an update.
-
-**Fails closed.** When gh does not answer (auth, network, rate limit), the merge is refused with the reason; the loop retries. When the guard hook itself throws, times out or is skipped, a merge, push, edit or posting call is refused (`.catch` on the `tool.call` hook) and other calls go on.
-
-**Why the head is pinned.** The pin moves the "is this still the reviewed head?" check to GitHub, at the moment of the merge, where nothing can move in between.
-
-The per-phase tool-grant checks do not apply inside a session agent: it runs every phase, and CLAUDE.md gives it their combined grant.
-
-## Seeing refusals
-
-Each refusal is also kept for the session and shown on the Guards tab of the [agile console](console.md): when it happened, which rule (`grant`, `3f`, `push`, `fix`, `budget`, `side` for the API, MCP and alias side doors), the text, and the agent that made the call, with a count of allowed calls beside it. A toast shows it as it happens, so a refusal is visible while the pane is closed. The log is in memory: a reload or `/agile-board reset` clears it; `reset` clears the receipts beside it too.
-
-## What a refusal looks like
-
+```mermaid
+flowchart LR
+  call["tool call<br/>(merge, push, edit, post)"] --> check{"guard check<br/>against GitHub, git, engine"}
+  check -- fine --> run["runs"]
+  check -- "breaks a rule,<br/>guard on enforce" --> refuse["refused: the model reads<br/>why and what to do"]
+  check -- "breaks a rule,<br/>guard on warn" --> warn["runs, logged on<br/>the Guards tab"]
+  refuse -. "you press<br/>Allow once" .-> run
 ```
-agile-mods: pin the reviewed head: gh pr merge 42 --squash --match-head-commit <reviewed sha> (or expectedHeadSha), so GitHub refuses a head that moved after the review.
+
+## The guards
+
+| Guard | Stops | Setting |
+|---|---|---|
+| **Merge: review** | Merging a PR with a file no reviewer read as it lands | `guardMergeReview` |
+| **Merge: CI** | Merging on CI that is red, running or missing | `guardMergeCi` |
+| **Merge: pin** | Merging a head other than the one reviewed | `guardMergePin` |
+| **Fix rounds** | A fourth round of fixes on a PR that keeps failing review | `fixRounds` |
+| **Push** | Pushing to `main`/`master`, or force pushing without a lease | `guardPush` |
+| **Budget** | Starting new build work once the run spent `budgetUsd` (open PRs still merge) | `budgetUsd` |
+| **Tool grants** | A reviewer editing files or posting; the postmortem linking issues | `guardGrants` |
+| **Side doors** | Getting around the others: branch writes through the GitHub API or MCP, git aliases, config overrides | `guardSideDoor` |
+
+The guards only watch the loop. They turn on when `agile-10-implement`, `agile-11-merge-train` or `agile-sprint-drain` starts, or inside one of their agents, and stay on until `/agile-board reset` or a new session.
+
+## Merging
+
+Before `gh pr merge`, the guard reads GitHub itself:
+
+```mermaid
+flowchart TD
+  m["gh pr merge 42 --match-head-commit &lt;sha&gt;"] --> pin{"pinned, and the<br/>PR's live head?"}
+  pin -- no --> r1["refused: pin the reviewed head"]
+  pin -- yes --> ci{"every CI run on<br/>that head green?"}
+  ci -- no --> r2["refused: wait for CI, or fix it"]
+  ci -- yes --> rv{"every changed file<br/>read by a reviewer?"}
+  rv -- no --> r3["refused: names the files,<br/>how to read them"]
+  rv -- yes --> ok["merges"]
+```
+
+### What counts as reviewing a file
+
+The reviewer has to actually read each changed file at the commit that will land. The guard looks at the commands it ran, not at its report:
+
+| Counts | Does not count |
+|---|---|
+| `git show 3f1c0a9e:src/cart.ts` | `cat src/cart.ts` (the working tree may be another branch) |
+| `git show 3f1c0a9e:docs/guide.md \| sed -n 1,212p`, then the next ranges to the end | `git show …:docs/guide.md \| head -50` alone (half the file) |
+| `S=3f1c0a9e; git show $S:src/cart.ts` | Output cut off at the 30,000-character limit |
+| `git show '3f1c0a9e:app/(shop)/$id.tsx'` (special characters, single-quoted) | `cd src && git show 3f1c0a9e:./cart.ts` (write paths from the repo root) |
+| After a fix: `git diff 3f1c0a9e..b2d4e6f1` | `git diff --stat 3f1c0a9e..b2d4e6f1` (no lines shown) |
+
+The guard also compares the output with git's own copy of the file or diff. A command whose output went somewhere else, or was rewritten on the way (an external diff tool, a `git` shell function), counts for nothing.
+
+**Who can review.** Reads count from `pr-reviewer`, the drain's `merge-session`, and the main loop while it runs the merge train. The build side never counts, so code is never reviewed by its own author.
+
+**After a fix, only the fix is reread.** A file read before the fix still counts if the fix didn't touch it. For a file the fix changed, reading the diff since the reviewed commit is enough.
+
+```mermaid
+sequenceDiagram
+  participant R as reviewer
+  participant G as guard
+  R->>G: git show A:cart.ts, git show A:api.ts (review at A)
+  Note over G: both files read at A
+  Note over R,G: a fix pushes B, changing cart.ts only
+  R->>G: git diff A..B
+  Note over G: cart.ts read by the diff,<br/>api.ts unchanged since A
+  G-->>R: merge of B allowed
+```
+
+**Told right away.** When a reviewer's read does not count, the same command's result says why and what to run instead. For a file too large to read in one go, it gives the exact chunks to read:
+
+```text
+agile-mods: not counted for review: the output passed 30,000 characters and was cut, so nothing in it
+counted: read docs/guide.md as git show 3f1c0a9e…:docs/guide.md | sed -n 1,212p · 213,398p · 399,520p.
+```
+
+The Guards tab shows, for each open PR, how many files count as read and which don't.
+
+## Fix rounds
+
+A round is one go of fixing after a review: it starts with a push onto a commit a reviewer has read. More pushes before the next review are the same round. So are fresh agents resuming after a CI wait.
+
+```mermaid
+flowchart LR
+  r1["review"] --> p1["push · round 1"] --> r2["review"] --> p2["push · round 2"] --> r3["review"] --> p3["push · round 3"] --> r4["review"] --> x["4th push: refused,<br/>you decide"]
+```
+
+These never count as a round:
+
+- updating the branch from `main` (`agile-11-merge-train` 3a);
+- a push that puts back a commit already reviewed, sent in its own command after the commit (for example undoing a bad change);
+- deleting a branch.
+
+Run mutation checks (breaking the code on purpose to prove a test fails) locally. Never push them to the PR.
+
+## Budget
+
+With `budgetUsd` set, once the loop run has spent that much, new build work is refused:
+
+- implementing tickets;
+- opening PRs;
+- dispatching build agents.
+
+The merge train goes on, so open PRs still land, and then the loop stops and reports `BUDGET`. The spend counts from the start of the run. Only a new session, or `/agile-board reset`, starts a new run.
+
+## Bypass
+
+Some refusals can be allowed once, by you. The refusal tells the loop to report the PR or ticket as blocked and wait, not to ask you to run the command. On the Guards tab, the refusal has an **Allow once** button:
+
+![Guards tab with an Allow once button](img/console-guards.svg)
+
+```mermaid
+sequenceDiagram
+  participant L as loop
+  participant G as guard
+  participant Y as you
+  L->>G: gh pr merge 42
+  G-->>L: refused (bypass available)
+  L-->>Y: PR #42 blocked: guard
+  Y->>G: Allow once [1] (Guards tab)
+  Y->>L: retry
+  L->>G: gh pr merge 42
+  G-->>L: allowed, logged as bypassed
+```
+
+| Refused | Allow once lets through |
+|---|---|
+| A merge gate on PR #42 | One merge of PR #42 at the head it was refused at, within 30 minutes |
+| The fix-round cap on PR #42 | One more fix round on PR #42, within 30 minutes |
+| The budget | Build work for that ticket, until it is done, parked or merged |
+
+Only you can grant one: the pane button, or `/agile-board allow <id>` typed at the prompt (or sent from your phone). The model, a skill or another plugin running the same command gets nothing. `/agile-board allow` lists what can be allowed. An allowed merge still has to pin the head you allowed, so nothing pushed after your click slips in.
+
+The push, grant and side-door guards have no bypass. Change their setting instead. An open bypass shows as `⚑ 1 bypass` in the status line, and each call it lets through is logged on the Guards tab and counted in the retro data. Nothing about it leaves your machine.
+
+## Settings
+
+Set in `/plugin configure agile-mods@agile-skills`; they apply from the next session.
+
+| Mode | The guard |
+|---|---|
+| `enforce` (default) | refuses the call |
+| `warn` | lets it through, with a toast and a `warned` entry on the Guards tab; the model is not told |
+| `off` | does not check, and reads nothing |
+
+`guardPush` has no `off`: a push to `main` cannot be undone. `fixRounds` is a number (`0` turns the cap off), `budgetUsd` an amount (`0` is none), and `allowBypass` shows or hides the button.
+
+**Per repo.** A repo's `CLAUDE.md` or `AGENTS.md` can set the same keys, but only to tighten them. The loop can edit those files, so a looser value there is ignored and flagged on the Guards tab.
+
+```markdown
+## Skill configuration
+- guardMergeReview: enforce
+- fixRounds: 2
+- allowBypass: false
+```
+
+## Refusals you may see
+
+```text
+agile-mods: PR #42: no review read 1 file(s) as they land at 3f1c0a9e2b7d: docs/guide.md. …
 agile-mods: PR #42: CI on 3f1c0a9e2b7d has not finished (e2e in_progress). Wait for it (3e), then merge.
-agile-mods: PR #42: no review read 2 file(s) as they land at 3f1c0a9e2b7d: src/auth.ts, src/auth.test.ts. A review reads each file in full with its own command, [cd <dir> &&] git show <40-hex sha>:<path>, or a file too large for one read in line ranges piped into sed -n A,Bp (merge-review-pr step 4); re-dispatch pr-reviewer on what is missing.
+agile-mods: pin the reviewed head: gh pr merge 42 --squash --match-head-commit <reviewed sha> …
+agile-mods: PR #42: 3 fix rounds already pushed after a review (onto 1a2b3c4, 5d6e7f8, 9a0b1c2). …
 agile-mods: the loop never pushes to main: work lands through a PR and gh pr merge.
-agile-mods: PR #42: 3 fix rounds already pushed (onto 1a2b3c4, 5d6e7f8, 9a0b1c2). The fixes are not converging: take 3d (blocked postmortem, PR left open) and let a human decide.
-agile-mods: budget: the loop spent $20.40 of its $20.00 budget (agile-mods budgetUsd). Start no build work: merge what is open, then stop and report BUDGET.
+agile-mods: budget: the loop spent $20.40 of its $20.00 budget (agile-mods budgetUsd). …
 agile-mods: pr-reviewer reviews and never edits files: report the finding instead.
 ```
 
-## Keeping it in sync
-
-Each guard mirrors a rule written in a skill or in `CLAUDE.md`. Change the rule (a grant, how `merge-review-pr` reads files, the 3e/3f `gh pr merge --match-head-commit` command, the fix-round cap, the push form in the `agile-10-implement` and `agile-11-merge-train` Rules, what BUDGET stops) and update `hooks/state/guards.ts` or `hooks/state/review.ts` in the same change. The cap is `FIX_ROUNDS` there, the push form `pushPlanOf` and `PUSH_FORM`, the budget `isBuildWork`.
+When GitHub doesn't answer, a merge is refused rather than let through unchecked, and the loop retries. The exact rules for each guard are in the [reference](reference.md#guards).
