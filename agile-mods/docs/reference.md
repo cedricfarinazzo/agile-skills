@@ -284,9 +284,9 @@ Nothing goes to any host but GitHub (through your `gh` login) and Atlassian (thr
 - **Two files at session start:** the repo's `AGENTS.md` and `CLAUDE.md`, for `story-points-field`, `cloudId` and any guard setting that tightens the plugin's options.
 - **The engine:**
   - session cost;
-  - each request's token counts, never its text;
+  - each request's token counts and model id, never its text;
   - when the main loop goes idle, never its answer;
-  - the agents list.
+  - the agents list, with each agent's type and dispatch description.
 
 **Sent back into the session:**
 
