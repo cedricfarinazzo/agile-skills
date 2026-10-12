@@ -8,7 +8,7 @@ import { configOf, modesLine, repoConfigOf, tightened, type GuardConfig } from '
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
 import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { liveOf } from './state/phase.ts'
-import { isSession, modelOf, modelOfId, movedCost, ticketOfCall, ticketOfText, usdOf, withCost } from './state/cost.ts'
+import { modelOf, modelOfId, movedCost, strongTicket, ticketOfText, ticketsOfText, usdOf, withCost } from './state/cost.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
 import { agentTypeOf, allowancesNow, branchOf, coverageOf, guardedCall, guardsAfter, guardsAllow, guardsCheck, guardsConfigure, guardsPrune, guardsReset, guardsStart, loopRunning } from './guards.ts'
 import type { Usage } from './state/flow.ts'
@@ -73,8 +73,14 @@ let coverage: Record<number, { head: string; at: number; files: Record<string, s
 let agentStats: Stats = {}
 /** Per loop agent: the ticket it works, the last request counted and when, for the Cost tab. Memory only. */
 /** Agent dispatches whose ticket the prompt named, waiting for the agent they start: the description may not carry the key. */
-const dispatches: { type: string; ticket: string; at: number }[] = []
-const workers = new Map<string, { ticket?: string; fixed: boolean; stage?: 'build' | 'merge'; last?: { ticket: string; usd: number }; at?: number }>()
+const dispatches: { type: string; tickets: string[]; at: number }[] = []
+/**
+ * A subagent's cost. `claim` is what it was dispatched for (its description and prompt, model-written
+ * text, so only a claim); `shown` the ticket its own state-changing calls last named, which outranks
+ * the claim. `accrued` is what it has cost by ticket, so a claim its work contradicts is moved whole.
+ */
+type Worker = { claim: string[]; shown?: string; stage?: 'build' | 'merge'; accrued: Record<string, number>; last?: { parts: Record<string, number>; usd: number }; at?: number }
+const workers = new Map<string, Worker>()
 /** Bumped by /agile-board reset and a fresh drain: a read begun before it saves nothing. */
 let epoch = 0
 // the plugin store is shared by every repo: each key is scoped to the session's working directory
@@ -546,7 +552,7 @@ export const register: Register = (on, options) => {
     if (cap > 0 && gate !== 'off') {
       // the ticket its agent works counts beside the ones the call names: a call that names another ticket too is no way round
       let own: string | undefined
-      if (e.agentId && type) own = (await workerOf(host, e.agentId, type)).ticket
+      if (e.agentId && type) own = ticketOfWorker(await workerOf(host, e.agentId, type))
       // a call that opens a PR: the branch it names, else the one checked out where it runs (a leading `cd <dir> &&`)
       if (!named.length && !own && isBuildWork(e.tool, args) && e.tool !== 'Agent' && e.tool !== 'Skill') {
         const head = prHeadOf(e.tool, args) ?? (e.tool === 'Bash' ? await branchOf(host, String(args.command ?? '')) : undefined)
@@ -591,7 +597,7 @@ export const register: Register = (on, options) => {
 
     const now = await $.clock.now()
     if (e.agentId) agentStats = noteCall(agentStats, e.agentId, e.tool, args, now)
-    if (e.agentId) await followTicket(e.agentId, e.tool, args, now)
+    if (e.agentId) followTicket($, e.agentId, e.tool, args, now)
     if (e.tool === 'Agent') noteDispatch(args, now)
     if (typeof args.cloudId === 'string' && /^mcp__.+__/.test(e.tool)) cloudId ??= args.cloudId
     // a drain that starts fresh (not resuming a running or STUCK one) empties the board: reads begun before it save nothing
@@ -716,32 +722,32 @@ async function coverageNow($: EngineInterface, now: number): Promise<Coverage> {
   return Object.entries(coverage).filter(([n]) => open.has(Number(n))).map(([n, c]) => ({ pr: Number(n), head: c.head, files: c.files }))
 }
 
-/** Remembers the ticket a dispatch's prompt or description names, for the agent it starts. */
+/** Remembers the tickets a dispatch's prompt or description names, for the agent it starts. */
 function noteDispatch(args: Record<string, unknown>, now: number) {
-  const ticket = ticketOfText(board, dispatchText(args))
+  const tickets = ticketsOfText(board, dispatchText(args))
   const type = String(args.subagent_type ?? '')
-  if (!ticket || !type) return
-  dispatches.push({ type, ticket, at: now })
+  if (!tickets.length || !type) return
+  dispatches.push({ type, tickets, at: now })
   while (dispatches.length > 50 || (dispatches[0] && now - dispatches[0].at > 3_600_000)) dispatches.shift()
 }
 
 /** The oldest waiting dispatch of this agent type, taken so another agent of the type does not reuse it. */
-function claimDispatch(type: string): string | undefined {
+function claimDispatch(type: string): string[] {
   const i = dispatches.findIndex(d => d.type === type || type.endsWith(`:${d.type}`) || d.type.endsWith(`:${type}`))
-  return i < 0 ? undefined : dispatches.splice(i, 1)[0]!.ticket
+  return i < 0 ? [] : dispatches.splice(i, 1)[0]!.tickets
 }
 
-/**
- * The ticket a subagent works: the one its dispatch description names, or for a session agent (one
- * agent, many tickets, run in turn) the one its latest call named.
- */
-async function workerOf(host: Host, id: string, type: string) {
+/** The ticket a subagent is shown to work, else the one ticket it was dispatched for. */
+const ticketOfWorker = (w: Worker) => w.shown ?? (w.claim.length === 1 ? w.claim[0] : undefined)
+
+/** A subagent's tracking, made when its first request or call is seen. */
+async function workerOf(host: Host, id: string, type: string): Promise<Worker> {
   let w = workers.get(id)
   if (!w) {
     const info = (await host.agents().catch(() => [])).find(a => a.id === id)
-    // its description, else the prompt of the dispatch that started it
-    const named = !isSession(type) ? (info?.description ? ticketOfText(board, info.description) : undefined) ?? claimDispatch(type) : undefined
-    w = { ...(named && { ticket: named }), fixed: named !== undefined, ...(stageOf(type) && { stage: stageOf(type)! }) }
+    // its description and the prompt of the dispatch that started it
+    const claim = [...new Set([...(info?.description ? ticketsOfText(board, info.description) : []), ...claimDispatch(type)])]
+    w = { claim, accrued: {}, ...(stageOf(type) && { stage: stageOf(type)! }) }
     workers.set(id, w)
     if (workers.size > 100) workers.delete(workers.keys().next().value!)
   }
@@ -749,10 +755,11 @@ async function workerOf(host: Host, id: string, type: string) {
 }
 
 /**
- * Counts one request of a subagent against its ticket: dollars from its tokens, working time since its
- * last one. Any subagent counts, not only the loop's own: build work dispatched as a general-purpose
- * agent must not escape the cap. The model is the one the request reports, else the one its agent
- * file declares, else the dearest tier, so a model nobody priced is never counted too low.
+ * Counts one request of a subagent: dollars from its tokens, working time since its last one. Any
+ * subagent counts, not only the loop's own: build work dispatched as a general-purpose agent must not
+ * escape the cap. The model is the one the request reports, else the one its agent file declares, else
+ * the dearest tier, so a model nobody priced is never counted too low. It goes to the ticket the agent
+ * is shown to work, else is shared by the tickets it was dispatched for.
  */
 async function countRequest(host: Host, id: string, type: string, usage: Usage & { model?: string }, now: number) {
   const model = modelOfId(usage.model) ?? modelOf(type) ?? 'opus'
@@ -760,19 +767,47 @@ async function countRequest(host: Host, id: string, type: string, usage: Usage &
   const ms = w.at === undefined ? 0 : now - w.at
   w.at = now
   const usd = usdOf(usage, model)
-  if (w.ticket) board = withCost(board, w.ticket, usd, w.stage, ms, now)
-  w.last = { ticket: w.ticket ?? '', usd }
+  const to = w.shown ? [w.shown] : w.claim
+  const parts: Record<string, number> = {}
+  for (const t of to) {
+    board = withCost(board, t, usd / to.length, w.stage, ms / to.length, now)
+    w.accrued[t] = (w.accrued[t] ?? 0) + usd / to.length
+    parts[t] = usd / to.length
+  }
+  w.last = { parts, usd }
 }
 
-/** A session agent's call that names one ticket moves the agent onto it, and the request that made the call with it. */
-async function followTicket(id: string, tool: string, args: Record<string, unknown>, now: number) {
+/**
+ * A subagent's call that changes something for one ticket (a Jira write, a push, a PR) shows what it
+ * works, whatever its dispatch said. The first such call that contradicts the claim moves all it has
+ * cost so far onto that ticket, so naming another ticket in a prompt never moves cost off the one the
+ * work is on. Later calls on another ticket (a session working its tickets in turn) move the request
+ * that made them.
+ */
+function followTicket($: EngineInterface, id: string, tool: string, args: Record<string, unknown>, now: number) {
   const w = workers.get(id)
-  if (!w || w.fixed) return
-  const named = ticketOfCall(board, tool, args)
-  if (!named || named === w.ticket) return
-  if (w.last?.usd) board = w.last.ticket ? movedCost(board, w.last.ticket, named, w.last.usd, w.stage, now) : withCost(board, named, w.last.usd, w.stage, 0, now)
+  const shown = w && strongTicket(board, tool, args)
+  if (!w || !shown || shown === w.shown) return
+  const contradicted = w.shown === undefined && w.claim.length > 0 && !w.claim.includes(shown)
+  if (contradicted) {
+    for (const [from, usd] of Object.entries(w.accrued)) board = movedCost(board, from, shown, usd, w.stage)
+    w.accrued = { [shown]: Object.values(w.accrued).reduce((n, x) => n + x, 0) }
+    note($, { at: now, rule: 'ticketBudget', kind: 'warned', text: `agent dispatched for ${w.claim.join(', ')} worked ${shown} (${tool}): its cost counts on ${shown}` })
+  } else if (w.last) {
+    // the request that made this call is its ticket's, whatever it was shared by before
+    const parts = Object.entries(w.last.parts).filter(([t]) => t !== shown)
+    for (const [from, usd] of parts) {
+      board = movedCost(board, from, shown, usd, w.stage)
+      w.accrued[from] = (w.accrued[from] ?? 0) - usd
+      w.accrued[shown] = (w.accrued[shown] ?? 0) + usd
+    }
+    if (!Object.keys(w.last.parts).length && w.last.usd) {
+      board = withCost(board, shown, w.last.usd, w.stage, 0, 0)
+      w.accrued[shown] = (w.accrued[shown] ?? 0) + w.last.usd
+    }
+  }
   w.last = undefined
-  w.ticket = named
+  w.shown = shown
 }
 
 /** The stage a loop agent serves, by its type; undefined for an agent outside the loop. */

@@ -307,10 +307,10 @@ describe('ticket cost through the engine', () => {
     await step('b1')
     // the session agent's first request names no ticket yet; the call it makes names VC-4
     await step('s1')
-    await $.tool.call({ tool: 'mcp__atlassian__getJiraIssue', issueIdOrKey: 'VC-4', agentId: 's1' } as never)
+    await $.tool.call({ tool: 'mcp__atlassian__addCommentToJiraIssue', issueIdOrKey: 'VC-4', agentId: 's1' } as never)
     await step('s1')
-    // the next request's call names VC-3: that request is VC-3's
-    await $.tool.call({ tool: 'mcp__atlassian__getJiraIssue', issueIdOrKey: 'VC-3', agentId: 's1' } as never)
+    // the next request's call works VC-3: that request is VC-3's
+    await $.tool.call({ tool: 'mcp__atlassian__addCommentToJiraIssue', issueIdOrKey: 'VC-3', agentId: 's1' } as never)
     await w.clock.advance(10_000)
     const b = w.stored.get('/repo:board') as Board
     const near = (x: number, y: number) => Math.abs(x - y) < 1e-9
@@ -346,6 +346,24 @@ describe('the cap through the engine: no way round', () => {
     await w.clock.advance(10_000)
     const b = w.stored.get('/repo:board') as Board
     expect(b.tickets['VC-4']!.cost!.usd).toBeGreaterThan(0)
+  })
+
+  test('naming another ticket in a dispatch moves nothing off the ticket the agent works: its first push or Jira write shows it, and all it cost so far moves there', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    const one = (100 * 5 + 900 * 0.5 + 5 * 25) / 1e6
+    const w = world(on, { agents: [{ id: 'g1', type: 'general-purpose', description: 'implement VC-4' }], stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await step($, 'g1')
+    await step($, 'g1')
+    // dispatched for VC-4, but the ticket it comments on is VC-3
+    await $.tool.call({ tool: 'mcp__atlassian__addCommentToJiraIssue', issueIdOrKey: 'VC-3', agentId: 'g1' } as never)
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    const b = w.stored.get('/repo:board') as Board
+    const near = (x: number, y: number) => Math.abs(x - y) < 1e-9
+    expect(b.tickets['VC-4']!.cost?.usd ?? 0).toBeLessThan(1e-12)
+    // VC-3 already held 6, and now carries the agent's three requests
+    expect(near(b.tickets['VC-3']!.cost!.usd, 6 + 3 * one)).toBe(true)
   })
 
   test('a PR opened with no ticket named is held to the branch it opens: --head, or the directory it runs in', { options: { ticketBudgetUsd: 5 }, }, async ($, on) => {

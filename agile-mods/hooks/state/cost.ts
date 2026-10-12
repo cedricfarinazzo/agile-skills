@@ -37,9 +37,6 @@ export const modelOf = (type: string): Model | undefined => AGENT_MODEL[type.spl
 /** The price tier of a model id a request reports (`claude-opus-5-5`); undefined for an id it does not recognise. */
 export const modelOfId = (id: string | undefined): Model | undefined => (/opus/i.test(id ?? '') ? 'opus' : /sonnet/i.test(id ?? '') ? 'sonnet' : /haiku/i.test(id ?? '') ? 'haiku' : undefined)
 
-/** One agent running every phase of several tickets in turn: its ticket is whichever its calls last named. */
-export const isSession = (type: string) => /(^|:)(build|merge)-session$/.test(type)
-
 /** One model request in USD. */
 export function usdOf(u: Usage, model: Model): number {
   const [input, output] = PRICES[model]
@@ -91,24 +88,40 @@ export function withoutCosts(board: Board): Board {
   return { ...board, tickets }
 }
 
-/** The one ticket on the board that a loop agent's description names, when it names exactly one. */
-export function ticketOfText(board: Board, text: string): string | undefined {
-  const keys = new Set([...text.matchAll(new RegExp(TICKET_KEY.source, 'g'))].map(m => m[0]).filter(k => board.tickets[k]))
-  if (keys.size === 1) return [...keys][0]
-  if (keys.size > 1) return undefined
+/** The tickets on the board that a text names, in order: keys it carries, or the PR it names. */
+export function ticketsOfText(board: Board, text: string): string[] {
+  const keys = [...new Set([...text.matchAll(new RegExp(TICKET_KEY.source, 'g'))].map(m => m[0]).filter(k => board.tickets[k]))]
+  if (keys.length) return keys
   const pr = text.match(PR_REF)?.[1]
-  return pr ? board.prs[pr]?.key : undefined
+  const key = pr ? board.prs[pr]?.key : undefined
+  return key ? [key] : []
 }
 
-/** The one ticket a tool call names (a key in its arguments, or the PR a `gh pr` command names). */
-export function ticketOfCall(board: Board, tool: string, args: Record<string, unknown>): string | undefined {
+/** The one ticket on the board that a text names, when it names exactly one. */
+export function ticketOfText(board: Board, text: string): string | undefined {
+  const keys = ticketsOfText(board, text)
+  return keys.length === 1 ? keys[0] : undefined
+}
+
+const JIRA_WRITE = /^mcp__.+__(editJiraIssue|addCommentToJiraIssue|transitionJiraIssue)$/
+const BRANCH_WORK = /\bgit\s+(?:-C\s+\S+\s+)?(?:push|checkout|switch|branch|worktree\s+add)\b|\bgh\s+pr\s+(?:create|edit|merge|ready|checkout)\b/
+
+/**
+ * The one ticket a call that changes something names: a write to its Jira issue, a push, checkout or
+ * branch of its branch, or a `gh pr` create, edit or merge of its PR. A read names a ticket without
+ * working on it, so it shows nothing. What an agent was dispatched for is only a claim; this is what it
+ * is shown to work.
+ */
+export function strongTicket(board: Board, tool: string, args: Record<string, unknown>): string | undefined {
+  if (JIRA_WRITE.test(tool)) {
+    const key = typeof args.issueIdOrKey === 'string' ? args.issueIdOrKey : ''
+    return board.tickets[key] ? key : undefined
+  }
+  if (/^mcp__.+__create_pull_request$/.test(tool)) return ticketOfText(board, typeof args.head === 'string' ? args.head : '')
   const command = tool === 'Bash' && typeof args.command === 'string' ? args.command : ''
-  const text = JSON.stringify(args)
-  const keys = new Set([...text.matchAll(new RegExp(TICKET_KEY.source, 'g'))].map(m => m[0]).filter(k => board.tickets[k]))
-  if (keys.size === 1) return [...keys][0]
-  if (keys.size > 1 || !/^\s*(cd\s+\S+\s*&&\s*)?gh\s+pr\b/.test(command)) return undefined
-  const n = command.match(/\bgh\s+pr\s+\w+\s+(?:-\S+\s+)*#?(\d+)/)?.[1]
-  return n ? board.prs[n]?.key : undefined
+  if (!BRANCH_WORK.test(command)) return undefined
+  const pr = command.match(/\bgh\s+pr\s+(?:merge|edit|ready|checkout)\s+(?:-\S+\s+)*#?(\d+)/)?.[1]
+  return ticketOfText(board, command) ?? (pr ? board.prs[pr]?.key : undefined)
 }
 
 export type Row = { key: string; cost: Cost; lines?: number; elapsed?: number; merged: boolean }

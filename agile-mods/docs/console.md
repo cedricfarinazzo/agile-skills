@@ -62,15 +62,15 @@ The pane docks beside the transcript in a terminal of 110 columns or more, and s
 
 ```mermaid
 flowchart LR
-  R["a model request<br/>of a subagent"] --> P{"phase mode or<br/>session agent?"}
-  P -- "one agent, one ticket" --> D["ticket named in<br/>its dispatch description"]
-  P -- "build-session /<br/>merge-session" --> C["ticket its latest call named<br/>(Jira key, or the PR's ticket)"]
-  D --> T["ticket cost += tokens x price<br/>of the request's model"]
+  R["a model request<br/>of a subagent"] --> W{"has its own work<br/>shown a ticket?"}
+  W -- "yes: a Jira write, a push,<br/>or a PR on that ticket" --> S["that ticket<br/>(all it cost so far moves there)"]
+  W -- "not yet" --> C["the tickets it was<br/>dispatched for<br/>(description, prompt)"]
+  S --> T["ticket cost += tokens x price<br/>of the request's model"]
   C --> T
   M["main session's own requests"] -.-> O["loop overhead =<br/>session spend - tickets"]
 ```
 
-A session agent works its tickets one after another, so the request that makes the call naming the next ticket counts for that ticket. Requests before its first named ticket count as overhead.
+What an agent was told it works is only a claim. Its own calls that change something for a ticket (a Jira comment or transition, a push or checkout of its branch, a PR create or merge) show what it works, and outrank the claim: naming another ticket in a prompt moves no cost off the ticket the work is on, and the first call that contradicts a claim moves everything the agent has cost so far, with a warning on the Guards tab. A session agent working its tickets in turn follows the one each of those calls names; the request that made the call counts for it. Reads name a ticket without working on it, so they show nothing. An agent dispatched for several tickets shares its cost evenly among them until its work shows which. Requests with nothing to attach to count as overhead.
 
 ## Where the data comes from
 

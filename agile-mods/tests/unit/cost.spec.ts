@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Glob } from 'bun'
 import { EMPTY, type Board } from '../../hooks/state/board.ts'
-import { AGENT_MODEL, GAP, PRICES, isSession, median, modelOf, modelOfId, movedCost, rowsOf, summaryOf, ticketOfCall, ticketOfText, usdOf, withCost, withoutCosts } from '../../hooks/state/cost.ts'
+import { AGENT_MODEL, GAP, PRICES, median, modelOf, modelOfId, movedCost, rowsOf, strongTicket, summaryOf, ticketOfText, ticketsOfText, usdOf, withCost, withoutCosts } from '../../hooks/state/cost.ts'
 import { withRun } from '../../hooks/state/flow.ts'
 
 const ROOT = `${import.meta.dir}/../../..`
@@ -29,8 +29,6 @@ describe('request dollars', () => {
     expect(modelOfId('m')).toBeUndefined()
     expect(modelOf('agile-execution:build-implementer')).toBe('opus')
     expect(modelOf('general-purpose')).toBeUndefined()
-    expect(isSession('agile-sprint-drain:build-session')).toBe(true)
-    expect(isSession('agile-execution:build-implementer')).toBe(false)
   })
 
   test('the tables match the agent files and session-audit', async () => {
@@ -75,15 +73,25 @@ describe('ticket cost', () => {
 
 describe('which ticket', () => {
   const b = board()
-  test('a description or a call that names exactly one ticket the board knows', () => {
+  test('a text names the tickets on the board it carries, or the PR it names', () => {
     expect(ticketOfText(b, 'implement VC-1')).toBe('VC-1')
     expect(ticketOfText(b, 'review PR #7')).toBe('VC-2')
     expect(ticketOfText(b, 'build VC-1 and VC-2')).toBeUndefined()
+    expect(ticketsOfText(b, 'build VC-1 and VC-2')).toEqual(['VC-1', 'VC-2'])
     expect(ticketOfText(b, 'UTF-8 OTHER-4')).toBeUndefined()
-    expect(ticketOfCall(b, 'mcp__atlassian__getJiraIssue', { issueIdOrKey: 'VC-2' })).toBe('VC-2')
-    expect(ticketOfCall(b, 'Bash', { command: 'gh pr view 7 --json state' })).toBe('VC-2')
-    expect(ticketOfCall(b, 'Bash', { command: 'git log' })).toBeUndefined()
-    expect(ticketOfCall(b, 'mcp__atlassian__searchJiraIssuesUsingJql', { jql: 'key in (VC-1, VC-2)' })).toBeUndefined()
+  })
+
+  test('only a call that changes something shows what an agent works: a read names a ticket and shows nothing', () => {
+    expect(strongTicket(b, 'mcp__atlassian__addCommentToJiraIssue', { issueIdOrKey: 'VC-2' })).toBe('VC-2')
+    expect(strongTicket(b, 'mcp__atlassian__transitionJiraIssue', { issueIdOrKey: 'VC-9' })).toBeUndefined()
+    expect(strongTicket(b, 'mcp__atlassian__getJiraIssue', { issueIdOrKey: 'VC-2' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'git push origin VC-1-cart' })).toBe('VC-1')
+    expect(strongTicket(b, 'Bash', { command: 'git -C /w checkout -b VC-2-x' })).toBe('VC-2')
+    expect(strongTicket(b, 'Bash', { command: 'gh pr merge 7 --squash' })).toBe('VC-2')
+    expect(strongTicket(b, 'Bash', { command: 'gh pr view 7 --json state' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'git log VC-1' })).toBeUndefined()
+    expect(strongTicket(b, 'Bash', { command: 'git push origin VC-1-a VC-2-b' })).toBeUndefined()
+    expect(strongTicket(b, 'mcp__github__create_pull_request', { head: 'VC-2-x' })).toBe('VC-2')
   })
 })
 
