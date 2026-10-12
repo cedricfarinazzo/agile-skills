@@ -54,7 +54,7 @@ The pane docks beside the transcript in a terminal of 110 columns or more, and s
   - **lines** are the additions and deletions of the merged PR; **$/line** divides the ticket's cost by them.
   - **elapsed** runs from when Jira moved the ticket in progress to the PR's merge; **working** is the time between an agent's requests, with waits over 5 minutes left out, so a CI wait is not counted.
   - **median** and **$/line** at the foot count merged tickets only, so half-built work doesn't pull them down. The **run total** counts everything.
-  - A bar in amber is a ticket costing over twice the merged median.
+  - With a cap set, a bar turns amber at 80% of it and red once the ticket is `capped`; the header shows the cap. Without one, amber marks a ticket costing over twice the merged median.
   - A `⚠` line means the tickets add up to more than the session spent: the price table is above what you pay.
 - **Cache.** The share of prompt tokens read from the prompt cache, per stage. A long CI wait or a changed prompt makes it drop, and every request costs more.
 

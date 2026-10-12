@@ -121,7 +121,16 @@ flowchart LR
   r -.-> a["Allow once<br/>(Guards tab)"] -.-> go
 ```
 
-The cost is the [Cost tab](console.md)'s estimate: the ticket's agents' tokens at their model's price, counted from the start of the run. Its open PR still merges, the other tickets go on, and a drain that is left with only capped tickets ends `STUCK`, naming each with its cost. A call is held to every ticket it names. One that names none is held to the ticket its agent works, or to the branch a `gh pr create` opens, and a call that cannot be tied to any ticket is refused while one is over its cap: name the ticket (its key in the prompt, or a branch that carries it). There is nothing to allow once for that refusal; name the ticket and retry. `agile-10-implement` itself is exempt, because each phase it runs names its ticket. The ticket's work can overshoot by the phase already running, since a guard acts on the next call.
+The cost is the [Cost tab](console.md)'s estimate: the ticket's agents' tokens at their model's price, counted from the start of the run. Its open PR still merges and the other tickets go on. A drain left with only capped tickets ends `STUCK`, naming each with its cost.
+
+Which ticket a call is for:
+
+- **Named in the call:** a call is held to every ticket it names, so naming several is refused if any is over.
+- **Its agent's:** the ticket its agent works counts beside the named ones. Naming another ticket as well is no way round.
+- **Its branch:** a `gh pr create` or PR API call is held to the branch it opens (`--head`, `head=`, or the one checked out where it runs).
+- **None:** a call that can be tied to no ticket is refused while one is over its cap. Name the ticket (its key in the prompt, or a branch that carries it) and retry; there is nothing to allow once for that refusal. `agile-10-implement` itself is exempt, because each phase it runs names its ticket.
+
+The ticket's work can overshoot by the phase already running, since a guard acts on the next call.
 
 ## Bypass
 
@@ -184,7 +193,6 @@ agile-mods: pin the reviewed head: gh pr merge 42 --squash --match-head-commit <
 agile-mods: PR #42: 3 fix rounds already pushed after a review (onto 1a2b3c4, 5d6e7f8, 9a0b1c2). …
 agile-mods: the loop never pushes to main: work lands through a PR and gh pr merge.
 agile-mods: ticket budget: SHOP-15 cost an estimated $10.20 of its $10.00 cap (agile-mods ticketBudgetUsd). …
-agile-mods: budget: the loop spent $20.40 of its $20.00 budget (agile-mods budgetUsd). …
 agile-mods: pr-reviewer reviews and never edits files: report the finding instead.
 ```
 

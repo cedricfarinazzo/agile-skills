@@ -177,7 +177,7 @@ Each guard mirrors a rule written in a skill or in `CLAUDE.md`. If you change on
 - the 3f `gh pr merge --match-head-commit` command;
 - the fix-round cap, or what counts as a round;
 - the push form in the `agile-10-implement` and `agile-11-merge-train` Rules;
-- what BUDGET stops.
+- what the ticket cap stops (a capped ticket reported `blocked (BUDGET)`).
 
 Where each lives in the code:
 
@@ -260,7 +260,7 @@ Nothing goes to any host but GitHub (through your `gh` login) and Atlassian (thr
 | `gh run list --commit <sha> --json …` | Merge gate: CI on the head | At a merge |
 | `gh api repos/{owner}/{repo}/compare/<sha>...<head>` | Merge gate: changed files and ancestry, when local git cannot say | At a merge, as a fallback |
 | `gh pr list --head <branch> --state open --json number,headRefOid,baseRefName` | Fix-round cap: the PR a push sends to | Before a push in a loop |
-| `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard and cap: the branch a bare push sends | Before such a push |
+| `git -C <dir> rev-parse --abbrev-ref HEAD` | Push guard and cap: the branch a bare push sends; ticket cap: the branch a PR is opened from, when the call names none | Before such a push or PR |
 | `git -C <dir> rev-parse --abbrev-ref --symbolic-full-name @{push}` | Cap: where a bare push goes | Before such a push |
 | `git -C <dir> rev-list --no-merges <head>..<ref> ^origin/<base>` | Cap: is the push only an update | Before a push to an open PR's branch |
 | `git -C <dir> rev-parse --verify --quiet <sha>^{commit}` | Review: the full sha of a short one | After such a read |
