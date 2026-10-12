@@ -333,7 +333,7 @@ describe('refusals', () => {
 
 describe('guards tab', () => {
   const offer = { rule: '3f' as const, pr: 42, head: SHA }
-  const guard = { modes: 'grants enforce · mergeReview warn', notes: ['CLAUDE.md: repo guardGrants: off is looser than enforce; a repo can only tighten, ignored'], allowances: [], bypass: true }
+  const guard = { modes: 'grants enforce · mergeReview warn', limits: 'fixRounds 3 · ticket cap $5 (enforce) · bypass on', notes: ['CLAUDE.md: repo guardGrants: off is looser than enforce; a repo can only tighten, ignored'], allowances: [], bypass: true }
 
   test('modes, notes, kinds, and an allow button numbered as /agile-board allow takes it', () => {
     const refusals = [
@@ -344,7 +344,8 @@ describe('guards tab', () => {
     const rows = consoleRows('guards', EMPTY, ctx({ refusals, guard }), 120)
     const text = plain(rows.filter(r => r.kind !== 'allow'))
     expect(text).toContain('1 refused  1 warned  1 bypassed')
-    expect(text).toContain('modes  grants enforce · mergeReview warn')
+    expect(text).toContain('modes   grants enforce · mergeReview warn')
+    expect(text).toContain('limits  fixRounds 3 · ticket cap $5 (enforce) · bypass on')
     expect(text).toContain('a repo can only tighten')
     expect(text).not.toContain('A person can allow')
     // the button carries the refusal's id, so a later refusal cannot change what it allows

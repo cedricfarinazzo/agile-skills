@@ -123,8 +123,15 @@ export function tightened(config: GuardConfig, repo: Record<string, string>): { 
   return { config: { modes, fixRounds, allowBypass, ticketBudgetUsd }, notes }
 }
 
-/** One line for the Guards tab header: every gate's mode, the fix cap, the ticket cap and the bypass. */
+/** The Guards tab's first header line: `all enforce`, or each gate that is not. */
 export function modesLine(config: GuardConfig): string {
-  const modes = GATES.map(g => `${OPTION[g].replace(/^guard/, '').replace(/^./, c => c.toLowerCase())} ${config.modes[g]}`).join(' · ')
-  return `${modes} · fixRounds ${config.fixRounds || 'off'} · ticket cap ${config.ticketBudgetUsd ? `$${config.ticketBudgetUsd}` : 'off'} · bypass ${config.allowBypass ? 'on' : 'off'}`
+  const gates = GATES.filter(g => g !== 'ticketBudget')
+  const off = gates.filter(g => config.modes[g] !== 'enforce').map(g => `${OPTION[g].replace(/^guard/, '').replace(/^./, c => c.toLowerCase())} ${config.modes[g]}`)
+  return off.length ? off.join(' · ') + (off.length < gates.length ? ' · the rest enforce' : '') : 'all enforce'
+}
+
+/** Its second: the fix-round cap, the ticket cap with its mode, and the bypass. */
+export function limitsLine(config: GuardConfig): string {
+  const cap = config.ticketBudgetUsd ? `$${config.ticketBudgetUsd} (${config.modes.ticketBudget})` : 'off'
+  return `fixRounds ${config.fixRounds || 'off'} · ticket cap ${cap} · bypass ${config.allowBypass ? 'on' : 'off'}`
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { covers, END, howRead, parseReads, planChunks, readsOf, withReads, type Change } from '../../hooks/state/review.ts'
-import { configOf, modesLine, repoConfigOf, tightened } from '../../hooks/state/config.ts'
+import { configOf, limitsLine, modesLine, repoConfigOf, tightened } from '../../hooks/state/config.ts'
 import { allow, ticketBudgetOpen, openOf, take3f, takeFix, BYPASS_MS } from '../../hooks/state/bypass.ts'
 import { guardedCall } from '../../hooks/guards.ts'
 import { sideDoorDenial, prHeadOf, ticketBudgetDenial, type TicketCapInput, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeProblems, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
@@ -434,7 +434,11 @@ describe('guard config', () => {
     expect(notes.join('\n')).toMatch(/guardPush.*enforce, warn/)
     expect(notes.length).toBe(4)
     expect(notes.join('\n')).toMatch(/budgetUsd was removed/)
-    expect(modesLine(config)).toContain('mergeReview warn')
+    expect(modesLine(config)).toBe('mergeReview warn · the rest enforce')
+    expect(modesLine(configOf({}).config)).toBe('all enforce')
+    expect(modesLine(config)).not.toContain('ticketBudget')
+    expect(limitsLine(config)).toBe('fixRounds 5 · ticket cap off · bypass on')
+    expect(limitsLine(configOf({ ticketBudgetUsd: 8, guardTicketBudget: 'warn' }).config)).toBe('fixRounds 3 · ticket cap $8 (warn) · bypass on')
   })
 
   test('a repo only tightens', () => {

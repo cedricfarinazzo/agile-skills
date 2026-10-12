@@ -4,7 +4,7 @@ import { EMPTY, POINTS_FIELD, TICKET_KEY, applyJira, dispatchText, markerTargets
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, offersOf, rasterCells, statusText, tabOf, type Coverage, type Ctx, type Row, type Tab } from './state/console.ts'
 import { isBuildWork, keepRefusal, prHeadOf, ruleOf, ticketBudgetDenial, type Refusal } from './state/guards.ts'
 import { offerText, ticketBudgetOpen, type Offer } from './state/bypass.ts'
-import { configOf, modesLine, repoConfigOf, tightened, type GuardConfig } from './state/config.ts'
+import { configOf, limitsLine, modesLine, repoConfigOf, tightened, type GuardConfig } from './state/config.ts'
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
 import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { liveOf } from './state/phase.ts'
@@ -688,7 +688,7 @@ export const register: Register = (on, options) => {
     const agents = tab === 'drain' || tab === 'flow' || tab === 'cost' || tab === 'wip' ? await $.agent.list().catch(() => []) : []
     const lanes = tab === 'drain' ? laneOf(agents, agentStats, now) : undefined
     const live = tab === 'flow' || tab === 'cost' || tab === 'wip' ? liveOf(agents, board) : undefined
-    const guard = tab === 'guards' ? { modes: modesLine(config), notes: configNotes, allowances: allowancesNow(), bypass: config.allowBypass, coverage: await coverageNow($, now) } : undefined
+    const guard = tab === 'guards' ? { modes: modesLine(config), limits: limitsLine(config), notes: configNotes, allowances: allowancesNow(), bypass: config.allowBypass, coverage: await coverageNow($, now) } : undefined
     const ctx: Ctx = { now, usd: usage?.cost?.usd, refusals, allowed, receipts: receiptsNow(), lanes, cap, ...(live && { live }), ...(guard && { guard }) }
     const w = Math.max(30, e.props.bodyColumns - 2)
     return (

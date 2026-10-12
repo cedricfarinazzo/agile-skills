@@ -64,8 +64,8 @@ export type Ctx = {
   live?: Record<string, Phase>
   /** The `ticketBudgetUsd` option; 0 or absent is no cap. */
   cap?: number
-  /** For the Guards tab: each gate's mode, setting notes, open bypasses, and review coverage. */
-  guard?: { modes: string; notes: string[]; allowances: Allowance[]; bypass: boolean; coverage?: Coverage }
+  /** For the Guards tab: each gate's mode, the caps and bypass setting, setting notes, open bypasses, and review coverage. */
+  guard?: { modes: string; limits: string; notes: string[]; allowances: Allowance[]; bypass: boolean; coverage?: Coverage }
 }
 
 const rep = (ch: string, n: number) => ch.repeat(Math.max(0, Math.round(n)))
@@ -471,7 +471,8 @@ function guardRows(ctx: Ctx, w: number): Row[] {
     spread(text(['GUARDS', 'b'], ['  this session', 'd']), text([String(refused), refused ? 'r b' : 'g b'], [' refused  ', 'd'], [String(warned), warned ? 'y b' : 'd'], [' warned  ', 'd'], [String(bypassed), bypassed ? 'm b' : 'd'], [' bypassed  ', 'd'], [String(ctx.allowed), 'g b'], [' allowed', 'd']), w),
   ]
   if (ctx.guard) {
-    rows.push(line(['modes  ', 'd'], ctx.guard.modes))
+    rows.push(line(['modes   ', 'd'], ctx.guard.modes))
+    rows.push(line(['limits  ', 'd'], ctx.guard.limits))
     for (const n of ctx.guard.notes) rows.push(line(['⚠ ', 'y'], [n, 'y']))
     for (const a of ctx.guard.allowances) rows.push(line(['➜ ', 'm'], ['allowed: ', 'd'], offerText(a), [a.until ? `  ${Math.max(0, Math.round((a.until - ctx.now) / 60_000))} min left` : '  until its ticket ends', 'd']))
   }
