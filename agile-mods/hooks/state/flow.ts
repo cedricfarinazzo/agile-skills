@@ -102,6 +102,7 @@ export function span(ms: number): string {
 const whereOf = (t: Ticket, live: Phase | undefined, now: number) => {
   if (!t.phase && !live) return t.status ?? 'in progress'
   const p = phaseOf(t, live, now)
+  if (p.now === 'unknown') return `${p.done}?`
   return p.now === 'done' || p.now === 'queued' ? (t.status ?? 'in progress') : `${p.now}${p.stale ? '?' : ''}`
 }
 

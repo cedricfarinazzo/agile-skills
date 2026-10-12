@@ -32,6 +32,8 @@ export type Ticket = {
   named?: boolean
   /** When its comments were last read for markers. */
   markedAt?: number
+  /** When the latest marker comment was posted (its Jira `created`), not when it was read. */
+  markAt?: number
   /** When it entered its status category (Jira `statuscategorychangedate`): the start of its age in progress. */
   since?: number
 }
@@ -326,6 +328,9 @@ export function applyJira(prior: Board, answer: unknown, field: string, now: num
     const status = f.status as { name?: unknown; statusCategory?: { key?: unknown } } | undefined
     const labels = Array.isArray(f.labels) ? f.labels.map(str) : []
     const phases = f.comment === undefined ? undefined : [...JSON.stringify(f.comment).matchAll(PHASE)].map(m => m[1]!)
+    // the time of the latest comment that carries a marker, from the comment itself
+    const comments = Array.isArray((f.comment as { comments?: unknown } | undefined)?.comments) ? ((f.comment as { comments: Record<string, unknown>[] }).comments) : []
+    const markAt = comments.filter(c => new RegExp(PHASE.source).test(JSON.stringify(c))).map(c => time(c.created ?? c.updated)).filter((t): t is number => t !== undefined).at(-1)
     const points = f[field]
     const site = str(issue.webUrl).match(/^(https:\/\/[^/]+)\/browse\//)?.[1]
     if (site && !board.site) board = { ...board, site }
@@ -339,7 +344,7 @@ export function applyJira(prior: Board, answer: unknown, field: string, now: num
         category: str(status.statusCategory?.key),
         parked: parked ? 'needs-info' as const : undefined,
       }),
-      ...(phases && { phase: phases.at(-1), reworks: phases.filter(p => p === 'rework').length, marks: [...new Set(phases)], markedAt: now }),
+      ...(phases && { phase: phases.at(-1), reworks: phases.filter(p => p === 'rework').length, marks: [...new Set(phases)], markedAt: now, markAt }),
       ...(review !== undefined && { review: review ?? undefined }),
       ...(typeof points === 'number' && { points }),
       ...(since !== undefined && { since }),

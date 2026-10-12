@@ -43,7 +43,7 @@ The pane docks beside the transcript in a terminal of 110 columns or more, and s
 
 - **Burnup.** Work done (cyan) under total scope (grey). A ticket added mid-sprint raises the scope instead of hiding in a flat line. Story points once every ticket has them, ticket counts until then.
 - **Forecast.** 1000 simulated futures drawn from the repo's last 30 days of merges. "85% by Tue" means 85% of them finished by Tuesday. It waits for 10 days of merges and assumes the next weeks look like the last month.
-- **Build phase.** The dot being drawn `◐` is the step running now, bold when an agent is on it and plain when it is only the step after the last Jira marker. Finished steps are `●`. After `review` a ticket reads `handoff`, then `monitor`. A `?` after the name means only an old marker says so. The rules are in the [reference](reference.md#the-board).
+- **Build phase.** The dot being drawn `◐` is the step running now, bold when an agent is on it and plain when it is only the step after the last Jira marker. Finished steps are `●`. After `review` a ticket reads `handoff`, then `monitor`. A `?` after the name means only a marker posted over 10 minutes ago says so, or the marker is one this version does not know. The rules are in the [reference](reference.md#the-board).
 - **Aging.** A PR past the repo's 85th percentile of time open goes to the alert row.
 - **Overlap.** Two open PRs on the same file: merge the disjoint ones first, since the second of the pair will need a rebase.
 - **Cost.** Each drain pass shows what that pass spent. `$/h` and `$/PR` count from the start of the run, which only a new session or `/agile-board reset` restarts.

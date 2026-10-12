@@ -207,7 +207,7 @@ Where each lives in the code:
 | A running agent whose description names the ticket (or its PR): `ticket-validator`, `ticket-planner`, `build-implementer`, `pr-publisher`, `self-reviewer` or `review-lens`, `build-monitor` | `validate`, `plan`, `implement`, `pr`, `review`, `monitor` |
 | No agent: the step after the latest marker | `validate` → `plan` → `implement` → `pr` → `review` → `handoff` → `monitor` |
 
-Two cases change the next step: an `implement` marker after a `pr` marker is a fix pass, so `review` comes next, and a `review` marker with the `dev-review-changes-requested` label sends the ticket back to `implement`. A `session` agent runs every phase, so its tickets use the marker rule. A phase read from a marker alone that is more than 10 minutes old carries a `?`.
+Two cases change the next step: an `implement` marker after a `pr` marker is a fix pass, so `review` comes next, and a `review` marker with the `dev-review-changes-requested` label sends the ticket back to `implement`. A `session` agent runs every phase, so its tickets use the marker rule. A phase read from a marker alone carries a `?` once the marker comment was posted (its Jira `created` time, not the last poll) more than 10 minutes ago. A marker this version does not know shows as `<marker>?` with no dot running.
 
 The projects come from the ticket keys the loop names. The points field is `story-points-field` from the repo's `AGENTS.md` or `CLAUDE.md`, defaulting to `customfield_10016`.
 

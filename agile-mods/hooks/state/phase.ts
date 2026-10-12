@@ -56,8 +56,8 @@ function after(t: Pick<Ticket, 'marks' | 'review'>, last: string): Phase | 'done
 }
 
 export type PhaseNow = {
-  /** The phase running or next; `done` once merged, `queued` for a ticket not started: no marker and not in progress. */
-  now: Phase | 'done' | 'queued'
+  /** The phase running or next; `done` once merged, `queued` for a ticket not started (no marker, not in progress), `unknown` for a marker this version does not know. */
+  now: Phase | 'done' | 'queued' | 'unknown'
   /** The marker just finished, when one was posted. */
   done?: string
   /** `agent`: an engine-listed agent is on it. `marker`: the step after the last marker. */
@@ -71,9 +71,11 @@ export function phaseOf(t: Ticket, live: Phase | undefined, now: number): PhaseN
   if (live) return { now: live, ...(done && { done }), source: 'agent', stale: false }
   if (!done && t.category !== undefined && t.category !== 'indeterminate') return { now: 'queued', source: 'marker', stale: false }
   const next = done ? after(t, done) : 'validate'
-  const stale = t.markedAt !== undefined && now - t.markedAt > STALE_MS && next !== 'done'
-  return { now: next ?? (done as Phase), ...(done && { done }), source: 'marker', stale }
+  if (done && next === undefined) return { now: 'unknown', done, source: 'marker', stale: false }
+  // the age of the marker comment, not of the last poll that read it
+  const stale = t.markAt !== undefined && now - t.markAt > STALE_MS && next !== 'done'
+  return { now: next!, ...(done && { done }), source: 'marker', stale }
 }
 
-/** How many of the five build dots are finished: the dot at this index is running, five is all done, -1 none started. */
-export const dotsDone = (p: PhaseNow): number => (p.now === 'queued' ? -1 : p.now === 'done' || p.now === 'handoff' || p.now === 'monitor' ? BUILD_PHASES.length : Math.max(0, BUILD_PHASES.indexOf(p.now as (typeof BUILD_PHASES)[number])))
+/** How many of the five build dots are finished: the dot at this index is running, five is all done, -1 none started or unknown. */
+export const dotsDone = (p: PhaseNow): number => (p.now === 'queued' || p.now === 'unknown' ? -1 : p.now === 'done' || p.now === 'handoff' || p.now === 'monitor' ? BUILD_PHASES.length : Math.max(0, BUILD_PHASES.indexOf(p.now as (typeof BUILD_PHASES)[number])))

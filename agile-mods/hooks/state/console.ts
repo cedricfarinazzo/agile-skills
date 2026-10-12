@@ -274,7 +274,7 @@ function flowRows(board: Board, ctx: Ctx): Row[] {
     const p = phaseOf(t, ctx.live?.[key], ctx.now)
     const at = dotsDone(p)
     const dots = BUILD_PHASES.map((_, i) => (t.parked ? seg('○', 'd') : i < at ? seg('●', 'g') : i === at ? seg('◐', p.source === 'agent' ? 'y b' : 'y') : seg('○', 'd')))
-    const label = t.parked ? 'needs info' : p.now === 'done' ? 'done' : p.now === 'queued' ? (t.status ?? 'queued') : `${p.now}${p.stale ? '?' : ''}`
+    const label = t.parked ? 'needs info' : p.now === 'done' ? 'done' : p.now === 'queued' ? (t.status ?? 'queued') : p.now === 'unknown' ? `${p.done}?` : `${p.now}${p.stale ? '?' : ''}`
     rows.push({ kind: 'line', segs: [seg(key.padEnd(10), t.parked ? 'y' : 'b'), ...dots, seg(`  ${label.padEnd(11)}`, t.parked ? 'y' : 'd'), seg(t.pr ? `PR #${t.pr}` : '', 'd')] })
   }
   if (open.length > MAX_BUILD_ROWS) rows.push(line([`… ${open.length - MAX_BUILD_ROWS} earlier`, 'd']))

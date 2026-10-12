@@ -19,6 +19,12 @@ describe('phaseOf', () => {
     expect(next('post_merge')).toBe('done')
   })
 
+  test('a marker this version does not know is shown as it is, with no dot running', () => {
+    const p = phaseOf(t({ phase: 'archive', category: 'indeterminate', markedAt: NOW }), undefined, NOW)
+    expect(p).toMatchObject({ now: 'unknown', done: 'archive' })
+    expect(dotsDone(p)).toBe(-1)
+  })
+
   test('a ticket not started has no phase yet', () => {
     const p = phaseOf(t({ category: 'new' }), undefined, NOW)
     expect(p.now).toBe('queued')
@@ -33,10 +39,14 @@ describe('phaseOf', () => {
   })
 
   test('a running agent outranks the marker; an old marker with no agent is marked stale', () => {
-    const p = phaseOf(t({ phase: 'plan', markedAt: NOW - 2 * STALE_MS }), 'implement', NOW)
+    const p = phaseOf(t({ phase: 'plan', markAt: NOW - 2 * STALE_MS }), 'implement', NOW)
     expect(p).toMatchObject({ now: 'implement', done: 'plan', source: 'agent', stale: false })
-    expect(phaseOf(t({ phase: 'plan', markedAt: NOW - 2 * STALE_MS }), undefined, NOW).stale).toBe(true)
-    expect(phaseOf(t({ phase: 'plan', markedAt: NOW - 1000 }), undefined, NOW).stale).toBe(false)
+    expect(phaseOf(t({ phase: 'plan', markAt: NOW - 2 * STALE_MS }), undefined, NOW).stale).toBe(true)
+    expect(phaseOf(t({ phase: 'plan', markAt: NOW - 1000 }), undefined, NOW).stale).toBe(false)
+    // read just now, posted long ago: the comment's own age counts, not the poll's
+    expect(phaseOf(t({ phase: 'plan', markedAt: NOW, markAt: NOW - 2 * STALE_MS }), undefined, NOW).stale).toBe(true)
+    // no comment time known: not flagged
+    expect(phaseOf(t({ phase: 'plan', markedAt: NOW - 5 * STALE_MS }), undefined, NOW).stale).toBe(false)
   })
 
   test('dots: the running phase is the first unfinished one', () => {
@@ -71,6 +81,9 @@ describe('markers and the review label', () => {
     fields: { status: { name: 'In Progress', statusCategory: { key: 'indeterminate' } }, ...(labels && { labels }), comment: { comments: phases.map(p => ({ body: `🤖 <!-- agile:phase=${p} --> x` })) } },
   })
   test('marks are kept once each; the review label is read when labels are, and cleared when they carry none', () => {
+    // the marker's own time is the comment's `created`
+    const dated = { key: 'VC-1', fields: { status: { name: 'In Progress', statusCategory: { key: 'indeterminate' } }, comment: { comments: [{ created: '2026-10-12T10:00:00.000+0000', body: 'noted' }, { created: '2026-10-12T11:00:00.000+0000', body: '🤖 <!-- agile:phase=plan --> x' }] } } }
+    expect(applyJira(EMPTY, { issues: [dated] }, FIELD, 5).tickets['VC-1']).toMatchObject({ phase: 'plan', markedAt: 5, markAt: Date.parse('2026-10-12T11:00:00.000+0000') })
     let b = applyJira(EMPTY, { issues: [issue(['dev-review-changes-requested'], ['plan', 'pr', 'review', 'implement', 'review'])] }, FIELD, 1)
     expect(b.tickets['VC-1']).toMatchObject({ phase: 'review', marks: ['plan', 'pr', 'review', 'implement'], review: 'changes' })
     // a comment-only search has no labels: the verdict stays
