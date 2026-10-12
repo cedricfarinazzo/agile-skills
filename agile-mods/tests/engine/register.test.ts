@@ -413,6 +413,23 @@ describe('the cap through the engine: no way round', () => {
   })
 })
 
+describe('drain passes through the engine', () => {
+  test('under dispatch=session the dispatches of the sessions are the passes the Drain tab shows', async ($, on) => {
+    const w = world(on, { agents: [{ id: 's1', type: 'agile-sprint-drain:build-session', description: 'build VC-1' }] })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-sprint-drain' } as never)
+    await $.tool.call({ tool: 'Agent', subagent_type: 'agile-sprint-drain:build-session', description: 'build VC-1' } as never)
+    await $.tool.call({ tool: 'Agent', subagent_type: 'agile-sprint-drain:merge-session', description: 'merge' } as never)
+    await $.tool.call({ tool: 'Agent', subagent_type: 'agile-sprint-drain:build-session', description: 'build VC-2' } as never)
+    await w.clock.advance(10_000)
+    const b = w.stored.get('/repo:board') as Board
+    expect(b.drain).toMatchObject({ pass: 2, outcome: 'running' })
+    expect(b.passes).toHaveLength(2)
+    expect(b.passes![0]!.merge).toBeDefined()
+    expect(b.passes![0]!.end).toBeDefined()
+  })
+})
+
 describe('refresh through the engine', () => {
   test('the loop\'s own calls refresh the board 3 s later, at most every 10 s, and the timer waits 5 minutes', async ($, on) => {
     const w = world(on, { gh: { 'gh pr list': { stdout: '[]' }, 'gh run list --limit': { stdout: '[]' } } })

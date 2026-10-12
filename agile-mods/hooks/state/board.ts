@@ -68,8 +68,12 @@ export type Run = { id?: number; workflow: string; status: string; conclusion?: 
 /** Prompt tokens as the API counts them: uncached input, cache reads, cache writes, and output. */
 export type Tokens = { input: number; read: number; write: number; output: number }
 
-/** `cost0` and `cost1` are the session's cost in USD when the pass started and ended; `tokens` its model requests by stage. */
-export type Pass = { start: number; merge?: number; end?: number; cost0?: number; cost1?: number; tokens?: Partial<Record<Stage, Tokens>> }
+/**
+ * `cost0` and `cost1` are the session's cost in USD when the pass started and ended; `tokens` its model
+ * requests by stage; `armed` a pass a `build-session` dispatch opened, which its own `agile-10-implement`
+ * call must not open again.
+ */
+export type Pass = { start: number; merge?: number; end?: number; cost0?: number; cost1?: number; tokens?: Partial<Record<Stage, Tokens>>; armed?: boolean }
 
 /** When a source last answered, and its error when the last try failed. */
 export type Sync = { at?: number; error?: string }
@@ -190,6 +194,8 @@ const onOrchestrator = (board: Board, skill: string, now: number): Board => {
   }
   if (skill.endsWith('agile-10-implement')) {
     if (!draining) return { ...board, since, loop: 'implement', stage: 'build' }
+    // the run a `build-session` dispatch already counted as this pass
+    if (currentPass(board)?.armed) return { ...withPass(board, () => ({ armed: false })), loop: 'drain', stage: 'build' }
     const closed = withPass(board, () => ({ end: now }))
     return {
       ...closed,
@@ -207,6 +213,24 @@ const onOrchestrator = (board: Board, skill: string, now: number): Board => {
 }
 
 /**
+ * A session dispatch of a drain (`dispatch=session`) is the pass: the main loop dispatches
+ * `build-session` and `merge-session`, and whether their own `agile-10-implement` and
+ * `agile-11-merge-train` calls reach the hooks is not relied on. A build session joins the pass still
+ * waiting to merge, or opens the next one; a merge session is the pass's merge.
+ */
+const onDispatch = (board: Board, type: string, now: number): Board => {
+  if (board.drain?.outcome !== 'running') return board
+  if (/(^|:)build-session$/.test(type)) {
+    const cur = currentPass(board)
+    if (cur && cur.merge === undefined) return { ...withPass(board, () => ({ armed: true })), loop: 'drain', stage: 'build' }
+    const closed = withPass(board, () => ({ end: now }))
+    return { ...closed, loop: 'drain', stage: 'build', drain: { ...board.drain, pass: board.drain.pass + 1 }, passes: [...(closed.passes ?? []), { start: now, armed: true }] }
+  }
+  if (/(^|:)merge-session$/.test(type)) return withPass({ ...board, loop: 'drain', stage: 'merge' }, p => (p.merge ? {} : { merge: now }))
+  return board
+}
+
+/**
  * Folds the start of a tool call: the orchestrator or merge-train step it dispatches, and a merge
  * command. These are facts about the call, not about how it went.
  */
@@ -215,7 +239,7 @@ export function observeStart(prior: Board, tool: string, args: Record<string, un
   const board = prior.drain?.outcome === 'STUCK' ? { ...prior, drain: { ...prior.drain, outcome: 'running' as const } } : prior
   if (tool === 'Skill' || tool === 'Agent') {
     const name = tool === 'Skill' ? str(args.skill) : str(args.subagent_type)
-    const next = tool === 'Skill' ? onOrchestrator(board, name, now) : board
+    const next = tool === 'Skill' ? onOrchestrator(board, name, now) : tool === 'Agent' ? onDispatch(board, name, now) : board
     const step = stepOf(name)
     const pr = Number(dispatchText(args).match(PR_REF)?.[1])
     if (!step || !pr) return next
