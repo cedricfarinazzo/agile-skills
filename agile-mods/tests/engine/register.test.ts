@@ -337,6 +337,27 @@ describe('the cap through the engine: no way round', () => {
     expect(r).toContain('ticket budget: VC-3')
   })
 
+  test('an agent whose description names no ticket takes the one the dispatch prompt named', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
+    const w = world(on, { agents: [{ id: 'g1', type: 'general-purpose', description: 'do the work' }], stored: { '/repo:board': capped } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    await $.tool.call({ tool: 'Agent', subagent_type: 'general-purpose', description: 'do the work', prompt: 'Implement VC-4 as planned.' } as never)
+    await step($, 'g1')
+    await w.clock.advance(10_000)
+    const b = w.stored.get('/repo:board') as Board
+    expect(b.tickets['VC-4']!.cost!.usd).toBeGreaterThan(0)
+  })
+
+  test('a PR opened with no ticket named is held to the branch it opens: --head, or the directory it runs in', { options: { ticketBudgetUsd: 5 }, }, async ($, on) => {
+    world(on, { stored: { '/repo:board': capped }, gh: { 'git -C /other rev-parse --abbrev-ref HEAD': { stdout: 'VC-3-cart\n' }, 'git -C /repo rev-parse --abbrev-ref HEAD': { stdout: 'VC-4-x\n' } } })
+    await start($)
+    await $.tool.call({ tool: 'Skill', skill: 'agile-10-implement' } as never)
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill --head VC-3-cart' } as never))).toContain('ticket budget: VC-3')
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'cd /other && gh pr create --fill' } as never))).toContain('ticket budget: VC-3')
+    // the session's own branch is VC-4's, which is under its cap
+    expect(said(await $.tool.call({ tool: 'Bash', command: 'gh pr create --fill' } as never))).toBe('ok')
+  })
+
   test('a subagent that is not one of the loop\'s own still counts against the ticket it names, priced at the dearest tier when its model is unknown', { options: { ticketBudgetUsd: 5 } }, async ($, on) => {
     const w = world(on, { agents: [{ id: 'g1', type: 'general-purpose', description: 'build VC-4' }], stored: { '/repo:board': capped } })
     await start($)

@@ -65,7 +65,7 @@ const openBypasses = () => (config.allowBypass ? allowances : [])
 export const guardConfig = () => config
 
 /** The branch checked out where a push runs: its `git -C <dir>` or leading `cd <dir> &&`, else the session's. */
-async function branchOf(host: Host, command: string): Promise<string | undefined> {
+export async function branchOf(host: Host, command: string): Promise<string | undefined> {
   const dir = command.match(/\bgit\s+-C\s+("[^"]+"|'[^']+'|\S+)/)?.[1] ?? command.match(/^\s*cd\s+("[^"]+"|'[^']+'|\S+)\s*&&/)?.[1]
   return host.branch(dir?.replace(/^["']|["']$/g, '') ?? cwd ?? '.')
 }

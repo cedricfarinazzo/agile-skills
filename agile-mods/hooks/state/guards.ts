@@ -707,6 +707,18 @@ export function ticketBudgetDenial(c: TicketCapInput, tool: string, args: Record
   return undefined
 }
 
+/**
+ * The branch a PR-opening call names: `gh pr create --head <branch>` (an `owner:` prefix dropped), a
+ * `gh api` field `head=<branch>`, or an MCP `create_pull_request`'s `head`. Undefined when it names
+ * none, and the checked-out branch is the one it opens.
+ */
+export function prHeadOf(tool: string, args: Record<string, unknown>): string | undefined {
+  const clean = (b: string | undefined) => b?.replace(/^["']|["']$/g, '').replace(/^[^:\s]+:/, '') || undefined
+  if (mcpName(tool) === 'create_pull_request') return clean(typeof args.head === 'string' ? args.head : undefined)
+  const command = str(args.command)
+  return clean(command.match(/(?:--head|-H)[ =]+("[^"]+"|'[^']+'|\S+)/)?.[1] ?? command.match(/\bhead=("[^"]+"|'[^']+'|[^\s&|;]+)/)?.[1])
+}
+
 /** A call a guard refused, warned about, or let through on a person's bypass, kept for the console's Guards tab. */
 export type Refusal = {
   /** A number no other refusal of the session has: what the Allow once button and /agile-board allow name. */

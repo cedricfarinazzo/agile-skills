@@ -60,7 +60,7 @@ Don't reopen these without the maintainer.
 - Refusals carry ids that are never reused, and the button and the command name that id, never a position in the list.
 - A merge bypass covers one PR at one head, for 30 minutes, and never waives the pin: the merge must pin the allowed head. No head known means no offer.
 - A fix bypass is one round, for 30 minutes.
-- The ticket cap holds every build call to the tickets it names; the ticket its agent works counts beside them, so naming a decoy gets nothing; one naming none is held to the branch's, and is refused when it can be tied to no ticket while any is over. Never let "names no ticket" mean "not held": that is how a model gets past it.
+- The ticket cap holds every build call to the tickets it names; the ticket its agent works counts beside them, so naming a decoy gets nothing; one opening a PR is held to the branch it opens (`--head`, `head=`, else the checked-out branch where it runs), and is refused when it can be tied to no ticket while any is over. Never let "names no ticket" mean "not held": that is how a model gets past it.
 - A ticket-cap bypass covers calls naming that one ticket until it is done, parked or merged. There is no run-wide budget, so no ticketless bypass.
 - `allowBypass: false` ignores stored bypasses.
 - Every refusal that offers a bypass ends by telling the loop to report blocked and wait, never to hand the command to the person.

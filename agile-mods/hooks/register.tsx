@@ -2,7 +2,7 @@
 import type { EngineInterface, ProcessRunResult, Register, RenderNode } from 'claude-code'
 import { EMPTY, POINTS_FIELD, TICKET_KEY, applyJira, dispatchText, markerTargets, pruned, nextPageOf, applyPrs, applyRuns, cloudIdOf, jqlOf, judged, issuesOf, keysOf, loadBoard, observeStart, parkedOf, pointsFieldOf, sampled, stallsOf, stampCosts, withKeys, type Board } from './state/board.ts'
 import { TABS, alertRow, chartCells, chartGlyphs, consoleRows, offersOf, rasterCells, statusText, tabOf, type Coverage, type Ctx, type Row, type Tab } from './state/console.ts'
-import { keepRefusal, ruleOf, ticketBudgetDenial, type Refusal } from './state/guards.ts'
+import { isBuildWork, keepRefusal, prHeadOf, ruleOf, ticketBudgetDenial, type Refusal } from './state/guards.ts'
 import { offerText, ticketBudgetOpen, type Offer } from './state/bypass.ts'
 import { configOf, modesLine, repoConfigOf, tightened, type GuardConfig } from './state/config.ts'
 import { filesTargets, withFiles, withRun, withSpend, withTokens, withoutLedger } from './state/flow.ts'
@@ -10,7 +10,7 @@ import { laneOf, noteCall, noteTokens, type Stats } from './state/agents.ts'
 import { liveOf } from './state/phase.ts'
 import { isSession, modelOf, modelOfId, movedCost, ticketOfCall, ticketOfText, usdOf, withCost } from './state/cost.ts'
 import { EMPTY_RETRO, loadRetro, retroDrain, retroEnd, retroStart, retroText, type Retro } from './state/retro.ts'
-import { agentTypeOf, allowancesNow, coverageOf, guardedCall, guardsAfter, guardsAllow, guardsCheck, guardsConfigure, guardsPrune, guardsReset, guardsStart, loopRunning } from './guards.ts'
+import { agentTypeOf, allowancesNow, branchOf, coverageOf, guardedCall, guardsAfter, guardsAllow, guardsCheck, guardsConfigure, guardsPrune, guardsReset, guardsStart, loopRunning } from './guards.ts'
 import type { Usage } from './state/flow.ts'
 import { argsOf, type Compare, type Finished, type Host, type PrRow, type RunRow } from './host.ts'
 import { RECEIPTS_COMMAND, receiptsAfter, receiptsCommand, receiptsNow, receiptsReset, receiptsStart } from './receipts.ts'
@@ -72,6 +72,8 @@ let configNotes: string[] = []
 let coverage: Record<number, { head: string; at: number; files: Record<string, string | undefined> }> = {}
 let agentStats: Stats = {}
 /** Per loop agent: the ticket it works, the last request counted and when, for the Cost tab. Memory only. */
+/** Agent dispatches whose ticket the prompt named, waiting for the agent they start: the description may not carry the key. */
+const dispatches: { type: string; ticket: string; at: number }[] = []
 const workers = new Map<string, { ticket?: string; fixed: boolean; stage?: 'build' | 'merge'; last?: { ticket: string; usd: number }; at?: number }>()
 /** Bumped by /agile-board reset and a fresh drain: a read begun before it saves nothing. */
 let epoch = 0
@@ -545,7 +547,11 @@ export const register: Register = (on, options) => {
       // the ticket its agent works counts beside the ones the call names: a call that names another ticket too is no way round
       let own: string | undefined
       if (e.agentId && type) own = (await workerOf(host, e.agentId, type)).ticket
-      if (!named.length && !own && e.tool === 'Bash' && /\bgh\s+pr\s+create\b/.test(String(args.command ?? ''))) own = ticketOfText(board, (await host.branch('.')) ?? '')
+      // a call that opens a PR: the branch it names, else the one checked out where it runs (a leading `cd <dir> &&`)
+      if (!named.length && !own && isBuildWork(e.tool, args) && e.tool !== 'Agent' && e.tool !== 'Skill') {
+        const head = prHeadOf(e.tool, args) ?? (e.tool === 'Bash' ? await branchOf(host, String(args.command ?? '')) : undefined)
+        own = ticketOfText(board, head ?? '')
+      }
       const allowed = allowancesNow()
       const input = {
         cost: (k: string) => board.tickets[k]?.cost?.usd ?? 0,
@@ -586,6 +592,7 @@ export const register: Register = (on, options) => {
     const now = await $.clock.now()
     if (e.agentId) agentStats = noteCall(agentStats, e.agentId, e.tool, args, now)
     if (e.agentId) await followTicket(e.agentId, e.tool, args, now)
+    if (e.tool === 'Agent') noteDispatch(args, now)
     if (typeof args.cloudId === 'string' && /^mcp__.+__/.test(e.tool)) cloudId ??= args.cloudId
     // a drain that starts fresh (not resuming a running or STUCK one) empties the board: reads begun before it save nothing
     if (/(^|:)agile-sprint-drain$/.test(skill) && board.drain?.outcome !== 'running' && board.drain?.outcome !== 'STUCK') epoch += 1
@@ -709,15 +716,31 @@ async function coverageNow($: EngineInterface, now: number): Promise<Coverage> {
   return Object.entries(coverage).filter(([n]) => open.has(Number(n))).map(([n, c]) => ({ pr: Number(n), head: c.head, files: c.files }))
 }
 
+/** Remembers the ticket a dispatch's prompt or description names, for the agent it starts. */
+function noteDispatch(args: Record<string, unknown>, now: number) {
+  const ticket = ticketOfText(board, dispatchText(args))
+  const type = String(args.subagent_type ?? '')
+  if (!ticket || !type) return
+  dispatches.push({ type, ticket, at: now })
+  while (dispatches.length > 50 || (dispatches[0] && now - dispatches[0].at > 3_600_000)) dispatches.shift()
+}
+
+/** The oldest waiting dispatch of this agent type, taken so another agent of the type does not reuse it. */
+function claimDispatch(type: string): string | undefined {
+  const i = dispatches.findIndex(d => d.type === type || type.endsWith(`:${d.type}`) || d.type.endsWith(`:${type}`))
+  return i < 0 ? undefined : dispatches.splice(i, 1)[0]!.ticket
+}
+
 /**
- * The ticket a loop agent works: the one its dispatch description names, or for a session agent (one
- * agent, many tickets, run in turn) the one its latest call named. Only loop agents have a cost.
+ * The ticket a subagent works: the one its dispatch description names, or for a session agent (one
+ * agent, many tickets, run in turn) the one its latest call named.
  */
 async function workerOf(host: Host, id: string, type: string) {
   let w = workers.get(id)
   if (!w) {
     const info = (await host.agents().catch(() => [])).find(a => a.id === id)
-    const named = info?.description && !isSession(type) ? ticketOfText(board, info.description) : undefined
+    // its description, else the prompt of the dispatch that started it
+    const named = !isSession(type) ? (info?.description ? ticketOfText(board, info.description) : undefined) ?? claimDispatch(type) : undefined
     w = { ...(named && { ticket: named }), fixed: named !== undefined, ...(stageOf(type) && { stage: stageOf(type)! }) }
     workers.set(id, w)
     if (workers.size > 100) workers.delete(workers.keys().next().value!)

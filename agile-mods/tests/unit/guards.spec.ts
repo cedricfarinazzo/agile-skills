@@ -3,7 +3,7 @@ import { covers, END, howRead, parseReads, planChunks, readsOf, withReads, type 
 import { configOf, modesLine, repoConfigOf, tightened } from '../../hooks/state/config.ts'
 import { allow, ticketBudgetOpen, openOf, take3f, takeFix, BYPASS_MS } from '../../hooks/state/bypass.ts'
 import { guardedCall } from '../../hooks/guards.ts'
-import { sideDoorDenial, ticketBudgetDenial, type TicketCapInput, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeProblems, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
+import { sideDoorDenial, prHeadOf, ticketBudgetDenial, type TicketCapInput, FIX_ROUNDS, fixDenial, grantDenial, isBuildWork, isFixDispatch, mergeDenial, mergeProblems, mergeTargetOf, pushDenial, pushPlanOf, ruleOf } from '../../hooks/state/guards.ts'
 
 const SHA = 'a'.repeat(40)
 const OTHER = 'b'.repeat(40)
@@ -336,6 +336,17 @@ describe('fail closed', () => {
     for (const [tool, args] of covered) expect(guardedCall(tool, args)).toBe(true)
     const free: [string, Record<string, unknown>][] = [['Read', {}], ['Bash', { command: 'git status' }], ['mcp__atlassian__getJiraIssue', {}], ['Skill', { skill: 'agile-10-implement' }]]
     for (const [tool, args] of free) expect(guardedCall(tool, args)).toBe(false)
+  })
+})
+
+describe('the branch a PR call opens', () => {
+  test('--head, -H and a gh api head field, an owner prefix dropped; none when it names none', () => {
+    expect(prHeadOf('Bash', { command: 'gh pr create --fill --head VC-3-cart' })).toBe('VC-3-cart')
+    expect(prHeadOf('Bash', { command: 'gh pr create -H me:VC-3-cart --title x' })).toBe('VC-3-cart')
+    expect(prHeadOf('Bash', { command: 'gh pr create --head="VC-3-cart"' })).toBe('VC-3-cart')
+    expect(prHeadOf('Bash', { command: 'gh api -X POST repos/o/r/pulls -f head=VC-3-cart -f base=main' })).toBe('VC-3-cart')
+    expect(prHeadOf('mcp__github__create_pull_request', { head: 'VC-3-cart' })).toBe('VC-3-cart')
+    expect(prHeadOf('Bash', { command: 'gh pr create --fill' })).toBeUndefined()
   })
 })
 
