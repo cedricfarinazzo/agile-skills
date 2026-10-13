@@ -118,8 +118,9 @@ async function jiraSearchTool($: EngineInterface): Promise<string | undefined> {
 }
 
 // Every program the mods run is written out here, argument by argument. The only computed
-// arguments are a PR number, a commit sha and a branch name, each checked against its pattern
-// before the call, and the directory a push names. No output leaves the machine.
+// arguments are a PR number, a commit sha, a branch name or ref, each checked against its pattern
+// before the call, a file path (refused when it starts with `-`), and the directory a push names.
+// No output leaves the machine.
 function hostOf($: EngineInterface): Host {
   return {
     now: () => $.clock.now(),
@@ -516,7 +517,7 @@ export const register: Register = (on, options) => {
       return { text: shown ? 'agile status and alerts shown' : 'agile status and alerts hidden' }
     }
     const wanted = arg ? tabOf(arg) : tab
-    if (!wanted) return { text: `unknown tab "${arg}": board, flow, wip, drain, guards, links, or show, hide, retro, reset, allow <n>` }
+    if (!wanted) return { text: `unknown tab "${arg}": board, flow, cost, wip, drain, guards, links, or show, hide, retro, reset, allow <n>` }
     tab = wanted
     paneAt = await $.clock.now()
     void tick($, true).catch(() => undefined)

@@ -345,7 +345,7 @@ function costRows(board: Board, ctx: Ctx, w: number): Row[] {
   }
   if (sum.drift) out.push(line(['⚠ ', 'y'], ['tickets add up to more than the session spent: the price table is above what you pay', 'y']))
   out.push(blank)
-  out.push(line(['cost = tokens × the model price its agent file declares (an estimate)', 'd']))
+  out.push(line(['cost = tokens × the price of the model each request reports (an estimate)', 'd']))
   out.push(line(['working = time between an agent\'s requests, waits over 5 min left out', 'd']))
   out.push(line(['lines = additions + deletions of the merged PR · overhead = the orchestrator\'s own requests', 'd']))
   if (loose > 0) out.push(line(['unattributed = subagents that named and showed no ticket (under no cap)', 'y']))
