@@ -20,7 +20,7 @@ A Claude Code marketplace of focused plugins — six split by cycle phase so use
 `agile-10-implement` clears the **build** queue (`To Do` → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`). User-facing skills keep global cycle numbering (`agile-1` … `agile-15`); composed sub-skills (`implement-*`, `merge-*`) are **unnumbered** because users don't call them. Namespace = plugin name: `/agile-planning:agile-5-roadmap`.
 
 Install: `/plugin marketplace add cedricfarinazzo/agile-skills` then `/plugin install <plugin>@agile-skills`.
-Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a time).
+Test locally: `claude --plugin-dir ./<plugin>` from the repo root (one plugin dir at a time).
 
 ## Structure
 
@@ -31,17 +31,17 @@ README.md                                 # root README — OVERVIEW only (plugi
 <plugin>/docs/*.md                        # long user-facing detail and reference (execution, merge-review, sprint-drain, deep-refactor, agile-mods)
 docs/img/generate.ts                      # root: draws docs/img/{cycle,drain,merge-train}.svg — `bun docs/img/generate.ts` from the repo root
 .github/scripts/generate-icons.py         # draws every <plugin>/.claude-plugin/icon.svg
-<plugin>/.claude-plugin/plugin.json       # one manifest per plugin
+<plugin>/.claude-plugin/plugin.json       # one manifest per plugin; shared packages also carry .codex-plugin/plugin.json and a root plugin.json
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
-<plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13, session-audit) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
+<plugin>/skills/<name>/scripts/           # bundled scripts (agile-8 shell, agile-13 and session-audit Python) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
-There is **no root plugin** — the root holds the marketplace files, `README.md`, `docs/`, `.github/` (CI), and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
+There is **no root plugin** — the root holds the marketplace files (`.claude-plugin/`, `.agents/plugins/marketplace.json`), `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `LICENSE`, `docs/`, `.github/` (CI), and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
 
 **Docs split:** the root `README.md` is an overview that **links** to each plugin README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, orchestrator internals) lives in `<plugin>/README.md` or `<plugin>/docs/`. Change a skill → update its plugin README, or the `docs/` page that holds the rule; keep the root overview-only. The canonical Confluence tree lives in full in `agile-planning/README.md`.
 
-**README conventions (the agile-mods docs pattern).** A plugin README is an overview of about 80 lines: one sentence on what it does, `Part of` + what it needs, a **What you get** table (skill, what it produces, trigger phrases copied from the SKILL.md description, which stays the routing source), one flow diagram, install, then where the plugin has any: a configuration table with defaults and what it asks you; links; **Where it fits**. Anything longer, and every rule a maintainer would need, moves to `<plugin>/docs/` (one page per topic, a `← <plugin>` back link, exact rules in `reference.md`). Write for the person running the skill: the action to take, not the mechanism. Flows are mermaid, or one of the three pictures in root `docs/img/` are drawn by `bun docs/img/generate.ts`, so **change a flow they show (the cycle, the drain banners, 3a–3g) and redraw them in the same change.** Before dropping a line from a README, diff its operative tokens (commands, flags, config keys, `mcp__*` names, markers, trigger phrases) per file.
+**README conventions (the agile-mods docs pattern).** A plugin README is an overview of about 80 lines: one sentence on what it does, `Part of` + what it needs, a **What you get** table (skill, what it produces, trigger phrases copied from the SKILL.md description, which stays the routing source), one flow diagram, install, then where the plugin has any: a configuration table with defaults and what it asks you; links; **Where it fits**. Anything longer, and every rule a maintainer would need, moves to `<plugin>/docs/` (one page per topic, a `← <plugin>` back link, exact rules in `reference.md`). Write for the person running the skill: the action to take, not the mechanism. Flows are mermaid, or one of the three pictures in root `docs/img/`, which `bun docs/img/generate.ts` draws. **Change a flow they show (the cycle, the drain banners, 3a–3g) and redraw them in the same change.** Before dropping a line from a README, diff its operative tokens (commands, flags, config keys, `mcp__*` names, markers, trigger phrases) per file.
 
 ## SKILL.md format
 
@@ -178,6 +178,8 @@ Identity is a `📊 Live roadmap:` line on the Roadmap page holding the URL. A r
 **RULE — a skill that writes the Roadmap index must also refresh the artifact**, or the published view silently lags the page it mirrors.
 
 ## Verify before you call an edit done
+
+These checks are manual: CI runs the validators, `bun test`, `claude plugin test`, `skills-ref` and `check-parity.py`, but not the invariant commands below.
 
 Cheap to check, expensive to lose. Each has caught a real regression here.
 
