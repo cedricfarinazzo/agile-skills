@@ -6,8 +6,8 @@
 
 | Skill | Order | Frozen throughout |
 |---|---|---|
-| `deep-refactor` | bugs first, structural splits last | zero test edits |
-| `test-refactor` | deletions and merges, harness, parallel-isolation, runtime cost, depth | zero production edits |
+| `deep-refactor` | bugs first, structural splits last | tests, except the edits enumerated in the correctness-fix and structural tickets |
+| `test-refactor` | deletions and merges, harness, parallel-isolation, runtime cost, depth | production code, except a defect fix filed as its own PR |
 | `doc-refactor` | falsehoods, deletions, dedup, compression, gaps; file moves last | zero source edits |
 
 ## Non-vacuity proof

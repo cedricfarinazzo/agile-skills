@@ -21,13 +21,13 @@ Wired into **Confluence** and **Jira**. Install only the phases you run; each pl
 | <img src="deep-refactor/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**deep-refactor**](deep-refactor/README.md) | Cleanup, out of cycle | Codebase, test-suite and docs audits shipped as PR trains | `gh`, your tracker |
 | <img src="project-review/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**project-review**](project-review/README.md) | Assessment, out of cycle | Read-only, evidence-backed technical review report | nothing |
 | <img src="session-audit/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**session-audit**](session-audit/README.md) | Cost audit, out of cycle | Spend per skill and subagent, before/after delta, ranked fixes | `gh` (optional) |
-| <img src="agile-mods/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-mods**](agile-mods/README.md) | Visibility and enforcement | `/agile-board` console for the loop, guards on its rules, `/receipts` | Claude Code 2.1.287+ |
+| <img src="agile-mods/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-mods**](agile-mods/README.md) | Visibility and enforcement | `/agile-board` console for the loop, guards on its rules, `/receipts` | Claude Code 2.1.287+, `gh` (Jira MCP optional) |
 
 Each plugin README has its skills, triggers and setup.
 
 ## The headline act
 
-`agile-execution` pulls the active sprint, walks tickets in Jira dependency order, and drives each to an open, self-reviewed PR with no mid-loop hand-holding. It tells you what it is doing as it goes: `▶ VC-123 — implementing`, `✓ VC-123 → In Review`. `agile-sprint-drain` then alternates it with the merge train until the board is empty.
+`agile-execution` pulls the active sprint, walks tickets in Jira dependency order, and drives each to an open, self-reviewed PR with no mid-loop hand-holding. It tells you what it is doing as it goes: `▶ VC-123 — plan`, `✓ VC-123 → In Review`. `agile-sprint-drain` then alternates it with the merge train until the board is empty.
 
 Skills keep a global numbering (`agile-1` … `agile-15`) across plugins, so the order reads at a glance. Invoke with `/<plugin>:<skill>`, for example `/agile-planning:agile-5-roadmap`, or say a trigger phrase.
 
@@ -86,7 +86,7 @@ claude --plugin-dir ./agile-skills/agile-execution   # one plugin dir at a time
 
 ```bash
 codex plugin marketplace add cedricfarinazzo/agile-skills
-codex plugin add agile-product@agile-skills          # any plugin, same name
+codex plugin add agile-product@agile-skills          # any plugin except agile-mods (Claude Code only)
 ```
 
 Invoke skills as `$skill-name`. Codex runs every workflow inline: no plugin agents, `concurrency=0`, and every `dispatch` value is inline. Artifact publication is optional; Confluence stays the source of truth. Claude Code is the primary host and parity is best effort. See [compatibility](docs/CODEX_COMPATIBILITY.md) and [known parity gaps](docs/KNOWN_PARITY_GAPS.md).
@@ -97,7 +97,7 @@ Skills follow the [Agent Skills](https://agentskills.io) open standard; copy the
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
-cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/
+cp -r agile-skills/{agile-*,deep-refactor,project-review,session-audit}/skills/* ~/.copilot/skills/
 ```
 
 ## License

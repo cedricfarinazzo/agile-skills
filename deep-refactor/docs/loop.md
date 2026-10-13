@@ -13,4 +13,4 @@ All three skills run the same four phases.
 
 ## Work discovered mid-phase
 
-Two decisions, in order. Does it belong to this ticket (the change is incomplete, wrong or inconsistent without it)? Then do it here, even when the PR grows. Otherwise file it, one ticket per separate piece. New tickets are pointed at creation (`unsized` plus a one-line reason is a recorded decision), and go to the product backlog unless they block the sprint goal.
+Two decisions, in order. Does it belong to this ticket (the change is incomplete, wrong or inconsistent without it)? Then do it here, even when the PR grows. Otherwise file it, one ticket per separate piece. New tickets are pointed at creation (`unsized` plus a one-line reason is a recorded decision), and go to the product backlog unless they block the sprint goal, are a must-have, or a human asked, in which case the current sprint.

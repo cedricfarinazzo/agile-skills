@@ -51,7 +51,7 @@ Confluence stays the source of truth; the artifact is regenerated from it. Its i
 
 | Skill | Artifact action |
 |---|---|
-| `agile-5-roadmap` | Publishes (INIT) or refreshes (ITERATION); writes the URL back on first publish |
+| `agile-5-roadmap` | Publishes when the Roadmap has no `📊 Live roadmap:` line, otherwise refreshes; writes the URL back on first publish |
 | `agile-9-sprint-planning` | Refreshes after the sprint rollup row lands |
 | `agile-15-retro` | Refreshes at sprint close, with delivered-vs-committed numbers |
 
@@ -81,7 +81,7 @@ Canonical folder layout, identical across every agile-skills plugin (embedded ve
 `agile-8-refinement` bundles `scripts/sprint-shared-file-audit.sh`. It surfaces file overlap across Stories so blocking Jira links are added at refinement instead of rediscovered as merge conflicts. Invoke it through the plugin root, since a bare relative path does not resolve when installed:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh" ABC-28 ABC-30 ABC-39
+"${CLAUDE_PLUGIN_ROOT}/skills/agile-8-refinement/scripts/sprint-shared-file-audit.sh" --text-dir <scratch> ABC-28 ABC-30 ABC-39
 ```
 
 Usage: `skills/agile-8-refinement/docs/sprint-shared-file-audit.md`.

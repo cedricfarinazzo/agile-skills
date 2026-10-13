@@ -8,7 +8,7 @@ Part of [agile-skills](../README.md). Needs `gh`, `git`, a CI you can query, and
 
 | Skill | Changes | Frozen | Say |
 |---|---|---|---|
-| `deep-refactor` | Production code, codebase-wide | The test suite, as the contract | "deep refactor", "refactor audit", "clean the codebase", "DRY pass", "audit and fix everything" |
+| `deep-refactor` | Production code, codebase-wide | The test suite, as the contract (only enumerated fixture and guard edits in the correctness and structural tickets) | "deep refactor", "refactor audit", "clean the codebase", "DRY pass", "audit and fix everything" |
 | `test-refactor` | One test suite at a time | Production code | "test refactor", "clean the tests", "refactor the tests", "test suite audit", "DRY the tests", "parallelize the test suite", "speed up the tests" |
 | `test-refactor characterize <scope>` | Adds a minimal behavior test | Production code | "characterize before refactor", "characterization tests" |
 | `doc-refactor` | Every markdown file (`.md`) | Source code | "doc refactor", "refactor the docs", "clean the docs", "documentation audit", "README audit", "docs are stale", "DRY the docs", "audit every markdown file" |

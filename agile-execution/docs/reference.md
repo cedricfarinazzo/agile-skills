@@ -24,7 +24,7 @@ One per dispatch point, sized to the phase. Each invokes its sub-skill through t
 | `agile-execution:build-implementer` | `implement-code` | opus / medium | writes the code everything else is measured against; `pr-reviewer` re-reads it |
 | `agile-execution:pr-publisher` | `implement-pr` | sonnet / low | assembles a body from the diff and markers |
 | `agile-execution:self-reviewer` | `implement-review` | sonnet / medium | validates and publishes the author's verdict |
-| `agile-execution:review-lens` | lens fan-out, large PR only | sonnet / medium | read-only evidence that `self-reviewer` validates |
+| `agile-execution:review-lens` | lens fan-out, opt-in for a large PR only (default is one single-pass six-lens read, no subagents) | sonnet / medium | read-only evidence that `self-reviewer` validates |
 | `agile-execution:build-monitor` | `implement-monitor` | sonnet / low | owns the flake-vs-regression call and fixes on the shared stack |
 
 ## Dispatch and verify

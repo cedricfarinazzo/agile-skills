@@ -31,3 +31,26 @@ One line per item, folded into the ledger and dropped. A marker the receipt name
 ## CI waits
 
 At the top level, one `run_in_background` `gh run watch` per run id; one wake per run, never a `sleep` loop. A dispatched agent returns a handoff (`waiting: <run id>` or `ci-on <head sha> <branch>`, `resume_at`, state) and ends. The top level then dispatches a fresh agent with `ci: <run id> <conclusion> <head sha>`. The skill file carries the full rule under `## Waiting on CI`.
+
+## Fingerprints and actionability
+
+A fingerprint answers "did this item make real progress this pass?"
+
+| Item | Fingerprint |
+|---|---|
+| Build ticket | Jira status, latest 🤖 phase-marker id, blocker-set hash, park / needs-info flag |
+| Open PR | Hash of sorted failing check names and conclusions, `reviewDecision`, `mergeStateStatus`. Not the head SHA, which every rebase moves while the failure stays identical |
+
+An item is **actionable** when the loop can still advance it:
+
+- Build ticket: eligible with a build attempt left (`stall < K`), or deferred behind a blocker chain that bottoms out in an actionable item. Parked on a critical decision, sent to Needs Info, or behind an entirely human-blocked chain is human-blocked.
+- Open PR: an un-retried CI check, a rework cycle the train has not attempted, or a rebasable conflict. Fix cycles exhausted, awaiting a human reviewer, or a parked critical decision is human-blocked.
+
+K is 3 for PR and CI items and 2 for build tickets.
+
+## WIP details
+
+- Retired items keep their slot; if retired items hold every slot, the drain is STUCK.
+- Starting over the limit (open PRs from an earlier run) admits nothing until `wip < N`; the banner says so.
+- Why a limit: merges are sequential and each moves the base, so every open PR pays a rebase and a fresh CI run per merge ahead of it, O(P²) for P open PRs. A rebase is skipped when provably unnecessary (merged file set disjoint from the PR's, or the exercised subtree byte-identical).
+- A ticket reported `blocked (BUDGET)` is retired from the build set while its open PR stays in the merge set.

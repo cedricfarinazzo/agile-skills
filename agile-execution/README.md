@@ -10,16 +10,16 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP and `gh`.
 |---|---|---|
 | `agile-10-implement` | Builds every eligible ticket: validate, plan, code, PR, self-review, move to In Review, watch the PR | "implement the sprint", "work the sprint", "pick up tickets", "implement story PROJ-XXX", "start coding" |
 
-Six `implement-*` sub-skills do the phases. They are `user-invocable: false`: hidden from the `/` menu, called by the orchestrator. Argument: `concurrency=N` (default `1`).
+Six `implement-*` sub-skills do the phases. They are `user-invocable: false`: hidden from the `/` menu, called by the orchestrator. Arguments: optional ticket keys (for example `PROJ-123`; default is the whole active sprint) and `concurrency=N` (default `1`).
 
 ```mermaid
 flowchart LR
   t["ticket<br/>To Do"] --> v["validate"] --> p["plan"] --> c["code"] --> pr["open PR"] --> r["self-review"] --> m["In Review<br/>monitor PR"]
   v -. "wrong repo, under-specified" .-> skip["skipped,<br/>run goes on"]
-  r -. "not converging in 3 cycles" .-> skip
+  r -. "over 3 review cycles" .-> skip
 ```
 
-You see progress as it runs: `▶ VC-123 — implementing`, `✓ VC-123 → In Review`. The merge side is [agile-merge-review](../agile-merge-review/README.md); [agile-sprint-drain](../agile-sprint-drain/README.md) alternates the two.
+You see progress as it runs: `▶ VC-123 — plan`, `✓ VC-123 → In Review`. The merge side is [agile-merge-review](../agile-merge-review/README.md); [agile-sprint-drain](../agile-sprint-drain/README.md) alternates the two.
 
 ## Install
 
@@ -38,13 +38,13 @@ Read from the repo's `CLAUDE.md` or `AGENTS.md` under `## Skill configuration`.
 | Key | Default | Use |
 |---|---|---|
 | `cloudId` | required | Atlassian site |
-| `ticket-prefix-regex` | `[A-Z]+-\d+` | Ticket keys in branch names and PRs |
+| `ticket-prefix-regex` | `[A-Z]+-\d+` | Ticket key pattern |
 | `repo`, `repo-component-map` | from git `origin` | Repo-scope gate: tickets for another repo are skipped |
-| `todo-`, `in-progress-`, `in-review-`, `done-`, `needs-info-`, `backlog-status-name` | Jira defaults | Status names, matched by substring, so localised names work |
+| `todo-`, `in-progress-`, `in-review-`, `done-`, `needs-info-`, `backlog-status-name` | Jira defaults; `backlog-status-name` is `Backlog`; `needs-info-status-name` unset leaves the ticket in `To Do` labelled `needs-info` | Status names, matched by substring, so localised names work |
 | `board-id`, `board-type` | detected | Pin when detection is ambiguous |
 | `story-points-field` | `customfield_10016` | Where points live |
 | `base-branch`, `branch-prefix` | repo default, `feature/` | Branching |
-| lint, unit, integration commands | none | Per stack; sorted into stack-free and stack-bound tiers for concurrent builds |
+| lint, unit, integration commands | looked up from the repo when absent | Per stack; sorted into stack-free and stack-bound tiers for concurrent builds |
 | `max-build-concurrency` | `1` | Default for `concurrency=N` |
 
 ## What it asks you

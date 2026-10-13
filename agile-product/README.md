@@ -15,8 +15,9 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP (Confluence; Jira 
 
 ```mermaid
 flowchart LR
-  v["1 Vision Doc"] --> p["2 PRD"] --> b["3 Design Brief"] --> a["4 ADR"]
-  b -. "designer returns mockups" .-> s["3 Specs UI"]
+  v["1 Vision Doc"] --> p["2 PRD"] --> b["3 Design Brief"]
+  b -- "designer returns mockups" --> s["3 Specs UI"] --> a["4 ADR"]
+  b -. "no Specs UI yet: warns, continues" .-> a
   a --> next["agile-planning<br/>5 Roadmap"]
 ```
 
@@ -38,7 +39,7 @@ Each run is idempotent and resumable: re-running fills only what is missing and 
 
 | Mode | Writes | For |
 |---|---|---|
-| **BRIEF** | The brief that goes *to* the designer | Before design |
+| **BRIEF** | The brief that goes *to* the designer (Claude Design) | Before design |
 | **INTEGRATE** | The designer's outputs, documented back as a Specs UI page | After design |
 
 They are separate pages and never merged.

@@ -13,9 +13,10 @@
 
 ## Dispatch and verify
 
-The train's main agent orchestrates only. It runs no step's work in its own context. Each step 3a to 3g runs in its named agent and returns a receipt; the train verifies it against `gh` and Jira before advancing.
+The train's main agent orchestrates only. It runs no step's work in its own context. Each dispatched step (3a, 3b, 3c, 3g) runs in its named agent and returns a receipt; the train verifies it against `gh` and Jira before advancing. 3d is an escape hatch, 3e a CI wait and 3f a gate, all in the orchestrator.
 
 - A shallow review is caught because the `merge-review-pr` receipt must list a files-read set equal to the PR diff, with a `file:line` cite per lens and per AC.
+- The 3g receipt carries the comment id, the done-category, `collisions recorded` (matched against the PR's `conflict_map` entry) and `marker: post_merge posted`.
 - A skipped postmortem is caught because Phase 5 refuses to report a merged PR as Done without a verified receipt (comment id and done-category), and re-dispatches it.
 
 ## Never merge a sha no review has read

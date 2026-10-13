@@ -12,23 +12,23 @@
 3f gh pr merge --squash --match-head-commit <reviewed sha>
                               verify with `gh pr view --json state,mergedAt` (exit code is not the signal)
 3g merge-jira-postmortem      comment (opens with the post_merge marker) + transition Done
-—  branch cleanup            end of train, best effort
+—  branch cleanup            end of train, best effort (a worktree holding a branch is harmless)
 ```
 
 ## Review and fix rounds
 
-Review and fix converge under a round budget: at most 2 rounds per PR, the full review, then one delta review of the fix.
+Review and fix converge under a round budget: at most 2 rounds per PR per train run, the full review, then one delta review of the fix.
 
-- The delta review judges only what the fix changed and is final.
+- The delta review judges only what the fix changed and is final: nothing it finds is pushed in this run.
 - An open Critical blocks the PR.
 - Remaining Minors merge at the last reviewed-and-green sha and are reported as a follow-up.
-- Across train runs a PR gets at most 3 fix rounds, rework from `agile-10-implement` included. A 4th sends it to 3d for a human.
+- Across train runs a PR gets at most 3 fix rounds, rework from `agile-10-implement` included. A 4th sends it to 3d for a human. The cap is agile-mods `fixRounds` (default 3); a round starts with a push onto a head a review read, so a fresh agent resuming after a CI wait adds none.
 
 Any PR whose review found something goes through the second review. That is normal flow.
 
 ## Collisions
 
-Cross-PR file collisions are detected up front into a structured `conflict_map` (per PR: colliding file, other PR, other ticket). It is passed verbatim into each postmortem dispatch and linked in Jira (`relates to`) at the end.
+Cross-PR file collisions are detected up front into a structured `conflict_map` (per PR: colliding file, other PR, other ticket). It is passed verbatim into each postmortem dispatch. The `Relates` links are created per PR at 3g, never deferred to the end of the run; Phase 4 only reconciles pairs 3g could not reach (the other side had not merged yet, or a link call failed).
 
 ## Concurrent builds
 

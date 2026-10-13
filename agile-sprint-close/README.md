@@ -10,14 +10,14 @@ Run in this order.
 
 | # | Skill | What it does | Say |
 |---|---|---|---|
-| 12 | `agile-12-tech-debt-sweep` | Audits cross-repo leakage, useless CI, prebuild-image wins, `CLAUDE.md` / `SKILL.md` cruft, misplaced artifacts. Report before apply | "tech debt sweep", "cleanup sweep", "housekeeping", `/tech-debt-sweep` |
+| 12 | `agile-12-tech-debt-sweep` | Audits cross-repo leakage, useless CI, prebuild-image wins, `CLAUDE.md` / `AGENTS.md` / `SKILL.md` cruft, misplaced artifacts, dead code. Report before apply | "tech debt sweep", "cleanup sweep", "housekeeping", `/tech-debt-sweep` |
 | 13 | `agile-13-sprint-closeout` | Mandatory epic-level gate through three lenses; publishes a report | "sprint closeout", "close sprint", `/sprint-closeout` |
 | 14 | `agile-14-qa-validation` | Confirms acceptance criteria hold on `main` and stamps a sign-off | "validate the story", "QA check", "confirm ACs" |
 | 15 | `agile-15-retro` | Retro page in Confluence, Roadmap update, refreshed Roadmap Artifact; feeds the next iteration | "run retro", "sprint retrospective", "what did we learn" |
 
 ```mermaid
 flowchart LR
-  d["agile-sprint-drain<br/>DRAINED"] --> s["12 tech-debt sweep"] --> c["13 closeout"] --> q["14 QA validation"] --> r["15 retro"]
+  d["agile-sprint-drain<br/>DRAINED"] -. "after the last merge" .-> s["12 tech-debt sweep"] --> c["13 closeout"] --> q["14 QA validation"] --> r["15 retro"]
   r --> n["agile-5-roadmap<br/>next iteration"]
 ```
 
@@ -33,7 +33,7 @@ On Codex, run `codex plugin add agile-sprint-close@agile-skills` and invoke `$<s
 
 ## Closeout: the third review layer
 
-`agile-13-sprint-closeout` is a global, impartial review of the whole wired-together sprint against its goal. The per-PR reviews ([author self-review](../agile-execution/README.md) and [independent merge review](../agile-merge-review/README.md)) already happened. Three lenses:
+`agile-13-sprint-closeout` is a global, impartial gate on an epic's wired-together delivery against its goal (input: an epic key; run it per epic of the sprint). The per-PR reviews ([author self-review](../agile-execution/README.md) and [independent merge review](../agile-merge-review/README.md)) already happened. Three lenses:
 
 | Lens | Question |
 |---|---|
@@ -49,7 +49,7 @@ By the time `agile-14-qa-validation` runs, the Story is already Done; the [merge
 
 ## Retro and next iteration
 
-`agile-15-retro` writes the retro page in `Retrospectives`, reads the closeout report, marks the iteration ✅ Complete in the Roadmap index and child page, and hands velocity, feedback, debt and actions to `agile-5-roadmap` (ITERATION mode).
+`agile-15-retro` writes the retro page in `Retrospectives`, reads the closeout report, marks the sprint ✅ Complete in the child page section and the Roadmap rollup row, and hands velocity, feedback, debt and actions to `agile-5-roadmap` (ITERATION mode).
 
 `Retrospectives` and `Closeouts` are sibling folders under the project root, never nested. See the [canonical folder tree](../agile-planning/README.md#confluence-structure).
 

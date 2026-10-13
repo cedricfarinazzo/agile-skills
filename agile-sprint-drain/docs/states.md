@@ -10,8 +10,11 @@ Recomputed from the live board on every iteration.
 1. BUILD QUEUE  eligible To-Do tickets in sprint + repo scope, minus any with an
                 unresolved blocker (blocker must be Done AND PR merged)     -> build_count
 2. MERGE QUEUE  open PRs linked to this sprint's tickets (gh pr list)       -> merge_count
-3. EXIT         build_count == 0 AND merge_count == 0                       -> DRAINED
-4. ADMIT        free = N - (in-flight + open PRs); build in-flight + first `free` eligible
+2b. IN-FLIGHT   tickets In Progress with no open PR (a parked or crashed build) -> inflight_count
+3. EXIT         build_count == 0 AND merge_count == 0 AND inflight_count == 0
+                -> audit-trail gate -> DRAINED only if it passes
+4. ADMIT        free = max(0, N - (in-flight + open PRs)); 0 means merge work only;
+                build the first `free` eligible
                 call agile-10-implement (Skill tool) keys=<those>           -> fold outcomes
 5. merge > 0    call agile-11-merge-train (Skill tool)                      -> fold outcomes
 6. GUARD        recompute each item's fingerprint; retire an item human-blocked
@@ -27,7 +30,7 @@ The loop keeps only structured per-item outcomes, never a re-narrated pass. Ever
 
 A ticket is un-startable until its blocker's PR merges. But a pass that moves nothing is **not** proof the work is unresolvable: it may hold actionable retries, such as a flaky check that reruns green, a rework not yet attempted, or a review one fix-cycle from converging.
 
-So the loop keeps going while **any** item is actionable and stops as STUCK only when **every** remaining item is human-blocked. The anti-spin guarantee is a per-item fingerprint: a flake that reruns green changes it and stays actionable; a genuinely stuck item repeats identically for K passes and is retired, while the others keep advancing.
+So the loop keeps going while **any** item is actionable and stops as STUCK only when **every** remaining item is human-blocked. The anti-spin guarantee is a per-item fingerprint: a flake that reruns green changes it and stays actionable; a genuinely stuck item repeats identically for K passes (K = 3 for PRs and CI, 2 for build tickets) and is retired, while the others keep advancing. A build still running this pass is not a stall.
 
 ## Audit-trail gate
 

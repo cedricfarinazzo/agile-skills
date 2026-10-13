@@ -36,7 +36,7 @@ Run `/agile-sprint-drain:agile-sprint-drain`. On Codex, run `$agile-sprint-drain
 
 | End state | Meaning | You |
 |---|---|---|
-| **DRAINED** | All tickets Done and PRs merged. The only healthy stop | Run [agile-sprint-close](../agile-sprint-close/README.md) |
+| **DRAINED** | All tickets Done and PRs merged, and the audit trail is complete. The only healthy stop | Run [agile-sprint-close](../agile-sprint-close/README.md) |
 | **STUCK** | Every remaining item needs a person | Work the list it prints, then re-invoke |
 | **PAUSED** | `max-merges` reached with work left | Re-invoke to continue from the ledger |
 

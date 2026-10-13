@@ -8,7 +8,7 @@
 | `concurrency=1` (default) | Each phase in its named `agile-execution:*` agent, one ticket at a time |
 | `concurrency=N>1` | N independent tickets built in parallel, one git worktree per ticket shared by its whole phase chain |
 
-Under `N>1` the phases still run one at a time within a ticket. The shared Docker stack stays serial in every mode, so PR monitoring and rework are sequential, and the merge train is always sequential.
+Under `N>1` the phases still run one at a time within a ticket, and each phase agent works in the ticket's worktree by absolute path. The shared Docker stack stays serial in every mode, so PR monitoring and rework are sequential, and the merge train is always sequential.
 
 ## Test tiers
 
@@ -17,7 +17,7 @@ Classified automatically.
 | Tier | Contents | Under `concurrency>1` |
 |---|---|---|
 | Stack-free | lint, unit, typecheck, migration history-linearity | Run locally in the worktree |
-| Stack-bound | integration, e2e, apply-on-fresh-DB | Deferred to CI; the PR gets the `integration-deferred` label |
+| Stack-bound | integration, e2e, apply-on-fresh-DB | Deferred to CI, because a worktree cannot hold the shared Docker stack; the PR gets the `integration-deferred` label |
 
 A project whose "unit" tests hit the database must run `concurrency=1`.
 

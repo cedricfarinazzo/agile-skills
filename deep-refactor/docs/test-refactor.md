@@ -15,10 +15,14 @@ Audits one test suite at a time, with production code frozen and coverage parity
 
 The whole suite runs in one parallel invocation in the CI test job. Parallelism conflicts are fixed by isolating the test (unique schemas, ports and directories per worker, no shared state, no sleeps), never by splitting the run, serializing or retrying.
 
+## Hermeticity
+
+Tests must not reach the real network; connects are blocked at the harness level.
+
 ## Retention bar
 
 Before a deletion, an odd-looking test must clear a bar: name the regression it detects, any real callers of its seam, the stronger surviving proof, and focused validation. "Looks coupled" is not deletion evidence.
 
 ## `test-refactor characterize <scope>`
 
-Establishes minimal owner-boundary behavior proof before a risky code cleanup, with production frozen. The resulting test becomes the later refactor's contract.
+Establishes minimal owner-boundary behavior proof before a risky code cleanup, with production frozen (a defect found along the way is fixed only as its own separate PR). The resulting test becomes the later refactor's contract.

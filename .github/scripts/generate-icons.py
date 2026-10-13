@@ -32,8 +32,7 @@ I['agile-execution']=svg('#E0662B',
  f'<rect x="24" y="64" width="84" height="128" rx="14" {st()}/>'
  f'<path d="M42 96h48M42 122h36M42 148h42" {st(W,9)}/><path d="M42 172l8 8 14-16" {st(A,9)}/>'
  f'<path d="M116 128h28" {st(A,12)}/><path d="M136 112l18 16-18 16" {st(A,12)}/>'
- f'<circle cx="190" cy="80" r="15" {st(W,10)}/><circle cx="190" cy="176" r="15" {st(W,10)}/><path d="M190 95v66" {st(W,10)}/>'
- f'<circle cx="226" cy="80" r="0"/>')
+ f'<circle cx="190" cy="80" r="15" {st(W,10)}/><circle cx="190" cy="176" r="15" {st(W,10)}/><path d="M190 95v66" {st(W,10)}/>')
 # merge-review: a diff hunk under a magnifier with a check, merging into main
 I['agile-merge-review']=svg('#1E9E6A',
  f'<rect x="30" y="44" width="150" height="124" rx="16" {st()}/>'
@@ -83,8 +82,7 @@ I['agile-mods']=(
  '<path d="M190 120l38 14v30c0 26-16 44-38 54-22-10-38-28-38-54v-30z" fill="#C2308F" stroke="#FFD54A" stroke-width="12" stroke-linejoin="round"/>'
  '<path d="m172 172 12 12 24-26" fill="none" stroke="#FFD54A" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>\n')
 
-PLUGIN_DIR = {k: k for k in I}
 for plugin, svg_text in I.items():
-    out = ROOT / PLUGIN_DIR[plugin] / '.claude-plugin' / 'icon.svg'
+    out = ROOT / plugin / '.claude-plugin' / 'icon.svg'
     out.write_text(svg_text)
     print('wrote', out.relative_to(ROOT))
