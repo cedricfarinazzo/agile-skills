@@ -32,7 +32,7 @@ README.md                                 # root README — OVERVIEW only (plugi
 <plugin>/README.md                        # per-plugin README — an overview of about 80 lines
 <plugin>/docs/*.md                        # long user-facing detail and reference (execution, merge-review, sprint-drain, deep-refactor, agile-mods)
 docs/img/generate.ts                      # root: draws docs/img/{cycle,drain,merge-train}.svg — `bun docs/img/generate.ts` from the repo root
-docs/img/generate-icons.py                 # draws every <plugin>/.claude-plugin/icon.svg
+docs/img/generate-icons.py                # draws every <plugin>/.claude-plugin/icon.svg
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin; shared packages also carry .codex-plugin/plugin.json and a root plugin.json
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
