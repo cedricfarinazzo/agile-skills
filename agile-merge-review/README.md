@@ -1,8 +1,20 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-merge-review
 
-**Merge** plugin (formerly `dev-skills`) — clears the open-PR queue *safely*: every PR that lands on `main` has been rebased, deeply reviewed file-by-file against its Jira ACs, re-verified by a fresh CI run, merged, and closed out in Jira. Uses the **`gh`** CLI + git and **Jira**.
+Clears the open-PR queue safely. Every PR that lands on `main` has been rebased, reviewed file by file against its Jira acceptance criteria, re-verified by a fresh CI run, merged, and closed out in Jira. 
 
-Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
+Part of [agile-skills](../README.md). Needs `gh` and the Atlassian MCP.
+
+## What you get
+
+| Skill | What it does | Say |
+|---|---|---|
+| `agile-11-merge-train` | Takes every open PR in turn: rebase, review, fix, fresh CI, merge, Jira postmortem and Done | "merge train", "process all open PRs", `/merge-train` |
+
+Four `merge-*` sub-skills do the steps. They are unnumbered and the train calls them. Each runs in its own scoped `agile-merge-review:*` agent (`agents/`) and returns a receipt the train checks.
+
+![The merge train, one PR at a time](../docs/img/merge-train.svg)
+
+One PR at a time: each merge changes `main`, so the next PR rebases on the new tip and re-runs CI. A PR too broken to fix in one pass is blocked, not merged, and the train moves on.
 
 ## Install
 
@@ -12,63 +24,38 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 /reload-plugins
 ```
 
-## What's in it
-
-| # | Skill | Role |
-|---|-------|------|
-| 11 | `agile-11-merge-train` | **Orchestrator** (user-invoked) — processes every open PR sequentially |
-| — | `merge-update-pr` | rebase on main, resolve conflicts, lint-after-rebase, push only if a merge commit was created |
-| — | `merge-review-pr` | deep **independent** PR review — read every changed file, check vs ACs, verifiable receipt (files-read = diff, cite per lens + AC) |
-| — | `merge-fix-until-satisfied` | fix every finding (Critical + Minor), re-verify, run the whole CI lint job before the push, until satisfied (pre-push run id + pushed sha; the caller gates the fresh run) |
-| — | `merge-jira-postmortem` | post structured post-merge comment + transition the Story to Done; return receipt (comment id + done-category) |
-
-The `merge-*` blocks are **unnumbered sub-skills** the train composes — each **dispatched to its named `agile-merge-review:*` agent** that invokes the sub-skill via the Skill tool and returns a receipt the train verifies; you don't call them directly. Invoke `/agile-merge-review:agile-11-merge-train` ("merge train", "process all open PRs").
-
-**Codex:** invoke `$agile-11-merge-train`. Plugin-local phase agents are Claude Code-only; Codex runs the phase chain inline with `concurrency=0` and does not claim named-agent dispatch.
-
-**Agents** (`agents/` dir, one per dispatch point — model/effort scoped to that step's workload):
-
-| Agent | Runs | Model / effort |
-|-------|------|-----------------|
-| `agile-merge-review:pr-updater` | `merge-update-pr` (3a) | sonnet / low — 3b re-reads every changed file at the reviewed sha, so a bad resolution is caught |
-| `agile-merge-review:pr-reviewer` | `merge-review-pr` (3b) | **opus / medium** — last read before the base branch; nothing downstream re-reads the code |
-| `agile-merge-review:fix-until-satisfied` | `merge-fix-until-satisfied` (3c) | sonnet / medium |
-| `agile-merge-review:jira-postmortem` | `merge-jira-postmortem` (3g) | sonnet / low — a templated comment + one transition |
-
-## Dispatch-and-verify — no shortcuts
-
-The train's main agent **orchestrates only**: it runs no step's work in its own context. Each per-PR step (3a–3g) runs in its named agent (above) that returns a **receipt**, and the train verifies it against ground truth (`gh` / Jira) before advancing. This closes the shortcuts the train is prone to: a shallow review is caught because `merge-review-pr`'s receipt must list a files-read set equal to the PR diff with a `file:line` cite per lens and per AC; a skipped `merge-jira-postmortem` is caught because Phase 5 refuses to report a merged PR as Done without a verified postmortem receipt (comment id + done-category) and re-dispatches it. A PR built concurrently (`integration-deferred` label) has integration + e2e gated by the fresh CI-green run rather than a local re-run. Review and fix converge under a **round budget**: at most 2 rounds per PR (the full review, then one delta review of the fix), the delta review judges only what the fix changed and is final: an open Critical blocks the PR while remaining Minors merge at the last reviewed-and-green sha and are reported as a follow-up. Across train runs a PR gets at most 3 fix rounds, rework from `agile-10-implement` included; a 4th sends it to 3d for a human. Each push names its branch, `git push <remote> <branch>`, alone or after `git add`/`git commit` in the same command. With [agile-mods](../agile-mods/docs/guards.md) installed, both are enforced at the push. At the top level the train sends one push notification when a PR goes to 3d or a stop condition ends it.
-
-**Never merge a sha no review has read.** 3b reviews the tip as it stood then; 3c then pushes fixes onto it. So 3b records the **reviewed sha** and 3f asserts the landing tip equals it — a mismatch means the delta is unreviewed (the fixer re-examining its own fix is not an independent gate), so the reviewer is re-dispatched on the delta and the PR re-enters the CI wait. Any PR whose review found something goes through this second review; it is normal flow. That delta review is the last: it judges only what the fix changed, nothing it finds is pushed in this run, an open Critical blocks the PR, and leftover Minors merge and are reported as a follow-up.
-
-**A "pre-existing" / "unrelated" / "environment" / "tooling drift" verdict needs base-branch proof.** No step may write off a red check by reading its output: run the same command on the base branch, compare exit codes, state the comparison in the receipt. Filenames in the output being untouched by the diff is *not* evidence — a diff can cause a failure reported against files it never edited. Three triage rules ride with it: isolate the failing item **by severity** (the error, not the noisier warnings) before diagnosing; treat a **SKIPPED** job as a symptom and walk the dependency chain to the gate that actually failed; and check **reachability** before calling an identical repeat failure real — a subtree byte-identical to a base branch where the test is green cannot be the cause, so retry it on an uncontended runner instead.
-
-**Review lenses beyond the diff.** The reviewer reads every file **at the reviewed sha** (`git show <sha>:<path>`), never from a working tree that may be on another branch. It reviews the diff against the ACs, the out-of-scope section, **and the documented invariants/conventions** — a change that makes a documented invariant false is a defect even when the code is correct, a limitation comment that outlives its limitation is its own defect, and a doc entry is verified accurate rather than merely present. A negative/guard test must be proven to **reach the guard it names** (not rejected first by an earlier validation layer), and a change labelled "cosmetic" that touches control flow still gets per-branch equivalence proof. A standing convention that conflicts with the ticket's DoD wording becomes a **labelled conscious accept** in the satisfaction receipt and the postmortem, never a silent deviation.
-
-## The per-PR sequence
-
-```
-3a merge-update-pr        rebase on main (push only if a merge commit was created)
-3b merge-review-pr        read every changed file in full, vs the Jira ACs
-3c merge-fix-until-satisfied  ALWAYS — fix Critical + Minor; satisfaction gate even on a clean review
-3d bad-PR escape hatch    too broken to fix in one pass → postmortem (blocked), don't merge
-3e CI wait                fresh, post-rebase green (not "green yesterday")
-3f reviewed-sha gate      landing tip == the sha 3b reviewed, else re-review the delta → back to 3e
-3f gh pr merge --squash --match-head-commit <reviewed sha>   verify with `gh pr view --json state,mergedAt` (exit code is not the signal)
-3g merge-jira-postmortem  comment (opens with the post_merge marker) + transition Done; echoes the collisions it recorded
-—  branch cleanup        end of train, best-effort (a worktree holding a branch is harmless)
-```
-
-One PR at a time — each merge changes `main`, so the next PR rebases on the new tip and re-runs CI. Cross-PR file collisions are detected up front into a structured `conflict_map` (per PR: colliding file, other PR, other ticket), passed verbatim into each postmortem dispatch and retro-linked in Jira (`relates to`) at the end.
-
-## Independent review — the second of three layers
-
-`merge-review-pr` is the **independent** review by someone other than the author. The implementer already self-reviewed and fixed the obvious in [`implement-review`](../agile-execution/README.md); this is the authoritative pre-merge gate before code hits `main`. (The third layer is the global [sprint closeout](../agile-sprint-close/README.md).) Review as a reviewer who didn't write the code — verify against the spec + ADR yourself.
+Run `/agile-merge-review:agile-11-merge-train`. On Codex, run `$agile-11-merge-train`; steps run inline with `concurrency=0` because plugin agents are Claude Code only.
 
 ## Configuration
 
-Reads the consumer repo's `CLAUDE.md/AGENTS.md`: `cloudId` (required), `ticket-prefix-regex`, `done-status-name` (+ optional `done-transition-id` fast path), and lint commands per touched path family.
+Read from the repo's `CLAUDE.md/AGENTS.md`.
+
+| Key | Use |
+|---|---|
+| `cloudId` | Required. Atlassian site |
+| `ticket-prefix-regex` | Ticket key pattern; default `[A-Z]+-\d+` |
+| `done-status-name`, `done-transition-id` | The Done status; the id is an optional fast path |
+| lint commands | Per touched path family; run before every fix push |
+
+## What it guarantees
+
+- **Only reviewed code merges.** The merge asserts the landing head equals the sha a reviewer read in full. A fix pushed after review is reviewed again, as a delta.
+- **CI is fresh.** Green on the rebased head, not "green yesterday".
+- **Red checks need proof.** "Pre-existing" (or "unrelated", "environment") needs the same command run on the base branch.
+- **Jira is closed out.** A postmortem comment and a Done transition, verified, even for a PR with zero findings.
+- **It escalates to a person.** A PR past its fix rounds, or with an open Critical after the delta review, goes to a human instead of merging.
+
+How each is enforced: [Reference](docs/reference.md). The sequence: [Per-PR sequence](docs/per-pr-sequence.md).
+
+With [agile-mods](../agile-mods/README.md) installed, the merge, CI, review and push rules are enforced at the tool call.
+
+## More
+
+| Page | Covers |
+|---|---|
+| [Per-PR sequence](docs/per-pr-sequence.md) | Steps 3a to 3g, round budgets, order and stops, agents |
+| [Reference](docs/reference.md) | Receipts, the reviewed-sha gate, base-branch proof, review checks |
 
 ## Where it fits
 
-After **agile-execution** opens the PRs; before **agile-sprint-close**. See the [full cycle](../README.md#cycle-order).
+After [agile-execution](../agile-execution/README.md) opens the PRs; before [agile-sprint-close](../agile-sprint-close/README.md). This is the independent second of three review layers: author self-review, this, then the global [sprint closeout](../agile-sprint-close/README.md). Formerly `dev-skills`. Full cycle: [root README](../README.md#cycle-order).

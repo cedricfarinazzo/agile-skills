@@ -2,7 +2,7 @@
 
 Codex maintainer guidance for this repository.
 
-Read and follow [CLAUDE.md](CLAUDE.md) for the shared workflow and invariants. This file records the Codex adapters so those rules stay single-sourced.
+Read and follow [CLAUDE.md](CLAUDE.md) for the shared workflow and invariants. Also read [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow, checks, evals and token-efficiency rules. This file records the Codex adapters so those rules stay single-sourced.
 
 ## Codex adapters
 

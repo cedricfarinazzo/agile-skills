@@ -252,7 +252,7 @@ The drain's own banners are not read.
 
 Nothing goes to any host but GitHub (through your `gh` login) and Atlassian (through the session's MCP server). There is no telemetry. No credential is read from the environment or from files. State stays in the plugin's local store, one entry per repo, and `/agile-board reset` clears it.
 
-**Programs run.** Only `gh` and `git`, only to read. Each command is written out argument by argument in `hooks/register.tsx` and passed as an argument list, never through a shell. The only arguments taken from data are a PR number, a commit sha and a branch name, each checked against a strict pattern first, and a directory, used only as `git -C`.
+**Programs run.** Only `gh` and `git`, only to read. Each command is written out argument by argument in `hooks/register.tsx` and passed as an argument list, never through a shell. The only arguments taken from data are a PR number, a commit sha, a branch name or ref, each checked against a strict pattern first; file paths, rejected when they start with `-`; and a directory, used only as `git -C`.
 
 | Command | Why | When |
 |---|---|---|

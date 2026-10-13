@@ -2,6 +2,8 @@
 
 Guidance for Claude Code when working in this repository.
 
+The contribution workflow, checks, eval and token-efficiency rules are in [CONTRIBUTING.md](CONTRIBUTING.md); read it before you change a skill, agent, eval or doc, and follow it.
+
 ## What this repo is
 
 A Claude Code marketplace of focused plugins — six split by cycle phase so users load only what they run, three out-of-cycle review/cleanup plugins, and one mod plugin:
@@ -15,28 +17,34 @@ A Claude Code marketplace of focused plugins — six split by cycle phase so use
 - **`deep-refactor`** — out-of-cycle cleanup, three skills sharing one audit → report → ticket → drain loop, each freezing a different side of the repo: `deep-refactor` (code changes, tests frozen), `test-refactor` (tests change, production frozen), `doc-refactor` (markdown changes, source frozen). Ships no agents. Tracker-agnostic; needs `gh`.
 - **`project-review`** — out-of-cycle, read-only deep technical assessment of an arbitrary software or IT project. Produces an evidence-backed Markdown report and does not require Jira, Confluence, or `gh`.
 - **`session-audit`** — out-of-cycle, read-only cost audit of sessions that ran these skills: per-skill and per-subagent spend from transcripts, a before/after delta normalised by merged PRs and added lines, ranked improvements. Bundles an offline `session_usage.py`; `gh` optional.
-- **`agile-mods`** — Claude Mods (on by default from Claude Code 2.1.287; no flag): TypeScript in `hooks/`, no skills or agents; one user-facing page per mod in `agile-mods/docs/`, linked from its README, with the exact rules and the disclosure of every command the mod runs in `docs/reference.md`; the console pictures in `docs/img/` are drawn from the views by `bun docs/img/generate.ts`. The `/agile-board` console pane (board, flow, cost, wip, drain, guards, links tabs), a status-line entry and an alert row; guards that enforce rules this file and the skills state in prose (tool grants, the 3f pinned-head, green-CI and reviewed-files gates, no push to main or force push in the loop, the fix-round cap on an open PR, counted per reviewed head, the per-ticket cost cap `ticketBudgetUsd`), each set to enforce, warn or off by a `userConfig` option that a repo's CLAUDE.md/AGENTS.md can only tighten, with a one-time bypass of the 3f gates, the cap or a ticket's cost cap that only a person grants from the Guards tab; `/receipts`; retro counts, and a per-ticket Cost tab. Board and guards read gh, git and the Jira MCP themselves, never the model's answers or receipts. **A mod guard mirrors a prose rule: change the rule (a grant, a receipt field, how `merge-review-pr` reads files at the reviewed sha or a delta after a fix, the 3f `gh pr merge --match-head-commit` command, the fix-round cap and what counts as a round, the ticket's BUDGET stop) and update `agile-mods/hooks/state/` in the same change.** Engine limits: one hooks module (`register.tsx` owns every hook and passes a `Host` to the others), one unmatched hook per event, `$` only in that file. Keep logic and views in `hooks/state/` and run `cd agile-mods && bun test`, `claude plugin test ./agile-mods` and `claude plugin validate ./agile-mods`. Claude-only: no `.codex-plugin`, no `.agents/plugins/marketplace.json` entry. **Its locked decisions (who counts as a reviewer, output-verified reads, what a fix round is, tighten-only repo config, person-only bypass and reset) and its engine-test gotchas live in `agile-mods/hooks/CLAUDE.md`: read it before changing a guard.**
+- **`agile-mods`** — Claude Mods (on by default from Claude Code 2.1.287; no flag): TypeScript in `hooks/`, no skills or agents; one user-facing page per mod in `agile-mods/docs/`, linked from its README, with the exact rules and the disclosure of every command the mod runs in `docs/reference.md`; the console pictures in `agile-mods/docs/img/` are drawn from the views by `cd agile-mods && bun docs/img/generate.ts`. The `/agile-board` console pane (board, flow, cost, wip, drain, guards, links tabs), a status-line entry and an alert row; guards that enforce rules this file and the skills state in prose (tool grants, the 3f pinned-head, green-CI and reviewed-files gates, no push to main or force push in the loop, the fix-round cap on an open PR, counted per reviewed head, the per-ticket cost cap `ticketBudgetUsd`), each set to enforce, warn or off by a `userConfig` option that a repo's CLAUDE.md/AGENTS.md can only tighten, with a one-time bypass of the 3f gates, the cap or a ticket's cost cap that only a person grants from the Guards tab; `/receipts`; retro counts, and a per-ticket Cost tab. Board and guards read gh, git and the Jira MCP themselves, never the model's answers or receipts. **A mod guard mirrors a prose rule: change the rule (a grant, a receipt field, how `merge-review-pr` reads files at the reviewed sha or a delta after a fix, the 3f `gh pr merge --match-head-commit` command, the fix-round cap and what counts as a round, the ticket's BUDGET stop) and update `agile-mods/hooks/state/` in the same change.** Engine limits: one hooks module (`register.tsx` owns every hook and passes a `Host` to the others), one unmatched hook per event, `$` only in that file. Keep logic and views in `hooks/state/` and run `cd agile-mods && bun test`, `claude plugin test ./agile-mods` and `claude plugin validate ./agile-mods`. Claude-only: no `.codex-plugin`, no `.agents/plugins/marketplace.json` entry. **Its locked decisions (who counts as a reviewer, output-verified reads, what a fix round is, tighten-only repo config, person-only bypass and reset) and its engine-test gotchas live in `agile-mods/hooks/CLAUDE.md`: read it before changing a guard.**
 
 `agile-10-implement` clears the **build** queue (`To Do` → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`). User-facing skills keep global cycle numbering (`agile-1` … `agile-15`); composed sub-skills (`implement-*`, `merge-*`) are **unnumbered** because users don't call them. Namespace = plugin name: `/agile-planning:agile-5-roadmap`.
 
 Install: `/plugin marketplace add cedricfarinazzo/agile-skills` then `/plugin install <plugin>@agile-skills`.
-Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a time).
+Test locally: `claude --plugin-dir ./<plugin>` from the repo root (one plugin dir at a time).
 
 ## Structure
 
 ```
 README.md                                 # root README — OVERVIEW only (plugin table, cycle diagram, install, links)
 .claude-plugin/marketplace.json           # marketplace — lists every plugin (`./<plugin>` relative source); it is the authoritative plugin list
-<plugin>/README.md                        # per-plugin README — the detail for that plugin
-<plugin>/.claude-plugin/plugin.json       # one manifest per plugin
+<plugin>/README.md                        # per-plugin README — an overview of about 80 lines
+<plugin>/docs/*.md                        # long user-facing detail and reference (execution, merge-review, sprint-drain, deep-refactor, agile-mods)
+docs/img/generate.ts                      # root: draws docs/img/{cycle,drain,merge-train}.svg — `bun docs/img/generate.ts` from the repo root
+docs/img/generate-icons.py                # draws every <plugin>/.claude-plugin/icon.svg
+<plugin>/.claude-plugin/plugin.json       # one manifest per plugin; shared packages also carry .codex-plugin/plugin.json and a root plugin.json
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
-<plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13, session-audit) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
+<plugin>/evals-<skill>/<NN-case>/         # eval cases: prompt.md + graders/*.md; `claude plugin eval ./<plugin> --eval-dir evals-<skill>`
+<plugin>/skills/<name>/scripts/           # bundled scripts (agile-8 shell, agile-13 and session-audit Python) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
-There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, `.github/` (CI), and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
+There is **no root plugin** — the root holds the marketplace files (`.claude-plugin/`, `.agents/plugins/marketplace.json`), `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `LICENSE`, `docs/`, `.github/` (CI), and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
 
-**Docs split:** the root `README.md` is an overview that **links** to each plugin README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, orchestrator internals) lives in `<plugin>/README.md`. Change a skill → update its plugin README; keep the root overview-only. The canonical Confluence tree lives in full in `agile-planning/README.md`.
+**Docs split:** the root `README.md` is an overview that **links** to each plugin README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, orchestrator internals) lives in `<plugin>/README.md` or `<plugin>/docs/`. Change a skill → update its plugin README, or the `docs/` page that holds the rule; keep the root overview-only. The canonical Confluence tree lives in full in `agile-planning/README.md`.
+
+**README conventions (the agile-mods docs pattern).** A plugin README is an overview of about 80 lines: one sentence on what it does, `Part of` + what it needs, a **What you get** table (skill, what it produces, trigger phrases copied from the SKILL.md description, which stays the routing source), one flow diagram, install, then where the plugin has any: a configuration table with defaults and what it asks you; links; **Where it fits**. Anything longer, and every rule a maintainer would need, moves to `<plugin>/docs/` (one page per topic, a `← <plugin>` back link, exact rules in `reference.md`). Write for the person running the skill: the action to take, not the mechanism. Flows are mermaid, or one of the three pictures in root `docs/img/`, which `bun docs/img/generate.ts` draws. **Change a flow they show (the cycle, the drain banners, 3a–3g) and redraw them in the same change.** Before dropping a line from a README, diff its operative tokens (commands, flags, config keys, `mcp__*` names, markers, trigger phrases) per file.
 
 ## SKILL.md format
 
@@ -174,6 +182,8 @@ Identity is a `📊 Live roadmap:` line on the Roadmap page holding the URL. A r
 
 ## Verify before you call an edit done
 
+These checks are manual: CI runs the validators, `bun test`, `claude plugin test`, `skills-ref` and `check-parity.py`, but not the invariant commands below.
+
 Cheap to check, expensive to lose. Each has caught a real regression here.
 
 ```bash
@@ -233,7 +243,7 @@ Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill na
 The directory also holds two things for review. Avoid both:
 
 - **No credential read from the installer's machine** (`MCP_FORWARDS_CREDENTIAL_ENV`). A skill, script, or agent must not read a token from env vars or files and send it to a host. Reach Jira and Confluence through the Atlassian MCP tools, which own authentication; bundled scripts stay offline and take their input as files. If a plugin truly needs a secret, declare it as a `userConfig` option with `sensitive: true` and reference it as `${user_config.KEY}`. The scanner also matches on names: in bundled scripts, don't name variables with `KEY`, `TOKEN`, `SECRET`, or `PASS` unless they hold one. It can still flag a false positive (for example the review verdict `pass` read as a password next to the manifest's GitHub URL); explain it in the submission instead of changing the code.
-- **Every plugin has an icon** (`ICON_MISSING`): a square SVG of at least 128px at `<plugin>/.claude-plugin/icon.svg`.
+- **Every plugin has an icon** (`ICON_MISSING`): a square SVG of at least 128px at `<plugin>/.claude-plugin/icon.svg`, drawn by `python3 docs/img/generate-icons.py` (edit the shape there, not the SVG, and rerun).
 
 - Submission guide: https://claude.com/blog/build-plugins-for-claude
 - Marketplace file reference: https://code.claude.com/docs/en/plugins/marketplace-reference#marketplace-file

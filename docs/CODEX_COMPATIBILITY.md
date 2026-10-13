@@ -30,9 +30,9 @@ Before a skill performs a write, transition, push, merge, or CI wait, verify onl
 
 Consumer skill inventories cover both `.claude/skills/` and `.agents/skills/`, with Claude listed first.
 
-## Markdown conventions
+## Host execution sections
 
-Each skill that differs by host places `## Host execution` before `## Purpose`. That section states both contracts explicitly: Claude Code retains its existing named-agent/concurrency behavior; Codex runs inline and does not claim agent or subagent dispatch.
+Each skill whose behavior differs by host (the orchestrators and their sub-skills) places `## Host execution` before `## Purpose`. Skills that differ only by the optional Artifact step state the skip in their body. That section states both contracts explicitly: Claude Code retains its existing named-agent/concurrency behavior; Codex runs inline and does not claim agent or subagent dispatch.
 
 ## Release verification
 
@@ -45,8 +45,7 @@ claude plugin validate .
 for plugin in agile-* deep-refactor project-review session-audit; do
   claude plugin validate "$plugin"
 done
-python3 -m pytest agile-planning/skills/agile-8-refinement/scripts \
-  agile-sprint-close/skills/agile-13-sprint-closeout/scripts \
+python3 -m pytest agile-sprint-close/skills/agile-13-sprint-closeout/scripts \
   session-audit/skills/session-audit/scripts -q
 ```
 

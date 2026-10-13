@@ -1,8 +1,25 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-sprint-close
 
-**Close** plugin — ends the sprint cleanly: housekeeping, a global engineering+product gate, post-merge QA sign-off, and the retrospective that feeds the next iteration. Uses the **`gh`** CLI + git and **Confluence + Jira**.
+Runs the end-of-sprint steps in order: housekeeping, a global engineering and product gate, post-merge QA sign-off, and the retrospective that feeds the next iteration.
 
-Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
+Part of [agile-skills](../README.md). Needs `gh` and the Atlassian MCP (Confluence and Jira).
+
+## What you get
+
+Run in this order.
+
+| # | Skill | What it does | Say |
+|---|---|---|---|
+| 12 | `agile-12-tech-debt-sweep` | Audits cross-repo leakage, useless CI, prebuild-image wins, `CLAUDE.md` / `AGENTS.md` / `SKILL.md` cruft, misplaced artifacts, dead code. Report before apply | "tech debt sweep", "cleanup sweep", "housekeeping", `/tech-debt-sweep` |
+| 13 | `agile-13-sprint-closeout` | Mandatory epic-level gate through three lenses; publishes a report | "sprint closeout", "close sprint", `/sprint-closeout` |
+| 14 | `agile-14-qa-validation` | Confirms acceptance criteria hold on `main` and stamps a sign-off | "validate story", "QA story", "QA check", "confirm ACs" |
+| 15 | `agile-15-retro` | Retro page in Confluence, Roadmap update, refreshed Roadmap Artifact; feeds the next iteration | "run retro", "close sprint", "what did we learn" |
+
+```mermaid
+flowchart LR
+  d["agile-sprint-drain<br/>DRAINED"] -. "after the last merge" .-> s["12 tech-debt sweep"] --> c["13 closeout"] --> q["14 QA validation"] --> r["15 retro"]
+  r --> n["agile-5-roadmap<br/>next iteration"]
+```
 
 ## Install
 
@@ -12,41 +29,30 @@ Part of [agile-skills](../README.md). Needs `gh` + the Atlassian MCP.
 /reload-plugins
 ```
 
-## Skills (run in this order)
+On Codex, run `codex plugin add agile-sprint-close@agile-skills` and invoke `$<skill-name>`. Closeout phases and review lenses run sequentially inline, without subagents. Artifact publication is optional; Confluence stays the complete result. See the [compatibility guide](../docs/CODEX_COMPATIBILITY.md).
 
-| # | Skill | Role | Trigger |
-|---|-------|------|---------|
-| 12 | `agile-12-tech-debt-sweep` | pre-closeout housekeeping — audit cross-repo leakage, useless CI, prebuild-image wins, CLAUDE.md/SKILL.md cruft, misplaced artifacts. Report before apply | "tech debt sweep", "cleanup sweep", "housekeeping" |
-| 13 | `agile-13-sprint-closeout` | mandatory epic-level gate, 3 lenses (below) | "sprint closeout", "close sprint", "/sprint-closeout" |
-| 14 | `agile-14-qa-validation` | QA, confirm-after-merge (below) | "validate the story", "QA check", "confirm ACs" |
-| 15 | `agile-15-retro` | sprint retro in Confluence + Roadmap update (index, child page, and the published Roadmap Artifact — now carrying real delivered-vs-committed numbers); feeds the next iteration | "run retro", "sprint retrospective", "what did we learn" |
+## Closeout: the third review layer
 
-**Codex:** all closeout phases and review lenses run sequentially inline, without subagents. Install with `codex plugin add agile-sprint-close@agile-skills` and invoke a user-facing skill as `$<skill-name>`. Artifact publication is optional; record its absence and keep Confluence as the complete result. See [the compatibility guide](../docs/CODEX_COMPATIBILITY.md).
+`agile-13-sprint-closeout` is a global, impartial gate on an epic's wired-together delivery against its goal (input: an epic key). The per-PR reviews ([author self-review](../agile-execution/README.md) and [independent merge review](../agile-merge-review/README.md)) already happened. Three lenses:
 
-## Sprint closeout — the third review layer
+| Lens | Question |
+|---|---|
+| **Engineer** | Does the system work on a freshly rebuilt dev stack? (smoke and integration) |
+| **Architect / PM** | Does delivered code match the documented intent (Vision, PRD, ADR, Roadmap, epic ACs)? |
+| **Tech Lead** | Does it hold up under an impartial deep review of all sprint diffs? |
 
-`agile-13-sprint-closeout` is a **global, impartial** review of the *whole wired-together sprint* against its goal — distinct from the per-PR reviews ([author self-review](../agile-execution/README.md) + [independent merge review](../agile-merge-review/README.md), which already happened). Three lenses:
+A single Critical from any lens blocks closeout. The report goes to the `Closeouts` Confluence folder, which the retro reads. It catches a sprint whose ACs pass individually but whose wired system fails. Phase 6.5 audits the merge train's Jira links with a bundled stdlib script (`skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py`; tests beside it, `python3 -m pytest` that dir).
 
-1. **Engineer** — does the system actually work on a freshly rebuilt dev stack? (smoke + integration)
-2. **Architect / PM** — does delivered code match the documented intent (Vision/PRD/ADR/Roadmap/epic ACs)?
-3. **Tech Lead** — does it hold up under an impartial deep review of all sprint diffs?
+## QA: confirm after merge
 
-Phase 6.5 audits the merge train's Jira links with a bundled stdlib script (`skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py`; tests beside it, `python3 -m pytest` that dir).
+By the time `agile-14-qa-validation` runs, the Story is already Done; the [merge train](../agile-merge-review/README.md) owns that transition. QA confirms the ACs hold on `main` and stamps a sign-off comment. It never transitions the Story. A pass adds the `qa-approved` label and the sign-off comment. A post-merge regression is filed as a new Bug (linked `is caused by`, Story labelled `qa-regression`), never a reopen, because reversing Done would lose the merge audit trail.
 
-A single Critical from any lens blocks closeout. It publishes a report to the `Closeouts` Confluence folder (sibling of `Retrospectives`), which the retro reads. Catches the "every AC green in isolation, but the wired system is broken" class of bug.
+## Retro and next iteration
 
-## QA — confirm-after-merge only
+`agile-15-retro` writes the retro page in `Retrospectives`, reads the closeout report, marks the sprint ✅ Complete in the child page section, its Epic Sprint Plan row and the Roadmap rollup row (the Iterations table status flips only on the iteration's last sprint), closes the sprint in Jira (carried-over Stories return to `To Do`; Won't Do Stories are confirmed with you), and hands velocity, feedback, debt and actions to `agile-5-roadmap` (ITERATION mode).
 
-By the time `agile-14-qa-validation` runs, the Story is already **Done** (merged via the [merge train](../agile-merge-review/README.md), which owns the `Done` transition). QA confirms the ACs hold on `main` and stamps a sign-off comment — it **never** transitions the Story. A post-merge regression is filed as a new Bug (linked `is caused by`, Story labelled `qa-regression`), **never** a reopen — reversing a Done story would lose the merge audit trail.
-
-## Retro → next iteration
-
-`agile-15-retro` writes the retro page in the `Retrospectives` folder, reads the closeout report, marks the iteration ✅ Complete in the Roadmap index + child page, and hands its outputs (velocity, feedback, debt, actions) to `agile-5-roadmap` (ITERATION mode) to plan the next iteration.
-
-## Confluence layout
-
-`Retrospectives` and `Closeouts` are sibling folders under the project root — never nested. See the [canonical folder tree](../agile-planning/README.md#confluence-structure).
+`Retrospectives` and `Closeouts` are sibling folders under the project root, never nested. See the [canonical folder tree](../agile-planning/README.md#confluence-structure).
 
 ## Where it fits
 
-After **agile-merge-review**; loops back to **agile-planning** (roadmap iteration). See the [full cycle](../README.md#cycle-order).
+After [agile-merge-review](../agile-merge-review/README.md) (or [agile-sprint-drain](../agile-sprint-drain/README.md) reaching DRAINED); loops back to [agile-planning](../agile-planning/README.md). Full cycle: [root README](../README.md#cycle-order).

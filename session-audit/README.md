@@ -1,8 +1,21 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> session-audit
 
-Read-only, out-of-cycle audit of what a Claude Code session that ran agile-skills cost and what it shipped. It profiles spend per skill and per subagent, compares two runs normalised by merged PRs and added lines, checks the gates still held, and ranks the skill or agent edits that would cut spend.
+Out-of-cycle, read-only audit of what a Claude Code session that ran agile-skills cost and what it shipped. It edits nothing; its output is a report.
 
-It edits nothing. Its output is a report.
+Part of [agile-skills](../README.md). Needs nothing. With `gh` in the repo it measures shipped work (merged PRs, added lines); without it the skill falls back to tickets moved to Done and says the measure is coarser. No Jira or Confluence.
+
+## What you get
+
+| Skill | What it does | Say |
+|---|---|---|
+| `session-audit` | Spend per skill and per subagent, a before/after comparison normalised by merged PRs and added lines, a check that the gates still held, and a ranked list of skill or agent edits that would cut spend | "audit this session's cost", "compare before and after sessions", "is the new version more efficient", "where do the tokens go", "subagent cost breakdown" |
+
+```mermaid
+flowchart LR
+  t["transcripts<br/>(.jsonl, offline)"] --> u["session_usage.py<br/>cost profile"] --> r["report"]
+  g["gh: merged PRs,<br/>added lines"] --> r
+  r --> i["ranked edits<br/>to skills and agents"]
+```
 
 ## Install
 
@@ -17,12 +30,6 @@ For Codex (audits supplied Claude Code transcripts only; native Codex sessions a
 codex plugin marketplace add cedricfarinazzo/agile-skills
 codex plugin add session-audit@agile-skills
 ```
-
-## Skill
-
-| Skill | Purpose | Triggers |
-|---|---|---|
-| `session-audit` | Cost and efficiency audit of one run, or a before/after comparison of two | "audit this session's cost", "compare before and after sessions", "is the new version more efficient", "where do the tokens go", "subagent cost breakdown" |
 
 Invoke it as `/session-audit:session-audit` in Claude Code or `$session-audit` in Codex.
 
@@ -42,10 +49,6 @@ python3 session_usage.py report --run before=a.jsonl --run after=b.jsonl,c.jsonl
 
 Tests: `python3 -m pytest session-audit/skills/session-audit/scripts`.
 
-## Needs
-
-`gh` in the consumer repo to measure work shipped (merged PRs, added lines). Without it the skill falls back to tickets moved to Done and says the measure is coarser. No Jira or Confluence access is required.
-
 ## Where it fits
 
-Out of cycle. Run it after a drain, an implement pass or a merge train, or to compare two plugin versions on similar work. It does not replace the retro or the sprint closeout.
+Out of cycle. Run it after a drain, an implement pass or a merge train, or to compare two plugin versions on similar work. It does not replace the [retro](../agile-sprint-close/README.md) or the sprint closeout. Full cycle: [root README](../README.md#cycle-order).

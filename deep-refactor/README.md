@@ -1,47 +1,55 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> deep-refactor
 
-Three skills sharing one discipline: audit deeply, prove every claim, ship as a sequenced PR train. Each freezes a different side of the repo as its proof.
+Out-of-cycle cleanup in three skills that share one loop: audit deeply, prove every claim, ship the result as a sequenced PR train. Each skill freezes a different side of the repo as its proof.
 
-**Codex:** install with `codex plugin add deep-refactor@agile-skills` and invoke `$deep-refactor`, `$test-refactor`, or `$doc-refactor`. See [the compatibility guide](../docs/CODEX_COMPATIBILITY.md) for runtime preflight and host differences.
+Part of [agile-skills](../README.md). Needs `gh`, `git`, a CI you can query, and your tracker of choice. No Jira or Confluence required.
 
-- **`deep-refactor`** — audit an entire codebase and ship everything it finds, with the test suite as the frozen contract.
-- **`test-refactor`** — the inverse: audit one test suite at a time (dead tests, duplication, parallel-unsafety, depth gaps), with production code frozen and coverage parity proven per module.
-- **`test-refactor characterize <scope>`** — establish minimal owner-boundary behavior proof before a risky code cleanup, with production frozen; the resulting test becomes the later refactor's contract.
-- **`doc-refactor`** — audit every markdown file (READMEs, `docs/`, agent-instruction files) for lies, drift, duplication and bloat, with the source frozen and every surviving claim verified rather than read.
-- **`doc-refactor rules`** — audit the standing instruction corpus for redundant, stale, brittle, conflicting, or low-yield rules while preserving verified load-bearing invariants.
+## What you get
 
-## The loop (all three skills)
+| Skill | Changes | Frozen | Say |
+|---|---|---|---|
+| `deep-refactor` | Production code, codebase-wide | The test suite, as the contract (only enumerated fixture and guard edits in the correctness and structural tickets) | "deep refactor", "refactor audit", "clean the codebase", "DRY pass", "audit and fix everything" |
+| `test-refactor` | One test suite at a time | Production code (a defect found goes in its own PR) | "test refactor", "clean the tests", "refactor the tests", "test suite audit", "DRY the tests", "parallelize the test suite", "speed up the tests" |
+| `test-refactor characterize <scope>` | Adds a minimal behavior test | Production code | "characterize before refactor", "characterization tests" |
+| `doc-refactor` | Every markdown file (`.md`) | Source code | "doc refactor", "refactor the docs", "clean the docs", "documentation audit", "README audit", "docs are stale", "DRY the docs", "audit every markdown file" |
+| `doc-refactor rules` | The standing instruction corpus, in addition to the markdown audit | Source code | (a mode of `doc-refactor`) |
 
-| Phase | What happens | The discipline |
-|---|---|---|
-| **Audit** | Parallel read-only agents over disjoint areas + a mechanical scanner; loop until a pass comes back empty | Every proposal carries its **pin inventory** (test imports, patch targets, source-text guards, coverage detectors, CI globs; for docs: inbound links, site nav, `#anchor` targets, load-bearing filenames) and its **evidence** (instrumented counts, mutation probes, real diffs, executed commands) |
-| **Report** | One synthesized document: defects / deletions / merges / safe backlog / blocked list / "deliberate — do not fix", plus a reconciled train ledger | Every row carries proof, frozen side, validation, dependencies, and a durable status; recorded decisions aren't relitigated |
-| **Ticket** | Sequenced train, one ticket = one PR, sanctioned edits enumerated in advance, non-goals listed per ticket | `deep-refactor`: bugs first, structural splits last, zero test edits in between. `test-refactor`: deletions/merges → harness → parallel-isolation → runtime cost → depth, zero production edits throughout. `doc-refactor`: falsehoods → deletions → dedup → compression → gaps, file moves last, zero source edits throughout |
-| **Drain** | One branch per ticket, isolated worktrees for parallel work, sequential merges on self-verified green CI | Reconcile the train against current main before every car; verify with the **real workload**; every touched guard or test gets a **non-vacuity proof** (inject a defect, watch it fail, revert); two identical CI failures are a diagnosis, not a rerun |
+```mermaid
+flowchart LR
+  a["Audit<br/>parallel read-only agents,<br/>until a pass is empty"] --> r["Report<br/>every row has proof"] --> t["Ticket<br/>one ticket, one PR,<br/>sequenced train"] --> d["Drain<br/>sequential merges<br/>on green CI"]
+  d -. "reconcile against main<br/>before every PR" .-> t
+```
 
-## test-refactor specifics
-
-- One suite at a time — the user names the scope ("backend unit tests").
-- Delete tests that test nothing: tests of the language or external libs called directly (your function calling the lib is fine), tautologies, mock echoes — each with evidence it covered nothing.
-- Merge duplicate coverage into parametrized tests; parametrized cases are distinct coverage, not duplication; deepen critical paths.
-- Profile-driven runtime cost: suite wall-clock + peak memory are baselined in the audit and gated per PR (measured before/after; a speedup never bought with coverage).
-- **Single-parallel-run invariant**: the whole suite runs in one parallel invocation in the CI test job — parallelism conflicts are fixed by isolating the test (unique schemas/ports/dirs per worker, no shared state, no sleeps), never by splitting the run, serializing, or retrying.
-- Keeping good coverage is a stated goal: per-module parity against the audit baseline gated per PR, depth additions on critical paths push it up — a cleanup that ends with less real coverage has failed.
-- Before a deletion, an odd-looking test must clear the retention bar: name the regression it detects, any real callers of its seam, stronger surviving proof, and focused validation. “Looks coupled” is not deletion evidence.
-
-## doc-refactor specifics
-
-- Whole markdown surface at once — every `.md` inventoried with its **audience and load path**: human-browsed, rendered by a docs site, or auto-loaded into an agent's context.
-- **A lie outranks every style improvement.** Dead commands, renamed flags, moved paths, 404 links and anchors are the top of the report and the first ticket in the train.
-- **Verify, don't read**: commands run in a clean checkout, flags checked against `--help` or the parser, links fetched *and* anchor-checked, claims resolved against the code — never against the neighbouring doc that agrees.
-- Duplication is collapsed to one home, except **deliberate replication** — a block that must exist verbatim in many files because nothing includes it at read time. That ships with a sync rule and a command proving every copy identical.
-- Generated docs (docstring API refs, `--help` dumps, TOCs) are never hand-edited; fix the generator or declare the file hand-maintained.
-- **Some markdown is executable** — `CLAUDE.md/AGENTS.md`, skill/agent frontmatter. Trigger phrases are never subtracted, every removal states what it governed, and the per-session token cost of auto-loaded files is baselined and gated like `test-refactor` gates wall-clock.
-- Compression is proven by a **per-file** operative-token diff (commands, flags, config keys, MCP names) — a token surviving in another doc is not evidence this one kept it.
-- In `rules` mode, every standing directive earns its permanent context cost: its behavioral impact is recorded and only evidence-backed redundancy, staleness, brittleness, misfiling, conflict, or low-yield ritual is changed.
+Every proposal carries its evidence (instrumented counts, mutation probes, real diffs, executed commands). Nothing merges without a self-verified green run.
 
 ## Install
 
-Point Claude Code at this marketplace and install `deep-refactor`. Invoke with `/deep-refactor` or "audit and clean the codebase", `/test-refactor` or "refactor the backend unit tests", and `/doc-refactor` or "the docs are stale, audit every markdown file".
+```bash
+/plugin marketplace add cedricfarinazzo/agile-skills
+/plugin install deep-refactor@agile-skills
+/reload-plugins
+```
 
-No external tooling assumed beyond `git`, a CI you can query, and your tracker of choice.
+Run `/deep-refactor:deep-refactor`, `/deep-refactor:test-refactor` or `/deep-refactor:doc-refactor`. On Codex, install with `codex plugin add deep-refactor@agile-skills` and run `$deep-refactor`, `$test-refactor` or `$doc-refactor`; see the [compatibility guide](../docs/CODEX_COMPATIBILITY.md).
+
+## Scope
+
+- `deep-refactor` audits the whole codebase.
+- `test-refactor` takes one suite at a time; you name it, for example "backend unit tests".
+- `doc-refactor` inventories every markdown file.
+
+Findings that can't be proven safe land on the report's blocked list, not in a PR. Recorded "deliberate: do not fix" decisions are not relitigated.
+
+## More
+
+| Page | Covers |
+|---|---|
+| [The loop](docs/loop.md) | Audit, report, ticket, drain, and the discipline of each |
+| [deep-refactor](docs/deep-refactor.md) | Codebase audit with the tests frozen |
+| [test-refactor](docs/test-refactor.md) | Per-suite test audit, characterize mode |
+| [doc-refactor](docs/doc-refactor.md) | Markdown audit, rules mode |
+| [Reference](docs/reference.md) | Non-vacuity proofs, per-file token diff, ticket order per skill |
+
+## Where it fits
+
+Independent of the product-to-sprint cycle; it needs no Jira or Confluence. Where `agile-execution` and `agile-merge-review` are installed, the PR drain runs through them. See the [root README](../README.md).

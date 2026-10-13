@@ -22,7 +22,8 @@ ticket-validator               blocked: Jira returned 403 on transition
 |---|---|
 | `no receipt` | The agent returned nothing |
 | `preamble` | It opens with prose ("I'll…", "Here is…") instead of its fields |
-| `summary/praise section` | A `Summary`, `Overview` or `Praise` heading, which the contract forbids |
+| `summary/praise section` | A `Summary`, `Overview`, `Praise` or `What went well` heading in a `pr-reviewer`, `review-lens` or `self-reviewer` receipt, which the contract forbids |
+| `summary section in a strict receipt` | The same headings in any other agent's receipt, which holds structured fields only |
 | `blocked: …` | The agent stopped; the orchestrator must act on the blocker |
 | `unapplied_mutations: …` | A side effect (transition, comment, push) the agent could not apply |
 | `no reviewed sha` | A `pr-reviewer` receipt without its `Reviewed sha:` line. The merge guard doesn't rely on it: it checks the reviewer's own reads |
