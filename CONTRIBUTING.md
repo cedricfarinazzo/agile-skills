@@ -43,6 +43,37 @@ claude --plugin-dir ./agile-skills/<plugin>   # one plugin dir at a time
 - **Invoke bundled scripts through `${CLAUDE_PLUGIN_ROOT}`.** A bare relative path fails when the plugin is installed.
 - **A mod guard mirrors a prose rule.** Change the rule and update `agile-mods/hooks/state/` together; read `agile-mods/hooks/CLAUDE.md` first.
 
+## Keep skills token efficient
+
+Every skill's `description` loads into context in every session, and a skill's body loads each time it runs. Both are paid on every use, so keep them lean.
+
+**Descriptions: short, and still enough to route.**
+
+- A description is a routing key. State what the skill does, when to use it, and its `Triggers:` phrases. Leave out mechanism, receipt fields, config keys and step lists; those belong in the body.
+- Aim for one or two sentences. Most existing descriptions are 100 to 250 characters; treat anything near 300 as a prompt to cut.
+- Keep the phrases people actually say ("sprint closeout", "merge train"). Cut words around them, not the phrases. Never remove a trigger to save space.
+- Say what distinguishes it from a neighboring skill when two could match ("Use instead of /review for file-level depth").
+
+```yaml
+# routes well, short
+description: "Launch sprint in Jira. Triggers: plan sprint, start sprint, sprint planning. After skill 8."
+
+# too long: mechanism and receipts belong in the body
+description: "Reads refined Stories, computes capacity, orders by dependency, creates the sprint, posts a rollup row, refreshes the artifact, then writes a receipt with ..."
+```
+
+**Bodies: say each thing once.**
+
+- State a rule in one place. A section followed by a `Rules` bullet and a `Principles` bullet that repeat it triples the cost and adds nothing.
+- Keep the gotcha, cut the lecture: the check that is easy to forget stays, the rationale and war stories go.
+- Templates are skeletons: list the sections and any non-obvious field meaning, not sentences telling the model what to write.
+- Trust the model on interview mechanics and ordinary judgment. "Ask what is missing, infer what is implied, state every inference" is one sentence.
+- An agent file stays short and points at its sub-skill. The SKILL.md is the source of truth.
+- Size model and effort to what a miss costs and what re-reads the output, not to how few tool calls the phase makes. Lower a tier only when something downstream checks the result.
+- Move long user-facing detail to `<plugin>/docs/`, which is read on demand, not on every run.
+
+To see where tokens go before and after a change, run the `session-audit` skill on two runs of similar work.
+
 ## Checks
 
 Run what applies to your change. CI runs the same.
