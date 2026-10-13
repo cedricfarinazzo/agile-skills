@@ -100,6 +100,10 @@ cp -r agile-skills/{agile-product,agile-planning,agile-execution,agile-merge-rev
 
 This copies skills only. Plugin agents and bundled scripts (`agile-8`, `agile-13`, `session-audit`) are not copied, so run phases inline.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 MIT
