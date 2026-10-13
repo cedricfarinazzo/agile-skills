@@ -12,6 +12,7 @@ Each plugin is a top-level directory. The marketplace file `.claude-plugin/marke
 <plugin>/.claude-plugin/plugin.json  manifest (also .codex-plugin/ and plugin.json for shared packages)
 <plugin>/skills/<name>/SKILL.md      one directory per skill
 <plugin>/agents/<name>.md            scoped subagents (execution, merge-review, sprint-drain)
+<plugin>/evals-<skill>/<NN-case>/      eval cases: prompt.md and graders/*.md (results/ is gitignored)
 docs/                                Codex compatibility notes and the root pictures
 ```
 
@@ -42,6 +43,23 @@ claude --plugin-dir ./agile-skills/<plugin>   # one plugin dir at a time
 - **Write MCP tools fully qualified**, for example `mcp__atlassian__getJiraIssue`.
 - **Invoke bundled scripts through `${CLAUDE_PLUGIN_ROOT}`.** A bare relative path fails when the plugin is installed.
 - **A mod guard mirrors a prose rule.** Change the rule and update `agile-mods/hooks/state/` together; read `agile-mods/hooks/CLAUDE.md` first.
+
+## Evals
+
+Each skill has an eval suite in `<plugin>/evals-<skill>/`. A case is a directory `NN-name/` holding a `prompt.md` and one or more `graders/*.md`. A skill change that alters behavior should add or update a case.
+
+- **`prompt.md`** starts with frontmatter (`max_turns`, `timeout_seconds`, `allowed_tools`, `runs`, `model`), then the task. Inline every tool output the skill would read, so the case is hermetic and the without-plugin arm stays honest. Name the skill in the prompt when the case tests it firing.
+- **Graders** are small files with frontmatter. `type: tool_used` checks that a tool (usually `Skill`) was called; `type: llm` grades the last message against a list of checks and an explicit fail condition.
+- **Negative cases** (named `NN-neg-...`) check that the skill does not fire or does not overreach.
+- Test what the skill adds: the gate that gets skipped, the marker format, what it must not do. Re-skin real runs onto a generic domain; never paste private data.
+
+Run one suite from the repo root:
+
+```bash
+claude plugin eval ./<plugin> --eval-dir evals-<skill> --ablation with-without --judge-model sonnet
+```
+
+The headline number is the with/without delta. Run it before and after a change to a skill; `--case <glob>` narrows to one case.
 
 ## Keep skills token efficient
 
