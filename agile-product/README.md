@@ -1,8 +1,26 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-product
 
-Product **discovery** plugin — the *what & why* of the cycle. Turns a raw idea into the approved Confluence docs that everything downstream derives from. Integrates with **Confluence** (and reads Jira for context).
+Discovery: the *what and why*. Turns a raw idea into the approved Confluence documents everything downstream derives from.
 
-Part of [agile-skills](../README.md). Needs the Atlassian MCP.
+Part of [agile-skills](../README.md). Needs the Atlassian MCP (Confluence; Jira is read for context).
+
+## What you get
+
+| # | Skill | Produces | Say |
+|---|---|---|---|
+| 1 | `agile-1-create-vision-doc` | Vision Doc and the project root folder | "new idea", "start a new project", "create vision doc" |
+| 2 | `agile-2-create-prd` | PRD from the Vision Doc | "write the PRD", "draft product requirements" |
+| 3 | `agile-3-design-brief` | Design Brief (BRIEF mode), then Specs UI (INTEGRATE mode) | "write the design brief", "create Specs UI", "integrate mockups" |
+| 4 | `agile-4-create-adr` | ADR, tech feasibility and an Epic Breakdown Proposal | "write the ADR", "architecture decisions", "technical feasibility" |
+
+```mermaid
+flowchart LR
+  v["1 Vision Doc"] --> p["2 PRD"] --> b["3 Design Brief"] --> a["4 ADR"]
+  b -. "designer returns mockups" .-> s["3 Specs UI"]
+  a --> next["agile-planning<br/>5 Roadmap"]
+```
+
+Each skill reads what the previous one wrote and asks you only for what is missing, in one message. It states every assumption and never drafts a section it has no information for.
 
 ## Install
 
@@ -12,31 +30,23 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP.
 /reload-plugins
 ```
 
-## Skills
+Run a skill as `/agile-product:<skill>`, or say one of its phrases. On Codex, run `codex plugin add agile-product@agile-skills` and invoke `$<skill-name>`; read the [compatibility guide](../docs/CODEX_COMPATIBILITY.md) before a run that writes to Confluence.
 
-| # | Skill | Produces | Trigger |
-|---|-------|----------|---------|
-| 1 | `agile-1-create-vision-doc` | Vision Doc + the project root folder | New product idea, "start a new project", "create vision doc" |
-| 2 | `agile-2-create-prd` | PRD (from the Vision Doc) | "write the PRD", "draft product requirements" |
-| 3 | `agile-3-design-brief` | Design Brief (BRIEF mode) → Specs UI (INTEGRATE mode) | "write the design brief", "create Specs UI", "integrate mockups" |
-| 4 | `agile-4-create-adr` | ADR + tech feasibility + Epic breakdown proposal | "write the ADR", "architecture decisions", "technical feasibility" |
+Each run is idempotent and resumable: re-running fills only what is missing and never duplicates a page.
 
-Invoke directly with `/agile-product:<skill>`, or let Claude auto-fire on a matching phrase.
+## Two modes of `agile-3-design-brief`
 
-**Codex:** install with `codex plugin add agile-product@agile-skills` and invoke the same user-facing skill as `$<skill-name>`. Read [the compatibility guide](../docs/CODEX_COMPATIBILITY.md) before a run that writes to Confluence.
+| Mode | Writes | For |
+|---|---|---|
+| **BRIEF** | The brief that goes *to* the designer | Before design |
+| **INTEGRATE** | The designer's outputs, documented back as a Specs UI page | After design |
 
-## How it works
+They are separate pages and never merged.
 
-Each skill **reads what the previous one wrote, then interviews you only for the gaps** — it never drafts a section it has no real information for, asks all missing questions in one message, and states every assumption explicitly. Runs are idempotent + resumable: re-running fills only what's missing, never duplicates a page.
+## Where the pages go
 
-`agile-3-design-brief` is two-mode: **BRIEF** writes the brief that goes *to* the designer; **INTEGRATE** documents the designer's outputs back as a Specs UI page. They are separate pages, never merged.
-
-`agile-4-create-adr` ends with an **Epic Breakdown Proposal** (section 11) — the direct input to `agile-5-roadmap` in the planning plugin.
-
-## Confluence layout
-
-All four pages are children of the project root folder created by `agile-1`. See the [canonical folder tree](../agile-planning/README.md#confluence-structure) (shared by every agile-skills plugin).
+All four are children of the project root folder created by `agile-1`. The [canonical folder tree](../agile-planning/README.md#confluence-structure) is shared by every plugin. `agile-4` ends with an Epic Breakdown Proposal (section 11), the direct input to `agile-5-roadmap`.
 
 ## Where it fits
 
-Cycle start → hands off to **agile-planning**. See the [full cycle](../README.md#cycle-order).
+Cycle start. Hands off to [agile-planning](../agile-planning/README.md). Full cycle: [root README](../README.md#cycle-order).
