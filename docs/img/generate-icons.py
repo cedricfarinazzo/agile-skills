@@ -2,7 +2,7 @@
 """Draws every plugin icon: <plugin>/.claude-plugin/icon.svg.
 
 One concept per plugin, drawn on a 256x256 plate: white subject, one yellow accent, a colour per plugin.
-Run from anywhere after editing a shape:  python3 .github/scripts/generate-icons.py
+Run from anywhere after editing a shape:  python3 docs/img/generate-icons.py
 """
 import pathlib
 

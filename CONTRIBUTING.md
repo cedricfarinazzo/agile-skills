@@ -102,7 +102,7 @@ claude plugin validate ./<plugin>             # each plugin you touched
 python3 .github/scripts/check-parity.py       # names and versions across manifests
 python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 cd agile-mods && bun test && claude plugin test ./agile-mods   # if you touched agile-mods
-python3 .github/scripts/generate-icons.py     # icons: edit the shape in the script, then rerun
+python3 docs/img/generate-icons.py     # icons: edit the shape in the script, then rerun
 bun docs/img/generate.ts                      # root pictures, after the cycle, drain or train flow changes
 ```
 
