@@ -30,6 +30,7 @@ README.md                                 # root README — OVERVIEW only (plugi
 <plugin>/README.md                        # per-plugin README — an overview of about 80 lines
 <plugin>/docs/*.md                        # long user-facing detail and reference (execution, merge-review, sprint-drain, deep-refactor, agile-mods)
 docs/img/generate.ts                      # draws docs/img/{cycle,drain,merge-train}.svg — `bun docs/img/generate.ts`
+.github/scripts/generate-icons.py         # draws every <plugin>/.claude-plugin/icon.svg
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
@@ -237,7 +238,7 @@ Each plugin has `<plugin>/.claude-plugin/plugin.json`: `name` (sets the skill na
 The directory also holds two things for review. Avoid both:
 
 - **No credential read from the installer's machine** (`MCP_FORWARDS_CREDENTIAL_ENV`). A skill, script, or agent must not read a token from env vars or files and send it to a host. Reach Jira and Confluence through the Atlassian MCP tools, which own authentication; bundled scripts stay offline and take their input as files. If a plugin truly needs a secret, declare it as a `userConfig` option with `sensitive: true` and reference it as `${user_config.KEY}`. The scanner also matches on names: in bundled scripts, don't name variables with `KEY`, `TOKEN`, `SECRET`, or `PASS` unless they hold one. It can still flag a false positive (for example the review verdict `pass` read as a password next to the manifest's GitHub URL); explain it in the submission instead of changing the code.
-- **Every plugin has an icon** (`ICON_MISSING`): a square SVG of at least 128px at `<plugin>/.claude-plugin/icon.svg`.
+- **Every plugin has an icon** (`ICON_MISSING`): a square SVG of at least 128px at `<plugin>/.claude-plugin/icon.svg`, drawn by `python3 .github/scripts/generate-icons.py` (edit the shape there, not the SVG, and rerun).
 
 - Submission guide: https://claude.com/blog/build-plugins-for-claude
 - Marketplace file reference: https://code.claude.com/docs/en/plugins/marketplace-reference#marketplace-file
