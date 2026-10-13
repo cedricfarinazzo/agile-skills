@@ -2,7 +2,7 @@
 
 Guidance for Claude Code when working in this repository.
 
-The contribution workflow, checks, eval and token-efficiency rules are in @CONTRIBUTING.md; follow them too.
+The contribution workflow, checks, eval and token-efficiency rules are in [CONTRIBUTING.md](CONTRIBUTING.md); read it before you change a skill, agent, eval or doc, and follow it.
 
 ## What this repo is
 
