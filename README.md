@@ -2,116 +2,80 @@
 
 ### Ship sprints while you sleep. 🌙
 
-[Claude Code](https://claude.ai/code) skills that run the whole agile cycle — Vision, PRD, roadmap, then **autonomously code & self-review every Jira ticket into a PR**.
+[Claude Code](https://claude.ai/code) skills that run the whole agile cycle, from Vision Doc and PRD to a roadmap, then **autonomously build and self-review every Jira ticket into a PR**, merge them, and close the sprint.
 
-Raw idea → sprint retro, wired into **Confluence** and **Jira**. Focused plugins, one marketplace — install only the phases you want, load only the skills you need. You bring the product taste; the agent does the typing.
+Wired into **Confluence** and **Jira**. Install only the phases you run; each plugin loads only its own skills. You bring the product taste; the agent does the typing.
 
-| Plugin | Phase | Skills | Needs |
-|--------|-------|--------|-------|
-| <img src="agile-product/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-product**](agile-product/README.md) | Discovery — *what & why* | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
-| <img src="agile-planning/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-planning**](agile-planning/README.md) | Planning | Roadmap (+ published Artifact view), Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
-| <img src="agile-execution/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-execution**](agile-execution/README.md) | Build (autonomous) | Implement (+ 6 sub-skills) | Atlassian MCP + `gh` |
-| <img src="agile-merge-review/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-merge-review**](agile-merge-review/README.md) | Merge (formerly `dev-skills`) | Merge Train (+ 4 sub-skills) | `gh` + Atlassian MCP |
-| <img src="agile-sprint-close/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-Debt Sweep, Sprint Closeout, QA Validation, Retro | `gh` + Atlassian MCP |
-| <img src="agile-sprint-drain/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain (autonomous) | Sprint Drain — auto-alternate Implement ↔ Merge Train to a fixed point | `gh` + Atlassian MCP + the two above |
-| <img src="deep-refactor/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**deep-refactor**](deep-refactor/README.md) | Deep cleanup (out-of-cycle, autonomous) | Deep Refactor (codebase audit → ticket train → PR drain, test contract frozen), Test Refactor (per-suite test cleanup, production frozen, coverage kept), Doc Refactor (every `.md` audited — lies, drift, duplication, bloat — source frozen, claims verified) | `gh` + your tracker |
-| <img src="project-review/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**project-review**](project-review/README.md) | Project assessment (out-of-cycle, read-only) | Deep IT Project Review — evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains | None |
-| <img src="session-audit/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**session-audit**](session-audit/README.md) | Session cost audit (out-of-cycle, read-only) | Session Audit — per-skill and per-subagent spend from transcripts, before/after delta per merged PR and per line, ranked improvements | `gh` (optional) |
-| <img src="agile-mods/.claude-plugin/icon.svg" width="48" height="48" alt=""><br>[**agile-mods**](agile-mods/README.md) | Enforcement + visibility (Claude Mods) | No skills — `/agile-board` opens the agile console pane (board with burnup and forecast, ticket and PR flow, aging WIP and PR overlap, drain passes with cost and cache, what each ticket cost, guards, links) with a status line and an alert row, guards on the loop's rules (tool grants, pinned reviewed head + green CI + every file reviewed at merge, no push to main, fix-round cap, per-ticket cost cap; each configurable, with a one-time bypass from the console), `/receipts`, retro counts | Claude Code 2.1.287 or later |
+![The cycle: product, planning, a build and merge drain, sprint close](docs/img/cycle.svg)
 
-**Each plugin has its own README with the full skill list, triggers, and detail — linked above.**
+## Plugins
 
-⭐ **The headline act:** `agile-execution` pulls the active sprint, walks tickets in Jira dependency order, and drives each one to an open, self-reviewed PR — no mid-loop hand-holding. It even tells you what it's doing as it goes (`▶ VC-123 — implementing`, `✓ VC-123 → In Review`).
+| Plugin | Phase | You get | Needs |
+|---|---|---|---|
+| <img src="agile-product/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-product**](agile-product/README.md) | Discovery | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
+| <img src="agile-planning/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-planning**](agile-planning/README.md) | Planning | Roadmap (+ published Artifact), Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
+| <img src="agile-execution/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-execution**](agile-execution/README.md) | Build, autonomous | Every ticket to an open, self-reviewed PR | Atlassian MCP, `gh` |
+| <img src="agile-merge-review/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-merge-review**](agile-merge-review/README.md) | Merge | Every open PR rebased, reviewed, merged, closed out in Jira | `gh`, Atlassian MCP |
+| <img src="agile-sprint-drain/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain, autonomous | Build and merge alternated until the sprint is done | `gh`, Atlassian MCP, the two above |
+| <img src="agile-sprint-close/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-sprint-close**](agile-sprint-close/README.md) | Close | Tech-debt sweep, closeout gate, QA sign-off, retro | `gh`, Atlassian MCP |
+| <img src="deep-refactor/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**deep-refactor**](deep-refactor/README.md) | Cleanup, out of cycle | Codebase, test-suite and docs audits shipped as PR trains | `gh`, your tracker |
+| <img src="project-review/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**project-review**](project-review/README.md) | Assessment, out of cycle | Read-only, evidence-backed technical review report | nothing |
+| <img src="session-audit/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**session-audit**](session-audit/README.md) | Cost audit, out of cycle | Spend per skill and subagent, before/after delta, ranked fixes | `gh` (optional) |
+| <img src="agile-mods/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-mods**](agile-mods/README.md) | Visibility and enforcement | `/agile-board` console for the loop, guards on its rules, `/receipts` | Claude Code 2.1.287+ |
 
-User-facing skills keep a global cycle numbering (`agile-1` … `agile-15`) across plugins, so the order is legible at a glance. The two orchestrators (`agile-10-implement`, `agile-11-merge-train`) compose **unnumbered sub-skills** you don't call directly — each dispatched to a scoped subagent (model/effort sized per phase, see each plugin's README). Invoke with `/<plugin>:<skill>`, e.g. `/agile-planning:agile-5-roadmap`.
+Each plugin README has its skills, triggers and setup.
 
-## Cycle order (all plugins together)
+## The headline act
 
-```
-                    PRODUCT / DISCOVERY          (agile-product)
-                    ───────────────────
-  1. Vision Doc  →  2. PRD  →  3. Design Brief
-                            →  4. ADR
+`agile-execution` pulls the active sprint, walks tickets in Jira dependency order, and drives each to an open, self-reviewed PR with no mid-loop hand-holding. It tells you what it is doing as it goes: `▶ VC-123 — implementing`, `✓ VC-123 → In Review`. `agile-sprint-drain` then alternates it with the merge train until the board is empty.
 
-                    PLANNING                     (agile-planning)
-                    ────────
-  5. Roadmap     →  6. Epics  →  7. Stories
-     └─ short index in Confluence + a published Claude Code
-        Artifact view (refreshed by 9 and 15; Confluence stays
-        the source of truth, the artifact is regenerated from it)
-                              →  8. Refinement
-                                  └─ bundled tool: sprint-shared-file-audit.sh
-                                     (run via ${CLAUDE_PLUGIN_ROOT})
-                              →  9. Sprint Planning
+Skills keep a global numbering (`agile-1` … `agile-15`) across plugins, so the order reads at a glance. Invoke with `/<plugin>:<skill>`, for example `/agile-planning:agile-5-roadmap`, or say a trigger phrase.
 
-                    EXECUTION  (agile-execution — autonomous, whole sprint)
-                    ─────────────────────────────────────
- ┌────────────────────────────────────────────────────────┐
- │  10. agile-10-implement  (one ticket at a time, in     │
- │      Jira dependency order, no mid-loop confirmation): │
- │    validate ticket   gate: repo-scope + spec readiness │
- │    plan / implement / commit / open PR    🤖 markers   │
- │    implement-review        six-lens self-review gate   │
- │    transition → In Review · monitor PR (comments/CI)   │
- └────────────────────────────────────────────────────────┘
+## Cycle order
 
-                    PER-PR MERGE  (agile-merge-review)
-                    ────────────
- ┌────────────────────────────────────────────────────────┐
- │  agile-11-merge-train  (one PR at a time, sequentially):│
- │    merge-update-pr · merge-review-pr · merge-fix-until- │
- │    satisfied · fresh CI · gh pr merge · postmortem+Done │
- └────────────────────────────────────────────────────────┘
+Each skill reads what the previous one wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
 
-         DRAIN (agile-sprint-drain — autonomous outer loop)
-         ──────────────────────────────────────────────────
-   agile-sprint-drain  alternates 10 ⇄ 11 to a fixed point:
-     each pass: implement eligible To-Do → merge open PRs
-     (concurrency=N caps started-but-unmerged tickets ;
-      default: both orchestrators INLINE, phases in agents ;
-      dispatch=session: build-session + fresh merge-session,
-      CI waits end in a handoff ; only outcomes → ledger) ;
-     actionable-work guard keeps retrying while any item can
-     advance, STUCK only when all remaining are human-blocked ;
-     DRAINED (all Done + merged) hands off to agile-sprint-close
+| Stage | Skills | Plugin |
+|---|---|---|
+| Discovery | 1 Vision Doc → 2 PRD → 3 Design Brief → 4 ADR | agile-product |
+| Planning | 5 Roadmap → 6 Epics → 7 Stories → 8 Refinement → 9 Sprint Planning | agile-planning |
+| Build | 10 Implement: validate, plan, code, PR, self-review, monitor | agile-execution |
+| Merge | 11 Merge train: rebase, review, fix, fresh CI, merge, postmortem + Done | agile-merge-review |
+| Drain | Alternates 10 and 11 to a fixed point | agile-sprint-drain |
+| Close | 12 Tech-debt sweep → 13 Closeout → 14 QA validation → 15 Retro, back to 5 | agile-sprint-close |
 
-                    SPRINT CLOSE                 (agile-sprint-close)
-                    ────────────
-  12. tech-debt-sweep  →  13. sprint-closeout  →  14. QA Validation   →  15. Retro
-  cruft + CI audit        dev-stack smoke gate     (confirm-after-merge   back to 5. Roadmap
-                          on closed-out epic        per signed-off story)
-```
-
-Each skill reads from what the previous skill wrote (Confluence pages, Jira issues) and picks up where it left off if re-run. Running a skill twice never duplicates content.
-
-`agile-10-implement` clears the **build** queue (`To Do` Story → open PR); `agile-11-merge-train` clears the **merge** queue (open PR → `main`); `agile-sprint-close` ends the sprint. The same code is reviewed by **three different roles** — author self-review ([implement-review](agile-execution/README.md)), independent PR review ([merge-review-pr](agile-merge-review/README.md)), and a global sprint review ([sprint-closeout](agile-sprint-close/README.md)) — by design, not redundancy.
+The same code is reviewed by **three roles**, by design: the author's self-review ([implement-review](agile-execution/README.md)), an independent PR review ([merge-review-pr](agile-merge-review/README.md)), and a global sprint review ([sprint-closeout](agile-sprint-close/README.md)).
 
 ## Requirements
 
-- [Claude Code](https://claude.ai/code) v2.1.128+
-- Atlassian MCP configured (Confluence + Jira) — all plugins use Jira/Confluence
-- GitHub CLI (`gh`) — `agile-execution`, `agile-merge-review`, `agile-sprint-close`
+- [Claude Code](https://claude.ai/code) v2.1.128 or later (`agile-mods` needs 2.1.287)
+- Atlassian MCP with Confluence and Jira, for every plugin except `deep-refactor`, `project-review`, `session-audit` and `agile-mods`
+- GitHub CLI (`gh`) for `agile-execution`, `agile-merge-review`, `agile-sprint-drain`, `agile-sprint-close` and `deep-refactor`
 
 ## Install
 
 ```bash
 /plugin marketplace add cedricfarinazzo/agile-skills
-# install any subset:
-/plugin install agile-product@agile-skills
+/plugin install agile-product@agile-skills        # install any subset
 /plugin install agile-planning@agile-skills
 /plugin install agile-execution@agile-skills
 /plugin install agile-merge-review@agile-skills
 /plugin install agile-sprint-close@agile-skills
 /plugin install agile-sprint-drain@agile-skills   # needs execution + merge-review
-/plugin install deep-refactor@agile-skills        # out-of-cycle: deep-refactor + test-refactor + doc-refactor
-/plugin install project-review@agile-skills       # out-of-cycle: read-only technical project assessment
-/plugin install session-audit@agile-skills        # out-of-cycle: read-only session cost and efficiency audit
+/plugin install deep-refactor@agile-skills        # out of cycle
+/plugin install project-review@agile-skills       # out of cycle
+/plugin install session-audit@agile-skills        # out of cycle
+/plugin install agile-mods@agile-skills           # console and guards
 /reload-plugins
 ```
 
-Install only the phases you run. Common combos: planning + execution + merge-review for an active dev loop; product + planning for discovery only.
+Common sets: planning + execution + merge-review for an active dev loop; product + planning for discovery only.
 
-### Local (dev / test)
+### Per-repo configuration
+
+The dev-side plugins read project values (`cloudId`, status names, lint commands, board and branch settings) from the consumer repo's `CLAUDE.md/AGENTS.md`. See [execution](agile-execution/README.md#configuration) and [merge-review](agile-merge-review/README.md#configuration). All Confluence-using skills share one folder layout: [agile-planning ▸ Confluence structure](agile-planning/README.md#confluence-structure).
+
+### Local development
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
@@ -120,33 +84,21 @@ claude --plugin-dir ./agile-skills/agile-execution   # one plugin dir at a time
 
 ### Codex CLI
 
-Install the same focused plugins from the Codex marketplace:
-
 ```bash
 codex plugin marketplace add cedricfarinazzo/agile-skills
-codex plugin add agile-product@agile-skills
-codex plugin add agile-planning@agile-skills
-# install any other phase by the same name
+codex plugin add agile-product@agile-skills          # any plugin, same name
 ```
 
-Claude Code is the primary host; Codex parity is best effort. Both consumer-repository `CLAUDE.md/AGENTS.md` files are supported, with conflicts resolved by the host's instruction precedence. Invoke skills as `$skill-name`. Codex is locked to full inline execution: no plugin-local agent or subagent dispatch, every workflow phase uses `concurrency=0`, and every sprint-drain `dispatch` value normalizes to inline execution. Claude-only Artifact publication is optional: Confluence remains the source of truth when no Artifact tool is available.
-
-See [Claude Code and Codex compatibility](docs/CODEX_COMPATIBILITY.md) for the runtime matrix, preflight requirements, and release smoke-test procedure, and [known parity gaps](docs/KNOWN_PARITY_GAPS.md) for accepted differences.
+Invoke skills as `$skill-name`. Codex runs every workflow inline: no plugin agents, `concurrency=0`, and every `dispatch` value is inline. Artifact publication is optional; Confluence stays the source of truth. Claude Code is the primary host and parity is best effort. See [compatibility](docs/CODEX_COMPATIBILITY.md) and [known parity gaps](docs/KNOWN_PARITY_GAPS.md).
 
 ### GitHub Copilot CLI
 
-Skills follow the [Agent Skills](https://agentskills.io) open standard — copy the skill directories you want:
+Skills follow the [Agent Skills](https://agentskills.io) open standard; copy the directories you want:
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
 cp -r agile-skills/agile-*/skills/* ~/.copilot/skills/
 ```
-
-## Confluence structure & per-repo configuration
-
-All Confluence-using skills share one canonical folder layout with a **short-index Roadmap** (detail on `MVP` / `Iteration N` child pages) — see [agile-planning ▸ Confluence structure](agile-planning/README.md#confluence-structure).
-
-The dev-side plugins read project values (`cloudId`, status names, lint commands, board/branch settings) from the consumer repo's `CLAUDE.md/AGENTS.md` — see each plugin README ([execution](agile-execution/README.md#configuration), [merge-review](agile-merge-review/README.md#configuration)).
 
 ## License
 

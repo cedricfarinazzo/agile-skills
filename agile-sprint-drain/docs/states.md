@@ -29,6 +29,12 @@ A ticket is un-startable until its blocker's PR merges. But a pass that moves no
 
 So the loop keeps going while **any** item is actionable and stops as STUCK only when **every** remaining item is human-blocked. The anti-spin guarantee is a per-item fingerprint: a flake that reruns green changes it and stays actionable; a genuinely stuck item repeats identically for K passes and is retired, while the others keep advancing.
 
+## Audit-trail gate
+
+Counters measure status, not evidence: a Done ticket with a merged PR may have no record of how it was built and reviewed. Before DRAINED, the loop re-reads **every** sprint ticket in a done status, not only those this invocation closed, and confirms each carries its phase markers and a post-merge comment naming the merged PR.
+
+Missing either means **not drained**. Per ticket, backfill it (labelled retroactive, naming the PR and why it is late) or record a deliberate exception with the reason. The report shows `audit trail: N/N complete` or the exceptions.
+
 ## Ending states
 
 **DRAINED.** Lists Done and merged tickets and any that exited legitimately (out-of-scope, Needs Info), then points at [agile-sprint-close](../../agile-sprint-close/README.md).
