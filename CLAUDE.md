@@ -34,6 +34,7 @@ docs/img/generate.ts                      # root: draws docs/img/{cycle,drain,me
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin; shared packages also carry .codex-plugin/plugin.json and a root plugin.json
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
+<plugin>/evals-<skill>/<NN-case>/         # eval cases: prompt.md + graders/*.md; `claude plugin eval ./<plugin> --eval-dir evals-<skill>`
 <plugin>/skills/<name>/scripts/           # bundled scripts (agile-8 shell, agile-13 and session-audit Python) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
