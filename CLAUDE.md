@@ -2,6 +2,8 @@
 
 Guidance for Claude Code when working in this repository.
 
+The contribution workflow, checks, eval and token-efficiency rules are in @CONTRIBUTING.md; follow them too.
+
 ## What this repo is
 
 A Claude Code marketplace of focused plugins — six split by cycle phase so users load only what they run, three out-of-cycle review/cleanup plugins, and one mod plugin:
