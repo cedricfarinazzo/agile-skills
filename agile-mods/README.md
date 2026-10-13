@@ -1,6 +1,6 @@
 # agile-mods
 
-See what the agile loop is doing, and stop it from cutting corners.
+See what the agile loop is doing, and refuse the merges and pushes that break its rules.
 
 agile-mods is a set of [Claude Mods](https://code.claude.com/docs/en/plugins/mods/overview) for the agile-skills loop (`agile-10-implement`, `agile-11-merge-train`, `agile-sprint-drain`). It adds a live console to Claude Code, and guards that check the loop's work against GitHub, git and Jira, not against what the model says.
 
@@ -37,7 +37,7 @@ Before the first run:
 
 1. Log `gh` in for the repo (`gh auth status`).
 2. For the Jira side, name `cloudId` under `## Skill configuration` in the repo's `CLAUDE.md` or `AGENTS.md` (the loop already needs it), and allow the read-only `mcp__<server>__searchJiraIssuesUsingJql` in `/permissions`. Without either, the board shows GitHub data and says what is missing.
-3. Run `/agile-board` to open the console. It also opens by itself when `agile-sprint-drain` starts, in a terminal of 144 columns or more.
+3. Run `/agile-board` to open the console. It also opens by itself when `agile-sprint-drain` starts, in a terminal of 144 columns or more. In a terminal too narrow for the pane, `/agile-board` says so and asks you to widen it.
 
 ## When a guard stops the loop
 

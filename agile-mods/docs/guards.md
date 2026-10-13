@@ -22,7 +22,7 @@ flowchart LR
 | **Merge: review** | Merging a PR with a file no reviewer read as it lands | `guardMergeReview` |
 | **Merge: CI** | Merging on CI that is red, running or missing | `guardMergeCi` |
 | **Merge: pin** | Merging a head other than the one reviewed | `guardMergePin` |
-| **Fix rounds** | A fourth round of fixes on a PR that keeps failing review | `fixRounds` |
+| **Fix rounds** | One more round of fixes than `fixRounds` allows (default 3) on a PR that keeps failing review | `fixRounds` |
 | **Push** | Pushing to `main`/`master`, or force pushing without a lease | `guardPush` |
 | **Ticket cap** | Starting new build work on a ticket whose agents already cost `ticketBudgetUsd` (its open PR and the other tickets go on) | `guardTicketBudget`, `ticketBudgetUsd` |
 | **Tool grants** | A reviewer editing files or posting; the postmortem linking issues | `guardGrants` |
@@ -90,7 +90,7 @@ A round is one go of fixing after a review: it starts with a push onto a commit 
 
 ```mermaid
 flowchart LR
-  r1["review"] --> p1["push · round 1"] --> r2["review"] --> p2["push · round 2"] --> r3["review"] --> p3["push · round 3"] --> r4["review"] --> x["4th push: refused,<br/>you decide"]
+  r1["review"] --> p1["push · round 1"] --> r2["review"] --> p2["push · round 2"] --> r3["review"] --> p3["push · round 3"] --> r4["review"] --> x["push past the cap: refused,<br/>you decide"]
 ```
 
 These never count as a round:
