@@ -1,10 +1,28 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> project-review
 
-Read-only, out-of-cycle project assessment. By default it reads and analyzes every review-relevant repository file across every applicable review domain, traces source code and cross-file behavior, and writes an evidence-backed Markdown report with an auditable file-coverage ledger. Scoped `quick`, `standard`, focus, and branch profiles disclose deliberate omissions rather than claiming exhaustive coverage.
+Read-only technical assessment of any software or IT project, outside the agile cycle. It reads the repository, traces behavior across files, and writes an evidence-backed Markdown report with a file-coverage ledger.
 
-In `deep` mode, the review may stop only after the complete file inventory is read and analyzed, the ledger is reconciled, and the final report is generated. A scoped profile may stop only after its declared scope is complete and its omissions are explicit.
+Part of [agile-skills](../README.md). Needs nothing: no Jira, Confluence or `gh`.
 
-The review never modifies project source, configuration, tests, existing documentation, infrastructure, or remote systems. Its only permitted project-file write is the final report (`PROJECT_REVIEW.md`, or a non-conflicting timestamped name).
+## What you get
+
+| Skill | What it does | Say |
+|---|---|---|
+| `deep-it-project-review` | Assesses architecture, code, security, delivery, operations and lifecycle domains, where applicable, and writes `PROJECT_REVIEW.md` | "deep IT project review", "technical project review", "architecture audit", "assess this codebase" |
+
+The report is the only file it writes: `PROJECT_REVIEW.md`, or a non-conflicting timestamped name. It never modifies source, configuration, tests, existing documentation, infrastructure or remote systems.
+
+## Profiles
+
+| Profile | Covers | Stops when |
+|---|---|---|
+| `deep` (default) | Every review-relevant file, every applicable domain | The file inventory is fully read, the ledger is reconciled and the report is written |
+| `standard` | Mapped critical paths, all deployment, configuration and CI evidence, the highest-risk package in each layer | Declared scope is complete; omissions are listed |
+| `quick` | Recon plus the highest-risk reachable paths | Same |
+| a focus (`security`, `tests`, `performance`, `architecture`, …) | Recon, then that domain and its direct dependencies | Same |
+| `branch` | A changed-path list you supply, plus direct callers and importers | Same |
+
+A scoped profile names what it left out instead of claiming exhaustive coverage. The skill never runs Git, so give `branch` the path list yourself.
 
 ## Install
 
@@ -13,21 +31,15 @@ The review never modifies project source, configuration, tests, existing documen
 /plugin install project-review@agile-skills
 ```
 
-For Codex:
+Run `/project-review:deep-it-project-review`. On Codex:
 
 ```text
 codex plugin marketplace add cedricfarinazzo/agile-skills
 codex plugin add project-review@agile-skills
 ```
 
-## Skill
-
-| Skill | Purpose | Triggers |
-|---|---|---|
-| `deep-it-project-review` | Evidence-backed assessment across applicable architecture, code, security, delivery, operations, and lifecycle domains; `deep` is exhaustive while scoped profiles disclose coverage limits | “deep IT project review”, “technical project review”, “architecture audit”, “assess this codebase” |
-
-Invoke it directly as `/project-review:deep-it-project-review` in Claude Code or `$deep-it-project-review` in Codex.
+then `$deep-it-project-review`.
 
 ## Where it fits
 
-This is an out-of-cycle assessment tool. It is independent of the Agile product-to-sprint cycle and does not replace per-PR review, sprint closeout, or the `deep-refactor` audit-to-ticket-to-PR workflow.
+Independent of the agile cycle. It does not replace per-PR review, [sprint closeout](../agile-sprint-close/README.md), or the [deep-refactor](../deep-refactor/README.md) audit-to-PR workflow. Full cycle: [root README](../README.md#cycle-order).
