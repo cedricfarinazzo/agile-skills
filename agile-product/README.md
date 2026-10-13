@@ -8,10 +8,10 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP (Confluence; Jira 
 
 | # | Skill | Produces | Say |
 |---|---|---|---|
-| 1 | `agile-1-create-vision-doc` | Vision Doc and the project root folder | "new idea", "start a new project", "create vision doc" |
-| 2 | `agile-2-create-prd` | PRD from the Vision Doc | "write the PRD", "draft product requirements" |
-| 3 | `agile-3-design-brief` | Design Brief (BRIEF mode), then Specs UI (INTEGRATE mode) | "write the design brief", "create Specs UI", "integrate mockups" |
-| 4 | `agile-4-create-adr` | ADR, tech feasibility and an Epic Breakdown Proposal | "write the ADR", "architecture decisions", "technical feasibility" |
+| 1 | `agile-1-create-vision-doc` | Vision Doc and the project root folder | "new idea", "start project", "create vision doc" |
+| 2 | `agile-2-create-prd` | PRD from the Vision Doc | "write PRD", "draft requirements" |
+| 3 | `agile-3-design-brief` | Design Brief (BRIEF mode), then Specs UI (INTEGRATE mode) | "design brief", "UI specs", "integrate mockups" |
+| 4 | `agile-4-create-adr` | ADR, tech feasibility and an Epic Breakdown Proposal | "write ADR", "architecture decisions", "assess tech" |
 
 ```mermaid
 flowchart LR

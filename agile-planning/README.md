@@ -8,11 +8,11 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP (Confluence and Ji
 
 | # | Skill | Produces | Say |
 |---|---|---|---|
-| 5 | `agile-5-roadmap` | Roadmap index, MVP and Iteration scope pages, a published Artifact view | "create the roadmap", "define MVP scope", "plan iterations" |
-| 6 | `agile-6-create-epics` | Epics in Jira, linked to the MVP or Iteration page | "create epics", "break roadmap into epics" |
-| 7 | `agile-7-create-stories` | User Stories in Jira under each Epic | "write stories", "create user stories" |
-| 8 | `agile-8-refinement` | Points, ACs and DoD; `refined` / `not-ready` labels | "run refinement", "estimate stories", "story points" |
-| 9 | `agile-9-sprint-planning` | A launched Jira sprint, capacity-fit and dependency-ordered | "plan the sprint", "start sprint", "assemble sprint" |
+| 5 | `agile-5-roadmap` | Roadmap index, MVP and Iteration scope pages, a published Artifact view | "create roadmap", "define MVP", "plan iteration" |
+| 6 | `agile-6-create-epics` | Epics in Jira, linked back to the Roadmap, with their Jira links added to the MVP or Iteration page's Epics table | "create epics", "set up Jira for MVP" |
+| 7 | `agile-7-create-stories` | User Stories in Jira under each Epic | "write stories", "create user stories", "break down epic" |
+| 8 | `agile-8-refinement` | Points, ACs and DoD; `refined` / `not-ready` labels | "refine stories", "estimate", "backlog refinement" |
+| 9 | `agile-9-sprint-planning` | A Jira sprint planned and populated, capacity-fit and dependency-ordered; starting it in Jira is yours | "plan sprint", "start sprint", "sprint planning" |
 
 ```mermaid
 flowchart LR
@@ -31,7 +31,11 @@ Refinement is the gate: only `refined` Stories enter a sprint; `not-ready` ones 
 /reload-plugins
 ```
 
-Run a skill as `/agile-planning:<skill>`. On Codex, run `codex plugin add agile-planning@agile-skills` and invoke `$<skill-name>`. Artifact publication is optional; record its absence and keep Confluence as the complete result. See the [compatibility guide](../docs/CODEX_COMPATIBILITY.md). Consumer configuration is read from `CLAUDE.md/AGENTS.md`, Claude first.
+Run a skill as `/agile-planning:<skill>`. On Codex, run `codex plugin add agile-planning@agile-skills` and invoke `$<skill-name>`. Artifact publication is optional; record its absence and keep Confluence as the complete result. See the [compatibility guide](../docs/CODEX_COMPATIBILITY.md). Configuration is read from `CLAUDE.md/AGENTS.md`.
+
+## Roadmap modes and the sprint deep-dive
+
+`agile-5-roadmap` runs in INIT mode (first roadmap) or ITERATION mode (next iteration after a retro). On request it also runs a per-sprint deep-dive: a sprint explainer artifact and an ADR-decision interview (recorded under `## Decisions locked`), closed by an ADR and PRD sync.
 
 ## The short-index Roadmap
 
@@ -52,8 +56,8 @@ Confluence stays the source of truth; the artifact is regenerated from it. Its i
 | Skill | Artifact action |
 |---|---|
 | `agile-5-roadmap` | Publishes when the Roadmap has no `📊 Live roadmap:` line, otherwise refreshes; writes the URL back on first publish |
-| `agile-9-sprint-planning` | Refreshes after the sprint rollup row lands |
-| `agile-15-retro` | Refreshes at sprint close, with delivered-vs-committed numbers |
+| `agile-9-sprint-planning` | Refreshes after the sprint rollup row lands; publishes if the line is absent |
+| `agile-15-retro` | Refreshes at sprint close, with delivered-vs-committed numbers; publishes if the line is absent |
 
 The page is self-contained (a strict CSP blocks every external host), theme-aware and responsive, with a stable `🗺️` favicon across redeploys. Without the Artifact tool the step is skipped and noted.
 

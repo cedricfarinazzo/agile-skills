@@ -1,6 +1,6 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-sprint-close
 
-Ends the sprint cleanly: housekeeping, a global engineering and product gate, post-merge QA sign-off, and the retrospective that feeds the next iteration.
+Runs the end-of-sprint steps in order: housekeeping, a global engineering and product gate, post-merge QA sign-off, and the retrospective that feeds the next iteration.
 
 Part of [agile-skills](../README.md). Needs `gh` and the Atlassian MCP (Confluence and Jira).
 
@@ -12,8 +12,8 @@ Run in this order.
 |---|---|---|---|
 | 12 | `agile-12-tech-debt-sweep` | Audits cross-repo leakage, useless CI, prebuild-image wins, `CLAUDE.md` / `AGENTS.md` / `SKILL.md` cruft, misplaced artifacts, dead code. Report before apply | "tech debt sweep", "cleanup sweep", "housekeeping", `/tech-debt-sweep` |
 | 13 | `agile-13-sprint-closeout` | Mandatory epic-level gate through three lenses; publishes a report | "sprint closeout", "close sprint", `/sprint-closeout` |
-| 14 | `agile-14-qa-validation` | Confirms acceptance criteria hold on `main` and stamps a sign-off | "validate the story", "QA check", "confirm ACs" |
-| 15 | `agile-15-retro` | Retro page in Confluence, Roadmap update, refreshed Roadmap Artifact; feeds the next iteration | "run retro", "sprint retrospective", "what did we learn" |
+| 14 | `agile-14-qa-validation` | Confirms acceptance criteria hold on `main` and stamps a sign-off | "validate story", "QA story", "QA check", "confirm ACs" |
+| 15 | `agile-15-retro` | Retro page in Confluence, Roadmap update, refreshed Roadmap Artifact; feeds the next iteration | "run retro", "close sprint", "what did we learn" |
 
 ```mermaid
 flowchart LR
@@ -33,7 +33,7 @@ On Codex, run `codex plugin add agile-sprint-close@agile-skills` and invoke `$<s
 
 ## Closeout: the third review layer
 
-`agile-13-sprint-closeout` is a global, impartial gate on an epic's wired-together delivery against its goal (input: an epic key; run it per epic of the sprint). The per-PR reviews ([author self-review](../agile-execution/README.md) and [independent merge review](../agile-merge-review/README.md)) already happened. Three lenses:
+`agile-13-sprint-closeout` is a global, impartial gate on an epic's wired-together delivery against its goal (input: an epic key). The per-PR reviews ([author self-review](../agile-execution/README.md) and [independent merge review](../agile-merge-review/README.md)) already happened. Three lenses:
 
 | Lens | Question |
 |---|---|
@@ -41,15 +41,15 @@ On Codex, run `codex plugin add agile-sprint-close@agile-skills` and invoke `$<s
 | **Architect / PM** | Does delivered code match the documented intent (Vision, PRD, ADR, Roadmap, epic ACs)? |
 | **Tech Lead** | Does it hold up under an impartial deep review of all sprint diffs? |
 
-A single Critical from any lens blocks closeout. The report goes to the `Closeouts` Confluence folder, which the retro reads. This catches the case where every AC is green in isolation but the wired system is broken. Phase 6.5 audits the merge train's Jira links with a bundled stdlib script (`skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py`; tests beside it, `python3 -m pytest` that dir).
+A single Critical from any lens blocks closeout. The report goes to the `Closeouts` Confluence folder, which the retro reads. It catches a sprint whose ACs pass individually but whose wired system fails. Phase 6.5 audits the merge train's Jira links with a bundled stdlib script (`skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py`; tests beside it, `python3 -m pytest` that dir).
 
 ## QA: confirm after merge
 
-By the time `agile-14-qa-validation` runs, the Story is already Done; the [merge train](../agile-merge-review/README.md) owns that transition. QA confirms the ACs hold on `main` and stamps a sign-off comment. It never transitions the Story. A post-merge regression is filed as a new Bug (linked `is caused by`, Story labelled `qa-regression`), never a reopen, because reversing Done would lose the merge audit trail.
+By the time `agile-14-qa-validation` runs, the Story is already Done; the [merge train](../agile-merge-review/README.md) owns that transition. QA confirms the ACs hold on `main` and stamps a sign-off comment. It never transitions the Story. A pass adds the `qa-approved` label and the sign-off comment. A post-merge regression is filed as a new Bug (linked `is caused by`, Story labelled `qa-regression`), never a reopen, because reversing Done would lose the merge audit trail.
 
 ## Retro and next iteration
 
-`agile-15-retro` writes the retro page in `Retrospectives`, reads the closeout report, marks the sprint ✅ Complete in the child page section and the Roadmap rollup row, and hands velocity, feedback, debt and actions to `agile-5-roadmap` (ITERATION mode).
+`agile-15-retro` writes the retro page in `Retrospectives`, reads the closeout report, marks the sprint ✅ Complete in the child page section, its Epic Sprint Plan row and the Roadmap rollup row (the Iterations table status flips only on the iteration's last sprint), closes the sprint in Jira (carried-over Stories return to `To Do`; Won't Do Stories are confirmed with you), and hands velocity, feedback, debt and actions to `agile-5-roadmap` (ITERATION mode).
 
 `Retrospectives` and `Closeouts` are sibling folders under the project root, never nested. See the [canonical folder tree](../agile-planning/README.md#confluence-structure).
 

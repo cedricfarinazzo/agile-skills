@@ -2,7 +2,7 @@
 
 Out-of-cycle, read-only audit of what a Claude Code session that ran agile-skills cost and what it shipped. It edits nothing; its output is a report.
 
-Part of [agile-skills](../README.md). Needs `gh` in the repo to measure shipped work (optional); no Jira or Confluence.
+Part of [agile-skills](../README.md). Needs nothing. With `gh` in the repo it measures shipped work (merged PRs, added lines); without it the skill falls back to tickets moved to Done and says the measure is coarser. No Jira or Confluence.
 
 ## What you get
 
@@ -48,10 +48,6 @@ python3 session_usage.py report --run before=a.jsonl --run after=b.jsonl,c.jsonl
 - Default prices are assumptions; pass `--price` for real ones.
 
 Tests: `python3 -m pytest session-audit/skills/session-audit/scripts`.
-
-## Without `gh`
-
-The skill falls back to tickets moved to Done and says the measure is coarser.
 
 ## Where it fits
 

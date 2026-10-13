@@ -14,12 +14,17 @@ Recomputed from the live board on every iteration.
 3. EXIT         build_count == 0 AND merge_count == 0 AND inflight_count == 0
                 -> audit-trail gate -> DRAINED only if it passes
 4. ADMIT        free = max(0, N - (in-flight + open PRs)); 0 means merge work only;
-                build the first `free` eligible
+                build non-parked in-flight tickets plus the first `free` eligible,
+                minus retired items and any ticket reported `blocked (BUDGET)`
                 call agile-10-implement (Skill tool) keys=<those>           -> fold outcomes
 5. merge > 0    call agile-11-merge-train (Skill tool)                      -> fold outcomes
+                (merges never wait for the build queue to drain)
 6. GUARD        recompute each item's fingerprint; retire an item human-blocked
                 after K identical passes. actionable = items the loop can still advance
-                actionable empty and items remain -> STUCK ; else loop
+                actionable empty and items remain  -> STUCK
+                pass_count >= MAX_PASSES           -> STUCK (oscillation ceiling)
+                merges >= max-merges               -> PAUSED (items remain, ledger kept)
+                else                               -> next pass
 ```
 
 Pass banners stream so the alternation is readable: `══ drain pass N ══ eligible:X wip:W/N admit:A`, interleaved with the orchestrators' own `▶ TICKET` and `✓ TICKET` markers.
@@ -40,7 +45,7 @@ Missing either means **not drained**. Per ticket, backfill it (labelled retroact
 
 ## Ending states
 
-**DRAINED.** Lists Done and merged tickets and any that exited legitimately (out-of-scope, Needs Info), then points at [agile-sprint-close](../../agile-sprint-close/README.md).
+**DRAINED.** Lists Done and merged tickets, any that exited legitimately (out-of-scope, Needs Info) and the audit-trail result (`N/N complete` or the exceptions), then points at [agile-sprint-close](../../agile-sprint-close/README.md).
 
 **STUCK.** The actionable set emptied, or the `MAX_PASSES` ceiling hit, with items remaining. Each remaining item is named with its class:
 

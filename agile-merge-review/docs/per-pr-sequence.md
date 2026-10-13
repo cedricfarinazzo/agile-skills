@@ -26,6 +26,15 @@ Review and fix converge under a round budget: at most 2 rounds per PR per train 
 
 Any PR whose review found something goes through the second review. That is normal flow.
 
+## Order and stops
+
+- Optional inputs: a repo name and a maximum number of PRs.
+- Merge order: CI status, then foundational, then independent, then smaller diff. A shared-file collision set merges as a contiguous block.
+- Read-only 3b reviews may be dispatched ahead of a PR's turn.
+- The run stops when a merge genuinely fails, two consecutive unrelated flakes occur, a ticket cannot be loaded, post-push CI failed or never started, or tool output is corrupted or contradictory.
+- A guard refusal that offers a bypass means: report that PR blocked and go on.
+- Follow-up tickets are filed for Critical findings only.
+
 ## Collisions
 
 Cross-PR file collisions are detected up front into a structured `conflict_map` (per PR: colliding file, other PR, other ticket). It is passed verbatim into each postmortem dispatch. The `Relates` links are created per PR at 3g, never deferred to the end of the run; Phase 4 only reconciles pairs 3g could not reach (the other side had not merged yet, or a link call failed).

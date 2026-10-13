@@ -19,6 +19,11 @@ While every PR is still in CI, the drain watches each run in the background itse
 
 A session that reaches a CI wait ends with a handoff (`waiting: <run id>`, `resume_at`). The drain dispatches a **fresh** session from it once the run finishes. Sessions are never resumed, because subagent caches last 5 minutes. Dispatch depth stays 1: session agents never dispatch.
 
+- `context.md` is resolved once and handed down by path; sessions never re-discover config or re-list the sprint.
+- A failed CI run goes to a fresh `merge-session` as `ci: <run id> failure <head sha>`; the drain reads no job list or logs itself.
+- Right after a push there may be no run id yet; the drain resolves `waiting: ci-on <head sha> <branch>` itself in one background command.
+- Build and merge are never the same agent, and a session is never reused.
+
 ## Trade-off
 
 `session` reuses cached reads (ticket, ADR, plan, touched files) across a ticket's phases instead of re-reading them cold in every phase agent. It gives up:

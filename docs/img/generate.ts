@@ -17,7 +17,7 @@ ${body}
 const box = (x: number, y: number, w: number, h: number, title: string, sub: string[], color: string) =>
   `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${P.box}" stroke="${color}" stroke-width="1.5"/>` +
   `<text x="${x + 12}" y="${y + 22}" fill="${color}" font-weight="bold">${esc(title)}</text>` +
-  sub.map((s, i) => `<text x="${x + 12}" y="${y + 42 + i * 18}" fill="${P.fg}" font-size="12">${esc(s)}</text>`).join('')
+  sub.filter(Boolean).map((s, i) => `<text x="${x + 12}" y="${y + 42 + i * 18}" fill="${P.fg}" font-size="12">${esc(s)}</text>`).join('')
 const arrow = (x1: number, y1: number, x2: number, y2: number, dash = false) =>
   `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${P.line}" stroke-width="1.5"${dash ? ' stroke-dasharray="5 4"' : ''} marker-end="url(#a)"/>`
 const label = (x: number, y: number, t: string, c = P.d) => `<text x="${x}" y="${y}" fill="${c}" font-size="12">${esc(t)}</text>`
@@ -67,7 +67,7 @@ function drain() {
     for (const [t, c] of l) { b += `<text x="${x}" y="${y}" fill="${c}"${t.startsWith('══') ? ' font-weight="bold"' : ''}>${esc(t)}</text>`; x += [...t].length * CW }
     y += LH
   }
-  b += label(PAD, y + 14, 'the loop is called until both queues are empty (DRAINED) or only human-blocked work remains (STUCK)')
+  b += label(PAD, y + 14, 'the loop repeats until both queues are empty (DRAINED) or only human-blocked work remains (STUCK)')
   return wrap(W, H, b)
 }
 

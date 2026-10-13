@@ -34,7 +34,7 @@ At the top level, one `run_in_background` `gh run watch` per run id; one wake pe
 
 ## Fingerprints and actionability
 
-A fingerprint answers "did this item make real progress this pass?"
+A fingerprint answers "did this item make real progress this pass?" An in-flight ticket fingerprints as a build ticket.
 
 | Item | Fingerprint |
 |---|---|

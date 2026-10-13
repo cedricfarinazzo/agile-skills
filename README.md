@@ -1,10 +1,8 @@
 # agile-skills
 
-### Ship sprints while you sleep. 🌙
-
 [Claude Code](https://claude.ai/code) skills that run the whole agile cycle, from Vision Doc and PRD to a roadmap, then **autonomously build and self-review every Jira ticket into a PR**, merge them, and close the sprint.
 
-Wired into **Confluence** and **Jira**. Install only the phases you run; each plugin loads only its own skills. You bring the product taste; the agent does the typing.
+Wired into **Confluence** and **Jira**. Install only the phases you run; each plugin loads only its own skills.
 
 ![The cycle: product, planning, a build and merge drain, sprint close](docs/img/cycle.svg)
 
@@ -25,11 +23,11 @@ Wired into **Confluence** and **Jira**. Install only the phases you run; each pl
 
 Each plugin README has its skills, triggers and setup.
 
-## The headline act
+## What the build loop does
 
 `agile-execution` pulls the active sprint, walks tickets in Jira dependency order, and drives each to an open, self-reviewed PR with no mid-loop hand-holding. It tells you what it is doing as it goes: `▶ VC-123 — plan`, `✓ VC-123 → In Review`. `agile-sprint-drain` then alternates it with the merge train until the board is empty.
 
-Skills keep a global numbering (`agile-1` … `agile-15`) across plugins, so the order reads at a glance. Invoke with `/<plugin>:<skill>`, for example `/agile-planning:agile-5-roadmap`, or say a trigger phrase.
+Skills keep a global numbering (`agile-1` … `agile-15`) across plugins. Invoke with `/<plugin>:<skill>`, for example `/agile-planning:agile-5-roadmap`, or say a trigger phrase.
 
 ## Cycle order
 
@@ -44,7 +42,7 @@ Each skill reads what the previous one wrote (Confluence pages, Jira issues) and
 | Drain | Alternates 10 and 11 to a fixed point | agile-sprint-drain |
 | Close | 12 Tech-debt sweep → 13 Closeout → 14 QA validation → 15 Retro, back to 5 | agile-sprint-close |
 
-The same code is reviewed by **three roles**, by design: the author's self-review ([implement-review](agile-execution/README.md)), an independent PR review ([merge-review-pr](agile-merge-review/README.md)), and a global sprint review ([sprint-closeout](agile-sprint-close/README.md)).
+The same code is reviewed by **three roles**,: the author's self-review ([implement-review](agile-execution/README.md)), an independent PR review ([merge-review-pr](agile-merge-review/README.md)), and a global sprint review ([sprint-closeout](agile-sprint-close/README.md)).
 
 ## Requirements
 
@@ -97,8 +95,10 @@ Skills follow the [Agent Skills](https://agentskills.io) open standard; copy the
 
 ```bash
 git clone https://github.com/cedricfarinazzo/agile-skills
-cp -r agile-skills/{agile-*,deep-refactor,project-review,session-audit}/skills/* ~/.copilot/skills/
+cp -r agile-skills/{agile-product,agile-planning,agile-execution,agile-merge-review,agile-sprint-drain,agile-sprint-close,deep-refactor,project-review,session-audit}/skills/* ~/.copilot/skills/
 ```
+
+This copies skills only. Plugin agents and bundled scripts (`agile-8`, `agile-13`, `session-audit`) are not copied, so run phases inline.
 
 ## License
 

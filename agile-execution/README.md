@@ -49,7 +49,9 @@ Read from the repo's `CLAUDE.md` or `AGENTS.md` under `## Skill configuration`.
 
 ## What it asks you
 
-Almost nothing. It decides reversible choices itself and flags them in the PR. It stops one ticket, and asks one question, only for a critical decision: irreversible or high blast radius, and not derivable from the ADR, PRD or Specs. The other tickets keep going. Details in [Autonomy](docs/autonomy.md).
+One consolidated question per parked ticket, and nothing else.
+
+It decides reversible choices itself and flags them in the PR. It stops one ticket, and asks one question, only for a critical decision: irreversible or high blast radius, and not derivable from the ADR, PRD or Specs. The other tickets keep going. Details in [Autonomy](docs/autonomy.md).
 
 ## More
 

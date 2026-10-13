@@ -10,7 +10,7 @@ Part of [agile-skills](../README.md). Needs nothing: no Jira, Confluence or `gh`
 |---|---|---|
 | `deep-it-project-review` | Assesses architecture, code, security, delivery, operations and lifecycle domains, where applicable, and writes `PROJECT_REVIEW.md` | "deep IT project review", "technical project review", "architecture audit", "assess this codebase" |
 
-The report is the only file it writes: `PROJECT_REVIEW.md`, or a non-conflicting timestamped name. It never modifies source, configuration, tests, existing documentation, infrastructure or remote systems.
+It writes one project file, the report: `PROJECT_REVIEW.md`, or a non-conflicting timestamped name in an external or designated output directory. Temporary build or test artifacts outside tracked source are its only other writes. It never modifies source, configuration, tests, existing documentation, infrastructure or remote systems.
 
 ## Profiles
 

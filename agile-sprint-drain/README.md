@@ -1,6 +1,6 @@
 # <img src=".claude-plugin/icon.svg" width="40" alt="" align="top"> agile-sprint-drain
 
-Runs the active sprint to the end in one watched session. It alternates the build queue ([agile-10-implement](../agile-execution/README.md)) and the merge queue ([agile-11-merge-train](../agile-merge-review/README.md)) until every ticket is Done and merged, or only human-blocked work is left. You watch; you no longer schedule.
+Runs the active sprint to the end in one watched session. It alternates the build queue ([agile-10-implement](../agile-execution/README.md)) and the merge queue ([agile-11-merge-train](../agile-merge-review/README.md)) until every ticket is Done and merged, or only human-blocked work is left.
 
 Part of [agile-skills](../README.md). Needs the Atlassian MCP and `gh`, and **both** [agile-execution](../agile-execution/README.md) and [agile-merge-review](../agile-merge-review/README.md) installed.
 
@@ -18,7 +18,7 @@ Part of [agile-skills](../README.md). Needs the Atlassian MCP and `gh`, and **bo
 
 ![A drain, pass by pass](../docs/img/drain.svg)
 
-Why it exists: a ticket blocked by another can be built only once the blocker is Done **and** its PR is merged. So each merge pass can unlock new build work, and someone has to alternate them. This skill is that scheduler.
+Why it exists: a ticket blocked by another can be built only once the blocker is Done **and** its PR is merged. So each merge pass can unlock new build work, and someone has to alternate them.
 
 ## Install
 

@@ -22,7 +22,8 @@ Compression is proven by a **per-file** operative-token diff: commands, flags, c
 
 | Skill | Pin inventory |
 |---|---|
-| `deep-refactor`, `test-refactor` | test imports, patch targets, source-text guards, coverage detectors, CI globs |
+| `deep-refactor` | test imports, patch targets, source-text guards, coverage detectors, CI globs |
+| `test-refactor` | what depends on the tests: coverage detectors keyed on static test imports, CI selection globs and naming conventions, per-file coverage-omit rules, meta-tests that scan test source, docs that reference test names |
 | `doc-refactor` | inbound links, site nav, `#anchor` targets, load-bearing filenames |
 
 ## Codex

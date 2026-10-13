@@ -19,7 +19,7 @@ The train's main agent orchestrates only. It runs no step's work in its own cont
 - The 3g receipt carries the comment id, the done-category, `collisions recorded` (matched against the PR's `conflict_map` entry) and `marker: post_merge posted`.
 - A skipped postmortem is caught because Phase 5 refuses to report a merged PR as Done without a verified receipt (comment id and done-category), and re-dispatches it.
 
-## Never merge a sha no review has read
+## Reviewed-sha gate
 
 3b reviews the tip as it stood then; 3c pushes fixes onto it. So 3b records the **reviewed sha** and 3f asserts the landing tip equals it. A mismatch means the delta is unreviewed (the fixer re-examining its own fix is not an independent gate). The reviewer is re-dispatched on the delta and the PR re-enters the CI wait.
 
@@ -37,12 +37,11 @@ Three triage rules ride with it:
 
 The author already self-reviewed with `implement-review`; this review is the authoritative one.
 
-
 - Every file is read **at the reviewed sha** (`git show <sha>:<path>`), never from a working tree that may be on another branch.
 - The diff against the ACs, the out-of-scope section, **and the documented invariants and conventions**. A change that makes a documented invariant false is a defect even when the code is correct. A limitation comment that outlives its limitation is its own defect. A doc entry is verified accurate, not merely present.
 - A negative or guard test must **reach the guard it names**, not be rejected first by an earlier validation layer.
 - A change labelled "cosmetic" that touches control flow still gets per-branch equivalence proof.
-- A standing convention that conflicts with the ticket's DoD wording becomes a **labelled conscious accept** in the satisfaction receipt and the postmortem, never a silent deviation.
+- A standing convention that conflicts with the ticket's DoD wording is not a silent deviation: the fixer records a **labelled conscious accept** in its receipt and the postmortem lists it.
 
 ## Pushes
 

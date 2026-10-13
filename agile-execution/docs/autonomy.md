@@ -12,7 +12,7 @@ Reversible choices: naming, structure, test approach, standard ADR patterns. Eac
 
 A **critical decision**: irreversible or high blast radius, **and** not derivable from the ADR, PRD or Specs. Examples: a destructive migration, an auth or security change, breaking a shared contract, a new paid or infra dependency, data-loss risk.
 
-The loop parks that one ticket, asks one consolidated question, and keeps working the others. At the top level a park and a whole-run stop each send one push notification; progress never does.
+The loop parks that one ticket, asks one consolidated question, and keeps working the others. At the top level a park and a whole-run stop (other than "no work available") each send one push notification; progress never does.
 
 ## Other exits (skip one ticket, keep the run)
 

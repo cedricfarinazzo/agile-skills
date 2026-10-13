@@ -9,10 +9,10 @@ Part of [agile-skills](../README.md). Needs `gh`, `git`, a CI you can query, and
 | Skill | Changes | Frozen | Say |
 |---|---|---|---|
 | `deep-refactor` | Production code, codebase-wide | The test suite, as the contract (only enumerated fixture and guard edits in the correctness and structural tickets) | "deep refactor", "refactor audit", "clean the codebase", "DRY pass", "audit and fix everything" |
-| `test-refactor` | One test suite at a time | Production code | "test refactor", "clean the tests", "refactor the tests", "test suite audit", "DRY the tests", "parallelize the test suite", "speed up the tests" |
+| `test-refactor` | One test suite at a time | Production code (a defect found goes in its own PR) | "test refactor", "clean the tests", "refactor the tests", "test suite audit", "DRY the tests", "parallelize the test suite", "speed up the tests" |
 | `test-refactor characterize <scope>` | Adds a minimal behavior test | Production code | "characterize before refactor", "characterization tests" |
 | `doc-refactor` | Every markdown file (`.md`) | Source code | "doc refactor", "refactor the docs", "clean the docs", "documentation audit", "README audit", "docs are stale", "DRY the docs", "audit every markdown file" |
-| `doc-refactor rules` | The standing instruction corpus | Source code | (a mode of `doc-refactor`) |
+| `doc-refactor rules` | The standing instruction corpus, in addition to the markdown audit | Source code | (a mode of `doc-refactor`) |
 
 ```mermaid
 flowchart LR
@@ -52,4 +52,4 @@ Findings that can't be proven safe land on the report's blocked list, not in a P
 
 ## Where it fits
 
-Independent of the product-to-sprint cycle; it needs no Jira or Confluence. See the [root README](../README.md).
+Independent of the product-to-sprint cycle; it needs no Jira or Confluence. Where `agile-execution` and `agile-merge-review` are installed, the PR drain runs through them. See the [root README](../README.md).
