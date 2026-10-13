@@ -27,16 +27,20 @@ Test locally: `claude --plugin-dir ./agile-skills/<plugin>` (one plugin dir at a
 ```
 README.md                                 # root README — OVERVIEW only (plugin table, cycle diagram, install, links)
 .claude-plugin/marketplace.json           # marketplace — lists every plugin (`./<plugin>` relative source); it is the authoritative plugin list
-<plugin>/README.md                        # per-plugin README — the detail for that plugin
+<plugin>/README.md                        # per-plugin README — an overview of about 80 lines
+<plugin>/docs/*.md                        # long user-facing detail and reference (execution, merge-review, sprint-drain, deep-refactor, agile-mods)
+docs/img/generate.ts                      # draws docs/img/{cycle,drain,merge-train}.svg — `bun docs/img/generate.ts`
 <plugin>/.claude-plugin/plugin.json       # one manifest per plugin
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
 <plugin>/skills/<name>/scripts/           # bundled scripts (agile-8, agile-13, session-audit) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
-There is **no root plugin** — the root holds only `README.md`, `.claude-plugin/marketplace.json`, `.github/` (CI), and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
+There is **no root plugin** — the root holds only `README.md`, `docs/`, `.claude-plugin/marketplace.json`, `.github/` (CI), and one dir per plugin (the marketplace is the authoritative list; do not restate the count in prose, where it rots the next time a plugin is added).
 
 **Docs split:** the root `README.md` is an overview that **links** to each plugin README; plugin-specific detail (skill tables, the Confluence tree, per-repo config, orchestrator internals) lives in `<plugin>/README.md`. Change a skill → update its plugin README; keep the root overview-only. The canonical Confluence tree lives in full in `agile-planning/README.md`.
+
+**README conventions (the agile-mods docs pattern).** A plugin README is an overview of about 80 lines: one sentence on what it does, `Part of` + what it needs, a **What you get** table (skill, what it produces, example trigger phrases taken from the SKILL.md description, which stays the routing source), one flow diagram, install, a configuration table with defaults, what it asks you, links, **Where it fits**. Anything longer, and every rule a maintainer would need, moves to `<plugin>/docs/` (one page per topic, a `← <plugin>` back link, exact rules in `reference.md`). Write for the person running the skill: the action to take, not the mechanism. Flows are mermaid; the three pictures in root `docs/img/` are drawn by `bun docs/img/generate.ts`, so **change a flow they show (the cycle, the drain banners, 3a–3g) and redraw them in the same change.** Before dropping a line from a README, diff its operative tokens (commands, flags, config keys, `mcp__*` names, markers, trigger phrases) per file.
 
 ## SKILL.md format
 
