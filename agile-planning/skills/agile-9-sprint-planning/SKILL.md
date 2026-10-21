@@ -67,6 +67,8 @@ Report the state before doing anything — an eligible table (`Story | Summary |
 
 Collect in one message: **team velocity** (historical average, or an estimate range for a first sprint); **sprint duration**; **sprint goal** — one specific, testable sentence, not "make progress on auth" but "users can register, log in, and reset their password"; **capacity adjustments** (absences, holidays, part-time contributors); **priority constraints** (Stories that must be in regardless of points); **carry-over** from the previous sprint.
 
+Read the `Working Agreements` page's planning rules (capacity bands, sprint shape, rules in force) before proposing, and apply them; cite each one you apply.
+
 **Ask** when velocity is unknown (never guess capacity), when no sprint goal is stated (a sprint without one is a task list), or when the sprint starts near a holiday and no adjustment was mentioned. **Infer and flag** a sprint duration consistent with previous sprints, a dependency order clear from Jira, or a velocity derivable from the last sprint's completed points ("Based on last sprint's [N] points, I'm using [N] as the baseline — adjust if capacity changed"). **Never infer silently** — state each assumption in the same message as the questions:
 
 ```
@@ -106,7 +108,7 @@ Present it as the sprint header (number, dates, goal, and the capacity arithmeti
 2. **The Iteration page's `## Sprints` row** — theme, period, committed points, `In progress`.
 3. **The Roadmap's `## Progress` row and `## Status` line** — one row, no story-level detail; the status line names this sprint as current.
 
-Planning rules from the Working Agreements (capacity bands, sprint shape) are read in Step 2 and cited in the proposal, never copied onto the Sprint page. Add one `## Change history` row on each page written.
+Working Agreements rules are cited in the proposal, never copied onto the Sprint page. Add one `## Change history` row on each page written.
 
 **Refresh the roadmap artifact.** Load the **`artifact-design`** skill first (required before writing the page), and `dataviz` before any chart code. Then read the Roadmap page's `📊 Live roadmap:` line — skill 5 owns the page's format and content rules:
 

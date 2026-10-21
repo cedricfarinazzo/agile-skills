@@ -114,7 +114,7 @@ Create, from the templates: `Roadmap — [Project]` (child of the root; `## Iter
 
 ### Step I5 — Write the MVP page
 
-Child of **the Roadmap page**, titled `MVP — [Project]`, from the MVP / Iteration template: Properties, Goal, Success criteria (the PRD KPIs that apply), Epics in scope (`Status` To Do until skill 6 creates them), and a `## Sprints` table with one `Not started` row per planned sprint. Sprint pages are created by skill 9 when each sprint is planned, not upfront.
+Child of **the Roadmap page**, titled `MVP — [Project]`, from the MVP / Iteration template: Properties, Goal, Success criteria (the PRD KPIs that apply), Epics in scope (`Status` To Do until skill 6 creates them), and a `## Sprints` table with one `Not started` row per planned sprint. Sprint pages are created when each sprint is planned (skill 9, or a `Planned` skeleton from the IT7 deep-dive), not upfront.
 
 ### Step I6 — Publish the roadmap Artifact
 
@@ -168,7 +168,7 @@ Already flagging: [Epic too large given retro velocity] · [dependency blocking 
 
 ### Step IT4 — Write the Iteration page
 
-Child of the Roadmap page, titled `Iteration [N] — [Project]`, from the MVP / Iteration template. `## Feedback carried in` holds the 2–5 retro learnings that shaped the scope, each linked; carried-over epics appear in `## Epics in scope` with their reason; ideas promoted from the Parking Lot move to `## Scope changes` (and leave the Parking Lot). Sprint pages arrive with skill 9.
+Child of the Roadmap page, titled `Iteration [N] — [Project]`, from the MVP / Iteration template. `## Feedback carried in` holds the 2–5 retro learnings that shaped the scope, each linked; carried-over epics appear in `## Epics in scope` with their reason; ideas promoted from the Parking Lot move to `## Scope changes` (and leave the Parking Lot). Sprint pages arrive with skill 9 or the IT7 deep-dive.
 
 ### Step IT5 — Update the Roadmap index
 
@@ -199,7 +199,7 @@ Run per planned sprint, in plan order. Applies to INIT-mode MVP sprints the same
 
 1. **Explainer artifact — one per sprint.** Load `artifact-design` first (plus `artifact-diagramming` / `dataviz` before drawing). All sprint explainers share one design language — same tokens, typography, figure style — so they read as a series; each gets its own **stable** favicon. Content shape: the problem in the product's own terms → each mechanism with a figure that *shows* it (data-flow diagram, before/after comparison, mock UI panel, or an illustrative chart) → where it lives in the architecture + its dependency seams → a closing callout listing the sprint's **open ADR questions**. Mock data is always labeled illustrative — never render invented numbers as real. Link the artifact from the sprint's row on the Iteration page and from a `Sprint explainers:` line under Status.
 2. **Decision interview.** Put the sprint's open questions to the operator as options (2–4 per question, one marked `(Recommended)` with the reason in its description; use the ask-user-question tool if available, else one grouped message). ADR-level only — choices that change architecture, data contracts, external cost, or scope. Tuning constants (window sizes, thresholds, defaults) are *named* but deferred to refinement.
-3. **Lock and record.** Each answer becomes a `D###` entry in the Decision Log (next free id; register row + range-page section) and a row in the Sprint page's `## Decisions` (or in the Iteration page's `## Scope changes` when it moves scope); edit the artifact's open-questions callout into a decisions callout (visibly different, e.g. accent border). When the operator picks **against** the recommendation, the entry's Consequences records what that obliges (a parked alternative, a display obligation), not just the choice. Items left for refinement go in the Sprint page's `## Scope` as `Left for refinement: …`, and are removed from there when refinement settles them.
+3. **Lock and record.** If the sprint has no Sprint page yet, create its skeleton now under the Iteration page (Properties with Status `Planned`, Goal as a draft, Scope, Decisions); skill 9 fills the rest. Each answer becomes a `D###` entry in the Decision Log (next free id; register row + range-page section, Scope = the sprint) and a row in the Sprint page's `## Decisions` (or in the Iteration page's `## Scope changes` when it moves scope); edit the artifact's open-questions callout into a decisions callout (visibly different, e.g. accent border). When the operator picks **against** the recommendation, the entry's Consequences records what that obliges (a parked alternative, a display obligation), not just the choice. Items left for refinement go in the Sprint page's `## Scope` as `Left for refinement: …`, and are removed from there when refinement settles them.
 4. **Splits.** If the interview reveals a sprint carrying two themes, split it and renumber the tail — then re-sync the Iteration page's `## Sprints`, the Roadmap's `## Progress`, and the roadmap artifact **in the same pass**, never later.
 
 **If the Artifact tool is unavailable**, skip step 1, note it under `⚠️ Still needed`, and run the rest of the loop — the interview and the decision log are the load-bearing half, and they need no artifact. The explainer is a view; Confluence is the record.
@@ -266,11 +266,11 @@ One message: the pages to create, rewrite and move (with size before → after),
 
 ### Step R4 — Snapshot, then write in dependency order
 
-Record every source page's current version number in the plan, and copy each source body to `Extras / Archive — <title> (pre-restructure <date>)`. Then write: Decision Log and range pages → Sprint pages → MVP / Iteration pages → Parking Lot, Working Agreements, Debt Register → the Roadmap index last. Rewrite existing pages in place (their ids and inbound links survive); create the new ones under the parent the tree names. Each write carries a version message and one `## Change history` row (`Restructured to the canonical layout`).
+Record every source page's current version number in the plan (Confluence keeps that version), and copy each source body to `Extras / Archive — <title> (pre-restructure <date>)`; a body too large for the integration to write stays archived by its recorded version alone, and the plan says so. Then write: Decision Log and range pages → Sprint pages → MVP / Iteration pages → Parking Lot, Working Agreements, Debt Register → the Roadmap index last. Rewrite existing pages in place (their ids and inbound links survive); create the new ones under the parent the tree names. Each write carries a version message and one `## Change history` row (`Restructured to the canonical layout`).
 
 ### Step R5 — Prove nothing was lost
 
-Per source page, extract its operative tokens from the archived body — ticket keys, decision ids and aliases, page ids and URLs, numbers with units, dates — and check each appears somewhere in the new set (a script over the saved bodies, not a reading). Every missing token is either restored or listed with the reason it was intentionally merged. A restructure with an unexplained missing token is not done.
+Per source page, extract its operative tokens from the body saved in R1 — ticket keys, decision ids and aliases, page ids and URLs, numbers with units, dates — and check each appears somewhere in the new set (a script over the saved bodies, not a reading). Every missing token is either restored or listed with the reason it was intentionally merged. A restructure with an unexplained missing token is not done.
 
 ### Step R6 — Sync the index and report
 
