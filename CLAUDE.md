@@ -158,15 +158,15 @@ done | sort -u
 
 ## Confluence structure invariant
 
-All skills share one canonical layout (root → Vision/PRD/Brief/Specs/ADR/Roadmap → `MVP`/`Iteration N` children of Roadmap; `Retrospectives` + `Closeouts` siblings), embedded verbatim under a `## Confluence structure (canonical …)` heading in **every** Confluence-using skill.
+All skills share one canonical layout (root → Vision/PRD/Brief/Specs/ADR/Roadmap → `MVP`/`Iteration N` children of Roadmap; `Retrospectives` + `Closeouts` + `Extras` siblings), embedded verbatim under a `## Confluence structure (canonical …)` heading in **every** Confluence-using skill, followed by the same **Page placement** paragraph: parent picked from the tree by page id, no child pages under `MVP` / `Iteration N`, any page the tree does not name goes in `Extras`, and a read-back that moves a misplaced page. Skills outside the tree that can publish a page (`agile-10-implement`, `agile-sprint-drain`, the three `deep-refactor` skills) carry a one-line pointer to `Extras`.
 
 **RULE — change the structure and you MUST update the block in ALL carriers in the same change.** Updating one copy and leaving the others stale is a bug.
 
-- Carriers: `agile-1`, `agile-2`, `agile-3`, `agile-4`, `agile-5`, `agile-6`, `agile-8`, `agile-9`, `agile-14`, `agile-15`, plus `agile-planning/README.md`. Re-confirm with `grep -rl "Confluence structure (canonical" agile-*/skills`.
+- Carriers: `agile-1`, `agile-2`, `agile-3`, `agile-4`, `agile-5`, `agile-6`, `agile-8`, `agile-9`, `agile-13`, `agile-14`, `agile-15`, plus `agile-planning/README.md`. Re-confirm with `grep -rl "Confluence structure (canonical" agile-*/skills`.
 - Watch the **bare skill-number attributions inside the tree** (`(folder, agile-15; …)`, `(agile-5 — SHORT INDEX…)`) — not slugs, so a name-only replace misses them.
 - Edit all copies in one scripted pass (Python, not a hand sed loop), then `grep` to prove zero stale copies.
 
-**The Roadmap is a short index** — guiding principle + iterations index table + progress rollup + parking lot only. All deep detail (goal, success criteria, epics-in-scope, per-sprint backlog, decisions, retro write-ups) lives on the `MVP` / `Iteration N` child pages. Never inline it into the Roadmap.
+**The Roadmap is a short index** — guiding principle + iterations index table + progress rollup + parking lot only. All deep detail (goal, success criteria, epics-in-scope, per-sprint backlog, decisions, sprint conclusions) lives as sections on the `MVP` / `Iteration N` child pages. Never inline it into the Roadmap.
 
 ## Roadmap Artifact
 
@@ -209,6 +209,9 @@ for p in pathlib.Path('.').glob('agile-*/agents/*.md'):
 for p in pathlib.Path('.').glob('agile-*/skills/*/SKILL.md'):
     n=re.search(r'^name:\s*(\S+)',p.read_text().split('---')[1],re.M)
     if n and n.group(1)!=p.parent.name: print(f'{p}: name != dir')"
+
+# 2b. Page placement paragraph byte-identical in every tree carrier (must print one line)
+grep -h '^\*\*Page placement\.\*\*' agile-*/skills/*/SKILL.md agile-planning/README.md | sort | uniq -c
 
 # 4. Tool grants satisfy the sub-skill — walk the skill's steps against the grant.
 #    Adding an explicit `tools:` list silently revokes everything you forget.

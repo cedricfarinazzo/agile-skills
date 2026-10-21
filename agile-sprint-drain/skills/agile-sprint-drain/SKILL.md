@@ -188,7 +188,7 @@ Every phase discovers work its ticket did not plan for. Two decisions, in order,
 
 ## Scope
 
-Never bypasses an orchestrator's pause (a parked ticket is human-blocked here; the rest keeps running). Never writes `Done`, opens a PR, or merges itself. On DRAINED, hands off to `agile-sprint-close`.
+Never bypasses an orchestrator's pause (a parked ticket is human-blocked here; the rest keeps running). Never writes `Done`, opens a PR, or merges itself. On DRAINED, hands off to `agile-sprint-close`. A Confluence page this run produces (a coverage matrix, an audit, an investigation) goes in the project's `Extras` folder, a direct child of the project root, never under the Roadmap or an `Iteration N` page; link it from the ticket or PR.
 
 ## Reports
 

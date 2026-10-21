@@ -51,7 +51,7 @@ Classify every test — no test is skipped because it looks fine:
 
 ## Phase 2 — Report
 
-One synthesized document: deletions (each with category + evidence), merges, harness findings, parallel-unsafety inventory, critical-path depth gaps, the load-bearing list, and any production defects the audit uncovered (reported, not fixed). Three baselines attached — per-module coverage, suite wall-clock (same parallelism as CI), and peak memory per worker — **each recorded with the command and the commit that produced it**. Publish where the team can act on it.
+One synthesized document: deletions (each with category + evidence), merges, harness findings, parallel-unsafety inventory, critical-path depth gaps, the load-bearing list, and any production defects the audit uncovered (reported, not fixed). Three baselines attached — per-module coverage, suite wall-clock (same parallelism as CI), and peak memory per worker — **each recorded with the command and the commit that produced it**. Publish where the team can act on it. In Confluence that is the project's `Extras` folder (a direct child of the project root), never under the Roadmap or an Iteration page.
 
 ### Cleanup train ledger
 

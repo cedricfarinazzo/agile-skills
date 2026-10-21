@@ -33,6 +33,30 @@ From the consumer repo's `CLAUDE.md/AGENTS.md`: **`cloudId`** (required); **`con
 
 **Input:** epic key from args (else inferred from sprint context, or ask). Optional `--skip product` (Phase 3 — greenfield repo with no Confluence specs) and `--skip techlead` (Phase 4 — a mid-sprint sanity check only; a real closeout never skips it). Use sparingly; the default is all lenses.
 
+## Confluence structure (canonical — identical across all agile-skills)
+
+Every page is a child of the root folder created by `agile-1`. Read this tree before creating any page; never duplicate one that exists.
+
+```
+📁 [Project Name]                   (root — agile-1)
+├── 📄 Vision Doc — [Project]       (agile-1)
+├── 📄 PRD — [Project]              (agile-2)
+├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]              (agile-4)
+├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX only: guiding principle · iterations table · progress rollup · parking lot)
+│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
+│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
+│   └── 📄 Iteration N — [Project]
+├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
+├── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
+└── 📁 Extras — [Project]           (folder; every page this tree does not name: audits, coverage matrices, investigations, one-off reports)
+```
+
+All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, sprint conclusions — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
+
+**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. The Roadmap's only children are `MVP` / `Iteration N`, and those take sections and links, never child pages: a closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
+
 ## Phase 0 — Load epic spec
 
 Read the epic in full via `mcp__atlassian__getJiraIssue` — summary, description, scope, epic-level ACs, dependencies. The epic is the spec. Then `mcp__atlassian__searchJiraIssuesUsingJql` with `"Epic Link" = <EPIC> ORDER BY key ASC` and build a child table (key, status, type, summary). **Every child must be Done, or carry an explicit reason it is deferred** — any child in a non-terminal column blocks closeout.
@@ -157,23 +181,27 @@ The script is offline and reads no credentials. Build both files from `mcp__atla
 
 ## Phase 7 — Final closeout report
 
-Produce the report **and publish it to Confluence under a dedicated `Closeouts` folder — a sibling of `Retrospectives`, never inside it.** They are different artifacts by different skills: `agile-15-retro` reads the closeout, not the reverse.
+Publish the report in the **`Closeouts` folder** (see Page placement above): a sibling of `Retrospectives`, never inside it, and never under the Roadmap or an `Iteration N` page, however much the sprint context points there. `agile-15-retro` reads the closeout, not the reverse.
 
-**7.0 — Ensure the folder exists.** Look for `Closeouts — <Project>` as a direct child of `confluence-project-root`. Missing → create it (parent: project root; body: a short description plus a `Sprint | Period | Verdict | Report` index table, pre-populated with this closeout's row). Present → use it as parent and **append** a row, never replace the table.
+**7.0 — Resolve the folder by id.** Find `Closeouts` (or `Closeouts — <Project>`) as a direct child of `confluence-project-root`. Missing → create it (parent: project root; body: a short description plus a `Sprint | Period | Verdict | Report` index table). Its page id is the only valid `parentId` for 7.1.
 
-**7.1 — Publish** a page titled `Closeout <N> — Sprint <N> — <Project>` under that folder, carrying the full report. Capture its page id + URL and return them so the operator and `agile-15-retro` can link to it. **7.2 — Append the index row** (`<Sprint> | <Period> | <Verdict> | <link>`), matching whatever ordering convention the table already uses.
+**7.1 — Write the page** titled `Closeout <N> — Sprint <N> — <Project>`; a page with that title already exists → update it, never mint a second. Open the previous closeout in the folder for tone and depth; the layout below wins wherever it differs. Pass the body in the format you wrote it: Markdown with `contentFormat: "markdown"`, HTML with `"html"` — Markdown sent as HTML renders as literal `|`, `**` and `#`.
 
-**Required sections:**
+**Layout.** A header line (sprint, epics, period, last merge, report run date on `main` `<sha>`), then one **Verdict** line: ✅ GREEN / ✅ GREEN with open items / 🔴 BLOCKED, the `N Critical / M Minor / K Nit` counts, and any phase not run. Then these numbered `##` sections, in this order, **every one present**:
 
-- **Ticket roll-up** — every child of the epic, status, brief.
-- **Epic AC verification** — `# | AC | Status | Evidence`. Every AC needs **three** pieces of evidence: a code site, test coverage, and a smoke-test observation. Missing one means the AC is not satisfied.
-- **Product / Architecture alignment** — the Phase 3 table, Critical and Minor drifts highlighted separately.
-- **Tech Lead findings** — the Phase 4 severity-grouped list with `N Critical / M Minor / K Nit` counts at the top.
-- **Test coverage** — unit N/N with coverage %, integration N/N against the fresh stack with runtime.
-- **Crash monitoring** — "workers + scheduler clean for X min", or the signature, time, and outcome.
-- **Critical bugs found + disposition** — per bug: ticket key, severity, fix status.
-- **Merge-train link audit** — `from | to | type | status | link_id | disposition` for every announced link.
-- **Recommended next steps** — whether to transition the epic to Done; tickets to file; and retro notes, especially **test-coverage gaps**, **spec drift** (Phase 3), and **systemic code-quality patterns** worth a convention update (Phase 4).
+1. **Ticket roll-up** — every child of the epic, status, brief; committed vs delivered.
+2. **Epic AC verification** — `# | AC | Status | Evidence`. Every AC needs **three** pieces of evidence: a code site, test coverage, and a smoke-test observation. Missing one means the AC is not satisfied.
+3. **Product / Architecture alignment** — the Phase 3 table, Critical and Minor drifts in separate subsections.
+4. **Tech Lead findings** — Phase 4 grouped `### Critical` / `### Minor` / `### Nit`, counts at the top; each finding numbered, with `file:line` and its ticket key.
+5. **Test coverage** — unit N/N with coverage %, integration N/N against the fresh stack with runtime; link any coverage matrix (it lives in `Extras`, not here).
+6. **Dev-stack smoke + crash monitoring** — "workers + scheduler clean for X min", or the signature, time and outcome.
+7. **Critical bugs found + disposition** — `Finding | Severity | Ticket | Fix status`.
+8. **Merge-train link audit** — `from | to | type | status | link_id | disposition` for every announced link.
+9. **Recommended next steps** — whether to transition the epic to Done; tickets to file; retro notes, especially **test-coverage gaps**, **spec drift** (Phase 3) and **systemic code-quality patterns** worth a convention update (Phase 4).
+
+A phase that did not run keeps its section with **NOT RUN** and the reason, never a silent omission and never a PASS. Tables for structured data, numbered lists for findings. Write for the person closing the sprint — what was checked, what was found, what is left; no process narration, tool logs, raw command output or chat preamble.
+
+**7.2 — Verify before reporting.** Read the page back with `mcp__atlassian__getConfluencePage` and `contentFormat: "html"` (a Markdown read shows `**` and `#` on a correct page too): its `parentId` is the folder id from 7.0 (otherwise move it with `mcp__atlassian__updateConfluencePage` `parentId`), the nine sections are `<h2>` headings in order, tables are `<table>` elements, and no text holds a literal `|---|`, `**` or a line starting with `#`. Fix and re-read until it passes. **7.3 — Append the index row** (`<Sprint> | <Period> | <Verdict> | <link>`) to the folder page, matching the table's ordering, never replacing the table. Return the page id + URL so the operator and `agile-15-retro` can link to it.
 
 **The epic-level Done transition is not part of this skill** — closeout produces a recommendation, and the user transitions only after acknowledging the report.
 
