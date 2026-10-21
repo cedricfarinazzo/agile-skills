@@ -12,7 +12,7 @@ Three modes, detected from context:
 - **ITERATION** — "plan the next iteration", "we finished the MVP", "add iteration N" → add an Iteration page and update the index.
 - **RESTRUCTURE** — "restructure the roadmap", "fix the Confluence structure", or any page of the tree breaks its layout → plan and run a lossless migration to the canonical layout (below). INIT and ITERATION check for drift first and offer RESTRUCTURE before writing into a drifted tree.
 
-**Templates** for every page this skill owns — Roadmap, MVP / Iteration, Sprint, Decision Log and its range pages, Parking Lot, Working Agreements, Debt Register — are in `references/page-templates.md` (`${CLAUDE_PLUGIN_ROOT}/skills/agile-5-roadmap/references/page-templates.md`). Read it before writing any of them.
+**Templates** for every planning page — Roadmap, MVP / Iteration, Sprint, Decision Log and its range pages, Parking Lot, Working Agreements, Debt Register — are in `references/page-templates.md` (`${CLAUDE_PLUGIN_ROOT}/skills/agile-5-roadmap/references/page-templates.md`). Read it before writing any of them.
 
 A Roadmap exists and the user says "create the roadmap" → confirm: "I found an existing Roadmap. Add a new iteration, or revisit the MVP scope?"
 
@@ -29,7 +29,7 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 ├── 📄 ADR — [Project]                    (agile-4; current architecture state)
 ├── 📄 Decision Log — [Project]           (agile-5; register, one row per decision)
 │   └── 📄 Decisions D001–D099 — [Project] (full entries by ID range: D100–D199, …)
-├── 📄 Working Agreements — [Project]     (agile-15; rules in force: process, planning, operator, ops)
+├── 📄 Working Agreements — [Project]     (agile-5 creates · agile-15 writes; rules in force: process, planning, operator, ops)
 ├── 📄 Roadmap — [Project]                (agile-5 — INDEX only)
 │   ├── 📄 Parking Lot — [Project]        (agile-5; unscheduled and rejected ideas)
 │   ├── 📄 MVP — [Project]                (agile-5; an iteration page)
@@ -43,7 +43,7 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 
 **Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. Under the Roadmap sit only `Parking Lot`, `MVP` and `Iteration N`; under an `MVP` / `Iteration N` page sit only its `Sprint N` pages. A closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
 
-**Page layouts.** Every page keeps the `##` headings below, in this order, and no others. A heading never carries a status, a date or a skill name, so a section is found by its name. Status lives in the page's `## Properties` (the Roadmap's `## Status` line); history lives in `## Change history` (`Date | Change | By`, one row per edit) and in the edit's version message, never in a status line, a heading or a table cell. Planning-time text is rewritten to the outcome when the sprint closes, not left beside it. The planning templates (fields, skeletons) are in `agile-5-roadmap`.
+**Page layouts.** Every page keeps the `##` headings below, in this order, and no others. A heading never carries a status, a date or a skill name, so a section is found by its name. Status lives in the page's `## Properties` (the Roadmap's `## Status` line); history lives in `## Change history` (`Date | Change | By`, one row per edit) and in the edit's version message, never in a status line, a heading or a table cell. Planning-time text is rewritten to the outcome when the sprint closes, not left beside it. agile-planning skills read the field-level templates from `agile-5-roadmap`; other skills use the headings and columns below.
 
 | Page | `##` headings, in order (table columns in brackets) |
 |---|---|
@@ -55,13 +55,13 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 | Parking Lot | Ideas (Idea · Raised · Why parked · Earmark · Link) · Rejected (Idea · Date · By · Why) · Change history |
 | Working Agreements | Rules in force (Rule · Kind · Since · Source · Applies to) · Retired (Rule · Retired · Why) · Change history |
 | Debt Register | Open (Item · Source · Jira · Size · Target) · Closed (Item · Closed · How) · Change history |
-| Retrospectives / Closeouts | Index (one row per report) |
+| Retrospectives / Closeouts | Index (one row per report) when the container is a page; a Confluence folder has no body and lists its children itself |
 | Vision Doc · PRD · Design Brief · Specs UI · ADR | the template in the owning skill, ending with Change history |
 | Retro · Closeout | the template in the owning skill (written once) |
 
-**One fact, one home; every other page links to it.** Tickets, points and statuses → Jira. Verdicts and severity counts → the Closeout. Lessons → the Retro. Current architecture → the ADR. Decision text → the Decision Log; elsewhere only its ID and title. Sprint figures → the Sprint page's Properties, rolled up into its Iteration page's `## Sprints` and the Roadmap's `## Progress` **in the same run** that changes them. Size budgets: Roadmap ≤ 6k characters, MVP / Iteration page ≤ 15k, Sprint page ≤ 25k.
+**One fact, one home; every other page links to it.** Tickets, points and statuses → Jira. Verdicts and severity counts → the Closeout. Lessons → the Retro. Current architecture → the ADR. Decision text → the Decision Log; elsewhere only its ID and title. Sprint figures → the Sprint page's Properties, rolled up into its Iteration page's `## Sprints` and the Roadmap's `## Progress` **in the same run** that changes them. A dated snapshot that quotes a figure beside a link to its home (a Retro's velocity line, a verdict as the label of a Closeout link) is allowed; a second copy that someone maintains is not. Size budgets: Roadmap ≤ 6k characters, MVP / Iteration page ≤ 15k, Sprint page ≤ 25k.
 
-**A drifted page is fixed, not extended.** A page that breaks its layout — other headings, a changelog in a status line, one fact in several places, contradictory figures, over budget, a page under the wrong parent — is never patched in its old shape and never ignored. Write your own change in the layout, then plan the fix: an interactive skill lists the drift and proposes `agile-5-roadmap` RESTRUCTURE before it finishes, and runs it when the user agrees; the autonomous loop reports it.
+**A drifted page is fixed, not extended.** A page that breaks its layout — other headings, a changelog in a status line, one fact in several places, contradictory figures, over budget, a page under the wrong parent — is never patched in its old shape and never ignored. Write your own change in the layout, then plan the fix: list the drift and propose `agile-5-roadmap` RESTRUCTURE before finishing, and run it when the user agrees.
 
 ---
 
@@ -197,7 +197,7 @@ If the operator wants per-sprint depth before approving ("explain sprint N", "wh
 
 Run per planned sprint, in plan order. Applies to INIT-mode MVP sprints the same way.
 
-1. **Explainer artifact — one per sprint.** Load `artifact-design` first (plus `artifact-diagramming` / `dataviz` before drawing). All sprint explainers share one design language — same tokens, typography, figure style — so they read as a series; each gets its own **stable** favicon. Content shape: the problem in the product's own terms → each mechanism with a figure that *shows* it (data-flow diagram, before/after comparison, mock UI panel, or an illustrative chart) → where it lives in the architecture + its dependency seams → a closing callout listing the sprint's **open ADR questions**. Mock data is always labeled illustrative — never render invented numbers as real. Link the artifact from the sprint's row on the Iteration page and from a `Sprint explainers:` line under Status.
+1. **Explainer artifact — one per sprint.** Load `artifact-design` first (plus `artifact-diagramming` / `dataviz` before drawing). All sprint explainers share one design language — same tokens, typography, figure style — so they read as a series; each gets its own **stable** favicon. Content shape: the problem in the product's own terms → each mechanism with a figure that *shows* it (data-flow diagram, before/after comparison, mock UI panel, or an illustrative chart) → where it lives in the architecture + its dependency seams → a closing callout listing the sprint's **open ADR questions**. Mock data is always labeled illustrative — never render invented numbers as real. Write its link in the Sprint page's Properties `Explainer` field.
 2. **Decision interview.** Put the sprint's open questions to the operator as options (2–4 per question, one marked `(Recommended)` with the reason in its description; use the ask-user-question tool if available, else one grouped message). ADR-level only — choices that change architecture, data contracts, external cost, or scope. Tuning constants (window sizes, thresholds, defaults) are *named* but deferred to refinement.
 3. **Lock and record.** If the sprint has no Sprint page yet, create its skeleton now under the Iteration page (Properties with Status `Planned`, Goal as a draft, Scope, Decisions); skill 9 fills the rest. Each answer becomes a `D###` entry in the Decision Log (next free id; register row + range-page section, Scope = the sprint) and a row in the Sprint page's `## Decisions` (or in the Iteration page's `## Scope changes` when it moves scope); edit the artifact's open-questions callout into a decisions callout (visibly different, e.g. accent border). When the operator picks **against** the recommendation, the entry's Consequences records what that obliges (a parked alternative, a display obligation), not just the choice. Items left for refinement go in the Sprint page's `## Scope` as `Left for refinement: …`, and are removed from there when refinement settles them.
 4. **Splits.** If the interview reveals a sprint carrying two themes, split it and renumber the tail — then re-sync the Iteration page's `## Sprints`, the Roadmap's `## Progress`, and the roadmap artifact **in the same pass**, never later.
@@ -266,7 +266,7 @@ One message: the pages to create, rewrite and move (with size before → after),
 
 ### Step R4 — Snapshot, then write in dependency order
 
-Record every source page's current version number in the plan (Confluence keeps that version), and copy each source body to `Extras / Archive — <title> (pre-restructure <date>)`; a body too large for the integration to write stays archived by its recorded version alone, and the plan says so. Then write: Decision Log and range pages → Sprint pages → MVP / Iteration pages → Parking Lot, Working Agreements, Debt Register → the Roadmap index last. Rewrite existing pages in place (their ids and inbound links survive); create the new ones under the parent the tree names. Each write carries a version message and one `## Change history` row (`Restructured to the canonical layout`).
+Record every source page's current version number in the plan (Confluence keeps that version), and copy each source body to `Extras / Archive — <title> (pre-restructure <date>)`; a body too large for the integration to write stays archived by its recorded version alone, and the plan says so. Then write: Decision Log and range pages → MVP / Iteration pages (creating the missing ones) → Sprint pages under them → Parking Lot, Working Agreements, Debt Register → the Roadmap index last. Rewrite existing pages in place (their ids and inbound links survive); create the new ones under the parent the tree names. Each write carries a version message and one `## Change history` row (`Restructured to the canonical layout`).
 
 ### Step R5 — Prove nothing was lost
 

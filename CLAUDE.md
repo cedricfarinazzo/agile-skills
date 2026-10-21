@@ -163,10 +163,10 @@ All skills share one canonical layout (root → Vision/PRD/Brief/Specs/ADR, `Dec
 **RULE — change the structure and you MUST update the block in ALL carriers in the same change.** Updating one copy and leaving the others stale is a bug.
 
 - Carriers: `agile-1`, `agile-2`, `agile-3`, `agile-4`, `agile-5`, `agile-6`, `agile-8`, `agile-9`, `agile-13`, `agile-14`, `agile-15`, plus `agile-planning/README.md`. Re-confirm with `grep -rl "Confluence structure (canonical" agile-*/skills`.
-- Watch the **bare skill-number attributions inside the tree** (`(folder, agile-15; …)`, `(agile-5 — SHORT INDEX…)`) — not slugs, so a name-only replace misses them.
+- Watch the **bare skill-number attributions inside the tree** (`(folder, agile-15; …)`, `(agile-5 — INDEX only)`) — not slugs, so a name-only replace misses them.
 - Edit all copies in one scripted pass (Python, not a hand sed loop), then `grep` to prove zero stale copies.
 
-**The Roadmap is an index** — status line, guiding principle, iterations table, progress rollup, a link to the Parking Lot, next step. Iteration detail lives on the `MVP` / `Iteration N` page, sprint detail on its `Sprint N` page, decision text in the Decision Log. Field-level templates for every planning page live in one file, `agile-planning/skills/agile-5-roadmap/references/page-templates.md`, which skills 5–9 read via `${CLAUDE_PLUGIN_ROOT}`; `agile-15` (another plugin) states only the fields it writes. `agile-5-roadmap` RESTRUCTURE is the lossless migration for a tree that drifted from the layout.
+**The Roadmap is an index** — status line, guiding principle, iterations table, progress rollup, a link to the Parking Lot, next step. Iteration detail lives on the `MVP` / `Iteration N` page, sprint detail on its `Sprint N` page, decision text in the Decision Log. Field-level templates for every planning page live in one file, `agile-planning/skills/agile-5-roadmap/references/page-templates.md`, which skills 5, 8 and 9 read via `${CLAUDE_PLUGIN_ROOT}`; `agile-15` (another plugin) states only the fields it writes. `agile-5-roadmap` RESTRUCTURE is the lossless migration for a tree that drifted from the layout.
 
 ## Roadmap Artifact
 

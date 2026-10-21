@@ -20,7 +20,7 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 ├── 📄 ADR — [Project]                    (agile-4; current architecture state)
 ├── 📄 Decision Log — [Project]           (agile-5; register, one row per decision)
 │   └── 📄 Decisions D001–D099 — [Project] (full entries by ID range: D100–D199, …)
-├── 📄 Working Agreements — [Project]     (agile-15; rules in force: process, planning, operator, ops)
+├── 📄 Working Agreements — [Project]     (agile-5 creates · agile-15 writes; rules in force: process, planning, operator, ops)
 ├── 📄 Roadmap — [Project]                (agile-5 — INDEX only)
 │   ├── 📄 Parking Lot — [Project]        (agile-5; unscheduled and rejected ideas)
 │   ├── 📄 MVP — [Project]                (agile-5; an iteration page)
@@ -34,7 +34,7 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 
 **Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. Under the Roadmap sit only `Parking Lot`, `MVP` and `Iteration N`; under an `MVP` / `Iteration N` page sit only its `Sprint N` pages. A closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
 
-**Page layouts.** Every page keeps the `##` headings below, in this order, and no others. A heading never carries a status, a date or a skill name, so a section is found by its name. Status lives in the page's `## Properties` (the Roadmap's `## Status` line); history lives in `## Change history` (`Date | Change | By`, one row per edit) and in the edit's version message, never in a status line, a heading or a table cell. Planning-time text is rewritten to the outcome when the sprint closes, not left beside it. The planning templates (fields, skeletons) are in `agile-5-roadmap`.
+**Page layouts.** Every page keeps the `##` headings below, in this order, and no others. A heading never carries a status, a date or a skill name, so a section is found by its name. Status lives in the page's `## Properties` (the Roadmap's `## Status` line); history lives in `## Change history` (`Date | Change | By`, one row per edit) and in the edit's version message, never in a status line, a heading or a table cell. Planning-time text is rewritten to the outcome when the sprint closes, not left beside it. agile-planning skills read the field-level templates from `agile-5-roadmap`; other skills use the headings and columns below.
 
 | Page | `##` headings, in order (table columns in brackets) |
 |---|---|
@@ -46,13 +46,13 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 | Parking Lot | Ideas (Idea · Raised · Why parked · Earmark · Link) · Rejected (Idea · Date · By · Why) · Change history |
 | Working Agreements | Rules in force (Rule · Kind · Since · Source · Applies to) · Retired (Rule · Retired · Why) · Change history |
 | Debt Register | Open (Item · Source · Jira · Size · Target) · Closed (Item · Closed · How) · Change history |
-| Retrospectives / Closeouts | Index (one row per report) |
+| Retrospectives / Closeouts | Index (one row per report) when the container is a page; a Confluence folder has no body and lists its children itself |
 | Vision Doc · PRD · Design Brief · Specs UI · ADR | the template in the owning skill, ending with Change history |
 | Retro · Closeout | the template in the owning skill (written once) |
 
-**One fact, one home; every other page links to it.** Tickets, points and statuses → Jira. Verdicts and severity counts → the Closeout. Lessons → the Retro. Current architecture → the ADR. Decision text → the Decision Log; elsewhere only its ID and title. Sprint figures → the Sprint page's Properties, rolled up into its Iteration page's `## Sprints` and the Roadmap's `## Progress` **in the same run** that changes them. Size budgets: Roadmap ≤ 6k characters, MVP / Iteration page ≤ 15k, Sprint page ≤ 25k.
+**One fact, one home; every other page links to it.** Tickets, points and statuses → Jira. Verdicts and severity counts → the Closeout. Lessons → the Retro. Current architecture → the ADR. Decision text → the Decision Log; elsewhere only its ID and title. Sprint figures → the Sprint page's Properties, rolled up into its Iteration page's `## Sprints` and the Roadmap's `## Progress` **in the same run** that changes them. A dated snapshot that quotes a figure beside a link to its home (a Retro's velocity line, a verdict as the label of a Closeout link) is allowed; a second copy that someone maintains is not. Size budgets: Roadmap ≤ 6k characters, MVP / Iteration page ≤ 15k, Sprint page ≤ 25k.
 
-**A drifted page is fixed, not extended.** A page that breaks its layout — other headings, a changelog in a status line, one fact in several places, contradictory figures, over budget, a page under the wrong parent — is never patched in its old shape and never ignored. Write your own change in the layout, then plan the fix: an interactive skill lists the drift and proposes `agile-5-roadmap` RESTRUCTURE before it finishes, and runs it when the user agrees; the autonomous loop reports it.
+**A drifted page is fixed, not extended.** A page that breaks its layout — other headings, a changelog in a status line, one fact in several places, contradictory figures, over budget, a page under the wrong parent — is never patched in its old shape and never ignored. Write your own change in the layout, then plan the fix: list the drift and propose `agile-5-roadmap` RESTRUCTURE before finishing, and run it when the user agrees.
 
 ## Step 1 — Scan existing state
 
@@ -119,7 +119,7 @@ Wait for answers before writing to Jira.
 
 ## Step 4 — Update Stories in Jira
 
-**Refinement's authoritative record is the Jira ticket** — the points field, ACs, DoD, and refinement comment. A Confluence summary goes only in the `## Backlog` table of the `Sprint [N]` page (template in `${CLAUDE_PLUGIN_ROOT}/skills/agile-5-roadmap/references/page-templates.md`), never on the Iteration page or the Roadmap index.
+**Refinement's authoritative record is the Jira ticket** — the points field, ACs, DoD, and refinement comment. Confluence gets nothing new from refinement: when the Story already sits in a `Sprint [N]` page's `## Backlog` (a re-refinement), update that row's `Pts` and `Summary` only; otherwise write nothing — skill 9 builds the backlog from Jira. Never on the Iteration page or the Roadmap index.
 
 **Story points — write the structured field, not just the comment.** Set the Story Points custom field via `mcp__atlassian__editJiraIssue`, in the **same call** as the `refined` label so the two can never drift apart:
 
