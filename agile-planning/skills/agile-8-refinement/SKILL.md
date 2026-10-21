@@ -23,10 +23,13 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
+├── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
+└── 📁 Extras — [Project]           (folder; every page this tree does not name: audits, coverage matrices, investigations, one-off reports)
 ```
 
-All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, retro write-ups — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
+All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, sprint conclusions — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
+
+**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. The Roadmap's only children are `MVP` / `Iteration N`, and those take sections and links, never child pages: a closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
 
 **Refinement's authoritative record is the Jira ticket** — the points field, ACs, DoD, and refinement comment. Any Confluence summary goes into the relevant `## Sprint [N]` **Backlog** table on the `MVP` / `Iteration N` child page, never the Roadmap index.
 

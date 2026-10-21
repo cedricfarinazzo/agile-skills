@@ -77,8 +77,11 @@ Canonical folder layout, identical across every agile-skills plugin (embedded ve
 │   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
 │   └── 📄 Iteration N — [Project]
 ├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
-└── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
+├── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
+└── 📁 Extras — [Project]           (folder; every page this tree does not name: audits, coverage matrices, investigations, one-off reports)
 ```
+
+**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. The Roadmap's only children are `MVP` / `Iteration N`, and those take sections and links, never child pages: a closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
 
 ## Bundled tool: shared-file collision audit
 

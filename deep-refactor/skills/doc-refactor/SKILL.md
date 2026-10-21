@@ -52,7 +52,7 @@ Classify every file — no doc is skipped because it reads well:
 
 ## Phase 2 — Report
 
-One synthesized document: falsehoods (each with the check that caught it), stale sections, the **duplication map** naming the chosen home for every repeated fact, replicated invariants with their sync rule, generated files with their generators, compression candidates with measured sizes, the gap list, and any **code defects the audit uncovered** — reported, not fixed. Three baselines attached: total doc bytes, the per-file token cost of everything auto-loaded into an agent's context, and the link/anchor/command checks as a pass table. Publish where the team can act on it; the report is the contract for everything after.
+One synthesized document: falsehoods (each with the check that caught it), stale sections, the **duplication map** naming the chosen home for every repeated fact, replicated invariants with their sync rule, generated files with their generators, compression candidates with measured sizes, the gap list, and any **code defects the audit uncovered** — reported, not fixed. Three baselines attached: total doc bytes, the per-file token cost of everything auto-loaded into an agent's context, and the link/anchor/command checks as a pass table. Publish where the team can act on it; in Confluence that is the project's `Extras` folder (a direct child of the project root), never under the Roadmap or an Iteration page. The report is the contract for everything after.
 
 ### Cleanup train ledger
 

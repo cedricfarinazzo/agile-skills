@@ -38,7 +38,7 @@ Every agent follows three rules:
 
 ## Phase 2 — Report
 
-One synthesized report: defects, perf, dependency/image wins, safe backlog, blocked list — each item with exact `file:line`, its pin inventory, evidence, and effort. Publish it where the team can act on it. The report is the contract for everything after.
+One synthesized report: defects, perf, dependency/image wins, safe backlog, blocked list — each item with exact `file:line`, its pin inventory, evidence, and effort. Publish it where the team can act on it. In Confluence that is the project's `Extras` folder (a direct child of the project root), never under the Roadmap or an Iteration page. The report is the contract for everything after.
 
 ### Cleanup train ledger
 
