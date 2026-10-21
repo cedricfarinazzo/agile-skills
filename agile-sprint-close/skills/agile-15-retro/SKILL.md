@@ -64,9 +64,9 @@ Done before the interview: questions left in comments are retro input, and an un
 - **From evidence** — the answer is on `main`, in the ADR / PRD / Specs, in the closeout report, or in a later ticket. Cite the source (`file:line`, page + section, ticket key).
 - **With the user** — the answer is a decision or needs knowledge no artifact holds. Ask with `AskUserQuestion`, one question per open question and up to four per call: the question quoted with its ticket key, 2–4 concrete options, the one the evidence favours first and marked `(Recommended)`. No `AskUserQuestion` (e.g. Codex) → one message listing each question with lettered options, and wait for the answers.
 
-Post every answer as a reply on its ticket with `mcp__atlassian__addCommentToJiraIssue`: `🤖 <!-- agile:retro-answer -->`, the question quoted, the answer, and its source (`evidence: …` or `decided by <user> at Retro <N>`). An answer that implies work becomes a candidate action item for Step 3; never file it as a ticket from here.
+Show the table `Ticket | Question | Answer | Source` first; once the user has confirmed or corrected the evidence answers (in the same message as the questions put to them), post every answer as a reply on its ticket with `mcp__atlassian__addCommentToJiraIssue`: `🤖 <!-- agile:retro-answer -->`, the question quoted, the answer, and its source (`evidence: …` or `decided by <user> at Retro <N>`). An answer that implies work becomes a candidate action item for Step 3; never file it as a ticket from here.
 
-Report a table `Ticket | Question | Answer | Source` before moving on. No open question found → say so in one line.
+No open question found → say so in one line.
 
 ## Step 2 — Ensure the Retrospectives folder exists
 
