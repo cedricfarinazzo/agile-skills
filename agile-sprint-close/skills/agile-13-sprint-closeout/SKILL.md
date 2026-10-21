@@ -185,7 +185,7 @@ Publish the report in the **`Closeouts` folder** (see Page placement above): a s
 
 **7.0 — Resolve the folder by id.** Find `Closeouts` (or `Closeouts — <Project>`) as a direct child of `confluence-project-root`. Missing → create it (parent: project root; body: a short description plus a `Sprint | Period | Verdict | Report` index table). Its page id is the only valid `parentId` for 7.1.
 
-**7.1 — Write the page** titled `Closeout <N> — Sprint <N> — <Project>`; a page with that title already exists → update it, never mint a second. Open the previous closeout in the folder first and match its layout. Pass the body in the format you wrote it: Markdown with `contentFormat: "markdown"`, HTML with `"html"` — Markdown sent as HTML renders as literal `|`, `**` and `#`.
+**7.1 — Write the page** titled `Closeout <N> — Sprint <N> — <Project>`; a page with that title already exists → update it, never mint a second. Open the previous closeout in the folder for tone and depth; the layout below wins wherever it differs. Pass the body in the format you wrote it: Markdown with `contentFormat: "markdown"`, HTML with `"html"` — Markdown sent as HTML renders as literal `|`, `**` and `#`.
 
 **Layout.** A header line (sprint, epics, period, last merge, report run date on `main` `<sha>`), then one **Verdict** line: ✅ GREEN / ✅ GREEN with open items / 🔴 BLOCKED, the `N Critical / M Minor / K Nit` counts, and any phase not run. Then these numbered `##` sections, in this order, **every one present**:
 
@@ -201,7 +201,7 @@ Publish the report in the **`Closeouts` folder** (see Page placement above): a s
 
 A phase that did not run keeps its section with **NOT RUN** and the reason, never a silent omission and never a PASS. Tables for structured data, numbered lists for findings. Write for the person closing the sprint — what was checked, what was found, what is left; no process narration, tool logs, raw command output or chat preamble.
 
-**7.2 — Verify before reporting.** Read the page back with `mcp__atlassian__getConfluencePage`: its `parentId` is the folder id from 7.0 (otherwise move it with `mcp__atlassian__updateConfluencePage` `parentId`), all nine headings are there, and the rendered body holds no literal `|---|`, `**` or `#`. Fix and re-read until it passes. **7.3 — Append the index row** (`<Sprint> | <Period> | <Verdict> | <link>`) to the folder page, matching the table's ordering, never replacing the table. Return the page id + URL so the operator and `agile-15-retro` can link to it.
+**7.2 — Verify before reporting.** Read the page back with `mcp__atlassian__getConfluencePage` and `contentFormat: "html"` (a Markdown read shows `**` and `#` on a correct page too): its `parentId` is the folder id from 7.0 (otherwise move it with `mcp__atlassian__updateConfluencePage` `parentId`), the nine sections are `<h2>` headings in order, tables are `<table>` elements, and no text holds a literal `|---|`, `**` or a line starting with `#`. Fix and re-read until it passes. **7.3 — Append the index row** (`<Sprint> | <Period> | <Verdict> | <link>`) to the folder page, matching the table's ordering, never replacing the table. Return the page id + URL so the operator and `agile-15-retro` can link to it.
 
 **The epic-level Done transition is not part of this skill** — closeout produces a recommendation, and the user transitions only after acknowledging the report.
 
