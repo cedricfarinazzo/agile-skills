@@ -135,7 +135,7 @@ Goal: "[sprint goal]" — [Achieved / Partially achieved / Not achieved]
 Committed: [N] pts | Delivered: [N] pts | Velocity: [N] pts ([N]%)
 Stories delivered: [N] | Carried over: [N] | Won't Do: [N] | Bugs created by QA: [N]
 Sprint page: [link]
-Closeout: [[verdict] — [N] Critical / [M] Minor / [K] Nit](link), or "Not produced — recommend agile-13-sprint-closeout before next retro"
+Closeout: [verdict] — [N] Critical / [M] Minor / [K] Nit → [Closeout link], or "Not produced — recommend agile-13-sprint-closeout before next retro"
 
 ## Questions answered from ticket comments ❓
 | Ticket | Question | Answer | Source (evidence / decided by user) |

@@ -46,7 +46,7 @@ They are separate pages and never merged.
 
 ## Where the pages go
 
-All four are children of the project root folder created by `agile-1`. The [canonical folder tree](../agile-planning/README.md#confluence-structure) is shared by every plugin. `agile-4` ends with an Epic Breakdown Proposal (section 11), the direct input to `agile-5-roadmap`.
+All four are children of the project root folder created by `agile-1`. The [canonical folder tree](../agile-planning/README.md#confluence-structure) is shared by every plugin. `agile-4` ends with an Epic Breakdown Proposal (section 11), the direct input to `agile-5-roadmap`. Each page ends with a `## Change history`; updates go there, not as inline notes. A decision taken after the first ADR gets an entry in the Decision Log (kept by `agile-5-roadmap`), and the ADR section cites its id.
 
 ## Where it fits
 

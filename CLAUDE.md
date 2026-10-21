@@ -37,6 +37,7 @@ docs/img/generate-icons.py                # draws every <plugin>/.claude-plugin/
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
 <plugin>/evals-<skill>/<NN-case>/         # eval cases: prompt.md + graders/*.md; `claude plugin eval ./<plugin> --eval-dir evals-<skill>`
+<plugin>/skills/<name>/references/        # files a skill reads on demand (agile-5's page-templates.md, read by skills 5, 8, 9) — via ${CLAUDE_PLUGIN_ROOT}
 <plugin>/skills/<name>/scripts/           # bundled scripts (agile-8 shell, agile-13 and session-audit Python) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
