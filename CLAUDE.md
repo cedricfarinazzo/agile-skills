@@ -37,6 +37,7 @@ docs/img/generate-icons.py                # draws every <plugin>/.claude-plugin/
 <plugin>/skills/<name>/SKILL.md           # one dir per skill
 <plugin>/agents/<name>.md                 # scoped subagents (agile-execution, agile-merge-review, agile-sprint-drain)
 <plugin>/evals-<skill>/<NN-case>/         # eval cases: prompt.md + graders/*.md; `claude plugin eval ./<plugin> --eval-dir evals-<skill>`
+<plugin>/skills/<name>/references/        # files a skill reads on demand (agile-5's page-templates.md, read by skills 5, 8, 9) — via ${CLAUDE_PLUGIN_ROOT}
 <plugin>/skills/<name>/scripts/           # bundled scripts (agile-8 shell, agile-13 and session-audit Python) — invoke via ${CLAUDE_PLUGIN_ROOT}; Python tests sit beside them (python3 -m pytest <dir>)
 ```
 
@@ -158,15 +159,15 @@ done | sort -u
 
 ## Confluence structure invariant
 
-All skills share one canonical layout (root → Vision/PRD/Brief/Specs/ADR/Roadmap → `MVP`/`Iteration N` children of Roadmap; `Retrospectives` + `Closeouts` + `Extras` siblings), embedded verbatim under a `## Confluence structure (canonical …)` heading in **every** Confluence-using skill, followed by the same **Page placement** paragraph: parent picked from the tree by page id, no child pages under `MVP` / `Iteration N`, any page the tree does not name goes in `Extras`, and a read-back that moves a misplaced page. Skills outside the tree that can publish a page (`agile-10-implement`, `agile-sprint-drain`, the three `deep-refactor` skills) carry a one-line pointer to `Extras`.
+All skills share one canonical layout (root → Vision/PRD/Brief/Specs/ADR, `Decision Log` (+ `Decisions D###–D###` range pages), `Working Agreements`, `Roadmap` → `Parking Lot` + `MVP`/`Iteration N` → `Sprint N`; `Retrospectives` + `Closeouts` + `Extras` (holding the `Debt Register`) folders). The whole `## Confluence structure (canonical …)` section is embedded verbatim in **every** Confluence-using skill: the tree, **Page placement** (parent by page id, read-back that moves a misplaced page), **Page layouts** (the fixed `##` headings of every page type, status in `## Properties`, history only in `## Change history`), **one fact, one home** (with size budgets and same-run rollup to the Iteration page and the Roadmap), and **a drifted page is fixed, not extended** (propose `agile-5-roadmap` RESTRUCTURE). The section holds nothing skill-specific; keep skill text outside it. Skills outside the tree that can publish a page (`agile-10-implement`, `agile-sprint-drain`, the three `deep-refactor` skills) carry a one-line pointer to `Extras`.
 
 **RULE — change the structure and you MUST update the block in ALL carriers in the same change.** Updating one copy and leaving the others stale is a bug.
 
 - Carriers: `agile-1`, `agile-2`, `agile-3`, `agile-4`, `agile-5`, `agile-6`, `agile-8`, `agile-9`, `agile-13`, `agile-14`, `agile-15`, plus `agile-planning/README.md`. Re-confirm with `grep -rl "Confluence structure (canonical" agile-*/skills`.
-- Watch the **bare skill-number attributions inside the tree** (`(folder, agile-15; …)`, `(agile-5 — SHORT INDEX…)`) — not slugs, so a name-only replace misses them.
+- Watch the **bare skill-number attributions inside the tree** (`(folder, agile-15; …)`, `(agile-5 — INDEX only)`) — not slugs, so a name-only replace misses them.
 - Edit all copies in one scripted pass (Python, not a hand sed loop), then `grep` to prove zero stale copies.
 
-**The Roadmap is a short index** — guiding principle + iterations index table + progress rollup + parking lot only. All deep detail (goal, success criteria, epics-in-scope, per-sprint backlog, decisions, sprint conclusions) lives as sections on the `MVP` / `Iteration N` child pages. Never inline it into the Roadmap.
+**The Roadmap is an index** — status line, guiding principle, iterations table, progress rollup, a link to the Parking Lot, next step. Iteration detail lives on the `MVP` / `Iteration N` page, sprint detail on its `Sprint N` page, decision text in the Decision Log. Field-level templates for every planning page live in one file, `agile-planning/skills/agile-5-roadmap/references/page-templates.md`, which skills 5, 8 and 9 read via `${CLAUDE_PLUGIN_ROOT}`; `agile-15` (another plugin) states only the fields it writes. `agile-5-roadmap` RESTRUCTURE is the lossless migration for a tree that drifted from the layout.
 
 ## Roadmap Artifact
 
@@ -210,8 +211,10 @@ for p in pathlib.Path('.').glob('agile-*/skills/*/SKILL.md'):
     n=re.search(r'^name:\s*(\S+)',p.read_text().split('---')[1],re.M)
     if n and n.group(1)!=p.parent.name: print(f'{p}: name != dir')"
 
-# 2b. Page placement paragraph byte-identical in every tree carrier (must print one line)
-grep -h '^\*\*Page placement\.\*\*' agile-*/skills/*/SKILL.md agile-planning/README.md | sort | uniq -c
+# 2b. The whole canonical section byte-identical in every carrier (must print one line)
+for f in $(grep -rl "Confluence structure (canonical" agile-*/skills); do
+  awk '/^## Confluence structure \(canonical/{f=1;next} f&&/^(## |---$)/{exit} f' "$f" | md5sum | cut -c1-8
+done | sort | uniq -c
 
 # 4. Tool grants satisfy the sub-skill — walk the skill's steps against the grant.
 #    Adding an explicit `tools:` list silently revokes everything you forget.

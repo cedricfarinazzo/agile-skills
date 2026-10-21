@@ -29,7 +29,7 @@ claude --plugin-dir ./agile-skills/<plugin>   # one plugin dir at a time
 
 1. **Branch from `master`.** One concern per PR.
 2. **Edit the source of truth.** A skill's behavior lives in its `SKILL.md`. Change that first, then the README or `docs/` page that describes it.
-3. **Keep the shared blocks in sync.** The Confluence tree, the untrusted-tool-output rule, the receipt contract, the work-discovered-mid-phase block and the waiting-on-CI block are embedded in several files. Change every carrier in the same commit. CLAUDE.md lists them with a check for each.
+3. **Keep the shared blocks in sync.** The Confluence section (tree, page placement, page layouts, one home per fact, drift rule), the untrusted-tool-output rule, the receipt contract, the work-discovered-mid-phase block and the waiting-on-CI block are embedded in several files. Change every carrier in the same commit. CLAUDE.md lists them with a check for each.
 4. **Bump the version** of every plugin you touched, in all its manifests, in the same PR: patch for a typo or doc fix, minor for a backwards-compatible capability, major for a removed skill, a renamed trigger or a changed config key.
 5. **Run the checks** below.
 6. **Open the PR** against `master` with what changed and how you verified it.
@@ -106,7 +106,7 @@ python3 docs/img/generate-icons.py     # icons: edit the shape in the script, th
 bun docs/img/generate.ts                      # root pictures, after the cycle, drain or train flow changes
 ```
 
-The verify block in CLAUDE.md (agent files against dispatch points, Confluence tree identical everywhere, frontmatter complete) catches the regressions the validators miss. A bundled script's tests sit beside it; run `python3 -m pytest <dir>`.
+The verify block in CLAUDE.md (agent files against dispatch points, Confluence section identical everywhere, frontmatter complete) catches the regressions the validators miss. A bundled script's tests sit beside it; run `python3 -m pytest <dir>`.
 
 ## Docs
 

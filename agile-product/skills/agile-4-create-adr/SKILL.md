@@ -12,30 +12,53 @@ Tech Lead assessing feasibility and documenting architecture decisions: scan →
 Every page is a child of the root folder created by `agile-1`. Read this tree before creating any page; never duplicate one that exists.
 
 ```
-📁 [Project Name]                   (root — agile-1)
-├── 📄 Vision Doc — [Project]       (agile-1)
-├── 📄 PRD — [Project]              (agile-2)
-├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
-├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
-├── 📄 ADR — [Project]              (agile-4)
-├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX only: guiding principle · iterations table · progress rollup · parking lot)
-│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
-│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
-│   └── 📄 Iteration N — [Project]
-├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
-├── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
-└── 📁 Extras — [Project]           (folder; every page this tree does not name: audits, coverage matrices, investigations, one-off reports)
+📁 [Project Name]                         (root — agile-1)
+├── 📄 Vision Doc — [Project]             (agile-1)
+├── 📄 PRD — [Project]                    (agile-2)
+├── 📄 Design Brief — [Project]           (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]               (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]                    (agile-4; current architecture state)
+├── 📄 Decision Log — [Project]           (agile-5; register, one row per decision)
+│   └── 📄 Decisions D001–D099 — [Project] (full entries by ID range: D100–D199, …)
+├── 📄 Working Agreements — [Project]     (agile-5 creates · agile-15 writes; rules in force: process, planning, operator, ops)
+├── 📄 Roadmap — [Project]                (agile-5 — INDEX only)
+│   ├── 📄 Parking Lot — [Project]        (agile-5; unscheduled and rejected ideas)
+│   ├── 📄 MVP — [Project]                (agile-5; an iteration page)
+│   │   └── 📄 Sprint 1 — [Project]       (agile-9 plans · agile-8 backlog · agile-15 closes)
+│   └── 📄 Iteration N — [Project]        (agile-5 ITERATION)
+│       └── 📄 Sprint N — [Project]
+├── 📁 Retrospectives — [Project]         (folder, agile-15; one Retro page per sprint)
+├── 📁 Closeouts — [Project]              (folder, agile-13; sibling of Retrospectives, never inside it)
+└── 📁 Extras — [Project]                 (folder; Debt Register (agile-15) + every page this tree does not name)
 ```
 
-All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, sprint conclusions — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
+**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. Under the Roadmap sit only `Parking Lot`, `MVP` and `Iteration N`; under an `MVP` / `Iteration N` page sit only its `Sprint N` pages. A closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
 
-**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. The Roadmap's only children are `MVP` / `Iteration N`, and those take sections and links, never child pages: a closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
+**Page layouts.** Every page keeps the `##` headings below, in this order, and no others. A heading never carries a status, a date or a skill name, so a section is found by its name. Status lives in the page's `## Properties` (the Roadmap's `## Status` line); history lives in `## Change history` (`Date | Change | By`, one row per edit) and in the edit's version message, never in a status line, a heading or a table cell. Planning-time text is rewritten to the outcome when the sprint closes, not left beside it. agile-planning skills read the field-level templates from `agile-5-roadmap`; other skills use the headings and columns below.
+
+| Page | `##` headings, in order (table columns in brackets) |
+|---|---|
+| Roadmap | Status · Guiding principle · Iterations · Progress · Parking lot · Next step · Change history |
+| MVP / Iteration N | Properties · Goal · Success criteria · Epics in scope · Sprints · Scope changes · Dependencies and risks · Feedback carried in · Research record · Closing summary · Change history |
+| Sprint N | Properties · Goal · Scope · Decisions · Backlog · Build order · Success criteria · Risks · Conclusion · Notes · Change history |
+| Decision Log | Register (ID · Alias · Date · By · Title · Status · Scope · Supersedes / Amends · ADR § · Entry) · Change history |
+| Decisions D###–D### | one `## D### — <title>` per decision: Decision · Why · Alternatives rejected · Consequences · Supersedes / Amends · Source |
+| Parking Lot | Ideas (Idea · Raised · Why parked · Earmark · Link) · Rejected (Idea · Date · By · Why) · Change history |
+| Working Agreements | Rules in force (Rule · Kind · Since · Source · Applies to) · Retired (Rule · Retired · Why) · Change history |
+| Debt Register | Open (Item · Source · Jira · Size · Target) · Closed (Item · Closed · How) · Change history |
+| Retrospectives / Closeouts | Index (one row per report) when the container is a page; a Confluence folder has no body and lists its children itself |
+| Vision Doc · PRD · Design Brief · Specs UI · ADR | the template in the owning skill, ending with Change history |
+| Retro · Closeout | the template in the owning skill (written once) |
+
+**One fact, one home; every other page links to it.** Tickets, points and statuses → Jira. Verdicts and severity counts → the Closeout. Lessons → the Retro. Current architecture → the ADR. Decision text → the Decision Log; elsewhere only its ID and title. Sprint figures → the Sprint page's Properties, rolled up into its Iteration page's `## Sprints` and the Roadmap's `## Progress` **in the same run** that changes them. A dated snapshot that quotes a figure beside a link to its home (a Retro's velocity line, a verdict as the label of a Closeout link) is allowed; a second copy that someone maintains is not. Size budgets: Roadmap ≤ 6k characters, MVP / Iteration page ≤ 15k, Sprint page ≤ 25k.
+
+**A drifted page is fixed, not extended.** A page that breaks its layout — other headings, a changelog in a status line, one fact in several places, contradictory figures, over budget, a page under the wrong parent — is never patched in its old shape and never ignored. Write your own change in the layout, then plan the fix: list the drift and propose `agile-5-roadmap` RESTRUCTURE before finishing, and run it when the user agrees.
 
 ## Step 1 — Scan existing state
 
 Find the project root; read the **PRD** in full and the **Specs UI** in full if it exists; check for an existing ADR; search Jira for Epics or technical tasks that may already encode decisions.
 
-- **An ADR exists** → read it section by section, report what is complete / placeholder / outdated, resume from the incomplete parts, and append updates as `[Updated: date — reason]` rather than overwriting.
+- **An ADR exists** → read it section by section, report what is complete / placeholder / outdated, resume from the incomplete parts, and record each update as a `## Change history` row rather than overwriting.
 - **PRD missing or unapproved → stop:** "The PRD for this project is missing or not yet approved. Please complete skill 2 first."
 - **No Specs UI → warn, do not stop:** "I couldn't find a Specs UI page. Proceeding with the PRD only, so the ADR may be incomplete on frontend architecture — run skill 3 (INTEGRATE) when the design is ready and re-run this skill."
 
@@ -126,11 +149,14 @@ This breakdown is the direct input to skill 5 (Roadmap) for defining MVP scope �
 
 ## Next Step
 → Roadmap and MVP scope — run skill 5: agile_5_roadmap
+
+## Change history
+| Date | Change | By |
 ```
 
 ## Step 5 — Resume logic
 
-Read the current ADR fully; per section, judge real content versus placeholder and fill only what is missing or TBD. **Decisions have history** — never remove or overwrite one that is already documented; append new decisions with `[Updated: date — reason]`. If the Specs UI changed since the ADR was written, re-read it and flag the sections that may need revisiting.
+Read the current ADR fully; per section, judge real content versus placeholder and fill only what is missing or TBD. **Decisions have history** — never remove or overwrite one that is already documented; mark a replaced design superseded, and add a `## Change history` row. A decision taken after the first ADR gets a `D###` entry in the Decision Log, and the ADR section that states the resulting design cites that id. If the Specs UI changed since the ADR was written, re-read it and flag the sections that may need revisiting.
 
 ## Step 6 — Advise
 

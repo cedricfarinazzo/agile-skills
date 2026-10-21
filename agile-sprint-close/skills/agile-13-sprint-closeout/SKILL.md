@@ -38,24 +38,47 @@ From the consumer repo's `CLAUDE.md/AGENTS.md`: **`cloudId`** (required); **`con
 Every page is a child of the root folder created by `agile-1`. Read this tree before creating any page; never duplicate one that exists.
 
 ```
-📁 [Project Name]                   (root — agile-1)
-├── 📄 Vision Doc — [Project]       (agile-1)
-├── 📄 PRD — [Project]              (agile-2)
-├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
-├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
-├── 📄 ADR — [Project]              (agile-4)
-├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX only: guiding principle · iterations table · progress rollup · parking lot)
-│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
-│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
-│   └── 📄 Iteration N — [Project]
-├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
-├── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
-└── 📁 Extras — [Project]           (folder; every page this tree does not name: audits, coverage matrices, investigations, one-off reports)
+📁 [Project Name]                         (root — agile-1)
+├── 📄 Vision Doc — [Project]             (agile-1)
+├── 📄 PRD — [Project]                    (agile-2)
+├── 📄 Design Brief — [Project]           (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]               (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]                    (agile-4; current architecture state)
+├── 📄 Decision Log — [Project]           (agile-5; register, one row per decision)
+│   └── 📄 Decisions D001–D099 — [Project] (full entries by ID range: D100–D199, …)
+├── 📄 Working Agreements — [Project]     (agile-5 creates · agile-15 writes; rules in force: process, planning, operator, ops)
+├── 📄 Roadmap — [Project]                (agile-5 — INDEX only)
+│   ├── 📄 Parking Lot — [Project]        (agile-5; unscheduled and rejected ideas)
+│   ├── 📄 MVP — [Project]                (agile-5; an iteration page)
+│   │   └── 📄 Sprint 1 — [Project]       (agile-9 plans · agile-8 backlog · agile-15 closes)
+│   └── 📄 Iteration N — [Project]        (agile-5 ITERATION)
+│       └── 📄 Sprint N — [Project]
+├── 📁 Retrospectives — [Project]         (folder, agile-15; one Retro page per sprint)
+├── 📁 Closeouts — [Project]              (folder, agile-13; sibling of Retrospectives, never inside it)
+└── 📁 Extras — [Project]                 (folder; Debt Register (agile-15) + every page this tree does not name)
 ```
 
-All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, sprint conclusions — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
+**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. Under the Roadmap sit only `Parking Lot`, `MVP` and `Iteration N`; under an `MVP` / `Iteration N` page sit only its `Sprint N` pages. A closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
 
-**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. The Roadmap's only children are `MVP` / `Iteration N`, and those take sections and links, never child pages: a closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
+**Page layouts.** Every page keeps the `##` headings below, in this order, and no others. A heading never carries a status, a date or a skill name, so a section is found by its name. Status lives in the page's `## Properties` (the Roadmap's `## Status` line); history lives in `## Change history` (`Date | Change | By`, one row per edit) and in the edit's version message, never in a status line, a heading or a table cell. Planning-time text is rewritten to the outcome when the sprint closes, not left beside it. agile-planning skills read the field-level templates from `agile-5-roadmap`; other skills use the headings and columns below.
+
+| Page | `##` headings, in order (table columns in brackets) |
+|---|---|
+| Roadmap | Status · Guiding principle · Iterations · Progress · Parking lot · Next step · Change history |
+| MVP / Iteration N | Properties · Goal · Success criteria · Epics in scope · Sprints · Scope changes · Dependencies and risks · Feedback carried in · Research record · Closing summary · Change history |
+| Sprint N | Properties · Goal · Scope · Decisions · Backlog · Build order · Success criteria · Risks · Conclusion · Notes · Change history |
+| Decision Log | Register (ID · Alias · Date · By · Title · Status · Scope · Supersedes / Amends · ADR § · Entry) · Change history |
+| Decisions D###–D### | one `## D### — <title>` per decision: Decision · Why · Alternatives rejected · Consequences · Supersedes / Amends · Source |
+| Parking Lot | Ideas (Idea · Raised · Why parked · Earmark · Link) · Rejected (Idea · Date · By · Why) · Change history |
+| Working Agreements | Rules in force (Rule · Kind · Since · Source · Applies to) · Retired (Rule · Retired · Why) · Change history |
+| Debt Register | Open (Item · Source · Jira · Size · Target) · Closed (Item · Closed · How) · Change history |
+| Retrospectives / Closeouts | Index (one row per report) when the container is a page; a Confluence folder has no body and lists its children itself |
+| Vision Doc · PRD · Design Brief · Specs UI · ADR | the template in the owning skill, ending with Change history |
+| Retro · Closeout | the template in the owning skill (written once) |
+
+**One fact, one home; every other page links to it.** Tickets, points and statuses → Jira. Verdicts and severity counts → the Closeout. Lessons → the Retro. Current architecture → the ADR. Decision text → the Decision Log; elsewhere only its ID and title. Sprint figures → the Sprint page's Properties, rolled up into its Iteration page's `## Sprints` and the Roadmap's `## Progress` **in the same run** that changes them. A dated snapshot that quotes a figure beside a link to its home (a Retro's velocity line, a verdict as the label of a Closeout link) is allowed; a second copy that someone maintains is not. Size budgets: Roadmap ≤ 6k characters, MVP / Iteration page ≤ 15k, Sprint page ≤ 25k.
+
+**A drifted page is fixed, not extended.** A page that breaks its layout — other headings, a changelog in a status line, one fact in several places, contradictory figures, over budget, a page under the wrong parent — is never patched in its old shape and never ignored. Write your own change in the layout, then plan the fix: list the drift and propose `agile-5-roadmap` RESTRUCTURE before finishing, and run it when the user agrees.
 
 ## Phase 0 — Load epic spec
 
@@ -79,7 +102,7 @@ Lint exits 0 across all source paths. The unit suite passes with coverage at or 
 
 Wear the architect and PM hat, not the engineer hat: integration tests stay green while the system silently ships out-of-scope features, drops promised scope, or violates an ADR invariant.
 
-**3.1 — Load the spec corpus** from `confluence-project-root`: **Vision Doc** (principles, KPIs, hard constraints), **PRD** (scope, out-of-scope list, business goals), **Design Brief / Specs UI** (UI epics), **ADR** (decisions + invariants), **Roadmap** (the iteration goal for the sprint being closed), and any per-epic design doc linked from the ticket. **Read each in full, not in summary** — a drift catch requires knowing what the spec actually says, not your memory of it. A missing or stale doc is a Minor finding ("PRD has no out-of-scope list — cannot verify scope creep").
+**3.1 — Load the spec corpus** from `confluence-project-root`: **Vision Doc** (principles, KPIs, hard constraints), **PRD** (scope, out-of-scope list, business goals), **Design Brief / Specs UI** (UI epics), **ADR** (decisions + invariants), **the Sprint page and its Iteration page** (sprint goal, scope, success criteria, iteration goal), the **Decision Log** entries the sprint cites, and any per-epic design doc linked from the ticket. **Read each in full, not in summary** — a drift catch requires knowing what the spec actually says, not your memory of it. A missing or stale doc is a Minor finding ("PRD has no out-of-scope list — cannot verify scope creep").
 
 **3.2 — Build the alignment table:**
 
@@ -89,7 +112,7 @@ Wear the architect and PM hat, not the engineer hat: integration tests stay gree
 | PRD §X | "Out of scope: per-user OHLCV" | `backend/api_data/…` — system-scoped table | ✅ Aligned |
 | ADR-04 | "Services never call each other directly" | `backend/shared/celery_app.py:send_task` only | ✅ Aligned |
 | PRD §Y | "Iteration goal: signal feed live" | not implemented | ❌ Drifted — scope dropped without doc update |
-| Roadmap Iteration N | "Capacity = 28 pts" | delivered 32 pts | ⚠️ Minor — over-delivery, retro signal |
+| Sprint N page | "Committed = 28 pts" | delivered 32 pts | ⚠️ Minor — over-delivery, retro signal |
 
 **3.3 — Categorise.** **Critical drift** — code violates an ADR invariant, ships an out-of-scope feature without a doc update, or breaks a Vision Doc principle: blocks closeout; file a bug and fix or roll back. **Minor drift** — over/under delivery against the iteration goal, a stale spec doc, an intentional but undocumented design deviation: retro input, does not block.
 
@@ -183,7 +206,7 @@ The script is offline and reads no credentials. Build both files from `mcp__atla
 
 Publish the report in the **`Closeouts` folder** (see Page placement above): a sibling of `Retrospectives`, never inside it, and never under the Roadmap or an `Iteration N` page, however much the sprint context points there. `agile-15-retro` reads the closeout, not the reverse.
 
-**7.0 — Resolve the folder by id.** Find `Closeouts` (or `Closeouts — <Project>`) as a direct child of `confluence-project-root`. Missing → create it (parent: project root; body: a short description plus a `Sprint | Period | Verdict | Report` index table). Its page id is the only valid `parentId` for 7.1.
+**7.0 — Resolve the folder by id.** Find `Closeouts` (or `Closeouts — <Project>`), page or Confluence folder, as a direct child of `confluence-project-root`. Missing → create it as a page (parent: project root; body: a short description plus an `## Index` table `Sprint | Period | Verdict | Report`). Its id is the only valid `parentId` for 7.1.
 
 **7.1 — Write the page** titled `Closeout <N> — Sprint <N> — <Project>`; a page with that title already exists → update it, never mint a second. Open the previous closeout in the folder for tone and depth; the layout below wins wherever it differs. Pass the body in the format you wrote it: Markdown with `contentFormat: "markdown"`, HTML with `"html"` — Markdown sent as HTML renders as literal `|`, `**` and `#`.
 
@@ -201,7 +224,7 @@ Publish the report in the **`Closeouts` folder** (see Page placement above): a s
 
 A phase that did not run keeps its section with **NOT RUN** and the reason, never a silent omission and never a PASS. Tables for structured data, numbered lists for findings. Write for the person closing the sprint — what was checked, what was found, what is left; no process narration, tool logs, raw command output or chat preamble.
 
-**7.2 — Verify before reporting.** Read the page back with `mcp__atlassian__getConfluencePage` and `contentFormat: "html"` (a Markdown read shows `**` and `#` on a correct page too): its `parentId` is the folder id from 7.0 (otherwise move it with `mcp__atlassian__updateConfluencePage` `parentId`), the nine sections are `<h2>` headings in order, tables are `<table>` elements, and no text holds a literal `|---|`, `**` or a line starting with `#`. Fix and re-read until it passes. **7.3 — Append the index row** (`<Sprint> | <Period> | <Verdict> | <link>`) to the folder page, matching the table's ordering, never replacing the table. Return the page id + URL so the operator and `agile-15-retro` can link to it.
+**7.2 — Verify before reporting.** Read the page back with `mcp__atlassian__getConfluencePage` and `contentFormat: "html"` (a Markdown read shows `**` and `#` on a correct page too): its `parentId` is the folder id from 7.0 (otherwise move it with `mcp__atlassian__updateConfluencePage` `parentId`), the nine sections are `<h2>` headings in order, tables are `<table>` elements, and no text holds a literal `|---|`, `**` or a line starting with `#`. Fix and re-read until it passes. **7.3 — Append the index row** (`<Sprint> | <Period> | <Verdict> | <link>`) to the container's `## Index` when it is a page, matching the table's ordering, never replacing the table; a Confluence folder lists its children itself, so skip this. Return the page id + URL so the operator and `agile-15-retro` can link to it.
 
 **The epic-level Done transition is not part of this skill** — closeout produces a recommendation, and the user transitions only after acknowledging the report.
 

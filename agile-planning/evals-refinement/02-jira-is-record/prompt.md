@@ -11,4 +11,4 @@ Refine story APP-121 and record the result. Project: Inventory Service (Confluen
 
 No shell, `gh`, Jira or Confluence MCP here — do not call them or dispatch agents. Everything you would have read is inlined. State what you do and exactly what you would write or return.
 
-APP-121 "Pause a reorder rule": team agreed 3 points, added AC3 (resume restores it) and DoD "unit tests per AC". The MVP Confluence page has a Sprint 1 Backlog table.
+APP-121 "Pause a reorder rule": team agreed 3 points, added AC3 (resume restores it) and DoD "unit tests per AC". Confluence has a `Sprint 1 — Inventory Service` page whose `## Backlog` table already lists APP-121 with Pts `—`.

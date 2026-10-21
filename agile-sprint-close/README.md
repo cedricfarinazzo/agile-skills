@@ -13,7 +13,7 @@ Run in this order.
 | 12 | `agile-12-tech-debt-sweep` | Audits cross-repo leakage, useless CI, prebuild-image wins, `CLAUDE.md` / `AGENTS.md` / `SKILL.md` cruft, misplaced artifacts, dead code. Report before apply | "tech debt sweep", "cleanup sweep", "housekeeping", `/tech-debt-sweep` |
 | 13 | `agile-13-sprint-closeout` | Mandatory epic-level gate through three lenses; publishes a report | "sprint closeout", "close sprint", `/sprint-closeout` |
 | 14 | `agile-14-qa-validation` | Confirms acceptance criteria hold on `main` and stamps a sign-off | "validate story", "QA story", "QA check", "confirm ACs" |
-| 15 | `agile-15-retro` | Retro page in Confluence, Roadmap update, refreshed Roadmap Artifact; feeds the next iteration | "run retro", "close sprint", "what did we learn" |
+| 15 | `agile-15-retro` | Retro page in Confluence, the sprint closed on its Sprint, Iteration and Roadmap pages, Working Agreements and Debt Register rows, refreshed Roadmap Artifact; feeds the next iteration | "run retro", "close sprint", "what did we learn" |
 
 ```mermaid
 flowchart LR
@@ -41,7 +41,7 @@ On Codex, run `codex plugin add agile-sprint-close@agile-skills` and invoke `$<s
 | **Architect / PM** | Does delivered code match the documented intent (Vision, PRD, ADR, Roadmap, epic ACs)? |
 | **Tech Lead** | Does it hold up under an impartial deep review of all sprint diffs? |
 
-A single Critical from any lens blocks closeout. The report goes to the `Closeouts` Confluence folder, which the retro reads. It catches a sprint whose ACs pass individually but whose wired system fails. Phase 6.5 audits the merge train's Jira links with a bundled stdlib script (`skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py`; tests beside it, `python3 -m pytest` that dir).
+A single Critical from any lens blocks closeout. The report goes to the `Closeouts` Confluence folder in a fixed nine-section layout (a phase not run is marked NOT RUN, never omitted), is read back to check its parent and rendering, and the retro reads it. It catches a sprint whose ACs pass individually but whose wired system fails. Phase 6.5 audits the merge train's Jira links with a bundled stdlib script (`skills/agile-13-sprint-closeout/scripts/audit_merge_train_links.py`; tests beside it, `python3 -m pytest` that dir).
 
 ## QA: confirm after merge
 
@@ -49,7 +49,7 @@ By the time `agile-14-qa-validation` runs, the Story is already Done; the [merge
 
 ## Retro and next iteration
 
-`agile-15-retro` first answers every open question left in the sprint's Jira comments (from evidence, or with you through a question with options) and replies on each ticket. After the interview it puts each action item to you as a question with options (keep, turn into a ticket, merge, drop). It then writes the retro page in `Retrospectives`, reads the closeout report, marks the sprint ✅ Complete in the child page section, its Epic Sprint Plan row and the Roadmap rollup row (the Iterations table status flips only on the iteration's last sprint), closes the sprint in Jira (carried-over Stories return to `To Do`; Won't Do Stories are confirmed with you), and hands velocity, feedback, debt and actions to `agile-5-roadmap` (ITERATION mode).
+`agile-15-retro` first answers every open question left in the sprint's Jira comments (from evidence, or with you through a question with options) and replies on each ticket. After the interview it puts each action item to you as a question with options (keep, turn into a ticket, merge, drop). It then writes the retro page in `Retrospectives`, reads the closeout report, closes the sprint's `Sprint N` page (properties, outcomes, conclusion) and its rows in the Iteration page and the Roadmap rollup (the Iterations table status flips only on the iteration's last sprint), adds standing rules to the Working Agreements and debt to the Debt Register, closes the sprint in Jira (carried-over Stories return to `To Do`; Won't Do Stories are confirmed with you), and hands velocity, feedback, debt and actions to `agile-5-roadmap` (ITERATION mode).
 
 `Retrospectives` and `Closeouts` are sibling folders under the project root, never nested. See the [canonical folder tree](../agile-planning/README.md#confluence-structure).
 

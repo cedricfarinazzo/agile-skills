@@ -11,7 +11,7 @@ Wired into **Confluence** and **Jira**. Install only the phases you run; each pl
 | Plugin | Phase | You get | Needs |
 |---|---|---|---|
 | <img src="agile-product/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-product**](agile-product/README.md) | Discovery | Vision Doc, PRD, Design Brief / Specs UI, ADR | Atlassian MCP |
-| <img src="agile-planning/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-planning**](agile-planning/README.md) | Planning | Roadmap (+ published Artifact), Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
+| <img src="agile-planning/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-planning**](agile-planning/README.md) | Planning | Roadmap (+ published Artifact), Iteration and Sprint pages, Decision Log, Epics, Stories, Refinement, Sprint Planning | Atlassian MCP |
 | <img src="agile-execution/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-execution**](agile-execution/README.md) | Build, autonomous | Every ticket to an open, self-reviewed PR | Atlassian MCP, `gh` |
 | <img src="agile-merge-review/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-merge-review**](agile-merge-review/README.md) | Merge | Every open PR rebased, reviewed, merged, closed out in Jira | `gh`, Atlassian MCP |
 | <img src="agile-sprint-drain/.claude-plugin/icon.svg" width="40" height="40" alt=""><br>[**agile-sprint-drain**](agile-sprint-drain/README.md) | Drain, autonomous | Build and merge alternated until the sprint is done | `gh`, Atlassian MCP, the two above |
