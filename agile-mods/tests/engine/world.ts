@@ -46,7 +46,8 @@ export function world(on: On, w: World = {}) {
   })
   on('agent.list', async () => ({ value: w.agents ?? [] }) as never)
   on('tool.list', async () => ({ value: [{ name: 'mcp__atlassian__searchJiraIssuesUsingJql', description: 'search', mcp: true }] }) as never)
-  on('tool.check', async () => ({ decision: w.jiraAllowed ? 'allow' : 'ask' }) as never)
+  // only the Jira MCP read is gated; any other tool is allowed, so a call a guard lets through reaches tool.call
+  on('tool.check', async (_$, e) => ({ decision: (e as { tool?: string }).tool?.startsWith('mcp__') && !w.jiraAllowed ? 'ask' : 'allow' }) as never)
   on('mcp.call', async (_$, e) => {
     mcp.push({ ...e.args, tool: e.tool })
     // a function answers per call, with raw text (the engine's too-large notice is not JSON)
