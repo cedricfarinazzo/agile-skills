@@ -38,24 +38,47 @@ From the consumer repo's `CLAUDE.md/AGENTS.md`: **`cloudId`** (required); **`con
 Every page is a child of the root folder created by `agile-1`. Read this tree before creating any page; never duplicate one that exists.
 
 ```
-📁 [Project Name]                   (root — agile-1)
-├── 📄 Vision Doc — [Project]       (agile-1)
-├── 📄 PRD — [Project]              (agile-2)
-├── 📄 Design Brief — [Project]     (agile-3 BRIEF)
-├── 📄 Specs UI — [Project]         (agile-3 INTEGRATE)
-├── 📄 ADR — [Project]              (agile-4)
-├── 📄 Roadmap — [Project]          (agile-5 — SHORT INDEX only: guiding principle · iterations table · progress rollup · parking lot)
-│   ├── 📄 MVP — [Project]          (agile-5; per-sprint detail by agile-9, refined backlog by agile-8)
-│   ├── 📄 Iteration 1 — [Project]  (agile-5 ITERATION)
-│   └── 📄 Iteration N — [Project]
-├── 📁 Retrospectives — [Project]   (folder, agile-15; one Retro page per sprint)
-├── 📁 Closeouts — [Project]        (folder, agile-13; sibling of Retrospectives, never inside it)
-└── 📁 Extras — [Project]           (folder; every page this tree does not name: audits, coverage matrices, investigations, one-off reports)
+📁 [Project Name]                         (root — agile-1)
+├── 📄 Vision Doc — [Project]             (agile-1)
+├── 📄 PRD — [Project]                    (agile-2)
+├── 📄 Design Brief — [Project]           (agile-3 BRIEF)
+├── 📄 Specs UI — [Project]               (agile-3 INTEGRATE)
+├── 📄 ADR — [Project]                    (agile-4; current architecture state)
+├── 📄 Decision Log — [Project]           (agile-5; register, one row per decision)
+│   └── 📄 Decisions D001–D099 — [Project] (full entries by ID range: D100–D199, …)
+├── 📄 Working Agreements — [Project]     (agile-15; rules in force: process, planning, operator, ops)
+├── 📄 Roadmap — [Project]                (agile-5 — INDEX only)
+│   ├── 📄 Parking Lot — [Project]        (agile-5; unscheduled and rejected ideas)
+│   ├── 📄 MVP — [Project]                (agile-5; an iteration page)
+│   │   └── 📄 Sprint 1 — [Project]       (agile-9 plans · agile-8 backlog · agile-15 closes)
+│   └── 📄 Iteration N — [Project]        (agile-5 ITERATION)
+│       └── 📄 Sprint N — [Project]
+├── 📁 Retrospectives — [Project]         (folder, agile-15; one Retro page per sprint)
+├── 📁 Closeouts — [Project]              (folder, agile-13; sibling of Retrospectives, never inside it)
+└── 📁 Extras — [Project]                 (folder; Debt Register (agile-15) + every page this tree does not name)
 ```
 
-All deep detail — goals, success criteria, epic-in-scope lists, per-sprint backlogs, sprint conclusions — lives on the `MVP` / `Iteration N` child pages, never on the Roadmap index.
+**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. Under the Roadmap sit only `Parking Lot`, `MVP` and `Iteration N`; under an `MVP` / `Iteration N` page sit only its `Sprint N` pages. A closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
 
-**Page placement.** Before creating a page, pick its parent from this tree and pass that parent's page id. The Roadmap's only children are `MVP` / `Iteration N`, and those take sections and links, never child pages: a closeout goes in `Closeouts`, a retro in `Retrospectives`, and any page the tree does not name (audit, coverage matrix, investigation, one-off report) in `Extras`. Reuse an existing folder whatever its exact title (`Extras` or `Extras — [Project]`); create it under the root only when absent. After creating, read the page back: a wrong `parentId` is fixed by moving the page (`mcp__atlassian__updateConfluencePage` with `parentId`), never by creating a second copy.
+**Page layouts.** Every page keeps the `##` headings below, in this order, and no others. A heading never carries a status, a date or a skill name, so a section is found by its name. Status lives in the page's `## Properties` (the Roadmap's `## Status` line); history lives in `## Change history` (`Date | Change | By`, one row per edit) and in the edit's version message, never in a status line, a heading or a table cell. Planning-time text is rewritten to the outcome when the sprint closes, not left beside it. The planning templates (fields, skeletons) are in `agile-5-roadmap`.
+
+| Page | `##` headings, in order (table columns in brackets) |
+|---|---|
+| Roadmap | Status · Guiding principle · Iterations · Progress · Parking lot · Next step · Change history |
+| MVP / Iteration N | Properties · Goal · Success criteria · Epics in scope · Sprints · Scope changes · Dependencies and risks · Feedback carried in · Research record · Closing summary · Change history |
+| Sprint N | Properties · Goal · Scope · Decisions · Backlog · Build order · Success criteria · Risks · Conclusion · Notes · Change history |
+| Decision Log | Register (ID · Alias · Date · By · Title · Status · Scope · Supersedes / Amends · ADR § · Entry) · Change history |
+| Decisions D###–D### | one `## D### — <title>` per decision: Decision · Why · Alternatives rejected · Consequences · Supersedes / Amends · Source |
+| Parking Lot | Ideas (Idea · Raised · Why parked · Earmark · Link) · Rejected (Idea · Date · By · Why) · Change history |
+| Working Agreements | Rules in force (Rule · Kind · Since · Source · Applies to) · Retired (Rule · Retired · Why) · Change history |
+| Debt Register | Open (Item · Source · Jira · Size · Target) · Closed (Item · Closed · How) · Change history |
+| Retrospectives / Closeouts | Index (one row per report) |
+| Vision Doc · PRD · Design Brief · Specs UI · ADR | the template in the owning skill, ending with Change history |
+| Retro · Closeout | the template in the owning skill (written once) |
+
+**One fact, one home; every other page links to it.** Tickets, points and statuses → Jira. Verdicts and severity counts → the Closeout. Lessons → the Retro. Current architecture → the ADR. Decision text → the Decision Log; elsewhere only its ID and title. Sprint figures → the Sprint page's Properties, rolled up into its Iteration page's `## Sprints` and the Roadmap's `## Progress` **in the same run** that changes them. Size budgets: Roadmap ≤ 6k characters, MVP / Iteration page ≤ 15k, Sprint page ≤ 25k.
+
+**A drifted page is fixed, not extended.** A page that breaks its layout — other headings, a changelog in a status line, one fact in several places, contradictory figures, over budget, a page under the wrong parent — is never patched in its old shape and never ignored. Write your own change in the layout, then plan the fix: an interactive skill lists the drift and proposes `agile-5-roadmap` RESTRUCTURE before it finishes, and runs it when the user agrees; the autonomous loop reports it.
 
 ## Phase 0 — Load epic spec
 
@@ -79,7 +102,7 @@ Lint exits 0 across all source paths. The unit suite passes with coverage at or 
 
 Wear the architect and PM hat, not the engineer hat: integration tests stay green while the system silently ships out-of-scope features, drops promised scope, or violates an ADR invariant.
 
-**3.1 — Load the spec corpus** from `confluence-project-root`: **Vision Doc** (principles, KPIs, hard constraints), **PRD** (scope, out-of-scope list, business goals), **Design Brief / Specs UI** (UI epics), **ADR** (decisions + invariants), **Roadmap** (the iteration goal for the sprint being closed), and any per-epic design doc linked from the ticket. **Read each in full, not in summary** — a drift catch requires knowing what the spec actually says, not your memory of it. A missing or stale doc is a Minor finding ("PRD has no out-of-scope list — cannot verify scope creep").
+**3.1 — Load the spec corpus** from `confluence-project-root`: **Vision Doc** (principles, KPIs, hard constraints), **PRD** (scope, out-of-scope list, business goals), **Design Brief / Specs UI** (UI epics), **ADR** (decisions + invariants), **the Sprint page and its Iteration page** (sprint goal, scope, success criteria, iteration goal), the **Decision Log** entries the sprint cites, and any per-epic design doc linked from the ticket. **Read each in full, not in summary** — a drift catch requires knowing what the spec actually says, not your memory of it. A missing or stale doc is a Minor finding ("PRD has no out-of-scope list — cannot verify scope creep").
 
 **3.2 — Build the alignment table:**
 
