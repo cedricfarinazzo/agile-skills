@@ -36,8 +36,8 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 │   │   └── 📄 Sprint 1 — [Project]       (agile-9 plans · agile-8 backlog · agile-15 closes)
 │   └── 📄 Iteration N — [Project]        (agile-5 ITERATION)
 │       └── 📄 Sprint N — [Project]
-├── 📁 Retrospectives — [Project]         (folder, agile-15; one Retro page per sprint)
-├── 📁 Closeouts — [Project]              (folder, agile-13; sibling of Retrospectives, never inside it)
+├── 📁 Retrospectives — [Project]         (container: page or Confluence folder, agile-15; one Retro page per sprint)
+├── 📁 Closeouts — [Project]              (container: page or Confluence folder, agile-13; sibling of Retrospectives, never inside it)
 └── 📁 Extras — [Project]                 (folder; Debt Register (agile-15) + every page this tree does not name)
 ```
 

@@ -53,8 +53,8 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 │   │   └── 📄 Sprint 1 — [Project]       (agile-9 plans · agile-8 backlog · agile-15 closes)
 │   └── 📄 Iteration N — [Project]        (agile-5 ITERATION)
 │       └── 📄 Sprint N — [Project]
-├── 📁 Retrospectives — [Project]         (folder, agile-15; one Retro page per sprint)
-├── 📁 Closeouts — [Project]              (folder, agile-13; sibling of Retrospectives, never inside it)
+├── 📁 Retrospectives — [Project]         (container: page or Confluence folder, agile-15; one Retro page per sprint)
+├── 📁 Closeouts — [Project]              (container: page or Confluence folder, agile-13; sibling of Retrospectives, never inside it)
 └── 📁 Extras — [Project]                 (folder; Debt Register (agile-15) + every page this tree does not name)
 ```
 
@@ -204,11 +204,11 @@ The script is offline and reads no credentials. Build both files from `mcp__atla
 
 ## Phase 7 — Final closeout report
 
-Publish the report in the **`Closeouts` folder** (see Page placement above): a sibling of `Retrospectives`, never inside it, and never under the Roadmap or an `Iteration N` page, however much the sprint context points there. `agile-15-retro` reads the closeout, not the reverse.
+Publish the report in the **`Closeouts` container**, a page or a Confluence folder (see Page placement above): a sibling of `Retrospectives`, never inside it, and never under the Roadmap or an `Iteration N` page, however much the sprint context points there. `agile-15-retro` reads the closeout, not the reverse.
 
-**7.0 — Resolve the folder by id.** Find `Closeouts` (or `Closeouts — <Project>`), page or Confluence folder, as a direct child of `confluence-project-root`. Missing → create it as a page (parent: project root; body: a short description plus an `## Index` table `Sprint | Period | Verdict | Report`). Its id is the only valid `parentId` for 7.1.
+**7.0 — Resolve the container by id.** Find `Closeouts` (or `Closeouts — <Project>`), page or Confluence folder, as a direct child of `confluence-project-root`. Missing → create it as a page (parent: project root; body: a short description plus an `## Index` table `Sprint | Period | Verdict | Report`). Its id is the only valid `parentId` for 7.1.
 
-**7.1 — Write the page** titled `Closeout <N> — Sprint <N> — <Project>`; a page with that title already exists → update it, never mint a second. Open the previous closeout in the folder for tone and depth; the layout below wins wherever it differs. Pass the body in the format you wrote it: Markdown with `contentFormat: "markdown"`, HTML with `"html"` — Markdown sent as HTML renders as literal `|`, `**` and `#`.
+**7.1 — Write the page** titled `Closeout <N> — Sprint <N> — <Project>`; a page with that title already exists → update it, never mint a second. Open the previous closeout in the container for tone and depth; the layout below wins wherever it differs. Pass the body in the format you wrote it: Markdown with `contentFormat: "markdown"`, HTML with `"html"` — Markdown sent as HTML renders as literal `|`, `**` and `#`.
 
 **Layout.** A header line (sprint, epics, period, last merge, report run date on `main` `<sha>`), then one **Verdict** line: ✅ GREEN / ✅ GREEN with open items / 🔴 BLOCKED, the `N Critical / M Minor / K Nit` counts, and any phase not run. Then these numbered `##` sections, in this order, **every one present**:
 

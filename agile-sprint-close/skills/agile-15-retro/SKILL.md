@@ -27,8 +27,8 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 │   │   └── 📄 Sprint 1 — [Project]       (agile-9 plans · agile-8 backlog · agile-15 closes)
 │   └── 📄 Iteration N — [Project]        (agile-5 ITERATION)
 │       └── 📄 Sprint N — [Project]
-├── 📁 Retrospectives — [Project]         (folder, agile-15; one Retro page per sprint)
-├── 📁 Closeouts — [Project]              (folder, agile-13; sibling of Retrospectives, never inside it)
+├── 📁 Retrospectives — [Project]         (container: page or Confluence folder, agile-15; one Retro page per sprint)
+├── 📁 Closeouts — [Project]              (container: page or Confluence folder, agile-13; sibling of Retrospectives, never inside it)
 └── 📁 Extras — [Project]                 (folder; Debt Register (agile-15) + every page this tree does not name)
 ```
 
@@ -56,9 +56,9 @@ Every page is a child of the root folder created by `agile-1`. Read this tree be
 
 ## Step 1 — Scan existing state
 
-Find the active or recently ended sprint; read every Story and its final status (Done / Won't Do / carried over); compute committed points, delivered points, and velocity. Then find the project root, check for a `Retrospectives` folder, count its pages to get the next retro number, and read the Roadmap to see which iteration just ended.
+Find the active or recently ended sprint; read every Story and its final status (Done / Won't Do / carried over); compute committed points, delivered points, and velocity. Then find the project root, check for the `Retrospectives` container (page or Confluence folder), count its retro pages to get the next retro number, and read the Roadmap to see which iteration just ended.
 
-Report the summary before doing anything — the results table (`Story | Summary | Points | Status`), committed/delivered/velocity with the percentage, whether the folder exists, and which retro number this will be. Then ask: "Is this sprint complete and ready for retrospective?"
+Report the summary before doing anything — the results table (`Story | Summary | Points | Status`), committed/delivered/velocity with the percentage, whether the container exists, and which retro number this will be. Then ask: "Is this sprint complete and ready for retrospective?"
 
 **Stories still In Progress or In Review → warn and wait for confirmation:** "Stories [list] are still open. Run the retro anyway and carry them over, or wait until they resolve?"
 
@@ -66,7 +66,7 @@ Report the summary before doing anything — the results table (`Story | Summary
 
 The closeout is the single source of truth for what the engineering / architecture / tech-lead gate found. The retro **incorporates** it; it never re-litigates it.
 
-Look for a `Closeouts` folder under the project root, then a page titled `Closeout <N> — Sprint <N> — <Project>`. If either is missing, report `No closeout report for Sprint <N> — proceeding without closeout input. Recommend running agile-13-sprint-closeout before future retros.` and continue.
+Look for the `Closeouts` container (page or Confluence folder) under the project root, then a page titled `Closeout <N> — Sprint <N> — <Project>`. If either is missing, report `No closeout report for Sprint <N> — proceeding without closeout input. Recommend running agile-13-sprint-closeout before future retros.` and continue.
 
 Found → fetch it in full and surface: the **verdict** (✅ GREEN / ✅ GREEN with open items / 🔴 BLOCKED + reason); the **findings counts** (`N Critical / M Minor / K Nit`); the **Critical findings**, which are non-negotiable retro inputs and must appear verbatim in "What could be improved" and "Action items"; **cross-file patterns**, which become candidate convention updates or tickets; the retro notes in its **Recommended next steps** section; and **bugs surfaced and fixed during closeout**, which go under what was caught late. Capture the page id + URL — Step 4 needs them so the two artifacts cross-link.
 
@@ -196,13 +196,13 @@ Done Stories need no action. **Carried-over Stories** go back to the backlog (`T
 
 ## Step 7 — Resume logic
 
-Re-run on a sprint that already has a retro page: read it, check which sections are real versus placeholder, and **fill only what is missing — never overwrite existing content**. If the sprint is already closed in Jira, confirm before re-closing. Action items from a previous retro still open go into Step 3's decisions — they must not be forgotten. Questions already answered carry a `🤖 <!-- agile:retro-answer -->` reply; Step 1.6 skips them. Never recreate the Retrospectives folder.
+Re-run on a sprint that already has a retro page: read it, check which sections are real versus placeholder, and **fill only what is missing — never overwrite existing content**. If the sprint is already closed in Jira, confirm before re-closing. Action items from a previous retro still open go into Step 3's decisions — they must not be forgotten. Questions already answered carry a `🤖 <!-- agile:retro-answer -->` reply; Step 1.6 skips them. Never recreate the Retrospectives container.
 
 ## Step 8 — Advise
 
 ```
 ✅ Done:
-- Retrospectives folder: [created / already existed]
+- Retrospectives container: [created as a page / already existed]
 - Open questions in ticket comments: [N] answered ([N] from evidence, [N] decided with you) / none found
 - Action items decided: [N] kept · [N] ticketed · [N] merged · [N] dropped
 - Retro [N] documented: [link]
@@ -223,7 +223,7 @@ Key inputs for next iteration: capacity [N] pts · priority shifts [list] · deb
 
 ## Principles
 
-- **Every retro lives inside the Retrospectives folder** — never directly under the project root.
+- **Every retro lives inside the Retrospectives container** (page or folder) — never directly under the project root.
 - **Ask before writing** — answer the open comment questions, collect the team's input, and decide every action item with the user first.
 - **Blameless by default** — the language is about processes and systems, never individuals.
 - **An action item without an owner and a due date is not an action item.**
