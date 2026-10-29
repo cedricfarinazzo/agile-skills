@@ -44,6 +44,8 @@ Each skill reads what the previous one wrote (Confluence pages, Jira issues) and
 
 The same code is reviewed by **three roles**,: the author's self-review ([implement-review](agile-execution/README.md)), an independent PR review ([merge-review-pr](agile-merge-review/README.md)), and a global sprint review ([sprint-closeout](agile-sprint-close/README.md)).
 
+**Confluence and Jira are the source of truth.** Every artifact the skills manage (PRD, ADR, decisions, Roadmap, sprints, tickets, retro actions) is read from and written to them. Local notes and memory are only a cache, kept in sync, so a session on another machine starts from the same state.
+
 ## Requirements
 
 - [Claude Code](https://claude.ai/code) v2.1.128 or later (`agile-mods` needs 2.1.287)

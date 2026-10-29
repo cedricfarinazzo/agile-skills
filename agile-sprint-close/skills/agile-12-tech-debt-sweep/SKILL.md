@@ -15,6 +15,14 @@ Audit the consumer repo for low-value drift accumulated during the sprint: repor
 
 **Input:** none required. Optionally scope to one bucket: `leakage` / `claude-md` / `ci` / `docker` / `misplacement` / `dead-code`.
 
+## Source of truth
+
+Confluence and Jira (or the tracker and wiki the project uses instead) are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read what the run needs from there, never from a local copy, and write each change back there in the run that makes it. Never record a decision, status or action only locally.
+
+Machine-local notes (auto-memory, scratch files, the plan in context) are a cache, since the next session may run elsewhere. Keep them, including notes from earlier runs, and sync any you come across that cover a managed fact: a match stays; a disagreement is corrected to the page or ticket, and is never a decision to escalate (follow the page, report the claim); a fact missing from Confluence and Jira is written to its home and the note kept. Interactive skills confirm that write with the user first. The autonomous path writes only what it can verify (a status, a link, a finding) and reports the rest as unrecorded, never guessing a decision into the Decision Log; a phase without write access reports it in its receipt.
+
+Committed `CLAUDE.md`/`AGENTS.md` files are shared, not a cache: a managed fact there is a second copy that goes stale. Replace it with a link to its page or ticket, writing it there first if it is missing.
+
 ## Phase 0 — Inventory
 
 Read the repo end-to-end — root and sub-folder `CLAUDE.md/AGENTS.md`, `.github/workflows/`, `docker/**`, `docker-compose*.yml`, every `SKILL.md` under `.claude/skills/` and `.agents/skills/` — and build a one-line manifest per category so the report is grounded in actual files rather than assumptions.
@@ -39,6 +47,8 @@ Fixes: `TODO(<owner-tag>): …` → `TODO: …`; a named style mode → the neut
 ### B — `CLAUDE.md/AGENTS.md` / `SKILL.md` cruft
 
 Read every one in full and flag: **stale tree comments** contradicting current code (an annotation says "stub" where the file is now the full implementation); **duplicate stack tables** where a sub-folder re-lists rows already in the root (collapse to sub-only deps plus a pointer); **per-test bash blocks enumerating the same env block** with one filename swapped (replace with one canonical block plus "swap the path for a single file" — every former command is still producible); **trivial subsections restating root invariants**; **verbose multi-line `description:` frontmatter** where siblings use one line (compress, keeping all triggers verbatim); and **dead refs** to deleted files, moved scripts, or retired tickets.
+
+Also flag **managed facts copied into `CLAUDE.md/AGENTS.md`** (a sprint status, a ticket state, a decision, a retro action): replace each with a link to its Confluence page or Jira ticket, writing it there first if it is missing (see Source of truth).
 
 **Rule:** a removed line must be duplicated elsewhere, stale, or trivially derivable from a line that remains. **Never remove a battle-fought gotcha, an architecture invariant, or a test convention.**
 
