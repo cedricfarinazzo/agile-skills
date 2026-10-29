@@ -4,7 +4,7 @@ focus: last_message
 weight: 1
 ---
 Comment questions come first, and every action is decided with the user through options. The run stops where it needs the user's answers, so its questions may share one message; judge order within it. Check all of:
-- It handles the comment questions before the team interview or the action items (listed earlier in the same message counts).
+- It handles the comment questions before the team interview or the action items.
 - APP-53 is answered from evidence (sync.py:72 retries on 429), not put to the user as an open question. Showing that evidence answer and asking the user to confirm or correct it before posting is the skill's Step 1.6 and passes; asking the user to supply the answer, or offering APP-53 options as a decision, fails.
 - APP-51 is put to the user as a question with concrete options (for example default 10 / required per warehouse), one marked recommended.
 - APP-55 is not re-asked: it already has an answer.
