@@ -11,6 +11,17 @@ description: "Post structured post-merge comment to Jira ticket + transition to 
 
 On Codex this sub-skill runs inline under `agile-11-merge-train` with `concurrency=0`; never spawn or assume a named agent. Perform its full gate and return its normal receipt to the caller.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache: useful, but the next session may run on another machine without them. Never record a decision, status or action only locally.
+
+Keep the cache in sync, including notes an earlier run left behind. Do not delete a note for being local. For each local note about a managed fact:
+- it matches Confluence or Jira: keep it;
+- it disagrees: the page or ticket wins; correct the note;
+- it is not in Confluence or Jira: write it to its home there, then keep the note as a cache of it. Interactive skills confirm with the user first. The autonomous path writes what it can verify (a status, a link, a finding) and reports the rest as unrecorded, never guessing a decision into the Decision Log.
+
+Local memory alone is fine for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Purpose
 
 Post a structured post-merge findings comment to a Jira ticket, synthesised from this session's review and fix work, and — when the PR merged — transition the ticket to **Done**. In `blocked` mode, post the block-notice comment and leave the ticket state untouched.
