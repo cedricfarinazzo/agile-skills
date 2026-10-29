@@ -11,6 +11,10 @@ description: "Process every open PR sequentially: rebase → deep review → fix
 
 When loaded by Codex, run every PR phase inline in this context with `concurrency=0`. Never spawn, request, or claim a named agent or subagent; preserve every phase gate, reviewed-sha check, and receipt yourself.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache for this session only; the next session may run on another machine. Never record a decision, status or action only locally, and never trust a local copy over the page or ticket: when they disagree, the page or ticket wins and the local note is corrected or deleted. Local memory is for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Purpose
 
 Clears the open-PR queue **safely**. Composes `merge-update-pr` / `merge-review-pr` / `merge-fix-until-satisfied` / `merge-jira-postmortem` and adds the multi-PR layer: ordering, cross-PR conflict detection, Jira state, and the final report.

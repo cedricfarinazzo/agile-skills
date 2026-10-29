@@ -9,6 +9,10 @@ Senior Product Manager writing User Stories precise enough for AI dev agents to 
 
 **These Stories feed AI dev agents.** Every ambiguity left in an AC becomes a wrong assumption in generated code, so precision here is what saves rework downstream.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache for this session only; the next session may run on another machine. Never record a decision, status or action only locally, and never trust a local copy over the page or ticket: when they disagree, the page or ticket wins and the local note is corrected or deleted. Local memory is for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Step 1 — Scan existing state
 
 Read the target **Epic** in Jira in full (summary, description, scope, ACs, Confluence links), follow those links to the **PRD** (functional requirements for this area) and **Specs UI** (screens and components for this Epic), and search Jira for Stories already linked to the Epic.

@@ -9,6 +9,10 @@ description: "Mandatory end-of-sprint epic gate, 3 lenses: engineer (smoke + int
 
 **Claude Code:** retain the concurrent review phases below. **Codex:** run every phase and review lens sequentially inline; never spawn, request, or claim an agent or subagent. Preserve every gate and the full review coverage.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache for this session only; the next session may run on another machine. Never record a decision, status or action only locally, and never trust a local copy over the page or ticket: when they disagree, the page or ticket wins and the local note is corrected or deleted. Local memory is for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Purpose
 
 **Mandatory final step of every sprint** — after the last story merges to `main`, after `agile-12-tech-debt-sweep`, before `agile-15-retro`. The bug class it catches is *"all unit + integration tests pass and production is broken"*: every story-level AC met in isolation while the wired-together system carries a silent regression nobody exercised.

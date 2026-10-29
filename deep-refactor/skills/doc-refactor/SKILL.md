@@ -12,6 +12,10 @@ user-invocable: true
 
 When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache for this session only; the next session may run on another machine. Never record a decision, status or action only locally, and never trust a local copy over the page or ticket: when they disagree, the page or ticket wins and the local note is corrected or deleted. Local memory is for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Purpose
 
 The third sibling, with the contract inverted once more. `deep-refactor` freezes the test suite; `test-refactor` freezes production code; here **the source is frozen entirely** and the markdown is the object of change. A doc fix that "needs" a code change is out of scope — a doc that disagrees with the code is a finding, the audit says which side is wrong, and if it's the code that's wrong it becomes its own separately-ticketed PR, never smuggled into a doc PR.

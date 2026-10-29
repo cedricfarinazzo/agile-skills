@@ -12,6 +12,10 @@ user-invocable: true
 
 When loaded by Codex, run the entire drain, including both orchestrators and all their phases, inline with `concurrency=0`. Normalize every `dispatch` value to inline execution; never spawn, request, or claim a named agent, subagent, `build-session`, or `merge-session`.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache for this session only; the next session may run on another machine. Never record a decision, status or action only locally, and never trust a local copy over the page or ticket: when they disagree, the page or ticket wins and the local note is corrected or deleted. Local memory is for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Purpose
 
 Outer scheduler that removes the human from the implement ↔ merge alternation.

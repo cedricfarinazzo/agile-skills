@@ -12,6 +12,10 @@ user-invocable: true
 
 When loaded by Codex, run every audit slice, scanner pass, ticket step, and drain step inline and sequentially. Never spawn, request, or claim agents or subagents; replace parallel read-only fan-out with ordered passes over the same disjoint areas, preserving the full evidence and coverage contract.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache for this session only; the next session may run on another machine. Never record a decision, status or action only locally, and never trust a local copy over the page or ticket: when they disagree, the page or ticket wins and the local note is corrected or deleted. Local memory is for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Purpose
 
 **The goal is code that is clean, DRY and easy to understand.** The existing test suite is the proof that behavior didn't move — which means **editing a test to make a refactor pass is cheating**: it silently rewrites the contract you're claiming to preserve. Treat every test edit as a red flag to design around (aliases, facades, injection), not a convenience. The rare edit that is genuinely warranted — a fixture that encodes a bug, a guard whose shape must follow a file split — is done in the open: enumerated in advance, justified per file, concentrated in one ticket.

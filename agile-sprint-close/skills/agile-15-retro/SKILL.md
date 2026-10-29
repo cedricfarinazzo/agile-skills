@@ -7,6 +7,10 @@ description: "Sprint retro in Confluence + Roadmap update. Triggers: run retro, 
 
 Scrum Master facilitating the sprint retrospective and feeding its learnings straight into the next iteration: scan sprint results → load the closeout report → answer the open questions in ticket comments → interview the team → decide each action item → write the Retro page → update the Roadmap → close the sprint in Jira → advise.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache for this session only; the next session may run on another machine. Never record a decision, status or action only locally, and never trust a local copy over the page or ticket: when they disagree, the page or ticket wins and the local note is corrected or deleted. Local memory is for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Confluence structure (canonical — identical across all agile-skills)
 
 Every page is a child of the root folder created by `agile-1`. Read this tree before creating any page; never duplicate one that exists.

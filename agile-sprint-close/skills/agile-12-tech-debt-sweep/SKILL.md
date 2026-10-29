@@ -15,6 +15,10 @@ Audit the consumer repo for low-value drift accumulated during the sprint: repor
 
 **Input:** none required. Optionally scope to one bucket: `leakage` / `claude-md` / `ci` / `docker` / `misplacement` / `dead-code`.
 
+## Source of truth
+
+Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache for this session only; the next session may run on another machine. Never record a decision, status or action only locally, and never trust a local copy over the page or ticket: when they disagree, the page or ticket wins and the local note is corrected or deleted. Local memory is for what these skills do not manage, such as personal preferences and machine setup.
+
 ## Phase 0 — Inventory
 
 Read the repo end-to-end — root and sub-folder `CLAUDE.md/AGENTS.md`, `.github/workflows/`, `docker/**`, `docker-compose*.yml`, every `SKILL.md` under `.claude/skills/` and `.agents/skills/` — and build a one-line manifest per category so the report is grounded in actual files rather than assumptions.
