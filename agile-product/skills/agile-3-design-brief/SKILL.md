@@ -16,14 +16,11 @@ Unclear → ask: "Are you starting the design brief, or bringing Claude Design's
 
 ## Source of truth
 
-Confluence and Jira are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read them there at the start of a run, and write every change back there in the run that makes it. Local files and memory (auto-memory, notes in `CLAUDE.md`/`AGENTS.md`, scratch files, the plan in context) are a cache: useful, but the next session may run on another machine without them. Never record a decision, status or action only locally.
+Confluence and Jira (or the tracker and wiki the project uses instead) are the source of truth for everything these skills manage: Vision, PRD, Design Brief, Specs, ADR, decisions, Roadmap, iterations, sprints, tickets, closeouts, retros and their actions, the Debt Register. Read what the run needs from there, never from a local copy, and write each change back there in the run that makes it. Never record a decision, status or action only locally.
 
-Keep the cache in sync, including notes an earlier run left behind. Do not delete a note for being local. For each local note about a managed fact:
-- it matches Confluence or Jira: keep it;
-- it disagrees: the page or ticket wins; correct the note;
-- it is not in Confluence or Jira: write it to its home there, then keep the note as a cache of it. Interactive skills confirm with the user first. The autonomous path writes what it can verify (a status, a link, a finding) and reports the rest as unrecorded, never guessing a decision into the Decision Log.
+Machine-local notes (auto-memory, scratch files, the plan in context) are a cache, since the next session may run elsewhere. Keep them, including notes from earlier runs, and sync any you come across that cover a managed fact: a match stays; a disagreement is corrected to the page or ticket; a fact missing from Confluence and Jira is written to its home and the note kept. Interactive skills confirm that write with the user first. The autonomous path writes only what it can verify (a status, a link, a finding) and reports the rest as unrecorded, never guessing a decision into the Decision Log; a phase without write access reports it in its receipt.
 
-Local memory alone is fine for what these skills do not manage, such as personal preferences and machine setup.
+Committed `CLAUDE.md`/`AGENTS.md` files are shared, not a cache: a managed fact there is a second copy that goes stale. Replace it with a link to its page or ticket, writing it there first if it is missing.
 
 ## Confluence structure (canonical — identical across all agile-skills)
 
