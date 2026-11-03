@@ -26,7 +26,7 @@ jobs:
           python3 -m unittest discover -s .github/scripts -p 'test_*.py'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 22
+          node-version: 26
       - run: npm install -g @anthropic-ai/claude-code
       - name: Validate the marketplace
         run: ./.github/scripts/validate.sh .
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 22
+          node-version: 26
       - run: npm install -g @anthropic-ai/claude-code
       - name: Validate the plugin
         # the name comes from marketplace.json, which a PR can change: pass it as data, never as shell text
