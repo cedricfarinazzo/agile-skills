@@ -19,7 +19,7 @@ jobs:
     outputs:
       plugins: ${{ steps.list.outputs.plugins }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Check Claude and Codex package parity
         run: |
           python3 .github/scripts/check-parity.py
@@ -43,7 +43,7 @@ jobs:
         plugin: ${{ fromJson(needs.marketplace.outputs.plugins) }}
     name: plugin (${{ matrix.plugin }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     name: agile-mods (bun test + claude plugin test)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@v2
       - name: bun test
         working-directory: agile-mods
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     name: skills (skills-ref)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: astral-sh/setup-uv@v6
       - name: Agent Skills reference validator
         run: ./.github/scripts/skills-ref.sh
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     name: version bump
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Every changed plugin bumps its version
